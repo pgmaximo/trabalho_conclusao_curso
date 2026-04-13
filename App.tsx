@@ -1,20 +1,28 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { HomeScreen } from '@/screens/HomeScreen';
+import { RegisterScreen } from '@/screens/RegisterScreen';
+import { ProfileSetupScreen } from '@/screens/ProfileSetupScreen';
+import { DashboardScreen } from '@/screens/DashboardScreen';
 
 export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
-}
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'register' | 'profile' | 'dashboard'>('home');
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+  const navigateToRegister = () => setCurrentScreen('register');
+  const navigateToHome = () => setCurrentScreen('home');
+  const navigateToProfile = () => setCurrentScreen('profile');
+  const navigateToDashboard = () => setCurrentScreen('dashboard');
+
+  if (currentScreen === 'register') {
+    return <RegisterScreen onNavigateToLogin={navigateToHome} onRegister={navigateToProfile} />;
+  }
+
+  if (currentScreen === 'profile') {
+    return <ProfileSetupScreen onBack={navigateToHome} onComplete={navigateToDashboard} />;
+  }
+
+  if (currentScreen === 'dashboard') {
+    return <DashboardScreen />;
+  }
+
+  return <HomeScreen onNavigateToRegister={navigateToRegister} onLogin={navigateToDashboard} />;
+}
