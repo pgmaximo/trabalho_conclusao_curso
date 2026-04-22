@@ -4,9 +4,26 @@ import { StatusBar } from 'expo-status-bar';
 import { MetricCard } from '@/components/MetricCard';
 import { EventCard } from '@/components/EventCard';
 import { QuickAccessButton } from '@/components/QuickAccessButton';
+import { BottomTabBar } from '@/components/BottomTabBar';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
 
-export function DashboardScreen() {
+const TAB_ITEMS = [
+  { icon: '🏠', label: 'Início', id: 'home' },
+  { icon: '📋', label: 'Exames', id: 'exams' },
+  { icon: '🧠', label: 'IA', id: 'ai' },
+  { icon: '⌚', label: 'Watch', id: 'watch' },
+  { icon: '👤', label: 'Perfil', id: 'profile' },
+];
+
+type DashboardScreenProps = {
+  onTabPress?: (tabId: string) => void;
+  onNavigateToMedicines?: () => void;
+  onNavigateToAppointments?: () => void;
+  onNavigateToPrevention?: () => void;
+};
+
+export function DashboardScreen({ onTabPress, onNavigateToMedicines, onNavigateToAppointments, onNavigateToPrevention }: DashboardScreenProps) {
+  const [activeTab, setActiveTab] = React.useState('home');
   const today = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: 'numeric',
@@ -17,7 +34,8 @@ export function DashboardScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -115,19 +133,19 @@ export function DashboardScreen() {
           <Text style={styles.sectionTitle}>Acesso rápido</Text>
           <View style={styles.quickAccessRow}>
             <QuickAccessButton
+              icon="📅"
+              label="Agendas"
+              onPress={onNavigateToAppointments}
+            />
+            <QuickAccessButton
               icon="🧠"
               label="IA p/ Exames"
               onPress={() => {}}
             />
             <QuickAccessButton
-              icon="📝"
-              label="+ Exame"
-              onPress={() => {}}
-            />
-            <QuickAccessButton
-              icon="📅"
-              label="+ Consulta"
-              onPress={() => {}}
+              icon="💊"
+              label="Medicamentos"
+              onPress={onNavigateToMedicines}
             />
             <QuickAccessButton
               icon="⌚"
@@ -135,8 +153,24 @@ export function DashboardScreen() {
               onPress={() => {}}
             />
           </View>
+          <View style={styles.quickAccessRow}>
+            <QuickAccessButton
+              icon="🛡️"
+              label="Prevenção"
+              onPress={onNavigateToPrevention}
+            />
+          </View>
         </View>
       </ScrollView>
+        <BottomTabBar 
+          items={TAB_ITEMS} 
+          activeTab={activeTab} 
+          onTabPress={(tabId) => {
+            setActiveTab(tabId);
+            onTabPress?.(tabId);
+          }} 
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -145,6 +179,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  container: {
+    flex: 1,
+    flexDirection: 'column',
   },
   content: {
     paddingHorizontal: SIZES.large,
