@@ -5,7 +5,7 @@ import { COLORS, FONTS, SIZES } from '@/constants/theme';
 interface CalendarPickerProps {
   selectedDate: number;
   onDateSelect: (date: number) => void;
-  dates: Array<{ day: number; month: string; hasAppointments?: boolean }>;
+  dates: { day: number; month: string; hasAppointments?: boolean }[];
 }
 
 export function CalendarPicker({ selectedDate, onDateSelect, dates }: CalendarPickerProps) {

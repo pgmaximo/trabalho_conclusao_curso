@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { FONTS, SIZES } from '@/constants/theme';
 
 interface UrgentAlertProps {
   title: string;

@@ -1,30 +1,45 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { AuthInput } from '@/components/AuthInput';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { FormField } from '@/components/FormField';
 import { SocialButton } from '@/components/SocialButton';
 import { SectionDivider } from '@/components/SectionDivider';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { registerSchema, type RegisterFormValues } from '@/validation/forms';
 
 type RegisterScreenProps = {
   onNavigateToLogin: () => void;
-  onRegister: () => void;
+  onRegister: (values: RegisterFormValues) => void | Promise<void>;
 };
 
 export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreenProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormValues>({
+    defaultValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+    resolver: zodResolver(registerSchema),
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -42,35 +57,67 @@ export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreen
             <Text style={styles.subtitle}>Gerencie sua saúde com IA e dispositivos vestíveis</Text>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Criar conta gratuita</Text>
-            <AuthInput
-              label="E-mail"
-              icon="✉️"
-              placeholder="Digite seu e-mail"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
+          <Card padding="spacious" style={styles.card}>
+            <ScreenHeader
+              title="Criar conta gratuita"
+              subtitle="Validamos seus dados agora para que a integração com Cognito entre depois sem retrabalho."
             />
-            <AuthInput
-              label="Senha"
-              icon="🔒"
-              placeholder="Digite sua senha"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
+            <Controller
+              control={control}
+              name="email"
+              render={({ field }) => (
+                <FormField
+                  label="E-mail"
+                  icon="✉️"
+                  placeholder="Digite seu e-mail"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  errorMessage={errors.email?.message}
+                />
+              )}
             />
-            <AuthInput
-              label="Confirmar senha"
-              icon="🔒"
-              placeholder="Confirme sua senha"
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
+            <Controller
+              control={control}
+              name="password"
+              render={({ field }) => (
+                <FormField
+                  label="Senha"
+                  icon="🔒"
+                  placeholder="Digite sua senha"
+                  secureTextEntry
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  errorMessage={errors.password?.message}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormField
+                  label="Confirmar senha"
+                  icon="🔒"
+                  placeholder="Confirme sua senha"
+                  secureTextEntry
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  errorMessage={errors.confirmPassword?.message}
+                />
+              )}
             />
 
-            <Button title="Criar conta" onPress={onRegister} />
+            <Button
+              title={isSubmitting ? 'Criando conta...' : 'Criar conta'}
+              onPress={handleSubmit(onRegister)}
+              disabled={isSubmitting}
+            />
 
             <SectionDivider label="ou continue com" />
 
@@ -86,7 +133,7 @@ export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreen
             <TouchableOpacity activeOpacity={0.7} style={styles.loginLink} onPress={onNavigateToLogin}>
               <Text style={styles.loginLinkText}>Já tem uma conta? <Text style={styles.loginLinkBold}>Entrar</Text></Text>
             </TouchableOpacity>
-          </View>
+          </Card>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -137,18 +184,7 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   card: {
-    backgroundColor: COLORS.surface,
     borderRadius: SIZES.cardRadius,
-    padding: SIZES.large,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 30,
-    elevation: 5,
-  },
-  cardTitle: {
-    ...FONTS.heading,
-    marginBottom: SIZES.large,
   },
   socialRow: {
     flexDirection: 'row',

@@ -1,116 +1,109 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
   Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { ProfileCard } from '@/components/ProfileCard';
-import { HealthDataRow } from '@/components/HealthDataRow';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { AllergiesDisplay } from '@/components/AllergiesDisplay';
+import { EmptyState } from '@/components/EmptyState';
+import { HealthDataRow } from '@/components/HealthDataRow';
+import { ProfileCard } from '@/components/ProfileCard';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Section } from '@/components/Section';
 import { SettingsMenuItem } from '@/components/SettingsMenuItem';
-import { BottomTabBar } from '@/components/BottomTabBar';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import type { UserProfileSnapshot } from '@/types/models';
 
-const TAB_ITEMS = [
-  { icon: '🏠', label: 'Início', id: 'home' },
-  { icon: '📋', label: 'Exames', id: 'exams' },
-  { icon: '🧠', label: 'IA', id: 'ai' },
-  { icon: '⌚', label: 'Watch', id: 'watch' },
-  { icon: '👤', label: 'Perfil', id: 'profile' },
-];
-
-const HEALTH_DATA = [
-  { label: 'Tipo sanguíneo', value: 'O+' },
-  { label: 'Peso', value: '78 kg' },
-  { label: 'Altura', value: '1,78 m' },
-  { label: 'IMC', value: '24.6' },
-];
-
-const SETTINGS = [
-  { icon: '🔔', title: 'Notificações e lembretes' },
-  { icon: '🔒', title: 'Privacidade e LGPD' },
-  { icon: '📱', title: 'Dispositivos conectados' },
-  { icon: '👨‍⚕️', title: 'Profissionais de saúde' },
-  { icon: '📤', title: 'Exportar meus dados' },
-  { icon: '🌐', title: 'Idioma e acessibilidade' },
-  { icon: 'ℹ️', title: 'Sobre a SuaSaúde' },
-];
+type ProfileScreenProps = {
+  profile: UserProfileSnapshot;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRetry: () => void;
+  onLogout?: () => void;
+};
 
 export function ProfileScreen({
-  onTabPress,
+  profile,
+  isLoading,
+  errorMessage,
+  onRetry,
   onLogout,
-}: {
-  onTabPress?: (tabId: string) => void;
-  onLogout?: () => void;
-}) {
-  const [activeTab, setActiveTab] = useState('profile');
-
-  const handleTabPress = (tabId: string) => {
-    setActiveTab(tabId);
-    onTabPress?.(tabId);
-  };
-
+}: ProfileScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor={COLORS.background} />
       <View style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <Text style={styles.title}>Perfil</Text>
-
-          {/* Profile Card */}
-          <ProfileCard
-            name="Pedro Gabriel Máximo"
-            email="pedrograximo@gmail.com"
-            initials="PM"
-            completionPercentage={45}
-          />
-
-          {/* Health Data */}
-          <Text style={styles.sectionTitle}>Dados de saúde</Text>
-          <HealthDataRow items={HEALTH_DATA} />
-
-          {/* Allergies and Conditions */}
-          <AllergiesDisplay
-            title="Alergias e condições"
-            items={['Hipertensão', 'Alergia à Dipirona']}
-          />
-
-          {/* Settings Section */}
-          <Text style={styles.sectionTitle}>Configurações</Text>
-          {SETTINGS.map((setting, index) => (
-            <SettingsMenuItem
-              key={index}
-              icon={setting.icon}
-              title={setting.title}
-              onPress={() => {}}
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {isLoading ? (
+            <ScreenSkeleton blocks={3} />
+          ) : errorMessage ? (
+            <EmptyState
+              icon="👤"
+              title="Nao foi possivel carregar o perfil"
+              description={errorMessage}
+              tone="error"
+              actionLabel="Tentar novamente"
+              onActionPress={onRetry}
             />
-          ))}
+          ) : (
+            <>
+              <ScreenHeader
+                title="Perfil"
+                subtitle="Resumo consolidado dos dados pessoais e de saude do usuario."
+              />
 
-          {/* Logout Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.logoutButton,
-              pressed && styles.logoutButtonPressed,
-            ]}
-            onPress={onLogout}
-          >
-            <Text style={styles.logoutButtonText}>Sair da conta</Text>
-          </Pressable>
+              <ProfileCard
+                name={profile.name}
+                email={profile.email}
+                initials={profile.initials}
+                completionPercentage={profile.completionPercentage}
+              />
+
+              <Section title="Dados de saúde" subtitle="Informacoes principais mantidas no perfil.">
+                <HealthDataRow items={profile.healthData} />
+              </Section>
+
+              <Section title="Alergias e condições" subtitle="Itens que merecem destaque clinico.">
+                <AllergiesDisplay title="Condições registradas" items={profile.allergiesAndConditions} />
+              </Section>
+
+              <Section title="Configurações" subtitle="Entradas preparadas para futuras integrações.">
+                {profile.settings.length > 0 ? (
+                  profile.settings.map((setting) => (
+                    <SettingsMenuItem
+                      key={setting.title}
+                      icon={setting.icon}
+                      title={setting.title}
+                      onPress={() => {}}
+                    />
+                  ))
+                ) : (
+                  <EmptyState
+                    icon="⚙️"
+                    title="Nenhuma configuração disponível"
+                    description="As opções de conta e integração aparecerão nesta área."
+                  />
+                )}
+              </Section>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.logoutButton,
+                  pressed && styles.logoutButtonPressed,
+                ]}
+                onPress={onLogout}
+              >
+                <Text style={styles.logoutButtonText}>Sair da conta</Text>
+              </Pressable>
+            </>
+          )}
         </ScrollView>
-
-        <BottomTabBar
-          items={TAB_ITEMS}
-          activeTab={activeTab}
-          onTabPress={handleTabPress}
-        />
       </View>
     </SafeAreaView>
   );
@@ -123,31 +116,17 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    flexDirection: 'column',
   },
   content: {
     paddingHorizontal: SIZES.large,
     paddingTop: SIZES.large,
     paddingBottom: SIZES.large * 2,
   },
-  title: {
-    ...FONTS.heading,
-    fontSize: 24,
-    color: COLORS.text,
-    marginBottom: SIZES.large,
-  },
-  sectionTitle: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.base,
-    fontSize: 13,
-  },
   logoutButton: {
-    backgroundColor: '#FFF5F5',
+    backgroundColor: COLORS.dangerSoft,
     borderRadius: SIZES.radius,
     borderWidth: 1,
-    borderColor: '#E74C3C',
+    borderColor: COLORS.danger,
     paddingVertical: SIZES.base,
     alignItems: 'center',
     marginTop: SIZES.large,
@@ -157,7 +136,7 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     ...FONTS.body,
-    color: '#E74C3C',
+    color: COLORS.danger,
     fontWeight: '600',
   },
 });

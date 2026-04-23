@@ -1,29 +1,44 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { AuthInput } from '@/components/AuthInput';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { FormField } from '@/components/FormField';
 import { SocialButton } from '@/components/SocialButton';
 import { SectionDivider } from '@/components/SectionDivider';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { loginSchema, type LoginFormValues } from '@/validation/forms';
 
 type HomeScreenProps = {
   onNavigateToRegister: () => void;
-  onLogin: () => void;
+  onLogin: (values: LoginFormValues) => void | Promise<void>;
 };
 
 export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormValues>({
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+    resolver: zodResolver(loginSchema),
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -41,31 +56,55 @@ export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
             <Text style={styles.subtitle}>Gerencie sua saúde com IA e dispositivos vestíveis</Text>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Entre na sua conta</Text>
-            <AuthInput
-              label="E-mail"
-              icon="✉️"
-              placeholder="Digite seu e-mail"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
+          <Card padding="spacious" style={styles.card}>
+            <ScreenHeader
+              title="Entre na sua conta"
+              subtitle="Use seu e-mail e senha para acessar os recursos principais do aplicativo."
             />
-            <AuthInput
-              label="Senha"
-              icon="🔒"
-              placeholder="Digite sua senha"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
+            <Controller
+              control={control}
+              name="email"
+              render={({ field }) => (
+                <FormField
+                  label="E-mail"
+                  icon="✉️"
+                  placeholder="Digite seu e-mail"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  errorMessage={errors.email?.message}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="password"
+              render={({ field }) => (
+                <FormField
+                  label="Senha"
+                  icon="🔒"
+                  placeholder="Digite sua senha"
+                  secureTextEntry
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  errorMessage={errors.password?.message}
+                />
+              )}
             />
 
             <TouchableOpacity activeOpacity={0.7} style={styles.forgotPassword}>
               <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
             </TouchableOpacity>
 
-            <Button title="Entrar" onPress={onLogin} />
+            <Button
+              title={isSubmitting ? 'Entrando...' : 'Entrar'}
+              onPress={handleSubmit(onLogin)}
+              disabled={isSubmitting}
+            />
             <Button title="Criar conta gratuita" variant="secondary" onPress={onNavigateToRegister} />
 
             <SectionDivider label="ou continue com" />
@@ -78,7 +117,7 @@ export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
             <Text style={styles.termsText}>
               Ao entrar, você concorda com os Termos de Uso e Política de Privacidade (LGPD)
             </Text>
-          </View>
+          </Card>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -129,18 +168,7 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   card: {
-    backgroundColor: COLORS.surface,
     borderRadius: SIZES.cardRadius,
-    padding: SIZES.large,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 30,
-    elevation: 5,
-  },
-  cardTitle: {
-    ...FONTS.heading,
-    marginBottom: SIZES.large,
   },
   forgotPassword: {
     alignSelf: 'flex-end',

@@ -1,99 +1,114 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TextInput,
   Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { MessageBubble } from '@/components/MessageBubble';
-import { AnalysisTable } from '@/components/AnalysisTable';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { ActionButtonRow } from '@/components/ActionButtonRow';
-import { BottomTabBar } from '@/components/BottomTabBar';
+import { AnalysisTable } from '@/components/AnalysisTable';
+import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+import { MessageBubble } from '@/components/MessageBubble';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Section } from '@/components/Section';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import type { AIAnalysisSnapshot } from '@/types/models';
 
-const TAB_ITEMS = [
-  { icon: '🏠', label: 'Início', id: 'home' },
-  { icon: '📋', label: 'Exames', id: 'exams' },
-  { icon: '🧠', label: 'IA', id: 'ai' },
-  { icon: '⌚', label: 'Watch', id: 'watch' },
-  { icon: '👤', label: 'Perfil', id: 'profile' },
-];
+type AIAnalysisScreenProps = {
+  analysis: AIAnalysisSnapshot | null;
+  searchQuery: string;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRetry: () => void;
+  onSearchChange: (value: string) => void;
+};
 
-const ANALYSIS_DATA = [
-  { label: 'Ferritina', value: '18 ng/mL', status: 'Baixo', statusColor: '#F39C12' },
-  { label: 'Glicose', value: '92 mg/dL', status: 'Normal', statusColor: '#27AE60' },
-  { label: 'Colesterol total', value: '182 mg/dL', status: 'Normal', statusColor: '#27AE60' },
-  { label: 'Hemoglobina', value: '11.2 g/dL', status: 'Atenção', statusColor: '#E74C3C' },
-];
-
-export function AIAnalysisScreen({ onTabPress }: { onTabPress?: (tabId: string) => void }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('ai');
-
-  const handleTabPress = (tabId: string) => {
-    setActiveTab(tabId);
-    onTabPress?.(tabId);
-  };
-
+export function AIAnalysisScreen({
+  analysis,
+  searchQuery,
+  isLoading,
+  errorMessage,
+  onRetry,
+  onSearchChange,
+}: AIAnalysisScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor={COLORS.background} />
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Análise de Exames</Text>
-            <Text style={styles.subtitle}>Assistente de saúde por IA</Text>
-          </View>
+          {isLoading ? (
+            <ScreenSkeleton blocks={3} />
+          ) : errorMessage ? (
+            <EmptyState
+              icon="🧠"
+              title="Nao foi possivel carregar a analise"
+              description={errorMessage}
+              tone="error"
+              actionLabel="Tentar novamente"
+              onActionPress={onRetry}
+            />
+          ) : analysis ? (
+            <>
+              <ScreenHeader
+                title="Análise de Exames"
+                subtitle="Assistente orientado a explicabilidade para apoiar a leitura inicial dos dados."
+                badgeLabel="IA em contexto"
+                badgeVariant="secondary"
+              />
 
-          {/* Tip Message */}
-          <MessageBubble
-            type="ai"
-            content="Envie a foto ou PDF do seu exame e faço uma análise preliminar dos resultados."
-          />
+              <MessageBubble type="ai" content={analysis.introMessage} />
+              <MessageBubble type="user" content={analysis.userMessage} />
 
-          {/* User Message */}
-          <MessageBubble type="user" content="Aqui está meu hemograma" />
+              <Section title="Leitura estruturada" subtitle="Tabela de métricas e interpretação resumida.">
+                <MessageBubble
+                  type="ai"
+                  content={
+                    <View>
+                      <Text style={styles.aiResponseTitle}>{analysis.analysisTitle}</Text>
+                      <Text style={styles.aiResponseSubtitle}>{analysis.analysisSubtitle}</Text>
+                      <AnalysisTable data={analysis.metrics} />
+                      <Text style={styles.aiResponseInfo}>{analysis.recommendation}</Text>
+                    </View>
+                  }
+                />
+              </Section>
 
-          {/* AI Response with Analysis */}
-          <MessageBubble
-            type="ai"
-            content={
-              <View>
-                <Text style={styles.aiResponseTitle}>Hemograma — Análise preliminar</Text>
-                <Text style={styles.aiResponseSubtitle}>Identifiquei os seguintes pontos:</Text>
-                <AnalysisTable data={ANALYSIS_DATA} />
-                <Text style={styles.aiResponseInfo}>
-                  A ferritina está abaixo do nível. Converse com seu médico sobre suplementação de ferro.
-                </Text>
-              </View>
-            }
-          />
+              <Section title="Ações rápidas" subtitle="Atalhos para continuidade do cuidado.">
+                <ActionButtonRow
+                  actions={analysis.actions.map((action) => ({
+                    icon: action.icon,
+                    label: action.label,
+                    onPress: () => {},
+                  }))}
+                />
+              </Section>
 
-          {/* Action Buttons */}
-          <ActionButtonRow
-            actions={[
-              { icon: '📷', label: 'Câmera', onPress: () => {} },
-              { icon: '📄', label: 'PDF', onPress: () => {} },
-              { icon: '📊', label: 'Histórico', onPress: () => {} },
-            ]}
-          />
-
-          {/* History Link */}
-          <Pressable
-            style={({ pressed }) => [styles.historyLink, pressed && styles.historyLinkPressed]}
-            onPress={() => {}}
-          >
-            <Text style={styles.historyLinkText}>Ver histórico de análises anteriores →</Text>
-            <Text style={styles.historyLinkCount}>5 análises nos últimos 6 meses</Text>
-          </Pressable>
+              <Card variant="soft">
+                <Pressable
+                  style={({ pressed }) => [styles.historyLink, pressed && styles.historyLinkPressed]}
+                  onPress={() => {}}
+                >
+                  <Text style={styles.historyLinkText}>{analysis.historyLabel}</Text>
+                  <Text style={styles.historyLinkCount}>{analysis.historyCount}</Text>
+                </Pressable>
+              </Card>
+            </>
+          ) : (
+            <EmptyState
+              icon="🧪"
+              title="Nenhuma analise disponivel"
+              description="Assim que houver uma conversa ou leitura iniciada, o historico aparecera aqui."
+            />
+          )}
         </ScrollView>
 
-        {/* Search Input */}
         <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
             <TextInput
@@ -101,7 +116,7 @@ export function AIAnalysisScreen({ onTabPress }: { onTabPress?: (tabId: string) 
               placeholder="Pergunte sobre seus exames..."
               placeholderTextColor={COLORS.placeholder}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={onSearchChange}
             />
             <Pressable
               style={({ pressed }) => [styles.sendButton, pressed && styles.sendButtonPressed]}
@@ -111,8 +126,6 @@ export function AIAnalysisScreen({ onTabPress }: { onTabPress?: (tabId: string) 
             </Pressable>
           </View>
         </View>
-
-        <BottomTabBar items={TAB_ITEMS} activeTab={activeTab} onTabPress={handleTabPress} />
       </View>
     </SafeAreaView>
   );
@@ -125,51 +138,30 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    flexDirection: 'column',
   },
   content: {
     paddingHorizontal: SIZES.large,
     paddingTop: SIZES.large,
     paddingBottom: SIZES.large * 2,
   },
-  header: {
-    marginBottom: SIZES.large,
-  },
-  title: {
-    ...FONTS.heading,
-    fontSize: 22,
-    color: COLORS.text,
-    marginBottom: SIZES.small,
-  },
-  subtitle: {
-    ...FONTS.body,
-    color: COLORS.textSecondary,
-  },
   aiResponseTitle: {
     ...FONTS.heading,
-    color: '#5B3B8F',
+    color: COLORS.secondary,
     marginBottom: SIZES.small,
   },
   aiResponseSubtitle: {
     ...FONTS.body,
-    color: '#5B3B8F',
+    color: COLORS.secondary,
     marginBottom: SIZES.base,
   },
   aiResponseInfo: {
     ...FONTS.caption,
-    color: '#5B3B8F',
+    color: COLORS.textSecondary,
     marginTop: SIZES.base,
     lineHeight: 20,
   },
   historyLink: {
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: SIZES.base,
-    paddingVertical: SIZES.small,
-    marginBottom: SIZES.large,
-    backgroundColor: '#E8F5EB',
-    marginTop: SIZES.large,
+    marginTop: SIZES.small,
   },
   historyLinkPressed: {
     opacity: 0.85,
@@ -203,8 +195,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: COLORS.text,
     ...FONTS.body,
+    color: COLORS.text,
     paddingVertical: 12,
     minHeight: 44,
   },

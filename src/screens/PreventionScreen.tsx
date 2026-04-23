@@ -1,122 +1,95 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-} from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { UrgentAlert } from '@/components/UrgentAlert';
-import { PreventiveScore } from '@/components/PreventiveScore';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { EmptyState } from '@/components/EmptyState';
 import { HealthCheckItem } from '@/components/HealthCheckItem';
-import { BottomTabBar } from '@/components/BottomTabBar';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { PreventiveScore } from '@/components/PreventiveScore';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Section } from '@/components/Section';
+import { UrgentAlert } from '@/components/UrgentAlert';
+import { COLORS, SIZES } from '@/constants/theme';
+import type {
+  PreventiveAlert,
+  PreventiveCheck,
+  PreventiveScoreSnapshot,
+} from '@/types/models';
 
-const TAB_ITEMS = [
-  { icon: '🏠', label: 'Início', id: 'home' },
-  { icon: '📋', label: 'Exames', id: 'exams' },
-  { icon: '🧠', label: 'IA', id: 'ai' },
-  { icon: '⌚', label: 'Watch', id: 'watch' },
-  { icon: '👤', label: 'Perfil', id: 'profile' },
-];
-
-const HEALTH_CHECKS = [
-  {
-    id: 1,
-    title: 'Hemograma completo',
-    date: 'Jan 2025',
-    status: 'em_dia' as const,
-  },
-  {
-    id: 2,
-    title: 'Eletrocardiograma',
-    date: 'Dez 2024',
-    status: 'em_dia' as const,
-  },
-  {
-    id: 3,
-    title: 'Colesterol total e frações',
-    date: 'Mar 2024 — Vencido',
-    status: 'vencido' as const,
-  },
-  {
-    id: 4,
-    title: 'Glicemia em jejum',
-    date: 'Não realizado',
-    status: 'pendente' as const,
-  },
-  {
-    id: 5,
-    title: 'TSH e T4 livre',
-    date: 'Não realizado',
-    status: 'pendente' as const,
-  },
-  {
-    id: 6,
-    title: 'Pressão arterial (monit.)',
-    date: 'Contínuo via wearable',
-    status: 'em_dia' as const,
-  },
-];
+type PreventionScreenProps = {
+  alert: PreventiveAlert;
+  score: PreventiveScoreSnapshot;
+  checks: PreventiveCheck[];
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRetry: () => void;
+};
 
 export function PreventionScreen({
-  onTabPress,
-}: {
-  onTabPress?: (tabId: string) => void;
-}) {
-  const [activeTab, setActiveTab] = useState('home');
-
-  const handleTabPress = (tabId: string) => {
-    setActiveTab(tabId);
-    onTabPress?.(tabId);
-  };
-
+  alert,
+  score,
+  checks,
+  isLoading,
+  errorMessage,
+  onRetry,
+}: PreventionScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor={COLORS.background} />
       <View style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Prevenção & Alertas</Text>
-            <Text style={styles.subtitle}>Baseado no seu perfil de saúde</Text>
-          </View>
-
-          {/* Urgent Alert */}
-          <UrgentAlert
-            title="Atenção urgente"
-            description="Colesterol total não medido há 14 meses. Protocolo para sua faixa etária recomenda exame anual."
-            actionLabel="Agendar exame agora"
-            onActionPress={() => {}}
-          />
-
-          {/* Preventive Score */}
-          <PreventiveScore score={68} maxScore={100} status="Bom" />
-
-          {/* Health Checks Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Seus exames e verificações</Text>
-            {HEALTH_CHECKS.map((check) => (
-              <HealthCheckItem
-                key={check.id}
-                title={check.title}
-                date={check.date}
-                status={check.status}
-                onPress={() => {}}
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {isLoading ? (
+            <ScreenSkeleton blocks={3} />
+          ) : errorMessage ? (
+            <EmptyState
+              icon="🛡️"
+              title="Nao foi possivel carregar os alertas"
+              description={errorMessage}
+              tone="error"
+              actionLabel="Tentar novamente"
+              onActionPress={onRetry}
+            />
+          ) : (
+            <>
+              <ScreenHeader
+                title="Prevenção & Alertas"
+                subtitle="Itens que podem ser acompanhados antes de virarem urgencia."
               />
-            ))}
-          </View>
-        </ScrollView>
 
-        <BottomTabBar
-          items={TAB_ITEMS}
-          activeTab={activeTab}
-          onTabPress={handleTabPress}
-        />
+              <UrgentAlert
+                title={alert.title}
+                description={alert.description}
+                actionLabel={alert.actionLabel}
+                onActionPress={() => {}}
+              />
+
+              <Section title="Pontuação preventiva" subtitle="Leitura sintetica do momento atual.">
+                <PreventiveScore score={score.score} maxScore={score.maxScore} status={score.status} />
+              </Section>
+
+              <Section title="Exames e verificações" subtitle="Checklist priorizado para acompanhamento.">
+                {checks.length > 0 ? (
+                  checks.map((check) => (
+                    <HealthCheckItem
+                      key={check.id}
+                      title={check.title}
+                      date={check.date}
+                      status={check.status}
+                      onPress={() => {}}
+                    />
+                  ))
+                ) : (
+                  <EmptyState
+                    icon="🩺"
+                    title="Nenhum item preventivo pendente"
+                    description="Quando surgirem novos acompanhamentos, eles aparecerao aqui."
+                  />
+                )}
+              </Section>
+            </>
+          )}
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -129,35 +102,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    flexDirection: 'column',
   },
   content: {
     paddingHorizontal: SIZES.large,
     paddingTop: SIZES.large,
     paddingBottom: SIZES.large * 2,
-  },
-  header: {
-    marginBottom: SIZES.large,
-  },
-  title: {
-    ...FONTS.heading,
-    fontSize: 24,
-    color: COLORS.text,
-    marginBottom: SIZES.small,
-  },
-  subtitle: {
-    ...FONTS.body,
-    color: COLORS.textSecondary,
-    fontSize: 14,
-  },
-  section: {
-    marginTop: SIZES.large,
-  },
-  sectionTitle: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.base,
-    fontSize: 13,
   },
 });

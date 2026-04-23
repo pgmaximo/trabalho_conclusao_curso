@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { FONTS, SIZES } from '@/constants/theme';
 
 type AnalysisTableProps = {
-  data: Array<{
+  data: {
     label: string;
     value: string;
     status: string;
     statusColor: string;
-  }>;
+  }[];
 };
 
 export function AnalysisTable({ data }: AnalysisTableProps) {

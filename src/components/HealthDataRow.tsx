@@ -3,10 +3,10 @@ import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
 
 interface HealthDataRowProps {
-  items: Array<{
+  items: {
     label: string;
     value: string;
-  }>;
+  }[];
 }
 
 export function HealthDataRow({ items }: HealthDataRowProps) {

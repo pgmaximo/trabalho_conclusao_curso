@@ -1,157 +1,160 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TextInput,
   Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { FilterChips } from '@/components/FilterChips';
-import { ExamItem } from '@/components/ExamItem';
-import { BottomTabBar } from '@/components/BottomTabBar';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+import { ExamItem } from '@/components/ExamItem';
+import { FilterChips } from '@/components/FilterChips';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Section } from '@/components/Section';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import type { MedicalDocument, MedicalDocumentFilter } from '@/types/models';
 
-const FILTER_OPTIONS = ['Todos', 'Exames', 'Receitas', 'Laudos'];
+type ExamsScreenProps = {
+  filterOptions: MedicalDocumentFilter[];
+  searchQuery: string;
+  activeFilter: MedicalDocumentFilter;
+  documents: MedicalDocument[];
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRetry: () => void;
+  onSearchChange: (value: string) => void;
+  onFilterChange: (value: MedicalDocumentFilter) => void;
+};
 
-const EXAM_DATA = [
-  {
-    icon: '✅',
-    title: 'Hemograma completo',
-    subtitle: '15 jan 2025 - Dr. Silva',
-    statusLabel: 'PDF',
-    statusColor: '#F39C12',
-  },
-  {
-    icon: '💊',
-    title: 'Receita — Losartana 50mg',
-    subtitle: '10 jan 2025 - Dr. Gomes',
-    statusLabel: 'Receita',
-    statusColor: '#3498DB',
-  },
-  {
-    icon: '❤️',
-    title: 'ECG — Eletrocardiograma',
-    subtitle: '05 dez 2024 - Hospital IMT',
-    statusLabel: 'Laudo',
-    statusColor: '#27AE60',
-  },
-  {
-    icon: '🩸',
-    title: 'Colesterol total e frações',
-    subtitle: 'Mar 2024 - Lab Central',
-    statusLabel: 'Expirado',
-    statusColor: '#E74C3C',
-  },
-  {
-    icon: '📋',
-    title: 'TSH e T4 livre',
-    subtitle: 'Jul 2023 - Lab Central',
-    statusLabel: 'Expirado',
-    statusColor: '#E74C3C',
-  },
-];
-
-const TAB_ITEMS = [
-  { icon: '🏠', label: 'Início', id: 'home' },
-  { icon: '📋', label: 'Exames', id: 'exams' },
-  { icon: '🧠', label: 'IA', id: 'ai' },
-  { icon: '⌚', label: 'Watch', id: 'watch' },
-  { icon: '👤', label: 'Perfil', id: 'profile' },
-];
-
-export function ExamsScreen({ onTabPress }: { onTabPress?: (tabId: string) => void }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('Todos');
-  const [activeTab, setActiveTab] = React.useState('exams');
-
-  const filteredExams = EXAM_DATA.filter((exam) => {
-    const matchesSearch =
-      exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exam.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (activeFilter === 'Todos') return matchesSearch;
-    if (activeFilter === 'Exames') return matchesSearch && exam.statusLabel === 'PDF';
-    if (activeFilter === 'Receitas') return matchesSearch && exam.statusLabel === 'Receita';
-    if (activeFilter === 'Laudos') return matchesSearch && exam.statusLabel === 'Laudo';
-    return matchesSearch;
-  });
+export function ExamsScreen({
+  filterOptions,
+  searchQuery,
+  activeFilter,
+  documents,
+  isLoading,
+  errorMessage,
+  onRetry,
+  onSearchChange,
+  onFilterChange,
+}: ExamsScreenProps) {
+  const [isSheetVisible, setIsSheetVisible] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor={COLORS.background} />
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Exames & Receitas</Text>
-            <Pressable style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}>
-              <Text style={styles.addButtonText}>+</Text>
-            </Pressable>
-          </View>
-
-          {/* Search Input */}
-          <View style={styles.searchContainer}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar exames, receitas..."
-              placeholderTextColor={COLORS.placeholder}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
+          {isLoading ? (
+            <ScreenSkeleton blocks={3} />
+          ) : errorMessage ? (
+            <EmptyState
+              icon="📄"
+              title="Nao foi possivel carregar os documentos"
+              description={errorMessage}
+              tone="error"
+              actionLabel="Tentar novamente"
+              onActionPress={onRetry}
             />
-          </View>
-
-          {/* Filter Chips */}
-          <FilterChips
-            options={FILTER_OPTIONS}
-            activeFilter={activeFilter}
-            onFilterChange={setActiveFilter}
-          />
-
-          {/* Exam List */}
-          <View style={styles.listContainer}>
-            {filteredExams.map((exam, index) => (
-              <ExamItem
-                key={index}
-                icon={exam.icon}
-                title={exam.title}
-                subtitle={exam.subtitle}
-                statusLabel={exam.statusLabel}
-                statusColor={exam.statusColor}
-                onPress={() => {}}
+          ) : (
+            <>
+              <ScreenHeader
+                title="Exames & Receitas"
+                subtitle="Seus documentos ficam organizados aqui para acesso rapido e seguro."
+                action={
+                  <Pressable
+                    style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                    onPress={() => setIsSheetVisible(true)}
+                  >
+                    <Text style={styles.addButtonText}>+</Text>
+                  </Pressable>
+                }
               />
-            ))}
-          </View>
 
-          {/* Add Document Button */}
-          <Button
-            title="+ Adicionar novo documento"
-            onPress={() => {}}
-            style={styles.addDocumentButton}
-          />
+              <View style={styles.searchContainer}>
+                <Text style={styles.searchIcon}>🔍</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Buscar exames, receitas..."
+                  placeholderTextColor={COLORS.placeholder}
+                  value={searchQuery}
+                  onChangeText={onSearchChange}
+                />
+              </View>
 
-          {/* Footer Note */}
-          <View style={styles.footerNote}>
-            <Text style={styles.footerIcon}>🔒</Text>
-            <Text style={styles.footerText}>
-              Seus documentos são armazenados de forma encriptada em conformidade com a LGPD
-            </Text>
-          </View>
+              <FilterChips
+                options={filterOptions}
+                activeFilter={activeFilter}
+                onFilterChange={(value) => onFilterChange(value as MedicalDocumentFilter)}
+              />
+
+              <Section
+                title="Documentos disponíveis"
+                subtitle="A lista ja responde aos filtros e ao campo de busca."
+              >
+                <View style={styles.listContainer}>
+                  {documents.length > 0 ? (
+                    documents.map((document) => (
+                      <ExamItem
+                        key={`${document.title}-${document.subtitle}`}
+                        icon={document.icon}
+                        title={document.title}
+                        subtitle={document.subtitle}
+                        statusLabel={document.statusLabel}
+                        statusColor={document.statusColor}
+                        onPress={() => {}}
+                      />
+                    ))
+                  ) : (
+                    <EmptyState
+                      icon="🗂️"
+                      title="Nenhum documento encontrado"
+                      description="Ajuste os filtros ou a busca para encontrar outro item."
+                    />
+                  )}
+                </View>
+              </Section>
+
+              <Button
+                title="+ Adicionar novo documento"
+                onPress={() => setIsSheetVisible(true)}
+                style={styles.addDocumentButton}
+              />
+
+              <Card variant="outlined">
+                <View style={styles.footerNote}>
+                  <Text style={styles.footerIcon}>🔒</Text>
+                  <Text style={styles.footerText}>
+                    Seus documentos sao armazenados de forma segura e a camada de servicos ja esta
+                    preparada para migrar de mocks para AWS no backend real.
+                  </Text>
+                </View>
+              </Card>
+            </>
+          )}
         </ScrollView>
-
-        <BottomTabBar 
-          items={TAB_ITEMS} 
-          activeTab={activeTab} 
-          onTabPress={(tabId) => {
-            setActiveTab(tabId);
-            onTabPress?.(tabId);
-          }} 
-        />
       </View>
+
+      <BottomSheet
+        visible={isSheetVisible}
+        title="Adicionar documento"
+        description="Escolha o tipo de origem que voce pretende integrar no futuro."
+        onClose={() => setIsSheetVisible(false)}
+      >
+        <Button title="Enviar PDF ou imagem" onPress={() => setIsSheetVisible(false)} />
+        <Button
+          title="Capturar com a camera"
+          variant="secondary"
+          onPress={() => setIsSheetVisible(false)}
+        />
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -163,23 +166,11 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    flexDirection: 'column',
   },
   content: {
     paddingHorizontal: SIZES.large,
     paddingTop: SIZES.large,
     paddingBottom: SIZES.large * 2,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.large,
-  },
-  title: {
-    ...FONTS.heading,
-    fontSize: 24,
-    color: COLORS.text,
   },
   addButton: {
     width: 40,
@@ -213,13 +204,13 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: COLORS.text,
     ...FONTS.body,
+    color: COLORS.text,
     paddingVertical: 12,
     minHeight: 44,
   },
   listContainer: {
-    marginBottom: SIZES.large,
+    marginBottom: SIZES.base,
   },
   addDocumentButton: {
     marginBottom: SIZES.large,
@@ -227,10 +218,6 @@ const styles = StyleSheet.create({
   footerNote: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.inputBackground,
-    borderRadius: SIZES.radius,
-    padding: SIZES.base,
-    marginBottom: SIZES.large * 2,
   },
   footerIcon: {
     fontSize: 16,
@@ -241,6 +228,5 @@ const styles = StyleSheet.create({
     ...FONTS.caption,
     color: COLORS.textSecondary,
     flex: 1,
-    lineHeight: 18,
   },
 });

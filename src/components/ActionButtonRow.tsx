@@ -3,11 +3,11 @@ import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
 
 type ActionButtonRowProps = {
-  actions: Array<{
+  actions: {
     icon: string;
     label: string;
     onPress: () => void;
-  }>;
+  }[];
 };
 
 export function ActionButtonRow({ actions }: ActionButtonRowProps) {
