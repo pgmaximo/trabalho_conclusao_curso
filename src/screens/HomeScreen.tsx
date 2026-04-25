@@ -24,10 +24,15 @@ import { COLORS, FONTS, SIZES } from '@/constants/theme';
 
 type HomeScreenProps = {
   onNavigateToRegister: () => void;
+  onNavigateToForgotPassword: () => void;
   onLogin: () => void;
 };
 
-export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
+export function HomeScreen({
+  onNavigateToRegister,
+  onNavigateToForgotPassword,
+  onLogin,
+}: HomeScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -155,6 +160,7 @@ export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.forgotPassword}
+              onPress={onNavigateToForgotPassword}
               disabled={isLoading}
             >
               <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>

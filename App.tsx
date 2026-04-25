@@ -6,6 +6,7 @@ import { cognitoUserPoolsTokenProvider } from 'aws-amplify/auth/cognito';
 import React, { useState } from 'react';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { RegisterScreen } from '@/screens/RegisterScreen';
+import { ForgotPasswordScreen } from '@/screens/ForgotPasswordScreen';
 import { ConfirmScreen } from '@/screens/ConfirmScreen'; // Importação adicionada
 import { ProfileSetupScreen } from '@/screens/ProfileSetupScreen';
 import { DashboardScreen } from '@/screens/DashboardScreen';
@@ -23,7 +24,7 @@ Amplify.configure(authConfig);
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
-    'home' | 'register' | 'confirm' | 'profile' | 'dashboard' | 'exams' | 'ai' | 'medicines' | 'appointments' | 'prevention' | 'profile-screen'
+    'home' | 'register' | 'confirm' | 'forgot-password' | 'profile' | 'dashboard' | 'exams' | 'ai' | 'medicines' | 'appointments' | 'prevention' | 'profile-screen'
   >('home');
 
   // Estado para armazenar o e-mail transitório do cadastro
@@ -31,6 +32,7 @@ export default function App() {
 
   const navigateToRegister = () => setCurrentScreen('register');
   const navigateToHome = () => setCurrentScreen('home');
+  const navigateToForgotPassword = () => setCurrentScreen('forgot-password');
   const navigateToProfile = () => setCurrentScreen('profile');
   const navigateToDashboard = () => setCurrentScreen('dashboard');
   const navigateToExams = () => setCurrentScreen('exams');
@@ -79,6 +81,10 @@ export default function App() {
     );
   }
 
+  if (currentScreen === 'forgot-password') {
+    return <ForgotPasswordScreen onBackToLogin={navigateToHome} />;
+  }
+
   if (currentScreen === 'profile') {
     return <ProfileSetupScreen onBack={navigateToHome} onComplete={navigateToDashboard} />;
   }
@@ -123,5 +129,11 @@ export default function App() {
     );
   }
 
-  return <HomeScreen onNavigateToRegister={navigateToRegister} onLogin={navigateToDashboard} />;
+  return (
+    <HomeScreen
+      onNavigateToRegister={navigateToRegister}
+      onNavigateToForgotPassword={navigateToForgotPassword}
+      onLogin={navigateToDashboard}
+    />
+  );
 }
