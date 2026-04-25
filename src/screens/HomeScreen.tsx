@@ -8,8 +8,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+
+// AWS Amplify
+import { signIn, signOut } from 'aws-amplify/auth';
+
 import { AuthInput } from '@/components/AuthInput';
 import { Button } from '@/components/Button';
 import { SocialButton } from '@/components/SocialButton';
@@ -24,6 +30,87 @@ type HomeScreenProps = {
 export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleLogin() {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
+      Alert.alert('Atenção', 'Por favor, preencha e-mail e senha.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await clearCachedSession();
+      const { isSignedIn, nextStep } = await signInWithFallback(normalizedEmail, password);
+
+      if (isSignedIn) {
+        onLogin();
+      } else if (nextStep.signInStep === 'CONFIRM_SIGN_UP') {
+        Alert.alert('Conta não confirmada', 'Verifique seu e-mail para confirmar seu cadastro.');
+      }
+    } catch (error: any) {
+      console.log('Erro detalhado normalizado:', serializeAuthError(error));
+      let message = 'Ocorreu um erro ao entrar. Tente novamente.';
+
+      if (error.name === 'UserNotFoundException') message = 'Usuário não encontrado.';
+      if (error.name === 'NotAuthorizedException') message = 'E-mail ou senha incorretos.';
+      if (error.name === 'UserNotConfirmedException') message = 'Usuário ainda não confirmado.';
+
+      if (isPasswordFlowDisabledError(error)) {
+        message = 'O login por senha nao esta habilitado no cliente Cognito. Habilite ALLOW_USER_PASSWORD_AUTH no App client.';
+      }
+
+      if (error.name === 'UserAlreadyAuthenticatedException') {
+        onLogin();
+        return;
+      }
+
+      Alert.alert('Erro no Login', message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function clearCachedSession() {
+    try {
+      await signOut();
+    } catch (error) {
+      // No active session to clear.
+    }
+  }
+
+  async function signInWithFallback(username: string, userPassword: string) {
+    return signIn({
+      username,
+      password: userPassword,
+      options: {
+        authFlowType: 'USER_PASSWORD_AUTH',
+      },
+    });
+  }
+
+  function isPasswordFlowDisabledError(error: any) {
+    const message = String(error?.message ?? error?.underlyingError?.message ?? '');
+
+    return (
+      error?.name === 'InvalidParameterException' &&
+      (message.includes('USER_PASSWORD_AUTH') || message.includes('flow not enabled'))
+    );
+  }
+
+  function serializeAuthError(error: any) {
+    return {
+      name: error?.name,
+      message: error?.message,
+      recoverySuggestion: error?.recoverySuggestion,
+      underlyingName: error?.underlyingError?.name,
+      underlyingMessage: error?.underlyingError?.message,
+      underlyingStack: error?.underlyingError?.stack,
+    };
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -43,6 +130,7 @@ export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Entre na sua conta</Text>
+
             <AuthInput
               label="E-mail"
               icon="✉️"
@@ -51,7 +139,9 @@ export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
+              editable={!isLoading}
             />
+
             <AuthInput
               label="Senha"
               icon="🔒"
@@ -59,14 +149,29 @@ export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
               secureTextEntry
               value={password}
               onChangeText={setPassword}
+              editable={!isLoading}
             />
 
-            <TouchableOpacity activeOpacity={0.7} style={styles.forgotPassword}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.forgotPassword}
+              disabled={isLoading}
+            >
               <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
             </TouchableOpacity>
 
-            <Button title="Entrar" onPress={onLogin} />
-            <Button title="Criar conta gratuita" variant="secondary" onPress={onNavigateToRegister} />
+            {isLoading ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 20 }} />
+            ) : (
+              <View style={{ gap: SIZES.small }}>
+                <Button title="Entrar" onPress={handleLogin} />
+                <Button
+                  title="Criar conta gratuita"
+                  variant="secondary"
+                  onPress={onNavigateToRegister}
+                />
+              </View>
+            )}
 
             <SectionDivider label="ou continue com" />
 
@@ -85,6 +190,7 @@ export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
   );
 }
 
+// O BLOCO ABAIXO É O QUE ESTAVA FALTANDO:
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -145,6 +251,7 @@ const styles = StyleSheet.create({
   forgotPassword: {
     alignSelf: 'flex-end',
     marginTop: SIZES.small,
+    marginBottom: SIZES.medium,
   },
   forgotPasswordText: {
     ...FONTS.body,

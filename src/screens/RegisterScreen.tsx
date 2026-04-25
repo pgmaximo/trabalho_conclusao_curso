@@ -8,8 +8,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+
+// AWS Amplify
+import { signUp } from 'aws-amplify/auth';
+
 import { AuthInput } from '@/components/AuthInput';
 import { Button } from '@/components/Button';
 import { SocialButton } from '@/components/SocialButton';
@@ -18,13 +24,59 @@ import { COLORS, FONTS, SIZES } from '@/constants/theme';
 
 type RegisterScreenProps = {
   onNavigateToLogin: () => void;
-  onRegister: () => void;
+  onRegisterSuccess: (email: string) => void;
 };
 
-export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreenProps) {
+export function RegisterScreen({ onNavigateToLogin, onRegisterSuccess }: RegisterScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleRegister() {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password || !confirmPassword) {
+      Alert.alert('Atenção', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Atenção', 'As senhas não coincidem.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { nextStep } = await signUp({
+        username: normalizedEmail,
+        password,
+        options: {
+          userAttributes: {
+            email: normalizedEmail,
+          },
+          autoSignIn: true,
+        },
+      });
+
+      if (nextStep.signUpStep === 'CONFIRM_SIGN_UP') {
+        Alert.alert('Quase lá!', 'Enviamos um código de confirmação para o seu e-mail.');
+        onRegisterSuccess(normalizedEmail);
+      }
+    } catch (error: any) {
+      console.log('Erro detalhado:', error);
+      let message = 'Ocorreu um erro ao criar a conta. Tente novamente.';
+
+      if (error.name === 'UsernameExistsException') message = 'Este e-mail já está em uso.';
+      if (error.name === 'InvalidPasswordException') message = 'A senha não atende aos requisitos mínimos de segurança.';
+      if (error.name === 'InvalidParameterException') message = 'Verifique se o e-mail está em um formato válido.';
+
+      Alert.alert('Erro no Cadastro', message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -44,6 +96,7 @@ export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreen
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Criar conta gratuita</Text>
+
             <AuthInput
               label="E-mail"
               icon="✉️"
@@ -52,7 +105,9 @@ export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreen
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
+              editable={!isLoading}
             />
+
             <AuthInput
               label="Senha"
               icon="🔒"
@@ -60,7 +115,9 @@ export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreen
               secureTextEntry
               value={password}
               onChangeText={setPassword}
+              editable={!isLoading}
             />
+
             <AuthInput
               label="Confirmar senha"
               icon="🔒"
@@ -68,14 +125,19 @@ export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreen
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}
+              editable={!isLoading}
             />
 
-            <Button title="Criar conta" onPress={onRegister} />
+            {isLoading ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 20 }} />
+            ) : (
+              <Button title="Criar conta" onPress={handleRegister} />
+            )}
 
             <SectionDivider label="ou continue com" />
 
             <View style={styles.socialRow}>
-              <SocialButton title="G  Google" onPress={() => {}} />
+              <SocialButton title="Google" onPress={() => {}} />
               <SocialButton title="Apple ID" onPress={() => {}} />
             </View>
 
@@ -83,7 +145,12 @@ export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreen
               Ao criar sua conta, você concorda com os Termos de Uso e Política de Privacidade (LGPD)
             </Text>
 
-            <TouchableOpacity activeOpacity={0.7} style={styles.loginLink} onPress={onNavigateToLogin}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.loginLink}
+              onPress={onNavigateToLogin}
+              disabled={isLoading}
+            >
               <Text style={styles.loginLinkText}>Já tem uma conta? <Text style={styles.loginLinkBold}>Entrar</Text></Text>
             </TouchableOpacity>
           </View>

@@ -1,6 +1,12 @@
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { signOut } from 'aws-amplify/auth';
+import { cognitoUserPoolsTokenProvider } from 'aws-amplify/auth/cognito';
 import React, { useState } from 'react';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { RegisterScreen } from '@/screens/RegisterScreen';
+import { ConfirmScreen } from '@/screens/ConfirmScreen'; // Importação adicionada
 import { ProfileSetupScreen } from '@/screens/ProfileSetupScreen';
 import { DashboardScreen } from '@/screens/DashboardScreen';
 import { ExamsScreen } from '@/screens/ExamsScreen';
@@ -9,11 +15,19 @@ import { MedicinesScreen } from '@/screens/MedicinesScreen';
 import { AppointmentsScreen } from '@/screens/AppointmentsScreen';
 import { PreventionScreen } from '@/screens/PreventionScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
+import { Amplify } from 'aws-amplify';
+import { authConfig } from './src/services/aws-auth-config';
+
+cognitoUserPoolsTokenProvider.setKeyValueStorage(AsyncStorage);
+Amplify.configure(authConfig);
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'register' | 'profile' | 'dashboard' | 'exams' | 'ai' | 'medicines' | 'appointments' | 'prevention' | 'profile-screen'>(
-    'home'
-  );
+  const [currentScreen, setCurrentScreen] = useState<
+    'home' | 'register' | 'confirm' | 'profile' | 'dashboard' | 'exams' | 'ai' | 'medicines' | 'appointments' | 'prevention' | 'profile-screen'
+  >('home');
+
+  // Estado para armazenar o e-mail transitório do cadastro
+  const [userEmail, setUserEmail] = useState('');
 
   const navigateToRegister = () => setCurrentScreen('register');
   const navigateToHome = () => setCurrentScreen('home');
@@ -26,6 +40,17 @@ export default function App() {
   const navigateToPrevention = () => setCurrentScreen('prevention');
   const navigateToProfileScreen = () => setCurrentScreen('profile-screen');
 
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.log('Erro ao sair:', error);
+    } finally {
+      setUserEmail('');
+      setCurrentScreen('home');
+    }
+  };
+
   const navigateTo = (screenName: string) => {
     if (screenName === 'home') navigateToDashboard();
     if (screenName === 'exams') navigateToExams();
@@ -34,7 +59,24 @@ export default function App() {
   };
 
   if (currentScreen === 'register') {
-    return <RegisterScreen onNavigateToLogin={navigateToHome} onRegister={navigateToProfile} />;
+    return (
+      <RegisterScreen
+        onNavigateToLogin={navigateToHome}
+        onRegisterSuccess={(email) => {
+          setUserEmail(email);
+          setCurrentScreen('confirm');
+        }}
+      />
+    );
+  }
+
+  if (currentScreen === 'confirm') {
+    return (
+      <ConfirmScreen
+        email={userEmail}
+        onConfirmSuccess={navigateToProfile}
+      />
+    );
   }
 
   if (currentScreen === 'profile') {
@@ -57,7 +99,7 @@ export default function App() {
     return (
       <ProfileScreen
         onTabPress={navigateTo}
-        onLogout={navigateToHome}
+        onLogout={handleLogout}
       />
     );
   }
