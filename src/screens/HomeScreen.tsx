@@ -21,17 +21,20 @@ import { Button } from '@/components/Button';
 import { SocialButton } from '@/components/SocialButton';
 import { SectionDivider } from '@/components/SectionDivider';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { serializeAuthError, signInWithGoogle } from '@/services/google-auth';
 
 type HomeScreenProps = {
   onNavigateToRegister: () => void;
   onNavigateToForgotPassword: () => void;
   onLogin: () => void;
+  onGoogleAuthSuccess: () => void;
 };
 
 export function HomeScreen({
   onNavigateToRegister,
   onNavigateToForgotPassword,
   onLogin,
+  onGoogleAuthSuccess,
 }: HomeScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -48,8 +51,16 @@ export function HomeScreen({
     setIsLoading(true);
 
     try {
-      await clearCachedSession();
-      const { isSignedIn, nextStep } = await signInWithFallback(normalizedEmail, password);
+      // Limpa sessões antigas para evitar o erro de 'UserAlreadyAuthenticated'
+      await signOut().catch(() => {});
+
+      const { isSignedIn, nextStep } = await signIn({
+        username: normalizedEmail,
+        password,
+        options: {
+          authFlowType: 'USER_PASSWORD_AUTH',
+        },
+      });
 
       if (isSignedIn) {
         onLogin();
@@ -57,20 +68,16 @@ export function HomeScreen({
         Alert.alert('Conta não confirmada', 'Verifique seu e-mail para confirmar seu cadastro.');
       }
     } catch (error: any) {
-      console.log('Erro detalhado normalizado:', serializeAuthError(error));
+      console.log('Erro detalhado:', error);
       let message = 'Ocorreu um erro ao entrar. Tente novamente.';
 
       if (error.name === 'UserNotFoundException') message = 'Usuário não encontrado.';
       if (error.name === 'NotAuthorizedException') message = 'E-mail ou senha incorretos.';
       if (error.name === 'UserNotConfirmedException') message = 'Usuário ainda não confirmado.';
 
-      if (isPasswordFlowDisabledError(error)) {
-        message = 'O login por senha nao esta habilitado no cliente Cognito. Habilite ALLOW_USER_PASSWORD_AUTH no App client.';
-      }
-
-      if (error.name === 'UserAlreadyAuthenticatedException') {
-        onLogin();
-        return;
+      // Tratamento para caso o fluxo de senha esteja desativado no console
+      if (error.name === 'InvalidParameterException' && error.message.includes('USER_PASSWORD_AUTH')) {
+        message = 'Erro de configuração: Habilite ALLOW_USER_PASSWORD_AUTH no console da AWS.';
       }
 
       Alert.alert('Erro no Login', message);
@@ -79,42 +86,18 @@ export function HomeScreen({
     }
   }
 
-  async function clearCachedSession() {
+  // Função para Login Social
+  async function handleGoogleLogin() {
+    setIsLoading(true);
+
     try {
-      await signOut();
-    } catch (error) {
-      // No active session to clear.
+      await signInWithGoogle();
+      onGoogleAuthSuccess();
+    } catch (error: any) {
+      console.log('Erro no login com Google:', serializeAuthError(error));
+      setIsLoading(false);
+      Alert.alert('Erro', 'Não foi possível conectar com o Google.');
     }
-  }
-
-  async function signInWithFallback(username: string, userPassword: string) {
-    return signIn({
-      username,
-      password: userPassword,
-      options: {
-        authFlowType: 'USER_PASSWORD_AUTH',
-      },
-    });
-  }
-
-  function isPasswordFlowDisabledError(error: any) {
-    const message = String(error?.message ?? error?.underlyingError?.message ?? '');
-
-    return (
-      error?.name === 'InvalidParameterException' &&
-      (message.includes('USER_PASSWORD_AUTH') || message.includes('flow not enabled'))
-    );
-  }
-
-  function serializeAuthError(error: any) {
-    return {
-      name: error?.name,
-      message: error?.message,
-      recoverySuggestion: error?.recoverySuggestion,
-      underlyingName: error?.underlyingError?.name,
-      underlyingMessage: error?.underlyingError?.message,
-      underlyingStack: error?.underlyingError?.stack,
-    };
   }
 
   return (
@@ -182,7 +165,7 @@ export function HomeScreen({
             <SectionDivider label="ou continue com" />
 
             <View style={styles.socialRow}>
-              <SocialButton title="Google" onPress={() => {}} />
+              <SocialButton title="Google" onPress={handleGoogleLogin} />
               <SocialButton title="Apple ID" onPress={() => {}} />
             </View>
 
@@ -196,7 +179,6 @@ export function HomeScreen({
   );
 }
 
-// O BLOCO ABAIXO É O QUE ESTAVA FALTANDO:
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

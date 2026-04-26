@@ -68,6 +68,7 @@ export default function App() {
           setUserEmail(email);
           setCurrentScreen('confirm');
         }}
+        onGoogleAuthSuccess={navigateToProfile}
       />
     );
   }
@@ -134,6 +135,7 @@ export default function App() {
       onNavigateToRegister={navigateToRegister}
       onNavigateToForgotPassword={navigateToForgotPassword}
       onLogin={navigateToDashboard}
+      onGoogleAuthSuccess={navigateToProfile}
     />
   );
 }

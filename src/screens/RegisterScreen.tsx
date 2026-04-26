@@ -21,13 +21,19 @@ import { Button } from '@/components/Button';
 import { SocialButton } from '@/components/SocialButton';
 import { SectionDivider } from '@/components/SectionDivider';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { serializeAuthError, signInWithGoogle } from '@/services/google-auth';
 
 type RegisterScreenProps = {
   onNavigateToLogin: () => void;
   onRegisterSuccess: (email: string) => void;
+  onGoogleAuthSuccess: () => void;
 };
 
-export function RegisterScreen({ onNavigateToLogin, onRegisterSuccess }: RegisterScreenProps) {
+export function RegisterScreen({
+  onNavigateToLogin,
+  onRegisterSuccess,
+  onGoogleAuthSuccess,
+}: RegisterScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -74,6 +80,19 @@ export function RegisterScreen({ onNavigateToLogin, onRegisterSuccess }: Registe
 
       Alert.alert('Erro no Cadastro', message);
     } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleGoogleRegister() {
+    setIsLoading(true);
+
+    try {
+      await signInWithGoogle();
+      onGoogleAuthSuccess();
+    } catch (error: any) {
+      console.log('Erro no cadastro com Google:', serializeAuthError(error));
+      Alert.alert('Erro', 'Nao foi possivel conectar com o Google.');
       setIsLoading(false);
     }
   }
@@ -137,8 +156,8 @@ export function RegisterScreen({ onNavigateToLogin, onRegisterSuccess }: Registe
             <SectionDivider label="ou continue com" />
 
             <View style={styles.socialRow}>
-              <SocialButton title="Google" onPress={() => {}} />
-              <SocialButton title="Apple ID" onPress={() => {}} />
+              <SocialButton title="Google" onPress={handleGoogleRegister} disabled={isLoading} />
+              <SocialButton title="Apple ID" onPress={() => {}} disabled={isLoading} />
             </View>
 
             <Text style={styles.termsText}>
