@@ -1,7 +1,7 @@
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { signOut } from 'aws-amplify/auth';
+import { getCurrentUser, signOut } from 'aws-amplify/auth';
 import { cognitoUserPoolsTokenProvider } from 'aws-amplify/auth/cognito';
 import React, { useState } from 'react';
 import { HomeScreen } from '@/screens/HomeScreen';
@@ -22,6 +22,8 @@ import { authConfig } from './src/services/aws-auth-config';
 cognitoUserPoolsTokenProvider.setKeyValueStorage(AsyncStorage);
 Amplify.configure(authConfig);
 
+const PROFILE_SETUP_COMPLETED_KEY_PREFIX = '@SuaSaude:profileSetupCompleted:';
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
     'home' | 'register' | 'confirm' | 'forgot-password' | 'profile' | 'dashboard' | 'exams' | 'ai' | 'medicines' | 'appointments' | 'prevention' | 'profile-screen'
@@ -41,6 +43,44 @@ export default function App() {
   const navigateToAppointments = () => setCurrentScreen('appointments');
   const navigateToPrevention = () => setCurrentScreen('prevention');
   const navigateToProfileScreen = () => setCurrentScreen('profile-screen');
+
+  const getProfileSetupCompletedKey = async () => {
+    const user = await getCurrentUser();
+    return `${PROFILE_SETUP_COMPLETED_KEY_PREFIX}${user.userId}`;
+  };
+
+  const hasCompletedProfileSetup = async () => {
+    try {
+      const key = await getProfileSetupCompletedKey();
+      return (await AsyncStorage.getItem(key)) === 'true';
+    } catch (error) {
+      console.log('Erro ao verificar perfil:', error);
+      return false;
+    }
+  };
+
+  const markProfileSetupCompleted = async () => {
+    try {
+      const key = await getProfileSetupCompletedKey();
+      await AsyncStorage.setItem(key, 'true');
+    } catch (error) {
+      console.log('Erro ao salvar perfil:', error);
+    }
+  };
+
+  const handleProfileSetupComplete = async () => {
+    await markProfileSetupCompleted();
+    navigateToDashboard();
+  };
+
+  const handleGoogleAuthSuccess = async () => {
+    if (await hasCompletedProfileSetup()) {
+      navigateToDashboard();
+      return;
+    }
+
+    navigateToProfile();
+  };
 
   const handleLogout = async () => {
     try {
@@ -68,7 +108,7 @@ export default function App() {
           setUserEmail(email);
           setCurrentScreen('confirm');
         }}
-        onGoogleAuthSuccess={navigateToProfile}
+        onGoogleAuthSuccess={handleGoogleAuthSuccess}
       />
     );
   }
@@ -87,7 +127,7 @@ export default function App() {
   }
 
   if (currentScreen === 'profile') {
-    return <ProfileSetupScreen onBack={navigateToHome} onComplete={navigateToDashboard} />;
+    return <ProfileSetupScreen onBack={navigateToHome} onComplete={handleProfileSetupComplete} />;
   }
 
   if (currentScreen === 'medicines') {
@@ -135,7 +175,7 @@ export default function App() {
       onNavigateToRegister={navigateToRegister}
       onNavigateToForgotPassword={navigateToForgotPassword}
       onLogin={navigateToDashboard}
-      onGoogleAuthSuccess={navigateToProfile}
+      onGoogleAuthSuccess={handleGoogleAuthSuccess}
     />
   );
 }
