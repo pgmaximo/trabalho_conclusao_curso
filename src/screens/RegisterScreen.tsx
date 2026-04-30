@@ -26,7 +26,7 @@ import { serializeAuthError, signInWithGoogle } from '@/services/google-auth';
 type RegisterScreenProps = {
   onNavigateToLogin: () => void;
   onRegisterSuccess: (email: string) => void;
-  onGoogleAuthSuccess: () => void;
+  onGoogleAuthSuccess: () => void | Promise<void>;
 };
 
 export function RegisterScreen({
@@ -89,10 +89,11 @@ export function RegisterScreen({
 
     try {
       await signInWithGoogle();
-      onGoogleAuthSuccess();
+      await onGoogleAuthSuccess();
     } catch (error: any) {
       console.log('Erro no cadastro com Google:', serializeAuthError(error));
       Alert.alert('Erro', 'Nao foi possivel conectar com o Google.');
+    } finally {
       setIsLoading(false);
     }
   }

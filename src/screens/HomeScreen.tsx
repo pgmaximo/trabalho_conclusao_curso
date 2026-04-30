@@ -27,7 +27,7 @@ type HomeScreenProps = {
   onNavigateToRegister: () => void;
   onNavigateToForgotPassword: () => void;
   onLogin: () => void;
-  onGoogleAuthSuccess: () => void;
+  onGoogleAuthSuccess: () => void | Promise<void>;
 };
 
 export function HomeScreen({
@@ -92,11 +92,12 @@ export function HomeScreen({
 
     try {
       await signInWithGoogle();
-      onGoogleAuthSuccess();
+      await onGoogleAuthSuccess();
     } catch (error: any) {
       console.log('Erro no login com Google:', serializeAuthError(error));
-      setIsLoading(false);
       Alert.alert('Erro', 'Não foi possível conectar com o Google.');
+    } finally {
+      setIsLoading(false);
     }
   }
 

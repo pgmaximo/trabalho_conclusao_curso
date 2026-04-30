@@ -1,5 +1,11 @@
 // src/services/aws-auth-config.ts
 import { ResourcesConfig } from 'aws-amplify';
+import * as Linking from 'expo-linking';
+
+const expoRedirectUrl = Linking.createURL('');
+const nativeRedirectUrl = 'SuaSaude://';
+
+console.log('Cognito OAuth redirect URL for this run:', expoRedirectUrl);
 
 export const authConfig: ResourcesConfig = {
   Auth: {
@@ -11,8 +17,8 @@ export const authConfig: ResourcesConfig = {
         oauth: {
           domain: 'us-east-1kaxwmcvzc.auth.us-east-1.amazoncognito.com',
           scopes: ['email', 'profile', 'openid'],
-          redirectSignIn: ['exp://192.168.3.5:8081', 'SuaSaude://'], // URLs de retorno
-          redirectSignOut: ['exp://192.168.3.5:8081', 'SuaSaude://'],
+          redirectSignIn: [expoRedirectUrl, nativeRedirectUrl],
+          redirectSignOut: [expoRedirectUrl, nativeRedirectUrl],
           responseType: 'code',
           providers: ['Google'],
         }
