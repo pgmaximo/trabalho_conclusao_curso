@@ -16,6 +16,7 @@ import { MedicinesScreen } from '@/screens/MedicinesScreen';
 import { AppointmentsScreen } from '@/screens/AppointmentsScreen';
 import { PreventionScreen } from '@/screens/PreventionScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
+import { UploadDocumentScreen } from '@/screens/UploadDocumentScreen';
 import { Amplify } from 'aws-amplify';
 import { authConfig } from './src/services/aws-auth-config';
 
@@ -26,7 +27,7 @@ const PROFILE_SETUP_COMPLETED_KEY_PREFIX = '@SuaSaude:profileSetupCompleted:';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
-    'home' | 'register' | 'confirm' | 'forgot-password' | 'profile' | 'dashboard' | 'exams' | 'ai' | 'medicines' | 'appointments' | 'prevention' | 'profile-screen'
+    'home' | 'register' | 'confirm' | 'forgot-password' | 'profile' | 'dashboard' | 'exams' | 'ai' | 'medicines' | 'appointments' | 'prevention' | 'profile-screen' | 'upload-document'
   >('home');
 
   // Estado para armazenar o e-mail transitório do cadastro
@@ -38,6 +39,7 @@ export default function App() {
   const navigateToProfile = () => setCurrentScreen('profile');
   const navigateToDashboard = () => setCurrentScreen('dashboard');
   const navigateToExams = () => setCurrentScreen('exams');
+  const navigateToUploadDocument = () => setCurrentScreen('upload-document');
   const navigateToAI = () => setCurrentScreen('ai');
   const navigateToMedicines = () => setCurrentScreen('medicines');
   const navigateToAppointments = () => setCurrentScreen('appointments');
@@ -152,7 +154,11 @@ export default function App() {
   }
 
   if (currentScreen === 'exams') {
-    return <ExamsScreen onTabPress={navigateTo} />;
+    return <ExamsScreen onTabPress={navigateTo} onAddDocument={navigateToUploadDocument} />;
+  }
+
+  if (currentScreen === 'upload-document') {
+    return <UploadDocumentScreen onBack={navigateToExams} />;
   }
 
   if (currentScreen === 'ai') {

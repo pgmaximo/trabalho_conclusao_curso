@@ -63,7 +63,7 @@ const TAB_ITEMS = [
   { icon: '👤', label: 'Perfil', id: 'profile' },
 ];
 
-export function ExamsScreen({ onTabPress }: { onTabPress?: (tabId: string) => void }) {
+export function ExamsScreen({ onTabPress, onAddDocument }: { onTabPress?: (tabId: string) => void; onAddDocument?: () => void }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [activeTab, setActiveTab] = React.useState('exams');
@@ -130,7 +130,7 @@ export function ExamsScreen({ onTabPress }: { onTabPress?: (tabId: string) => vo
           {/* Add Document Button */}
           <Button
             title="+ Adicionar novo documento"
-            onPress={() => {}}
+            onPress={() => onAddDocument?.()}
             style={styles.addDocumentButton}
           />
 
@@ -213,7 +213,6 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: COLORS.text,
     ...FONTS.body,
     paddingVertical: 12,
     minHeight: 44,
