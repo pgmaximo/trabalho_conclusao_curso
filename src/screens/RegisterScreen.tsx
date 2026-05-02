@@ -7,39 +7,96 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 
-import { Card } from '@/components/Card';
+// AWS Amplify
+import { signUp } from 'aws-amplify/auth';
+
+import { AuthInput } from '@/components/AuthInput';
 import { Button } from '@/components/Button';
 import { FormField } from '@/components/FormField';
 import { SocialButton } from '@/components/SocialButton';
 import { SectionDivider } from '@/components/SectionDivider';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
-import { registerSchema, type RegisterFormValues } from '@/validation/forms';
+import { serializeAuthError, signInWithGoogle } from '@/services/google-auth';
 
 type RegisterScreenProps = {
   onNavigateToLogin: () => void;
-  onRegister: (values: RegisterFormValues) => void | Promise<void>;
+  onRegisterSuccess: (email: string) => void;
+  onGoogleAuthSuccess: () => void;
 };
 
-export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreenProps) {
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<RegisterFormValues>({
-    defaultValues: {
-      email: '',
-      password: '',
-      confirmPassword: '',
-    },
-    resolver: zodResolver(registerSchema),
-  });
+export function RegisterScreen({
+  onNavigateToLogin,
+  onRegisterSuccess,
+  onGoogleAuthSuccess,
+}: RegisterScreenProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleRegister() {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password || !confirmPassword) {
+      Alert.alert('Atenção', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Atenção', 'As senhas não coincidem.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { nextStep } = await signUp({
+        username: normalizedEmail,
+        password,
+        options: {
+          userAttributes: {
+            email: normalizedEmail,
+          },
+          autoSignIn: true,
+        },
+      });
+
+      if (nextStep.signUpStep === 'CONFIRM_SIGN_UP') {
+        Alert.alert('Quase lá!', 'Enviamos um código de confirmação para o seu e-mail.');
+        onRegisterSuccess(normalizedEmail);
+      }
+    } catch (error: any) {
+      console.log('Erro detalhado:', error);
+      let message = 'Ocorreu um erro ao criar a conta. Tente novamente.';
+
+      if (error.name === 'UsernameExistsException') message = 'Este e-mail já está em uso.';
+      if (error.name === 'InvalidPasswordException') message = 'A senha não atende aos requisitos mínimos de segurança.';
+      if (error.name === 'InvalidParameterException') message = 'Verifique se o e-mail está em um formato válido.';
+
+      Alert.alert('Erro no Cadastro', message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleGoogleRegister() {
+    setIsLoading(true);
+
+    try {
+      await signInWithGoogle();
+      onGoogleAuthSuccess();
+    } catch (error: any) {
+      console.log('Erro no cadastro com Google:', serializeAuthError(error));
+      Alert.alert('Erro', 'Nao foi possivel conectar com o Google.');
+      setIsLoading(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -57,80 +114,63 @@ export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreen
             <Text style={styles.subtitle}>Gerencie sua saúde com IA e dispositivos vestíveis</Text>
           </View>
 
-          <Card padding="spacious" style={styles.card}>
-            <ScreenHeader
-              title="Criar conta gratuita"
-              subtitle="Validamos seus dados agora para que a integração com Cognito entre depois sem retrabalho."
-            />
-            <Controller
-              control={control}
-              name="email"
-              render={({ field }) => (
-                <FormField
-                  label="E-mail"
-                  icon="✉️"
-                  placeholder="Digite seu e-mail"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  errorMessage={errors.email?.message}
-                />
-              )}
-            />
-            <Controller
-              control={control}
-              name="password"
-              render={({ field }) => (
-                <FormField
-                  label="Senha"
-                  icon="🔒"
-                  placeholder="Digite sua senha"
-                  secureTextEntry
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  errorMessage={errors.password?.message}
-                />
-              )}
-            />
-            <Controller
-              control={control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormField
-                  label="Confirmar senha"
-                  icon="🔒"
-                  placeholder="Confirme sua senha"
-                  secureTextEntry
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  errorMessage={errors.confirmPassword?.message}
-                />
-              )}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Criar conta gratuita</Text>
+
+            <AuthInput
+              label="E-mail"
+              icon="✉️"
+              placeholder="Digite seu e-mail"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              editable={!isLoading}
             />
 
-            <Button
-              title={isSubmitting ? 'Criando conta...' : 'Criar conta'}
-              onPress={handleSubmit(onRegister)}
-              disabled={isSubmitting}
+            <AuthInput
+              label="Senha"
+              icon="🔒"
+              placeholder="Digite sua senha"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              editable={!isLoading}
             />
+
+            <AuthInput
+              label="Confirmar senha"
+              icon="🔒"
+              placeholder="Confirme sua senha"
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              editable={!isLoading}
+            />
+
+            {isLoading ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 20 }} />
+            ) : (
+              <Button title="Criar conta" onPress={handleRegister} />
+            )}
 
             <SectionDivider label="ou continue com" />
 
             <View style={styles.socialRow}>
-              <SocialButton title="G  Google" onPress={() => {}} />
-              <SocialButton title="Apple ID" onPress={() => {}} />
+              <SocialButton title="Google" onPress={handleGoogleRegister} disabled={isLoading} />
+              <SocialButton title="Apple ID" onPress={() => {}} disabled={isLoading} />
             </View>
 
             <Text style={styles.termsText}>
               Ao criar sua conta, você concorda com os Termos de Uso e Política de Privacidade (LGPD)
             </Text>
 
-            <TouchableOpacity activeOpacity={0.7} style={styles.loginLink} onPress={onNavigateToLogin}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.loginLink}
+              onPress={onNavigateToLogin}
+              disabled={isLoading}
+            >
               <Text style={styles.loginLinkText}>Já tem uma conta? <Text style={styles.loginLinkBold}>Entrar</Text></Text>
             </TouchableOpacity>
           </Card>
