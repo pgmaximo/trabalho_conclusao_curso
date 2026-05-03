@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import DateTimePicker, {
@@ -20,13 +21,19 @@ import { Button } from '@/components/Button';
 import { CheckboxOption } from '@/components/CheckboxOption';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
 
+// Importações do Amplify para conexão com a AWS
+import { generateClient } from 'aws-amplify/data';
+import type { Schema } from 'amplify/data/resource'; 
+
+// Instanciando o cliente conectado ao seu banco
+const client = generateClient<Schema>();
+
 type ProfileSetupScreenProps = {
   onBack: () => void;
   onComplete: () => void;
 };
 
 type SexOption = 'Masculino' | 'Feminino';
-
 const sexOptions: SexOption[] = ['Masculino', 'Feminino'];
 
 export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenProps) {
@@ -40,6 +47,9 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
   const [isSmoker, setIsSmoker] = useState(false);
   const [sexuallyActive, setSexuallyActive] = useState(false);
   const [pregnancy, setPregnancy] = useState(false);
+  
+  // Estado para controlar o carregamento durante a chamada à AWS
+  const [isLoading, setIsLoading] = useState(false);
 
   const isCompactLayout = width < 430;
   const formattedBirthDate = birthDate ? new Intl.DateTimeFormat('pt-BR').format(birthDate) : '';
@@ -48,17 +58,14 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
     if (Platform.OS === 'android') {
       setIsBirthDatePickerVisible(false);
     }
-
     if (event.type === 'dismissed' || !selectedDate) {
       return;
     }
-
     setBirthDate(selectedDate);
   };
 
   const openBirthDatePicker = () => {
     const currentValue = birthDate ?? new Date(2000, 0, 1);
-
     if (Platform.OS === 'android') {
       DateTimePickerAndroid.open({
         value: currentValue,
@@ -68,8 +75,57 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
       });
       return;
     }
-
     setIsBirthDatePickerVisible((prev) => !prev);
+  };
+
+  // Função central para salvar na AWS
+  const handleSaveProfile = async () => {
+    // 1. Validação básica
+    if (!fullName || !weight || !height || !birthDate || !sex) {
+      Alert.alert('Campos Incompletos', 'Por favor, preencha todos os campos obrigatórios antes de continuar.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // 2. Formatação dos dados para o DynamoDB
+      // O tipo AWSDate exige o formato YYYY-MM-DD
+      const formattedAWSDate = birthDate.toISOString().split('T')[0]; 
+      
+      // Converte a string do input (aceitando vírgula ou ponto) para número
+      const parsedWeight = parseFloat(weight.replace(',', '.'));
+      const parsedHeight = parseInt(height, 10);
+
+      // 3. Chamada de criação no Amplify Gen 2
+      const { errors, data: novoPerfil } = await client.models.UserProfile.create({
+        fullName: fullName,
+        birthDate: formattedAWSDate,
+        sex: sex,
+        weightKg: parsedWeight,
+        heightCm: parsedHeight,
+        isSmoker: isSmoker,
+        sexuallyActive: sexuallyActive,
+        pregnancy: pregnancy,
+      });
+
+      if (errors) {
+        console.error('Erros de validação do AppSync:', errors);
+        Alert.alert('Erro', 'Houve um problema ao validar os dados na nuvem.');
+        return;
+      }
+
+      console.log('Perfil salvo com sucesso no DynamoDB:', novoPerfil);
+      
+      // 4. Avança a navegação caso o salvamento dê certo
+      onComplete();
+
+    } catch (error) {
+      console.error('Erro ao conectar com a AWS:', error);
+      Alert.alert('Erro de Conexão', 'Não foi possível salvar os dados. Verifique sua internet ou tente novamente mais tarde.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -171,8 +227,19 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
             <CheckboxOption label="Pratica atividade sexual" checked={sexuallyActive} onPress={() => setSexuallyActive((prev) => !prev)} />
             <CheckboxOption label="Gravidez" checked={pregnancy} onPress={() => setPregnancy((prev) => !prev)} />
 
-            <Button title="Próxima etapa ->" onPress={onComplete} style={styles.primaryButton} />
-            <Button title="<- Voltar" variant="secondary" onPress={onBack} style={styles.secondaryButton} />
+            <Button 
+              title={isLoading ? "Salvando na nuvem..." : "Próxima etapa ->"} 
+              onPress={handleSaveProfile} 
+              disabled={isLoading}
+              style={styles.primaryButton} 
+            />
+            <Button 
+              title="<- Voltar" 
+              variant="secondary" 
+              onPress={onBack} 
+              disabled={isLoading}
+              style={styles.secondaryButton} 
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

@@ -4,10 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUser, signOut } from 'aws-amplify/auth';
 import { cognitoUserPoolsTokenProvider } from 'aws-amplify/auth/cognito';
 import React, { useState } from 'react';
+
+// Importações de Telas
 import { HomeScreen } from '@/screens/HomeScreen';
 import { RegisterScreen } from '@/screens/RegisterScreen';
 import { ForgotPasswordScreen } from '@/screens/ForgotPasswordScreen';
-import { ConfirmScreen } from '@/screens/ConfirmScreen'; // Importação adicionada
+import { ConfirmScreen } from '@/screens/ConfirmScreen';
 import { ProfileSetupScreen } from '@/screens/ProfileSetupScreen';
 import { DashboardScreen } from '@/screens/DashboardScreen';
 import { ExamsScreen } from '@/screens/ExamsScreen';
@@ -16,9 +18,12 @@ import { MedicinesScreen } from '@/screens/MedicinesScreen';
 import { AppointmentsScreen } from '@/screens/AppointmentsScreen';
 import { PreventionScreen } from '@/screens/PreventionScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
+
+// Importações do Amplify
 import { Amplify } from 'aws-amplify';
 import amplifyOutputs from './amplify_outputs.json';
 
+// Configuração do Amplify - Deve ser a primeira coisa a executar
 cognitoUserPoolsTokenProvider.setKeyValueStorage(AsyncStorage);
 Amplify.configure(amplifyOutputs);
 
@@ -26,12 +31,24 @@ const PROFILE_SETUP_COMPLETED_KEY_PREFIX = '@SuaSaude:profileSetupCompleted:';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<
-    'home' | 'register' | 'confirm' | 'forgot-password' | 'profile' | 'dashboard' | 'exams' | 'ai' | 'medicines' | 'appointments' | 'prevention' | 'profile-screen'
+    | 'home'
+    | 'register'
+    | 'confirm'
+    | 'forgot-password'
+    | 'profile'
+    | 'dashboard'
+    | 'exams'
+    | 'ai'
+    | 'medicines'
+    | 'appointments'
+    | 'prevention'
+    | 'profile-screen'
   >('home');
 
   // Estado para armazenar o e-mail transitório do cadastro
   const [userEmail, setUserEmail] = useState('');
 
+  // Funções de Navegação Básicas
   const navigateToRegister = () => setCurrentScreen('register');
   const navigateToHome = () => setCurrentScreen('home');
   const navigateToForgotPassword = () => setCurrentScreen('forgot-password');
@@ -44,6 +61,7 @@ export default function App() {
   const navigateToPrevention = () => setCurrentScreen('prevention');
   const navigateToProfileScreen = () => setCurrentScreen('profile-screen');
 
+  // Lógica de verificação do Perfil
   const getProfileSetupCompletedKey = async () => {
     const user = await getCurrentUser();
     return `${PROFILE_SETUP_COMPLETED_KEY_PREFIX}${user.userId}`;
@@ -73,13 +91,24 @@ export default function App() {
     navigateToDashboard();
   };
 
+  // ---------------------------------------------------------
+  // NOVA FUNÇÃO: Gerencia o destino após o login com E-mail e Senha
+  // ---------------------------------------------------------
+  const handleLoginSuccess = async () => {
+    if (await hasCompletedProfileSetup()) {
+      navigateToDashboard();
+    } else {
+      navigateToProfile();
+    }
+  };
+
+  // Gerencia o destino após o login com Google
   const handleGoogleAuthSuccess = async () => {
     if (await hasCompletedProfileSetup()) {
       navigateToDashboard();
-      return;
+    } else {
+      navigateToProfile();
     }
-
-    navigateToProfile();
   };
 
   const handleLogout = async () => {
@@ -100,6 +129,10 @@ export default function App() {
     if (screenName === 'profile') navigateToProfileScreen();
   };
 
+  // ---------------------------------------------------------
+  // RENDERIZAÇÃO DAS TELAS
+  // ---------------------------------------------------------
+
   if (currentScreen === 'register') {
     return (
       <RegisterScreen
@@ -117,7 +150,8 @@ export default function App() {
     return (
       <ConfirmScreen
         email={userEmail}
-        onConfirmSuccess={navigateToProfile}
+        // ALTERADO AQUI: Após confirmar, vai para o Login, e não para o Perfil
+        onConfirmSuccess={navigateToHome} 
       />
     );
   }
@@ -174,7 +208,8 @@ export default function App() {
     <HomeScreen
       onNavigateToRegister={navigateToRegister}
       onNavigateToForgotPassword={navigateToForgotPassword}
-      onLogin={navigateToDashboard}
+      // ALTERADO AQUI: Usa a função com a lógica de checagem em vez de ir direto pro Dashboard
+      onLogin={handleLoginSuccess} 
       onGoogleAuthSuccess={handleGoogleAuthSuccess}
     />
   );
