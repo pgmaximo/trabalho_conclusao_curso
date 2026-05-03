@@ -1,9 +1,14 @@
 import { defineBackend } from '@aws-amplify/backend';
-// Adicione o .ts no final para testar a resolução direta
-import { auth } from './auth/resource.ts'; 
-import { data } from './data/resource.ts'; 
+import { auth } from './auth/resource.ts';
+import { data } from './data/resource.ts';
 
-defineBackend({
+const backend = defineBackend({
   auth,
   data,
 });
+
+backend.auth.resources.cfnResources.cfnUserPoolClient.addPropertyOverride('ExplicitAuthFlows', [
+  'ALLOW_USER_SRP_AUTH',
+  'ALLOW_USER_PASSWORD_AUTH',
+  'ALLOW_REFRESH_TOKEN_AUTH',
+]);

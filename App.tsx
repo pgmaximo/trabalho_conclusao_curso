@@ -17,10 +17,10 @@ import { AppointmentsScreen } from '@/screens/AppointmentsScreen';
 import { PreventionScreen } from '@/screens/PreventionScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { Amplify } from 'aws-amplify';
-import { authConfig } from './src/services/aws-auth-config';
+import amplifyOutputs from './amplify_outputs.json';
 
 cognitoUserPoolsTokenProvider.setKeyValueStorage(AsyncStorage);
-Amplify.configure(authConfig);
+Amplify.configure(amplifyOutputs);
 
 const PROFILE_SETUP_COMPLETED_KEY_PREFIX = '@SuaSaude:profileSetupCompleted:';
 

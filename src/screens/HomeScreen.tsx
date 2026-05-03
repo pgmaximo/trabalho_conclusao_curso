@@ -68,16 +68,22 @@ export function HomeScreen({
         Alert.alert('Conta não confirmada', 'Verifique seu e-mail para confirmar seu cadastro.');
       }
     } catch (error: any) {
-      console.log('Erro detalhado:', error);
+      console.log('Erro detalhado:', {
+        name: error?.name,
+        message: error?.message,
+        code: error?.code,
+        recoverySuggestion: error?.recoverySuggestion,
+        underlyingName: error?.underlyingError?.name,
+        underlyingMessage: error?.underlyingError?.message,
+      });
       let message = 'Ocorreu um erro ao entrar. Tente novamente.';
 
       if (error.name === 'UserNotFoundException') message = 'Usuário não encontrado.';
       if (error.name === 'NotAuthorizedException') message = 'E-mail ou senha incorretos.';
       if (error.name === 'UserNotConfirmedException') message = 'Usuário ainda não confirmado.';
 
-      // Tratamento para caso o fluxo de senha esteja desativado no console
-      if (error.name === 'InvalidParameterException' && error.message.includes('USER_PASSWORD_AUTH')) {
-        message = 'Erro de configuração: Habilite ALLOW_USER_PASSWORD_AUTH no console da AWS.';
+      if (error.name === 'InvalidParameterException' && error.message?.includes('USER_PASSWORD_AUTH')) {
+        message = 'O sandbox ainda não publicou o fluxo USER_PASSWORD_AUTH no client do Cognito.';
       }
 
       Alert.alert('Erro no Login', message);
