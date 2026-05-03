@@ -7,8 +7,14 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+  type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { AuthInput } from '@/components/AuthInput';
 import { Button } from '@/components/Button';
 import { CheckboxOption } from '@/components/CheckboxOption';
@@ -19,18 +25,52 @@ type ProfileSetupScreenProps = {
   onComplete: () => void;
 };
 
+type SexOption = 'Masculino' | 'Feminino';
+
+const sexOptions: SexOption[] = ['Masculino', 'Feminino'];
+
 export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenProps) {
+  const { width } = useWindowDimensions();
   const [fullName, setFullName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
-  const [sex, setSex] = useState('');
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
+  const [isBirthDatePickerVisible, setIsBirthDatePickerVisible] = useState(false);
+  const [sex, setSex] = useState<SexOption | ''>('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
-  const [chronicDiseases, setChronicDiseases] = useState('');
-  const [medications, setMedications] = useState('');
-  const [allergies, setAllergies] = useState('');
   const [isSmoker, setIsSmoker] = useState(false);
-  const [doesExercise, setDoesExercise] = useState(false);
-  const [drinksAlcohol, setDrinksAlcohol] = useState(false);
+  const [sexuallyActive, setSexuallyActive] = useState(false);
+  const [pregnancy, setPregnancy] = useState(false);
+
+  const isCompactLayout = width < 430;
+  const formattedBirthDate = birthDate ? new Intl.DateTimeFormat('pt-BR').format(birthDate) : '';
+
+  const handleBirthDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setIsBirthDatePickerVisible(false);
+    }
+
+    if (event.type === 'dismissed' || !selectedDate) {
+      return;
+    }
+
+    setBirthDate(selectedDate);
+  };
+
+  const openBirthDatePicker = () => {
+    const currentValue = birthDate ?? new Date(2000, 0, 1);
+
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: currentValue,
+        mode: 'date',
+        maximumDate: new Date(),
+        onChange: handleBirthDateChange,
+      });
+      return;
+    }
+
+    setIsBirthDatePickerVisible((prev) => !prev);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -43,14 +83,7 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
           <View style={styles.header}>
             <View>
               <Text style={styles.screenTitle}>Perfil de Saúde</Text>
-              <Text style={styles.stepText}>Etapa 1 de 4 — Dados Pessoais</Text>
             </View>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Novo</Text>
-            </View>
-          </View>
-          <View style={styles.progressBarBackground}>
-            <View style={styles.progressBarFill} />
           </View>
           <Text style={styles.description}>Preencha seus dados básicos de saúde</Text>
 
@@ -62,25 +95,57 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
               value={fullName}
               onChangeText={setFullName}
             />
-            <View style={styles.row}>
+            <View style={[styles.row, isCompactLayout && styles.stackedRow]}>
               <View style={styles.column}>
-                <AuthInput
-                  label="Data de nascimento"
-                  placeholder="DD/MM/AAAA"
-                  value={birthDate}
-                  onChangeText={setBirthDate}
-                />
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Data de nascimento</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={openBirthDatePicker}
+                    style={styles.selectField}
+                  >
+                    <Text style={[styles.selectFieldText, !formattedBirthDate && styles.placeholderText]}>
+                      {formattedBirthDate || 'Selecionar data'}
+                    </Text>
+                  </Pressable>
+                  {Platform.OS === 'ios' && isBirthDatePickerVisible ? (
+                    <DateTimePicker
+                      value={birthDate ?? new Date(2000, 0, 1)}
+                      mode="date"
+                      display="spinner"
+                      maximumDate={new Date()}
+                      onChange={handleBirthDateChange}
+                      style={styles.iosDatePicker}
+                    />
+                  ) : null}
+                </View>
               </View>
-              <View style={[styles.column, styles.columnSpacing]}>
-                <AuthInput
-                  label="Sexo biológico"
-                  placeholder="Masculino/Feminino"
-                  value={sex}
-                  onChangeText={setSex}
-                />
+              <View style={[styles.column, !isCompactLayout && styles.columnSpacing]}>
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Sexo biológico</Text>
+                  <View style={styles.segmentedControl}>
+                    {sexOptions.map((option) => {
+                      const isSelected = sex === option;
+
+                      return (
+                        <Pressable
+                          key={option}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: isSelected }}
+                          onPress={() => setSex(option)}
+                          style={[styles.segmentOption, isSelected && styles.segmentOptionSelected]}
+                        >
+                          <Text style={[styles.segmentText, isSelected && styles.segmentTextSelected]}>
+                            {option}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
               </View>
             </View>
-            <View style={styles.row}>
+            <View style={[styles.row, isCompactLayout && styles.stackedRow]}>
               <View style={styles.column}>
                 <AuthInput
                   label="Peso (kg)"
@@ -90,7 +155,7 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
                   onChangeText={setWeight}
                 />
               </View>
-              <View style={[styles.column, styles.columnSpacing]}>
+              <View style={[styles.column, !isCompactLayout && styles.columnSpacing]}>
                 <AuthInput
                   label="Altura (cm)"
                   placeholder="Ex: 175"
@@ -101,33 +166,13 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
               </View>
             </View>
 
-            <Text style={styles.sectionTitle}>Histórico clínico</Text>
-            <AuthInput
-              label="Doenças crônicas"
-              placeholder="Diabetes, HAS..."
-              value={chronicDiseases}
-              onChangeText={setChronicDiseases}
-            />
-            <AuthInput
-              label="Medicamentos em uso atual"
-              placeholder="Informe os medicamentos"
-              value={medications}
-              onChangeText={setMedications}
-            />
-            <AuthInput
-              label="Alergias conhecidas"
-              placeholder="Informe alergias"
-              value={allergies}
-              onChangeText={setAllergies}
-            />
-
             <Text style={styles.sectionTitle}>Hábitos de vida</Text>
             <CheckboxOption label="Fumante" checked={isSmoker} onPress={() => setIsSmoker((prev) => !prev)} />
-            <CheckboxOption label="Pratica atividade física" checked={doesExercise} onPress={() => setDoesExercise((prev) => !prev)} />
-            <CheckboxOption label="Consome álcool" checked={drinksAlcohol} onPress={() => setDrinksAlcohol((prev) => !prev)} />
+            <CheckboxOption label="Pratica atividade sexual" checked={sexuallyActive} onPress={() => setSexuallyActive((prev) => !prev)} />
+            <CheckboxOption label="Gravidez" checked={pregnancy} onPress={() => setPregnancy((prev) => !prev)} />
 
-            <Button title="Próxima etapa →" onPress={onComplete} style={styles.primaryButton} />
-            <Button title="← Voltar" variant="secondary" onPress={onBack} style={styles.secondaryButton} />
+            <Button title="Próxima etapa ->" onPress={onComplete} style={styles.primaryButton} />
+            <Button title="<- Voltar" variant="secondary" onPress={onBack} style={styles.secondaryButton} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -158,34 +203,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: COLORS.text,
   },
-  stepText: {
-    ...FONTS.body,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  statusBadge: {
-    backgroundColor: '#E5F8EC',
-    paddingHorizontal: SIZES.base,
-    paddingVertical: 6,
-    borderRadius: SIZES.radius,
-  },
-  statusBadgeText: {
-    ...FONTS.body,
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: COLORS.inputBackground,
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: SIZES.medium,
-  },
-  progressBarFill: {
-    width: '25%',
-    height: '100%',
-    backgroundColor: COLORS.primary,
-  },
   description: {
     ...FONTS.body,
     color: COLORS.textSecondary,
@@ -211,12 +228,72 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  stackedRow: {
+    flexDirection: 'column',
+  },
   column: {
     flex: 1,
     minWidth: 0,
   },
   columnSpacing: {
     marginLeft: SIZES.small,
+  },
+  fieldContainer: {
+    marginTop: SIZES.large,
+  },
+  label: {
+    ...FONTS.body,
+    marginBottom: 8,
+  },
+  selectField: {
+    minHeight: 50,
+    justifyContent: 'center',
+    backgroundColor: COLORS.inputBackground,
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SIZES.base,
+    paddingVertical: 14,
+  },
+  selectFieldText: {
+    ...FONTS.body,
+    color: COLORS.text,
+  },
+  placeholderText: {
+    color: COLORS.placeholder,
+  },
+  iosDatePicker: {
+    marginTop: SIZES.small,
+  },
+  segmentedControl: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBackground,
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 5,
+  },
+  segmentOption: {
+    flex: 1,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingHorizontal: SIZES.small,
+  },
+  segmentOptionSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  segmentText: {
+    ...FONTS.body,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  segmentTextSelected: {
+    color: COLORS.surface,
+    fontWeight: '700',
   },
   primaryButton: {
     marginTop: SIZES.large,
