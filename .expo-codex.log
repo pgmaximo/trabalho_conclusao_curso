@@ -1,2 +1,9 @@
 Starting project at D:\TCC\trabalho_conclusao_curso
 Starting Metro Bundler
+The following packages should be updated for best compatibility with the installed expo version:
+  expo@54.0.33 - expected version: ~54.0.34
+  expo-web-browser@15.0.10 - expected version: ~15.0.11
+  @types/react@19.2.14 - expected version: ~19.1.10
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8082
+Logs for your project will appear below.

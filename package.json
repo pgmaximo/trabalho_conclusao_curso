@@ -22,6 +22,8 @@
     "react-native-url-polyfill": "^3.0.0"
   },
   "devDependencies": {
+    "@aws-amplify/backend": "^1.22.0",
+    "@aws-amplify/backend-cli": "^1.8.2",
     "@types/react": "~19.2.2",
     "typescript": "~5.9.2"
   },
