@@ -41,10 +41,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
     paddingHorizontal: SIZES.base,
     paddingVertical: SIZES.small,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
+    boxShadow: `0px 2px 6px ${COLORS.shadow}0F`,
     elevation: 2,
   },
   text: {

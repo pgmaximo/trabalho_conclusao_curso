@@ -91,10 +91,7 @@ const styles = StyleSheet.create({
     minHeight: 140,                 // Altura mínima para consistência
     justifyContent: 'space-between', // Distribui espaço verticalmente
     marginHorizontal: SIZES.small,  // Margem horizontal
-    shadowColor: COLORS.shadow,     // Cor da sombra
-    shadowOffset: { width: 0, height: 2 }, // Offset da sombra
-    shadowOpacity: 0.08,            // Opacidade da sombra
-    shadowRadius: 8,               // Raio da sombra
+    boxShadow: `0px 2px 8px ${COLORS.shadow}14`, // Sombra web moderna
     elevation: 2,                   // Elevação para Android
   },
   

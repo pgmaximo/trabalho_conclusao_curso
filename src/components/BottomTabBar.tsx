@@ -83,10 +83,7 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,   // Cor da borda
     paddingBottom: SIZES.large,     // Padding inferior (considera safe area)
     paddingTop: SIZES.small,         // Padding superior
-    shadowColor: COLORS.shadow,     // Cor da sombra
-    shadowOffset: { width: 0, height: -2 }, // Sombra para cima
-    shadowOpacity: 0.08,             // Opacidade da sombra
-    shadowRadius: 8,                // Raio da sombra
+    boxShadow: `0px -2px 8px ${COLORS.shadow}14`, // Sombra web moderna
     elevation: 3,                   // Elevação para Android
   },
   

@@ -1,4 +1,24 @@
-import React from 'react';
+// =============================================================================
+// Arquivo: RegisterScreen.tsx
+// Descrição: Tela de cadastro com registro por e-mail/senha ou Google.
+// Componente/screen pertencente: RegisterScreen
+// =============================================================================
+//
+// Funcionalidades:
+// - Exibe imagem introdutória da tela de registro.
+// - Valida preenchimento de e-mail, senha e confirmação antes do cadastro.
+// - Mostra requisitos de senha em tempo real enquanto a senha é preenchida.
+// - Executa cadastro via AWS Amplify e autenticação social com Google.
+// - Navega para login ou para a confirmação de cadastro.
+//
+// Estrutura visual:
+// - Área segura com status bar clara.
+// - Imagem superior centralizada e conectada visualmente ao card.
+// - Card com campos, ação principal, divisor, cadastro social e link de login.
+//
+// =============================================================================
+
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +29,11 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
 
 // AWS Amplify
@@ -17,18 +41,50 @@ import { signUp } from 'aws-amplify/auth';
 
 import { AuthInput } from '@/components/AuthInput';
 import { Button } from '@/components/Button';
-import { FormField } from '@/components/FormField';
 import { SocialButton } from '@/components/SocialButton';
 import { SectionDivider } from '@/components/SectionDivider';
-import { ScreenHeader } from '@/components/ScreenHeader';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
-import { serializeAuthError, signInWithGoogle } from '@/services/google-auth';
+import { serializeAuthError, signInWithGoogle } from '@/services/auth';
+import { blurActiveWebElement } from '@/utils/webFocus';
+
+const registerImage = require('../../assets/images/register_image.png');
+const googleLogo = require('../../assets/images/google_Glogo.png');
+
+type PasswordRequirement = {
+  label: string;
+  isMet: boolean;
+};
 
 type RegisterScreenProps = {
   onNavigateToLogin: () => void;
   onRegisterSuccess: (email: string) => void;
   onGoogleAuthSuccess: () => void;
 };
+
+function getPasswordRequirements(password: string): PasswordRequirement[] {
+  return [
+    {
+      label: 'Ter pelo menos 8 caracteres',
+      isMet: password.length >= 8,
+    },
+    {
+      label: 'Contém pelo menos 1 número',
+      isMet: /\d/.test(password),
+    },
+    {
+      label: 'Contém pelo menos 1 caractere especial',
+      isMet: /[^A-Za-z0-9]/.test(password),
+    },
+    {
+      label: 'Contém pelo menos 1 letra maiúscula',
+      isMet: /[A-Z]/.test(password),
+    },
+    {
+      label: 'Contém pelo menos 1 letra minúscula',
+      isMet: /[a-z]/.test(password),
+    },
+  ];
+}
 
 export function RegisterScreen({
   onNavigateToLogin,
@@ -39,12 +95,22 @@ export function RegisterScreen({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+
+  const passwordRequirements = getPasswordRequirements(password);
+  const isPasswordRequirementsVisible = isPasswordFocused || password.length > 0;
+  const isPasswordValid = passwordRequirements.every((requirement) => requirement.isMet);
 
   async function handleRegister() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !password || !confirmPassword) {
       Alert.alert('Atenção', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (!isPasswordValid) {
+      Alert.alert('Atenção', 'Sua senha ainda não atende a todos os requisitos.');
       return;
     }
 
@@ -86,6 +152,7 @@ export function RegisterScreen({
   }
 
   async function handleGoogleRegister() {
+    blurActiveWebElement();
     setIsLoading(true);
 
     try {
@@ -106,74 +173,100 @@ export function RegisterScreen({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.hero}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeIcon}>💚</Text>
+          <View style={styles.registerComposition}>
+            {/* A margem negativa conecta a imagem ao card para parecer que ela sai do formulário. */}
+            <View style={styles.registerImageWrapper}>
+              <Image source={registerImage} style={styles.registerImage} resizeMode="contain" />
             </View>
-            <Text style={styles.title}>SuaSaúde</Text>
-            <Text style={styles.subtitle}>Gerencie sua saúde com IA e dispositivos vestíveis</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Criar conta gratuita</Text>
+
+              <AuthInput
+                label="E-mail"
+                icon={<MaterialIcons name="email" size={20} color={COLORS.placeholder} />}
+                containerStyle={styles.firstField}
+                placeholder="Digite seu e-mail"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+                editable={!isLoading}
+              />
+
+              <AuthInput
+                label="Senha"
+                icon={<MaterialIcons name="lock" size={20} color={COLORS.placeholder} />}
+                placeholder="Digite sua senha"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
+                editable={!isLoading}
+              />
+
+              {isPasswordRequirementsVisible ? (
+                <View style={styles.passwordRequirementsBox}>
+                  {passwordRequirements.map((requirement) => (
+                    <View key={requirement.label} style={styles.passwordRequirementItem}>
+                      <MaterialIcons
+                        name={requirement.isMet ? 'check-circle' : 'radio-button-unchecked'}
+                        size={16}
+                        color={requirement.isMet ? COLORS.success : COLORS.textMuted}
+                      />
+                      <Text
+                        style={[
+                          styles.passwordRequirementText,
+                          requirement.isMet && styles.passwordRequirementTextMet,
+                        ]}
+                      >
+                        {requirement.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              <AuthInput
+                label="Confirmar senha"
+                icon={<MaterialIcons name="lock" size={20} color={COLORS.placeholder} />}
+                placeholder="Confirme sua senha"
+                secureTextEntry
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                editable={!isLoading}
+              />
+
+              {isLoading ? (
+                <ActivityIndicator size="large" color={COLORS.primary} style={styles.loadingIndicator} />
+              ) : (
+                <View style={styles.primaryAction}>
+                  <Button title="Criar conta" onPress={handleRegister} />
+                </View>
+              )}
+
+              <SectionDivider label="ou continue com" />
+
+              <View style={styles.socialRow}>
+                <SocialButton
+                  title="Google"
+                  iconSource={googleLogo}
+                  onPress={handleGoogleRegister}
+                  disabled={isLoading}
+                />
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={styles.loginLink}
+                onPress={onNavigateToLogin}
+                disabled={isLoading}
+              >
+                <Text style={styles.loginLinkText}>Já tem uma conta? <Text style={styles.loginLinkBold}>Entrar</Text></Text>
+              </TouchableOpacity>
+            </View>
           </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Criar conta gratuita</Text>
-
-            <AuthInput
-              label="E-mail"
-              icon="✉️"
-              placeholder="Digite seu e-mail"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-              editable={!isLoading}
-            />
-
-            <AuthInput
-              label="Senha"
-              icon="🔒"
-              placeholder="Digite sua senha"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              editable={!isLoading}
-            />
-
-            <AuthInput
-              label="Confirmar senha"
-              icon="🔒"
-              placeholder="Confirme sua senha"
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              editable={!isLoading}
-            />
-
-            {isLoading ? (
-              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 20 }} />
-            ) : (
-              <Button title="Criar conta" onPress={handleRegister} />
-            )}
-
-            <SectionDivider label="ou continue com" />
-
-            <View style={styles.socialRow}>
-              <SocialButton title="Google" onPress={handleGoogleRegister} disabled={isLoading} />
-              <SocialButton title="Apple ID" onPress={() => {}} disabled={isLoading} />
-            </View>
-
-            <Text style={styles.termsText}>
-              Ao criar sua conta, você concorda com os Termos de Uso e Política de Privacidade (LGPD)
-            </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.loginLink}
-              onPress={onNavigateToLogin}
-              disabled={isLoading}
-            >
-              <Text style={styles.loginLinkText}>Já tem uma conta? <Text style={styles.loginLinkBold}>Entrar</Text></Text>
-            </TouchableOpacity>
-          </Card>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -190,46 +283,71 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: SIZES.large,
-    paddingTop: SIZES.large * 1.5,
+    paddingTop: SIZES.small,
+    paddingBottom: SIZES.large,
   },
-  hero: {
+  registerComposition: {
+    alignItems: 'stretch',
+  },
+  registerImageWrapper: {
     alignItems: 'center',
-    marginBottom: SIZES.large,
+    zIndex: 2,
+    marginBottom: -SIZES.medium,
   },
-  badge: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.large,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 22,
-    elevation: 6,
-  },
-  badgeIcon: {
-    fontSize: 28,
-  },
-  title: {
-    ...FONTS.title,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...FONTS.subtitle,
-    textAlign: 'center',
-    marginTop: SIZES.small,
-    maxWidth: 320,
+  registerImage: {
+    width: '100%',
+    maxWidth: 300,
+    height: 230,
+    alignSelf: 'center',
   },
   card: {
+    backgroundColor: COLORS.surface,
     borderRadius: SIZES.cardRadius,
+    padding: SIZES.large,
+    paddingTop: SIZES.large + SIZES.small,
+    boxShadow: `0px 12px 30px ${COLORS.shadow}14`,
+    elevation: 5,
+  },
+  cardTitle: {
+    ...FONTS.heading,
+    marginBottom: SIZES.large,
+  },
+  firstField: {
+    marginTop: 0,
+  },
+  passwordRequirementsBox: {
+    backgroundColor: COLORS.surfaceMuted,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    gap: SIZES.small,
+    marginTop: SIZES.small,
+    padding: SIZES.small,
+  },
+  passwordRequirementItem: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: SIZES.small,
+  },
+  passwordRequirementText: {
+    ...FONTS.caption,
+    color: COLORS.textSecondary,
+    flex: 1,
+  },
+  passwordRequirementTextMet: {
+    color: COLORS.success,
+    textDecorationLine: 'line-through',
+  },
+  loadingIndicator: {
+    marginTop: SIZES.small,
+    marginBottom: SIZES.large,
+  },
+  primaryAction: {
+    gap: SIZES.small,
   },
   socialRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: SIZES.small,
   },
   termsText: {
     ...FONTS.caption,

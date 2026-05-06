@@ -1,6 +1,12 @@
+/**
+ * Resumo do arquivo:
+ * Mock API de exames e documentos medicos usada enquanto a integracao real de backend nao existe.
+ * Expoe filtros e busca local sobre dados simulados.
+ */
 import { MEDICAL_DOCUMENT_FILTERS, MEDICAL_DOCUMENTS } from '@/mocks/exams';
-import { simulateRequest } from '@/services/requestSimulator';
 import type { MedicalDocument, MedicalDocumentFilter } from '@/types/models';
+
+import { simulateRequest } from './requestSimulator';
 
 export function getMedicalDocumentFilters() {
   return MEDICAL_DOCUMENT_FILTERS;
@@ -16,7 +22,7 @@ export function getMedicalDocuments() {
 export function filterMedicalDocuments(
   documents: MedicalDocument[],
   searchQuery: string,
-  activeFilter: MedicalDocumentFilter
+  activeFilter: MedicalDocumentFilter,
 ) {
   const normalizedSearch = searchQuery.trim().toLowerCase();
 

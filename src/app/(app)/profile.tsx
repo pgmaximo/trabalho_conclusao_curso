@@ -28,12 +28,18 @@ import React from 'react';                    // Biblioteca principal React
 import { router } from 'expo-router';        // Sistema de navegação
 import { ProfileScreen } from '@/screens/ProfileScreen';  // Tela de perfil
 import { useProfileData } from '@/hooks/useProfileData';  // Hook para dados
+import { logoutUser } from '@/services/auth'; // Serviço real de saída da conta
 
 // Componente da rota do perfil
 export default function ProfileRoute() {
   // Hook personalizado que gerencia todo o estado do perfil do usuário
   // Retorna: dados do perfil, loading, erro e callback de retry
   const { profile, isLoading, errorMessage, retry } = useProfileData();
+
+  async function handleLogout() {
+    await logoutUser();
+    router.replace('/');
+  }
 
   // Renderiza a tela de perfil com todos os dados e callbacks
   return (
@@ -62,7 +68,7 @@ export default function ProfileRoute() {
       
       // Callback executado quando usuário clica em logout
       // Redireciona para a tela inicial (login)
-      onLogout={() => router.replace('/')}
+      onLogout={handleLogout}
     />
   );
 }

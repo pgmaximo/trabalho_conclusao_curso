@@ -26,7 +26,7 @@
 
 // Importações necessárias
 import { useAsyncResource } from '@/hooks/useAsyncResource';  // Hook genérico para recursos assíncronos
-import { getDashboardSnapshot, getDashboardTodayLabel } from '@/services/dashboardService';  // Serviços do dashboard
+import { getDashboardSnapshot, getDashboardTodayLabel } from '@/mocks/api';  // Mock API do dashboard
 
 /**
  * Hook customizado para gerenciar dados do dashboard

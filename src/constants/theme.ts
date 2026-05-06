@@ -132,17 +132,13 @@ export const RADII = {
 export const SHADOWS = {
   // Sombra sutil para elementos leves
   subtle: {
-    shadowOffset: { width: 0, height: 4 },  // Offset vertical
-    shadowOpacity: 0.08,                    // Opacidade suave
-    shadowRadius: 10,                       // Raio da sombra
-    elevation: 2,                           // Elevação Android
+    boxShadow: '0px 4px 10px rgba(16, 33, 26, 0.08)', // Sombra web moderna
+    elevation: 2,                                             // Elevação Android
   },
   // Sombra para cards principais
   card: {
-    shadowOffset: { width: 0, height: 12 }, // Offset vertical maior
-    shadowOpacity: 0.12,                    // Opacidade média
-    shadowRadius: 22,                       // Raio maior
-    elevation: 5,                           // Elevação Android maior
+    boxShadow: '0px 12px 22px rgba(16, 33, 26, 0.12)', // Sombra web moderna
+    elevation: 5,                                             // Elevação Android maior
   },
 };
 

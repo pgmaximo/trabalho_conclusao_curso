@@ -22,7 +22,7 @@ import { COLORS, FONTS, SIZES } from '@/constants/theme';
 import {
   profileSetupSchema,
   type ProfileSetupFormValues,
-} from '@/validation/forms';
+} from '@/validation/forms_profile_setup';
 
 type ProfileSetupScreenProps = {
   onBack: () => void;
@@ -86,6 +86,7 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
                   />
                 )}
               />
+            {/* ! DESENVOLVER: deve aparecer para o usuario apenas o teclado numerico e o programada deve transformar o numero no formato correto automaticamente ! */}
             <View style={styles.row}>
               <View style={styles.column}>
                   <Controller
@@ -103,6 +104,7 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
                     )}
                   />
               </View>
+              {/* ! DESENVOLVER: Deve dar as opções para o usuario selecionar masculino/feminino ! */}
               <View style={[styles.column, styles.columnSpacing]}>
                   <Controller
                     control={control}
@@ -120,6 +122,7 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
                   />
               </View>
             </View>
+            {/* ! Desenvolver: Deve formatar o valor como 2 casas decimais! */}
             <View style={styles.row}>
               <View style={styles.column}>
                   <Controller

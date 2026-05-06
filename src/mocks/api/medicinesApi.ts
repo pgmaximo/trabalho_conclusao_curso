@@ -1,6 +1,12 @@
+/**
+ * Resumo do arquivo:
+ * Mock API de medicamentos usada enquanto a integracao real de backend nao existe.
+ * Mantem snapshot simulado e funcoes puras para alternar status de doses.
+ */
 import { MEDICINES_SNAPSHOT } from '@/mocks/medicines';
-import { simulateRequest } from '@/services/requestSimulator';
 import type { MedicineDose } from '@/types/models';
+
+import { simulateRequest } from './requestSimulator';
 
 export function getMedicinesSnapshot() {
   return simulateRequest(MEDICINES_SNAPSHOT, {

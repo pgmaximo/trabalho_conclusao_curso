@@ -10,7 +10,7 @@
 //
 // Funcionalidades:
 // - Label descritivo acima do campo
-// - Ícone opcional dentro do campo
+// - Ícone opcional dentro do campo, aceitando texto simples ou componente React
 // - Texto de ajuda ou mensagem de erro
 // - Estados visuais (normal, erro, foco)
 // - Totalmente acessível
@@ -41,7 +41,7 @@ import { COLORS, FONTS, RADII, SPACING } from '@/constants/theme';  // Configura
 // Props do componente FormField
 type FormFieldProps = TextInputProps & {  // Herda props do TextInput
   label: string;                           // Texto do label acima do campo
-  icon?: string;                           // Ícone opcional dentro do campo
+  icon?: React.ReactNode;                  // Ícone opcional dentro do campo
   helperText?: string;                     // Texto de ajuda opcional
   errorMessage?: string;                   // Mensagem de erro opcional
   containerStyle?: StyleProp<ViewStyle>;  // Estilo customizado do container
@@ -75,7 +75,11 @@ export function FormField({
         ]}
       >
         {/* Ícone opcional dentro do campo */}
-        {icon ? <Text style={styles.icon}>{icon}</Text> : null}
+        {icon ? (
+          <View style={styles.iconSlot}>
+            {typeof icon === 'string' ? <Text style={styles.iconText}>{icon}</Text> : icon}
+          </View>
+        ) : null}
         
         {/* Campo de texto principal */}
         <TextInput
@@ -132,8 +136,15 @@ const styles = StyleSheet.create({
   },
   
   // Estilo do ícone dentro do campo
-  icon: {
+  iconSlot: {
     marginRight: SPACING.sm,         // Espaço à direita do ícone
+    width: 20,                       // Área estável para ícones vetoriais e texto
+    alignItems: 'center',            // Centraliza horizontalmente o ícone
+    justifyContent: 'center',        // Centraliza verticalmente o ícone
+  },
+
+  // Estilo para ícones antigos baseados em texto/emoji
+  iconText: {
     fontSize: 16,                    // Tamanho do ícone
     color: COLORS.placeholder,        // Cor acinzentada para ícone
   },

@@ -93,10 +93,7 @@ const styles = StyleSheet.create({
   // Variante primary (preenchido)
   primary: {
     backgroundColor: COLORS.primary, // Fundo colorido
-    shadowColor: COLORS.shadow,     // Cor da sombra
-    shadowOffset: { width: 0, height: 8 }, // Offset da sombra
-    shadowOpacity: 0.12,            // Opacidade da sombra
-    shadowRadius: 18,               // Raio da sombra
+    boxShadow: `0px 8px 18px ${COLORS.shadow}1F`, // Sombra web moderna
     elevation: 4,                   // Elevação para Android
   },
   
@@ -126,7 +123,7 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: COLORS.border,  // Fundo cinza
     borderColor: COLORS.border,      // Borda cinza
-    shadowOpacity: 0,                // Remove sombra
+    boxShadow: 'none',               // Remove sombra web
     elevation: 0,                   // Remove elevação
   },
   

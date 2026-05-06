@@ -108,7 +108,6 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: RADII.xl,       // Borda arredondada grande
     borderWidth: 1,                // Largura da borda
-    shadowColor: COLORS.shadow,   // Cor da sombra
     ...SHADOWS.card,              // Aplica sombra de cartão predefinida
   },
 });

@@ -42,4 +42,9 @@ yarn-error.*
 /android
 
 # local spec-driven notes
-Spec Driven Dev/
+Spec/
+Docs/
+!docs/
+!docs/superpowers/
+!docs/superpowers/plans/
+!docs/superpowers/plans/*.md

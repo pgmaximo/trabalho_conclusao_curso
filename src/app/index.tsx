@@ -1,40 +1,37 @@
-// =============================================================================
-// Arquivo: index.tsx
-// Descrição: Ponto de entrada principal do aplicativo - Rota raiz
-// Função: IndexRoute
-// =============================================================================
-// 
-// Este arquivo define a rota inicial do aplicativo. Atualmente, ele redireciona
-// automaticamente para o dashboard, substituindo o fluxo de login original.
-//
-// Funcionalidades:
-// - Redirecionamento automático para /dashboard
-// - Código de login original mantido como comentário para referência
-//
-// =============================================================================
-
+/**
+ * Resumo do arquivo:
+ * Rota inicial do app no Expo Router.
+ * Renderiza a tela de login e decide a rota pos-autenticacao sem depender de App.tsx.
+ */
 import React from 'react';
-// import { router } from 'expo-router';  // Navegação entre telas (desativado)
+import { router } from 'expo-router';
 
-// import { HomeScreen } from '@/screens/HomeScreen';  // Tela de login (desativada)
+import { HomeScreen } from '@/screens/HomeScreen';
+import { resolvePostAuthRoute } from '@/services/auth';
+import { blurActiveWebElement } from '@/utils/webFocus';
 
-// // Fluxo de login original (mantido como comentário)
-// export default function LoginRoute() {
-//   return (
-//     <HomeScreen
-//       onNavigateToRegister={() => router.push('/register')}
-//       onLogin={async () => {
-//         router.replace('/dashboard');
-//       }}
-//     />
-//   );
-// }
+export default function LoginRoute() {
+  async function navigateAfterAuth() {
+    const nextRoute = await resolvePostAuthRoute();
+    router.replace(nextRoute);
+  }
 
-// Componente de redirecionamento para o dashboard
-import { Redirect } from 'expo-router';
+  function navigateToRegister() {
+    blurActiveWebElement();
+    router.push('/register');
+  }
 
-// Função principal da rota raiz
-export default function IndexRoute() {
-  // Redireciona automaticamente para o dashboard ao iniciar o app
-  return <Redirect href="/dashboard" />;
+  function navigateToForgotPassword() {
+    blurActiveWebElement();
+    router.push('/forgot-password');
+  }
+
+  return (
+    <HomeScreen
+      onNavigateToRegister={navigateToRegister}
+      onNavigateToForgotPassword={navigateToForgotPassword}
+      onLogin={navigateAfterAuth}
+      onGoogleAuthSuccess={navigateAfterAuth}
+    />
+  );
 }

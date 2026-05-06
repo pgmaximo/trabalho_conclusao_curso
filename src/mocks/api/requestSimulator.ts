@@ -11,7 +11,7 @@
 // - Simulação de delay configurável
 // - Simulação de erros controlados
 // - Suporte a generics TypeScript para tipagem segura
-// - Interface simples para uso em serviços
+// - Interface simples para uso em mock APIs
 //
 // Uso:
 // - simulateRequest(data, { delayMs: 300 }): Simula requisição com delay
@@ -27,29 +27,22 @@
  * @returns Promise com os dados ou erro simulado
  */
 export async function simulateRequest<T>(
-  result: T,  // Dados a serem retornados (tipado com generics)
+  result: T,
   options?: {
-    delayMs?: number;           // Delay em milissegundos (padrão: 250ms)
-    errorMessage?: string;     // Mensagem de erro personalizada
-    shouldFail?: boolean;       // Se deve simular falha (padrão: false)
-  }
+    delayMs?: number;
+    errorMessage?: string;
+    shouldFail?: boolean;
+  },
 ): Promise<T> {
-  // Define o delay (padrão: 250ms se não especificado)
   const delayMs = options?.delayMs ?? 250;
 
-  // Simula delay da requisição usando Promise e setTimeout
   await new Promise((resolve) => {
     setTimeout(resolve, delayMs);
   });
 
-  // Verifica se deve simular falha
   if (options?.shouldFail) {
-    // Lança erro com mensagem personalizada ou padrão
-    throw new Error(
-      options.errorMessage ?? 'Nao foi possivel concluir a solicitacao.'
-    );
+    throw new Error(options.errorMessage ?? 'Nao foi possivel concluir a solicitacao.');
   }
 
-  // Retorna os dados em caso de sucesso
   return result;
 }

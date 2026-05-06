@@ -5,7 +5,7 @@ import {
   filterMedicalDocuments,
   getMedicalDocumentFilters,
   getMedicalDocuments,
-} from '@/services/examsService';
+} from '@/mocks/api';
 import type { MedicalDocumentFilter } from '@/types/models';
 
 export function useExamsData() {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useAsyncResource } from '@/hooks/useAsyncResource';
-import { getAIAnalysisSnapshot } from '@/services/aiAnalysisService';
+import { getAIAnalysisSnapshot } from '@/mocks/api';
 
 export function useAIAnalysisData() {
   const [searchQuery, setSearchQuery] = useState('');
