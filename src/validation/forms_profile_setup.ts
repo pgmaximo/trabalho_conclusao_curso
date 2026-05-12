@@ -1,30 +1,43 @@
 /**
  * Resumo do arquivo:
- * Define as regras de validacao e o tipo dos dados do formulario de perfil de saude.
- * O schema e usado pelo react-hook-form para validar os campos antes de avancar no fluxo.
+ * Define o contrato e as regras de validacao do onboarding de perfil de saude.
+ * Os campos opcionais usam `unknown` ou string vazia para nao forcar o usuario
+ * a informar dados sensiveis antes da integracao real com o backend.
  */
 import { z } from 'zod';
 
-const requiredText = (message: string) => z.string().trim().min(1, message);
+export const biologicalSexOptions = ['female', 'male', 'prefer_not_to_say'] as const;
+export const biologicalSexFormOptions = ['', ...biologicalSexOptions] as const;
+export const optionalAnswerOptions = ['yes', 'no', 'unknown'] as const;
 
-const numericText = (fieldLabel: string) =>
-  requiredText(`${fieldLabel} e obrigatorio`).regex(/^\d+([,.]\d+)?$/, `${fieldLabel} deve ser numerico`);
+const optionalNumericText = (fieldLabel: string) =>
+  z
+    .string()
+    .trim()
+    .refine((value) => value.length === 0 || /^\d+([,.]\d+)?$/.test(value), {
+      message: `${fieldLabel} deve ser numerico`,
+    });
 
 export const profileSetupSchema = z.object({
-  fullName: requiredText('Nome completo e obrigatorio').min(3, 'Nome completo deve ter pelo menos 3 caracteres'),
-  birthDate: requiredText('Data de nascimento e obrigatoria').regex(
-    /^\d{2}\/\d{2}\/\d{4}$/,
-    'Data de nascimento deve estar no formato DD/MM/AAAA',
-  ),
-  sex: requiredText('Sexo biologico e obrigatorio'),
-  weight: numericText('Peso'),
-  height: numericText('Altura'),
-  chronicDiseases: requiredText('Informe doencas cronicas ou escreva Nenhuma'),
-  medications: requiredText('Informe medicamentos em uso ou escreva Nenhum'),
-  allergies: requiredText('Informe alergias conhecidas ou escreva Nenhuma'),
-  isSmoker: z.boolean(),
-  doesExercise: z.boolean(),
-  drinksAlcohol: z.boolean(),
+  fullName: z.string().trim().min(1, 'Nome completo e obrigatorio'),
+  birthDate: z
+    .string()
+    .trim()
+    .min(1, 'Data de nascimento e obrigatoria')
+    .regex(/^\d{2}\/\d{2}\/\d{4}$/, 'Data de nascimento deve estar no formato DD/MM/AAAA'),
+  biologicalSex: z.enum(biologicalSexFormOptions),
+  pregnancyStatus: z.enum(optionalAnswerOptions),
+  heightCm: optionalNumericText('Altura'),
+  weightKg: optionalNumericText('Peso'),
+  chronicConditions: z.string().trim(),
+  medications: z.string().trim(),
+  allergies: z.string().trim(),
+  tobaccoUse: z.enum(optionalAnswerOptions),
+  alcoholUse: z.enum(optionalAnswerOptions),
+  physicalActivity: z.enum(optionalAnswerOptions),
+  sexuallyActive: z.enum(optionalAnswerOptions),
 });
 
+export type BiologicalSex = (typeof biologicalSexOptions)[number];
+export type OptionalAnswer = (typeof optionalAnswerOptions)[number];
 export type ProfileSetupFormValues = z.infer<typeof profileSetupSchema>;

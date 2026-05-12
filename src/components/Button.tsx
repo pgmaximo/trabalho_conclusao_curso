@@ -1,139 +1,65 @@
-// =============================================================================
-// Arquivo: Button.tsx
-// Descrição: Componente de botão customizado com múltiplas variantes
-// Componente: Button
-// =============================================================================
-//
-// Este componente implementa um botão reutilizável com suporte para diferentes
-// variantes visuais, estados (pressed, disabled) e feedback visual. É o
-// componente principal para ações do usuário em todo o aplicativo.
-//
-// Funcionalidades:
-// - Variantes: primary (preenchido) e secondary (borda)
-// - Estados: pressed, disabled com feedback visual adequado
-// - Ripple effect no Android
-// - Totalmente customizável via props
-// - Acessibilidade herdada do Pressable
-//
-// Variantes Visuais:
-// - Primary: Fundo colorido com texto branco e sombra
-// - Secondary: Borda colorida com fundo transparente
-//
-// =============================================================================
-
-// Importações necessárias
-import React from 'react';                    // Biblioteca principal React
+import React from 'react';
 import {
-  Pressable,                               // Componente base para interação
-  Text,                                    // Componente para texto
-  StyleSheet,                              // Sistema de estilos
-  PressableProps,                          // Props do Pressable
-  StyleProp,                               // Tipo para estilos
-  ViewStyle,                               // Tipo para estilos de View
+  Pressable,
+  PressableProps,
+  StyleProp,
+  Text,
+  ViewStyle,
 } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';  // Configurações de tema
 
-// Definição de props do componente Button
-type ButtonProps = Omit<PressableProps, 'style'> & {  // Herda props do Pressable menos style
-  title: string;                           // Texto do botão
-  variant?: 'primary' | 'secondary';       // Variante visual (padrão: primary)
-  style?: StyleProp<ViewStyle>;           // Estilo customizado adicional
+import { useThemeColors } from '@/constants/theme';
+
+type ButtonProps = Omit<PressableProps, 'style'> & {
+  title: string;
+  variant?: 'primary' | 'secondary';
+  style?: StyleProp<ViewStyle>;
 };
 
-// Componente Button principal
 export function Button({ title, variant = 'primary', style, ...rest }: ButtonProps) {
-  // Determina se é variante primary
+  const colors = useThemeColors();
   const isPrimary = variant === 'primary';
-  
-  // Verifica se botão está desabilitado
   const isDisabled = Boolean(rest.disabled);
 
-  // Renderiza o botão com todos os estados e variantes
+  const buttonClassName = [
+    'mt-3 w-full items-center justify-center rounded-app py-4',
+    isPrimary
+      ? 'bg-app-primary dark:bg-app-dark-primary'
+      : 'border border-app-primary bg-transparent dark:border-app-dark-primary',
+    isDisabled
+      ? 'border-app-border bg-app-border dark:border-app-dark-border dark:bg-app-dark-border'
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const textClassName = [
+    'text-base font-semibold leading-5',
+    isPrimary
+      ? 'text-app-onPrimary dark:text-app-dark-onPrimary'
+      : 'text-app-primary dark:text-app-dark-primary',
+    isDisabled ? 'text-app-textMuted dark:text-app-dark-textMuted' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <Pressable
-      // Aplica estilos condicionais baseados no estado
+      android_ripple={{ color: isPrimary ? colors.primaryDark : colors.background }}
+      className={buttonClassName}
       style={({ pressed }) => [
-        styles.button,                     // Estilo base do botão
-        isPrimary ? styles.primary : styles.secondary,  // Variante específica
-        pressed && !isDisabled && styles.pressed,       // Estado pressionado
-        isDisabled && styles.disabledButton,           // Estado desabilitado
-        style,                            // Estilo customizado adicional
+        isPrimary && !isDisabled
+          ? {
+              boxShadow: `0px 8px 18px ${colors.shadow}1F`,
+              elevation: 4,
+            }
+          : null,
+        pressed && !isDisabled ? { opacity: 0.88 } : null,
+        isDisabled ? { boxShadow: 'none', elevation: 0 } : null,
+        style,
       ]}
-      // Configura ripple effect para Android
-      android_ripple={{ color: isPrimary ? COLORS.primaryDark : COLORS.background }}
-      // Passa todas as outras props para o Pressable
       {...rest}
     >
-      {/* Texto do botão com estilos condicionais */}
-      <Text
-        style={[
-          styles.title,                    // Estilo base do texto
-          isPrimary ? styles.primaryText : styles.secondaryText,  // Cor baseada na variante
-          isDisabled && styles.disabledText,                // Cor quando desabilitado
-        ]}
-      >
-        {title}
-      </Text>
+      <Text className={textClassName}>{title}</Text>
     </Pressable>
   );
 }
-
-// Estilos do componente Button
-const styles = StyleSheet.create({
-  // Estilo base do botão
-  button: {
-    width: '100%',                   // Largura total do container
-    paddingVertical: SIZES.base,     // Padding vertical
-    borderRadius: SIZES.radius,      // Borda arredondada
-    alignItems: 'center',           // Centraliza horizontalmente
-    justifyContent: 'center',       // Centraliza verticalmente
-    marginTop: SIZES.small,         // Margem superior
-  },
-  
-  // Variante primary (preenchido)
-  primary: {
-    backgroundColor: COLORS.primary, // Fundo colorido
-    boxShadow: `0px 8px 18px ${COLORS.shadow}1F`, // Sombra web moderna
-    elevation: 4,                   // Elevação para Android
-  },
-  
-  // Variante secondary (borda)
-  secondary: {
-    borderWidth: 1,                 // Largura da borda
-    borderColor: COLORS.primary,     // Cor da borda
-    backgroundColor: 'transparent',  // Fundo transparente
-  },
-  
-  // Estilo base do texto do botão
-  title: {
-    ...FONTS.button,                // Usa fonte button do tema
-  },
-  
-  // Texto da variante primary
-  primaryText: {
-    color: '#ffffff',               // Texto branco
-  },
-  
-  // Texto da variante secondary
-  secondaryText: {
-    color: COLORS.primary,          // Texto com cor primária
-  },
-  
-  // Botão quando desabilitado
-  disabledButton: {
-    backgroundColor: COLORS.border,  // Fundo cinza
-    borderColor: COLORS.border,      // Borda cinza
-    boxShadow: 'none',               // Remove sombra web
-    elevation: 0,                   // Remove elevação
-  },
-  
-  // Texto quando desabilitado
-  disabledText: {
-    color: COLORS.textMuted,        // Texto acinzentado
-  },
-  
-  // Botão quando pressionado
-  pressed: {
-    opacity: 0.88,                  // Reduz opacidade para feedback
-  },
-});

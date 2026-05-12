@@ -6,9 +6,38 @@ import { FormField } from '@/components/FormField';
 type AuthInputProps = TextInputProps & {
   label: string;
   icon?: React.ReactNode;
+  hasError?: boolean;
+  errorMessage?: string;
   containerStyle?: StyleProp<ViewStyle>;
+  containerClassName?: string;
+  inputWrapperClassName?: string;
+  inputClassName?: string;
 };
 
-export function AuthInput({ label, icon, containerStyle, style, ...rest }: AuthInputProps) {
-  return <FormField label={label} icon={icon} containerStyle={containerStyle} style={style} {...rest} />;
+export function AuthInput({
+  label,
+  icon,
+  hasError,
+  errorMessage,
+  containerStyle,
+  containerClassName,
+  inputWrapperClassName,
+  inputClassName,
+  style,
+  ...rest
+}: AuthInputProps) {
+  return (
+    <FormField
+      label={label}
+      icon={icon}
+      hasError={hasError}
+      errorMessage={errorMessage}
+      containerStyle={containerStyle}
+      containerClassName={containerClassName}
+      inputWrapperClassName={inputWrapperClassName}
+      inputClassName={inputClassName}
+      style={style}
+      {...rest}
+    />
+  );
 }

@@ -22,21 +22,12 @@
 //
 // =============================================================================
 
-import { StyleSheet, TextStyle } from 'react-native';
+import { StyleSheet, TextStyle, useColorScheme } from 'react-native';
+
+import themeTokens from './themeTokens.json';
 
 // Modos de tema suportados
 type PaletteMode = 'light' | 'dark';
-
-// Paleta de cores base (usada para construir temas)
-type ThemePalette = {
-  primary: string;         // Cor primária
-  primarySurface: string;  // Superfície primária
-  secondary: string;      // Cor secundária
-  accent: string;         // Cor de destaque
-  neutral: string;        // Cor neutra
-  background: string;     // Cor de fundo
-  text: string;           // Cor do texto
-};
 
 // Sistema completo de cores do tema
 export type ThemeColors = {
@@ -78,34 +69,28 @@ export type ThemeColors = {
   inputBackground: string; // Fundo de inputs
   overlay: string;         // Sobreposição
   shadow: string;          // Cor da sombra
+  onPrimary: string;       // Texto/icone sobre a cor primaria
+  surfaceTranslucent: string; // Superficie translucida
+  iconMuted: string;       // Icones secundarios
+  borderLight: string;     // Borda sutil
+  info: string;            // Informacao/azul
+  infoSoft: string;        // Fundo informativo suave
+  female: string;          // Destaque feminino quando necessario
+  femaleSoft: string;      // Fundo feminino suave
+  neutral: string;         // Neutro forte
+  neutralSoft: string;     // Fundo neutro suave
+  neutralBorder: string;   // Borda neutra
+  noticeSoft: string;      // Fundo de avisos informativos
+  noticeBorder: string;    // Borda de avisos informativos
+  footer: string;          // Fundo de rodape flutuante
+  progressTrack: string;   // Trilho de progresso
+  homeIndicator: string;   // Indicador visual inferior
 };
 
 // Definição completa do tema
 type ThemeDefinition = {
   colors: ThemeColors;                    // Sistema de cores
   typography: Record<string, TextStyle>;   // Sistema de tipografia
-};
-
-// Paleta de cores para modo light
-const LIGHT_PALETTE: ThemePalette = {
-  primary: '#1D9E75',        // Verde principal - cor principal do app
-  primarySurface: '#E1F5EE', // Verde muito claro para superfícies
-  secondary: '#185FA5',      // Azul secundário para elementos secundários
-  accent: '#D85A30',         // Laranja para destaques e CTAs
-  neutral: '#F1EFE8',        // Cinza muito claro para neutros
-  background: '#F1EFE8',     // Fundo principal (claro)
-  text: '#2C2C2A',          // Texto principal (escuro)
-};
-
-// Paleta de cores para modo dark
-const DARK_PALETTE: ThemePalette = {
-  primary: '#1D9E75',        // Verde principal - mantido para consistência
-  primarySurface: '#085041', // Verde escuro para superfícies
-  secondary: '#378ADD',      // Azul mais claro para modo dark
-  accent: '#F0997B',         // Laranja mais claro para modo dark
-  neutral: '#1A1F1C',        // Cinza escuro para neutros
-  background: '#1A1F1C',     // Fundo principal (escuro)
-  text: '#E8E8E4',          // Texto principal (claro)
 };
 
 // Sistema de espaçamento consistente (em pixels)
@@ -148,90 +133,8 @@ export const SHADOWS = {
  * @param mode - Modo do tema ('light' ou 'dark')
  * @returns Objeto completo com todas as cores do tema
  */
-function buildThemeColors(palette: ThemePalette, mode: PaletteMode): ThemeColors {
-  // Constrói cores para modo dark
-  if (mode === 'dark') {
-    return {
-      // Cores de fundo e superfícies
-      background: palette.background,      // Fundo escuro da paleta
-      surface: '#202622',                 // Superfície escura
-      surfaceMuted: '#26312C',            // Superfície ainda mais escura
-      
-      // Cores primárias
-      primary: palette.primary,           // Verde principal
-      primaryDark: '#0A3D32',             // Verde mais escuro
-      primarySoft: palette.primarySurface, // Verde suave da paleta
-      
-      // Cores secundárias
-      secondary: palette.secondary,       // Azul da paleta
-      secondarySoft: '#1E3654',           // Azul suave escuro
-      
-      // Cores de destaque
-      accent: palette.accent,             // Laranja da paleta
-      accentSoft: '#5C3021',              // Laranja suave escuro
-      
-      // Cores de status
-      success: palette.primary,           // Sucesso usa verde
-      successSoft: '#0C4537',             // Verde suave escuro
-      warning: palette.accent,            // Alerta usa laranja
-      warningSoft: '#5B3A2F',             // Laranja suave escuro
-      danger: '#F0997B',                  // Perigo rosa claro
-      dangerSoft: '#5C2F25',              // Perigo suave escuro
-      
-      // Cores de texto
-      text: palette.text,                 // Texto claro da paleta
-      textSecondary: '#B9C0BB',          // Texto secundário
-      textMuted: '#919992',              // Texto mutado
-      
-      // Cores de interface
-      placeholder: '#798179',            // Placeholder escuro
-      border: '#324039',                 // Borda escura
-      borderStrong: '#496158',           // Borda mais forte
-      inputBackground: '#212B27',        // Fundo de inputs escuro
-      overlay: '#00000099',              // Sobreposição preta
-      shadow: '#000000',                 // Sombra preta
-    };
-  }
-
-  // Constrói cores para modo light (padrão)
-  return {
-    // Cores de fundo e superfícies
-    background: palette.background,      // Fundo claro da paleta
-    surface: '#FFFFFF',                 // Superfície branca
-    surfaceMuted: '#F8F7F3',            // Superfície suave
-    
-    // Cores primárias
-    primary: palette.primary,           // Verde principal
-    primaryDark: '#147657',             // Verde mais escuro
-    primarySoft: palette.primarySurface, // Verde suave da paleta
-    
-    // Cores secundárias
-    secondary: palette.secondary,       // Azul da paleta
-    secondarySoft: '#EAF3FB',           // Azul suave claro
-    
-    // Cores de destaque
-    accent: palette.accent,             // Laranja da paleta
-    accentSoft: '#FDEDE6',              // Laranja suave claro
-    
-    // Cores de status
-    success: palette.primary,           // Sucesso usa verde
-    successSoft: '#E7F7F1',             // Verde suave claro
-    warning: palette.accent,            // Alerta usa laranja
-    warningSoft: '#FDEDE6',             // Laranja suave claro
-    danger: '#B5412A',                  // Perigo vermelho
-    dangerSoft: '#FCE8E1',              // Perigo suave claro
-    
-    // Cores de texto
-    text: palette.text,                 // Texto escuro da paleta
-    textSecondary: '#5A625D',           // Texto secundário
-    textMuted: '#7D857F',
-    placeholder: '#8B938D',
-    border: '#D6D8D1',
-    borderStrong: '#BDC5BF',
-    inputBackground: '#FCFBF8',
-    overlay: '#10141266',
-    shadow: '#10211A',
-  };
+function buildThemeColors(mode: PaletteMode): ThemeColors {
+  return themeTokens[mode] as ThemeColors;
 }
 
 /**
@@ -321,11 +224,8 @@ function buildTypography(colors: ThemeColors) {
  * @returns Objeto completo do tema com cores e tipografia
  */
 function buildTheme(mode: PaletteMode): ThemeDefinition {
-  // Seleciona a paleta baseada no modo
-  const palette = mode === 'dark' ? DARK_PALETTE : LIGHT_PALETTE;
-  
   // Constrói o sistema completo de cores
-  const colors = buildThemeColors(palette, mode);
+  const colors = buildThemeColors(mode);
 
   // Retorna o tema completo com cores e tipografia
   return {
@@ -345,6 +245,12 @@ export const DARK_THEME = buildTheme('dark');    // Tema escuro
  */
 export function getTheme(mode: PaletteMode = 'light') {
   return mode === 'dark' ? DARK_THEME : LIGHT_THEME;
+}
+
+export function useThemeColors() {
+  const colorScheme = useColorScheme();
+
+  return getTheme(colorScheme === 'dark' ? 'dark' : 'light').colors;
 }
 
 // Exportação das cores do tema light para uso direto

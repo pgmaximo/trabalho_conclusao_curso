@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "baseUrl": ".",
+    "resolveJsonModule": true,
     "moduleResolution": "bundler",
     "paths": {
       "@/*": [
@@ -12,6 +13,7 @@
   },
   "include": [
     "src/**/*.ts",
-    "src/**/*.tsx"
+    "src/**/*.tsx",
+    "nativewind-env.d.ts"
   ]
 }

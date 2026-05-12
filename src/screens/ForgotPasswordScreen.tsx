@@ -1,43 +1,24 @@
-// =============================================================================
-// Arquivo: ForgotPasswordScreen.tsx
-// Descricao: Tela de recuperacao e redefinicao de senha por e-mail.
-// Componente/screen pertencente: ForgotPasswordScreen
-// =============================================================================
-//
-// Funcionalidades:
-// - Solicita codigo de recuperacao via AWS Amplify.
-// - Permite confirmar codigo e definir uma nova senha.
-// - Mantem acao para reenviar codigo e voltar ao login.
-//
-// Estrutura visual:
-// - Area segura com status bar clara.
-// - Imagem superior centralizada e conectada visualmente ao card.
-// - Card com campos, acoes principais/secundarias e link de retorno.
-//
-// =============================================================================
-
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { StatusBar } from 'expo-status-bar';
 import { confirmResetPassword, resetPassword } from 'aws-amplify/auth';
 
 import { AuthInput } from '@/components/AuthInput';
+import { AuthIllustrationCard } from '@/components/AuthIllustrationCard';
 import { Button } from '@/components/Button';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { useThemeColors } from '@/constants/theme';
 import { blurActiveWebElement } from '@/utils/webFocus';
 
 const forgotPasswordImage = require('../../assets/images/forgot_password_image.png');
@@ -47,6 +28,8 @@ type ForgotPasswordScreenProps = {
 };
 
 export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProps) {
+  const colors = useThemeColors();
+  const colorScheme = useColorScheme();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -141,180 +124,111 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <KeyboardAvoidingView
-        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
       >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.forgotPasswordComposition}>
-            {/* A margem negativa conecta a imagem ao card para parecer que ela sai do formulario. */}
-            <View style={styles.forgotPasswordImageWrapper}>
-              <Image
-                source={forgotPasswordImage}
-                style={styles.forgotPasswordImage}
-                resizeMode="contain"
-              />
-            </View>
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="flex-grow"
+          keyboardShouldPersistTaps="handled"
+        >
+          <AuthIllustrationCard imageSource={forgotPasswordImage}>
+                <Text className="mb-3 text-xl font-bold leading-[26px] text-app-text dark:text-app-dark-text">
+                  {codeSent ? 'Defina uma nova senha' : 'Recuperar senha'}
+                </Text>
+                <Text className="mb-6 text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                  {codeSent
+                    ? 'Digite o codigo recebido e escolha uma nova senha.'
+                    : 'Informe seu e-mail para receber o codigo de recuperacao.'}
+                </Text>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>
-                {codeSent ? 'Defina uma nova senha' : 'Recuperar senha'}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {codeSent
-                  ? 'Digite o codigo recebido e escolha uma nova senha.'
-                  : 'Informe seu e-mail para receber o codigo de recuperacao.'}
-              </Text>
-
-              <AuthInput
-                label="E-mail"
-                icon={<MaterialIcons name="email" size={20} color={COLORS.placeholder} />}
-                containerStyle={styles.firstField}
-                placeholder="Digite seu e-mail"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-                editable={!isLoading && !codeSent}
-              />
-
-              {codeSent ? (
-                <>
-                  <AuthInput
-                    label="Codigo"
-                    icon={
-                      <MaterialIcons
-                        name="confirmation-number"
-                        size={20}
-                        color={COLORS.placeholder}
-                      />
-                    }
-                    placeholder="Digite o codigo recebido"
-                    keyboardType="number-pad"
-                    value={code}
-                    onChangeText={setCode}
-                    editable={!isLoading}
-                  />
-
-                  <AuthInput
-                    label="Nova senha"
-                    icon={<MaterialIcons name="lock" size={20} color={COLORS.placeholder} />}
-                    placeholder="Digite a nova senha"
-                    secureTextEntry
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    editable={!isLoading}
-                  />
-
-                  <AuthInput
-                    label="Confirmar nova senha"
-                    icon={<MaterialIcons name="lock" size={20} color={COLORS.placeholder} />}
-                    placeholder="Confirme a nova senha"
-                    secureTextEntry
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    editable={!isLoading}
-                  />
-                </>
-              ) : null}
-
-              {isLoading ? (
-                <ActivityIndicator
-                  size="large"
-                  color={COLORS.primary}
-                  style={styles.loadingIndicator}
+                <AuthInput
+                  autoCapitalize="none"
+                  containerClassName="mt-0"
+                  editable={!isLoading && !codeSent}
+                  icon={<MaterialIcons color={colors.placeholder} name="email" size={20} />}
+                  keyboardType="email-address"
+                  label="E-mail"
+                  onChangeText={setEmail}
+                  placeholder="Digite seu e-mail"
+                  value={email}
                 />
-              ) : (
-                <View style={styles.primaryAction}>
-                  <Button
-                    title={codeSent ? 'Alterar senha' : 'Enviar codigo'}
-                    onPress={codeSent ? handleConfirmPassword : handleSendCode}
+
+                {codeSent ? (
+                  <>
+                    <AuthInput
+                      editable={!isLoading}
+                      icon={
+                        <MaterialIcons
+                          color={colors.placeholder}
+                          name="confirmation-number"
+                          size={20}
+                        />
+                      }
+                      keyboardType="number-pad"
+                      label="Codigo"
+                      onChangeText={setCode}
+                      placeholder="Digite o codigo recebido"
+                      value={code}
+                    />
+
+                    <AuthInput
+                      editable={!isLoading}
+                      icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
+                      label="Nova senha"
+                      onChangeText={setNewPassword}
+                      placeholder="Digite a nova senha"
+                      secureTextEntry
+                      value={newPassword}
+                    />
+
+                    <AuthInput
+                      editable={!isLoading}
+                      icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
+                      label="Confirmar nova senha"
+                      onChangeText={setConfirmPassword}
+                      placeholder="Confirme a nova senha"
+                      secureTextEntry
+                      value={confirmPassword}
+                    />
+                  </>
+                ) : null}
+
+                {isLoading ? (
+                  <ActivityIndicator
+                    color={colors.primary}
+                    size="large"
+                    style={{ marginBottom: 24, marginTop: 12 }}
                   />
+                ) : (
+                  <View className="gap-3">
+                    <Button
+                      onPress={codeSent ? handleConfirmPassword : handleSendCode}
+                      title={codeSent ? 'Alterar senha' : 'Enviar codigo'}
+                    />
 
-                  {codeSent ? (
-                    <Button title="Reenviar codigo" variant="secondary" onPress={handleSendCode} />
-                  ) : null}
-                </View>
-              )}
+                    {codeSent ? (
+                      <Button onPress={handleSendCode} title="Reenviar codigo" variant="secondary" />
+                    ) : null}
+                  </View>
+                )}
 
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={styles.loginLink}
-                onPress={handleBackToLogin}
-                disabled={isLoading}
-              >
-                <Text style={styles.loginLinkText}>Voltar para entrar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  className="mt-6 self-center"
+                  disabled={isLoading}
+                  onPress={handleBackToLogin}
+                >
+                  <Text className="text-[15px] font-semibold leading-[22px] text-app-primary dark:text-app-dark-primary">
+                    Voltar para entrar
+                  </Text>
+                </TouchableOpacity>
+          </AuthIllustrationCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: SIZES.large,
-    paddingTop: SIZES.small,
-    paddingBottom: SIZES.large,
-  },
-  forgotPasswordComposition: {
-    alignItems: 'stretch',
-  },
-  forgotPasswordImageWrapper: {
-    alignItems: 'center',
-    zIndex: 2,
-    marginBottom: -SIZES.medium,
-  },
-  forgotPasswordImage: {
-    width: '100%',
-    maxWidth: 300,
-    height: 230,
-    alignSelf: 'center',
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.cardRadius,
-    padding: SIZES.large,
-    paddingTop: SIZES.large + SIZES.small,
-    boxShadow: `0px 12px 30px ${COLORS.shadow}14`,
-    elevation: 5,
-  },
-  cardTitle: {
-    ...FONTS.heading,
-    marginBottom: SIZES.small,
-  },
-  cardSubtitle: {
-    ...FONTS.body,
-    marginBottom: SIZES.large,
-  },
-  firstField: {
-    marginTop: 0,
-  },
-  loadingIndicator: {
-    marginTop: SIZES.small,
-    marginBottom: SIZES.large,
-  },
-  primaryAction: {
-    gap: SIZES.small,
-  },
-  loginLink: {
-    alignSelf: 'center',
-    marginTop: SIZES.large,
-  },
-  loginLinkText: {
-    ...FONTS.body,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-});
