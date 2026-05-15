@@ -119,7 +119,10 @@ export function HomeScreen({
 
       if (error.name === 'UserNotConfirmedException') message = 'Usuário ainda não confirmado.';
 
-      if (error.name === 'InvalidParameterException' && error.message.includes('USER_PASSWORD_AUTH')) {
+      if (
+        error.name === 'InvalidParameterException' &&
+        error.message?.includes('USER_PASSWORD_AUTH')
+      ) {
         message = 'Erro de configuração: Habilite ALLOW_USER_PASSWORD_AUTH no console da AWS.';
       }
 

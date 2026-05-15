@@ -41,6 +41,17 @@ yarn-error.*
 /ios
 /android
 
+# Amplify Backend (artefatos temporários e locais)
+.amplify/
+amplify_outputs.json
+
+# AWS CLI / Credential
+.aws/
+
+# local agent and generated logs
+AGENTS.md
+.expo-codex.log
+
 # local spec-driven notes
 Spec/
 Docs/
