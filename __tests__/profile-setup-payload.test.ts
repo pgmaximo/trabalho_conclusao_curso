@@ -1,4 +1,5 @@
 import {
+  buildAmplifyUserProfileInput,
   buildPreventionTaskForceQuery,
   calculateAgeFromBirthDate,
 } from '@/services/profileSetupPayload';
@@ -56,6 +57,35 @@ describe('profile setup payload helpers', () => {
       pregnant: 'Y',
       tobacco: 'N',
       sexuallyActive: 'N',
+    });
+  });
+
+  it('maps profile setup values to the Amplify UserProfile model shape', () => {
+    const values: ProfileSetupFormValues = {
+      fullName: ' Maria Silva ',
+      birthDate: '06/05/2000',
+      biologicalSex: 'female',
+      pregnancyStatus: 'no',
+      heightCm: '1,65',
+      weightKg: '70,5',
+      chronicConditions: '',
+      medications: '',
+      allergies: '',
+      tobaccoUse: 'no',
+      alcoholUse: 'unknown',
+      physicalActivity: 'yes',
+      sexuallyActive: 'yes',
+    };
+
+    expect(buildAmplifyUserProfileInput(values)).toEqual({
+      fullName: 'Maria Silva',
+      birthDate: '2000-05-06',
+      sex: 'Feminino',
+      heightCm: 165,
+      weightKg: 70.5,
+      isSmoker: false,
+      sexuallyActive: true,
+      pregnancy: false,
     });
   });
 });

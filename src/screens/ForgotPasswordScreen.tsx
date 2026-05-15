@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmResetPassword, resetPassword } from 'aws-amplify/auth';
 
 import { AuthInput } from '@/components/AuthInput';
+import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
 import { AuthIllustrationCard } from '@/components/AuthIllustrationCard';
 import { Button } from '@/components/Button';
 import { useThemeColors } from '@/constants/theme';
@@ -126,6 +127,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <AuthBackgroundGlow corner="topLeft" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"

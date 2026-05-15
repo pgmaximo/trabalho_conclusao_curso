@@ -23,7 +23,7 @@
 
 // Importações necessárias
 import '@/global.css';
-import '@/services/auth/amplify';            // Configuração global do AWS Amplify
+import '@/services/amplify/configureAmplify'; // Configuração global do AWS Amplify
 import React from 'react';                    // Biblioteca principal React
 import { Stack } from 'expo-router';         // Componente de navegação Stack
 

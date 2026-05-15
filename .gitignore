@@ -43,7 +43,6 @@ yarn-error.*
 
 # Amplify Backend (artefatos temporários e locais)
 .amplify/
-amplify_outputs.json
 
 # AWS CLI / Credential
 .aws/
@@ -54,8 +53,8 @@ AGENTS.md
 
 # local spec-driven notes
 Spec/
-Docs/
-!docs/
-!docs/superpowers/
-!docs/superpowers/plans/
-!docs/superpowers/plans/*.md
+docs/superpowers/
+docs/superpowers/plans/
+docs/superpowers/plans/*.md
+
+1255,56

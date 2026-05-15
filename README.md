@@ -51,6 +51,16 @@ O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e pro
 
 ---
 
+## AWS Amplify Gen 2
+
+O app usa um backend compartilhado de desenvolvimento no Amplify Gen 2. O arquivo `amplify_outputs.json` da raiz e a configuracao oficial do app nesse ambiente e deve ser versionado, porque contem configuracao publica de cliente, nao credenciais secretas.
+
+A pasta `amplify/` continua fora de `src/` porque representa backend-as-code. O codigo de runtime que consome Cognito e Amplify Data fica em `src/services/`, com o bootstrap global em `src/services/amplify/configureAmplify.ts`.
+
+Credenciais AWS, `.env`, `.env*.local`, `.aws/`, `.amplify/`, caches e artefatos gerados nao devem ser enviados ao Git. Para producao, use outro ambiente/output antes de release. Detalhes: [docs/aws-amplify.md](docs/aws-amplify.md).
+
+---
+
 ## 🏗️ Estrutura do Projeto
 
 ```

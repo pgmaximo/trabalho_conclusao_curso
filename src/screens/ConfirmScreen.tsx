@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmSignUp } from 'aws-amplify/auth';
 
 import { AuthInput } from '@/components/AuthInput';
+import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
 import { AuthIllustrationCard } from '@/components/AuthIllustrationCard';
 import { Button } from '@/components/Button';
 import { useThemeColors } from '@/constants/theme';
@@ -67,6 +68,7 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <AuthBackgroundGlow corner="topRight" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
