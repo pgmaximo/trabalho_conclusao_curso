@@ -8,7 +8,7 @@ export const AI_ANALYSIS_SNAPSHOT: AIAnalysisSnapshot = {
   analysisSubtitle: 'Identifiquei os seguintes pontos:',
   recommendation:
     'A ferritina está abaixo do nível. Converse com seu médico sobre suplementação de ferro.',
-  historyLabel: 'Ver histórico de análises anteriores →',
+  historyLabel: 'Ver histórico de análises anteriores ->',
   historyCount: '5 análises nos últimos 6 meses',
   actions: [
     { icon: '📷', label: 'Câmera' },

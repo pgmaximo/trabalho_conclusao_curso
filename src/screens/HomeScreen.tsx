@@ -171,10 +171,12 @@ export function HomeScreen({
                   editable={!isLoading}
                   hasError={hasLoginError}
                   icon={<MaterialIcons color={colors.placeholder} name="email" size={20} />}
+                  inputClassName="text-white"
                   keyboardType="email-address"
                   label="E-mail"
                   onChangeText={handleEmailChange}
                   placeholder="Digite seu e-mail"
+                  style={{ color: '#ffffff' }}
                   value={email}
                 />
 
@@ -182,10 +184,12 @@ export function HomeScreen({
                   editable={!isLoading}
                   hasError={hasLoginError}
                   icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
+                  inputClassName="text-white"
                   label="Senha"
                   onChangeText={handlePasswordChange}
                   placeholder="Digite sua senha"
                   secureTextEntry
+                  style={{ color: '#ffffff' }}
                   value={password}
                 />
 

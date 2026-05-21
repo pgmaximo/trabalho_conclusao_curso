@@ -6,3 +6,4 @@ export * from './authFlow';
 export * from './google-auth';
 export * from './profileSetupStatus';
 export * from './session';
+export * from './userSessionService';

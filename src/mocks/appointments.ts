@@ -9,7 +9,7 @@
 //
 // Estrutura de Dados:
 // - dates: Array de dias do mês com indicação de consultas
-// - appointmentsByDay: Objeto mapeando dia → array de consultas
+// - appointmentsByDay: Objeto mapeando dia -> array de consultas
 //
 // Tipos de Consultas:
 // - consulta: Consulta médica regular
@@ -38,7 +38,7 @@ export const APPOINTMENTS_SNAPSHOT: AppointmentsSnapshot = {
     { day: 28, month: 'abr', hasAppointments: true },  // Dia 28 tem consultas
   ],
   
-  // Objeto mapeando dia → array de consultas médicas
+  // Objeto mapeando dia -> array de consultas médicas
   appointmentsByDay: {
     // Consultas do dia 25 (exemplo detalhado)
     25: [

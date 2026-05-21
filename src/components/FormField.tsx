@@ -9,7 +9,7 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { useThemeColors } from '@/constants/theme';
+import { useThemeColors, COLORS } from '@/constants/theme';
 
 type FormFieldProps = TextInputProps & {
   label: string;
@@ -78,7 +78,7 @@ export function FormField({
             .filter(Boolean)
             .join(' ')}
           placeholderTextColor={colors.placeholder}
-          style={style}
+          style={[{ color: COLORS.text }, style]}
           {...rest}
         />
       </View>

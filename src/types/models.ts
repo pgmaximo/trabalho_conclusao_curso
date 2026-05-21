@@ -204,7 +204,7 @@ export interface AppointmentEntry {
 // Interface completa para snapshot de consultas
 export interface AppointmentsSnapshot {
   dates: CalendarDateItem[];                           // Array de datas do calendário
-  appointmentsByDay: Record<number, AppointmentEntry[]>; // Mapeamento dia → consultas
+  appointmentsByDay: Record<number, AppointmentEntry[]>; // Mapeamento dia -> consultas
 }
 
 // =============================================================================

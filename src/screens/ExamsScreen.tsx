@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as DocumentPicker from 'expo-document-picker';
+import { router } from 'expo-router';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
@@ -46,6 +48,40 @@ export function ExamsScreen({
   onFilterChange,
 }: ExamsScreenProps) {
   const [isSheetVisible, setIsSheetVisible] = useState(false);
+  const [isPickingFile, setIsPickingFile] = useState(false);
+
+  async function pickDocument() {
+    try {
+      setIsPickingFile(true);
+
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+
+        // Close the bottom sheet
+        setIsSheetVisible(false);
+
+        // Navigate to AddExamScreen with file details
+        router.push({
+          pathname: '/add-exam',
+          params: {
+            fileName: asset.name,
+            filePath: asset.uri,
+            fileSize: asset.size || 0,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      alert('Erro ao selecionar o documento. Tente novamente.');
+    } finally {
+      setIsPickingFile(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -148,7 +184,11 @@ export function ExamsScreen({
         description="Escolha o tipo de origem que voce pretende integrar no futuro."
         onClose={() => setIsSheetVisible(false)}
       >
-        <Button title="Enviar PDF ou imagem" onPress={() => setIsSheetVisible(false)} />
+        <Button 
+          title="Enviar PDF ou imagem" 
+          onPress={pickDocument}
+          disabled={isPickingFile}
+        />
         <Button
           title="Capturar com a camera"
           variant="secondary"
