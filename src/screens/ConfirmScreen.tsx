@@ -19,6 +19,7 @@ import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
 import { AuthIllustrationCard } from '@/components/AuthIllustrationCard';
 import { Button } from '@/components/Button';
 import { useThemeColors } from '@/constants/theme';
+import { initializeUserSession } from '@/services/auth/userSessionService';
 import { blurActiveWebElement } from '@/utils/webFocus';
 
 const confirmImage = require('../../assets/images/confirm_image.png');
@@ -55,6 +56,8 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
       });
 
       Alert.alert('Sucesso!', 'Sua conta foi confirmada com sucesso.');
+      // Initialize user session after email confirmation
+      await initializeUserSession();
       blurActiveWebElement();
       onConfirmSuccess();
     } catch (error: any) {

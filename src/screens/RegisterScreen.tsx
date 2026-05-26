@@ -23,6 +23,7 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { SocialButton } from '@/components/SocialButton';
 import { useThemeColors } from '@/constants/theme';
 import { serializeAuthError, signInWithGoogle } from '@/services/auth';
+import { initializeUserSession } from '@/services/auth/userSessionService';
 import { blurActiveWebElement } from '@/utils/webFocus';
 
 const registerImage = require('../../assets/images/register_image.png');
@@ -122,6 +123,8 @@ export function RegisterScreen({
 
     try {
       await signInWithGoogle();
+      // Initialize user session after Google sign-in
+      await initializeUserSession();
       onGoogleAuthSuccess();
     } catch (error: any) {
       console.log('Erro no cadastro com Google:', serializeAuthError(error));

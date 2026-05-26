@@ -5,14 +5,17 @@
  * A UI chama apenas esta camada para lógica de negócios.
  */
 
-// Descomenta quando o schema estiver pronto e o serviço for integrado ao Amplify Data:
-// import { generateClient } from 'aws-amplify/data';
-// import type { Schema } from '../../amplify/data/resource';
-// const client = generateClient<Schema>();
+import { generateClient } from 'aws-amplify/data';
+import type { Schema } from '../../amplify/data/resource';
+import { uploadData } from 'aws-amplify/storage';
+import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { getUserId } from '@/services/auth';
+
+const client = generateClient<Schema>();
 
 export type DocumentType = 'exam' | 'prescription';
 
@@ -148,24 +151,44 @@ export function validateExamDocument(
 }
 
 /**
- * Carrega um arquivo para o S3
- * TODO: Implementar quando storage estiver configurado no Amplify backend
+ * Carrega um arquivo para o S3 usando Amplify Storage
  */
 async function uploadFileToS3(
   filePath: string,
   s3FileName: string,
 ): Promise<string> {
   try {
-    // import { uploadData } from 'aws-amplify/storage';
-    // const result = await uploadData({
-    //   path: s3FileName,
-    //   data: await readFileAsBlob(filePath),
-    // }).result;
-    // return result.path;
+    let blobData: Blob;
 
-    // Por enquanto, apenas loga o upload (mock)
-    console.log(`[Mock] Uploading file to S3: ${s3FileName}`);
-    return `s3://seus-saude-exams/${s3FileName}`;
+    // Handle web vs native platforms
+    if (Platform.OS === 'web') {
+      // On web, filePath is a blob URI or file URI from the document picker
+      // Fetch it as a blob
+      const response = await fetch(filePath);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
+      }
+      blobData = await response.blob();
+    } else {
+      // On native, filePath is a file system path
+      // Read the file from the path as base64
+      const base64Data = await readAsStringAsync(filePath, {
+        encoding: EncodingType.Base64,
+      });
+
+      // Convert base64 to blob
+      const response = await fetch(`data:application/octet-stream;base64,${base64Data}`);
+      blobData = await response.blob();
+    }
+
+    // Upload para S3 usando Amplify Storage
+    const result = await uploadData({
+      path: `medical-documents/{owner}/${s3FileName}`,
+      data: blobData,
+    }).result;
+
+    console.log(`Arquivo enviado para S3: ${result.path}`);
+    return result.path;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro ao fazer upload do arquivo';
     throw new Error(`Falha no upload para S3: ${message}`);
@@ -197,39 +220,27 @@ async function buildDocumentMetadata(
 }
 
 /**
- * Salva os metadados do documento no DynamoDB
- * TODO: Implementar quando schema MedicalDocument estiver pronto
+ * Salva os metadados do documento no DynamoDB via Amplify Data
  */
 async function saveDocumentMetadata(metadata: FileMetadata): Promise<FileMetadata> {
   try {
-    // import { generateClient } from 'aws-amplify/data';
-    // import type { Schema } from '../../amplify/data/resource';
-    // const client = generateClient<Schema>();
-    // const { data, errors } = await client.models.MedicalDocument.create({
-    //   id: metadata.fileId,
-    //   userId: metadata.userId,
-    //   s3FileName: metadata.s3FileName,
-    //   originalFileName: metadata.originalFileName,
-    //   documentType: metadata.documentType,
-    //   documentName: metadata.documentName,
-    //   documentDate: metadata.documentDate,
-    //   expirationDate: metadata.expirationDate || null,
-    //   fileSize: metadata.fileSize,
-    //   createdAt: metadata.createdAt,
-    // });
-    //
-    // if (errors?.length) {
-    //   const message = errors
-    //     .map((error) => error.message)
-    //     .filter(Boolean)
-    //     .join('; ');
-    //   throw new Error(message || 'Não foi possível salvar os metadados.');
-    // }
-    //
-    // return metadata;
+    const { data, errors } = await client.models.MedicalDocument.create({
+      documentType: metadata.documentType as Schema['MedicalDocument']['type']['documentType'],
+      s3FileName: metadata.s3FileName,
+      documentName: metadata.documentName,
+      documentDate: metadata.documentDate,
+      expirationDate: metadata.expirationDate || null,
+    });
 
-    // Por enquanto, apenas loga os metadados (mock)
-    console.log('Metadados do documento:', metadata);
+    if (errors?.length) {
+      const message = errors
+        .map((error) => error.message)
+        .filter(Boolean)
+        .join('; ');
+      throw new Error(message || 'Não foi possível salvar os metadados.');
+    }
+
+    console.log('Documento salvo no banco de dados:', data);
     return metadata;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro ao salvar metadados';
