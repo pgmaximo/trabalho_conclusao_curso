@@ -91,8 +91,7 @@ const styles = StyleSheet.create({
     minHeight: 140,                 // Altura mínima para consistência
     justifyContent: 'space-between', // Distribui espaço verticalmente
     marginHorizontal: SIZES.small,  // Margem horizontal
-    boxShadow: `0px 2px 8px ${COLORS.shadow}14`, // Sombra web moderna
-    elevation: 2,                   // Elevação para Android
+    boxShadow: `0px 2px 8px ${COLORS.shadow}14`,
   },
   
   // Estilo para variante horizontal

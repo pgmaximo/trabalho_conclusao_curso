@@ -6,9 +6,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
-  TouchableOpacity,
   useColorScheme,
   View,
 } from 'react-native';
@@ -131,7 +131,7 @@ export function RegisterScreen({
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AuthBackgroundGlow corner="bottomLeft" />
       <KeyboardAvoidingView
@@ -140,7 +140,7 @@ export function RegisterScreen({
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName="flex-grow"
+          contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
           keyboardShouldPersistTaps="handled"
         >
           <AuthIllustrationCard imageSource={registerImage}>
@@ -229,11 +229,11 @@ export function RegisterScreen({
                   />
                 </View>
 
-                <TouchableOpacity
-                  activeOpacity={0.7}
+                <Pressable
                   className="mt-6 self-center"
                   disabled={isLoading}
                   onPress={onNavigateToLogin}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                 >
                   <Text className="text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
                     Já tem uma conta?{' '}
@@ -241,7 +241,7 @@ export function RegisterScreen({
                       Entrar
                     </Text>
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
           </AuthIllustrationCard>
         </ScrollView>
       </KeyboardAvoidingView>

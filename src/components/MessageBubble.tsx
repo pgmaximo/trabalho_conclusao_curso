@@ -42,7 +42,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.base,
     paddingVertical: SIZES.small,
     boxShadow: `0px 2px 6px ${COLORS.shadow}0F`,
-    elevation: 2,
   },
   text: {
     ...FONTS.body,

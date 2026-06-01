@@ -6,9 +6,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
-  TouchableOpacity,
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -66,7 +66,7 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AuthBackgroundGlow corner="topRight" />
       <KeyboardAvoidingView
@@ -75,7 +75,7 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName="flex-grow"
+          contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
           keyboardShouldPersistTaps="handled"
         >
           <AuthIllustrationCard imageSource={confirmImage}>
@@ -114,16 +114,16 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
                 )}
 
                 {onBackToLogin ? (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
+                  <Pressable
                     className="mt-6 self-center"
                     disabled={isLoading}
                     onPress={handleBackToLogin}
+                    style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                   >
                     <Text className="text-[15px] font-semibold leading-[22px] text-app-primary dark:text-app-dark-primary">
                       Voltar para entrar
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ) : null}
           </AuthIllustrationCard>
         </ScrollView>

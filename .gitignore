@@ -49,7 +49,9 @@ yarn-error.*
 
 # local agent and generated logs
 AGENTS.md
+CLAUDE.md
 .expo-codex.log
+graphify-out/
 
 # local spec-driven notes
 Spec/

@@ -7,9 +7,9 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
-  TouchableOpacity,
   useColorScheme,
   View,
 } from 'react-native';
@@ -148,7 +148,7 @@ export function HomeScreen({
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AuthBackgroundGlow corner="bottomRight" />
       <KeyboardAvoidingView
@@ -157,7 +157,7 @@ export function HomeScreen({
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName="flex-grow"
+          contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
           keyboardShouldPersistTaps="handled"
         >
           <AuthIllustrationCard imageSource={loginImage}>
@@ -189,16 +189,16 @@ export function HomeScreen({
                   value={password}
                 />
 
-                <TouchableOpacity
-                  activeOpacity={0.7}
+                <Pressable
                   className="mb-[18px] mt-3 self-end"
                   disabled={isLoading}
                   onPress={onNavigateToForgotPassword}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                 >
                   <Text className="text-[15px] leading-[22px] text-app-primary dark:text-app-dark-primary">
                     Esqueceu a senha?
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {isLoading ? (
                   <ActivityIndicator
@@ -240,11 +240,11 @@ export function HomeScreen({
                   <SocialButton iconSource={googleLogo} onPress={handleGoogleLogin} title="Google" />
                 </View>
 
-                <TouchableOpacity
-                  activeOpacity={0.7}
+                <Pressable
                   className="mt-6 self-center"
                   disabled={isLoading}
                   onPress={onNavigateToRegister}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                 >
                   <Text className="text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
                     Não tem uma conta?{' '}
@@ -252,7 +252,7 @@ export function HomeScreen({
                       Criar conta
                     </Text>
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
           </AuthIllustrationCard>
         </ScrollView>
       </KeyboardAvoidingView>

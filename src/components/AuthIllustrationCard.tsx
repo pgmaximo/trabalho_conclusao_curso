@@ -16,7 +16,7 @@ export function AuthIllustrationCard({ children, imageSource }: AuthIllustration
   const colors = useThemeColors();
 
   return (
-    <View className="flex-1 justify-center px-6 py-6" testID="auth-illustration-card-root">
+    <View className="w-full justify-center" testID="auth-illustration-card-root">
       <View className="items-stretch">
         <View className="z-10 -mb-12 items-center">
           <Image
@@ -29,7 +29,7 @@ export function AuthIllustrationCard({ children, imageSource }: AuthIllustration
 
         <View
           className="rounded-card bg-app-surface p-6 pt-14 dark:bg-app-dark-surface"
-          style={{ boxShadow: `0px 12px 30px ${colors.shadow}14`, elevation: 5 }}
+          style={{ boxShadow: `0px 12px 30px ${colors.shadow}14` }}
           testID="auth-illustration-card-content"
         >
           {children}

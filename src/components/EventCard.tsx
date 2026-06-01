@@ -57,7 +57,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     boxShadow: `0px 2px 4px ${COLORS.shadow}0A`,
-    elevation: 1,
   },
   content: {
     flexDirection: 'row',

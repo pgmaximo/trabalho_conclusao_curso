@@ -6,9 +6,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
-  TouchableOpacity,
   useColorScheme,
   View,
 } from 'react-native';
@@ -125,7 +125,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AuthBackgroundGlow corner="topLeft" />
       <KeyboardAvoidingView
@@ -134,7 +134,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName="flex-grow"
+          contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
           keyboardShouldPersistTaps="handled"
         >
           <AuthIllustrationCard imageSource={forgotPasswordImage}>
@@ -218,16 +218,16 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                   </View>
                 )}
 
-                <TouchableOpacity
-                  activeOpacity={0.7}
+                <Pressable
                   className="mt-6 self-center"
                   disabled={isLoading}
                   onPress={handleBackToLogin}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                 >
                   <Text className="text-[15px] font-semibold leading-[22px] text-app-primary dark:text-app-dark-primary">
                     Voltar para entrar
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
           </AuthIllustrationCard>
         </ScrollView>
       </KeyboardAvoidingView>

@@ -83,8 +83,7 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,   // Cor da borda
     paddingBottom: SIZES.large,     // Padding inferior (considera safe area)
     paddingTop: SIZES.small,         // Padding superior
-    boxShadow: `0px -2px 8px ${COLORS.shadow}14`, // Sombra web moderna
-    elevation: 3,                   // Elevação para Android
+    boxShadow: `0px -2px 8px ${COLORS.shadow}14`,
   },
   
   // Estilo individual de cada tab

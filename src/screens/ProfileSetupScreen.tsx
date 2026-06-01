@@ -13,9 +13,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -26,13 +28,13 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   PROFILE_SETUP_NOTICE_TEXT,
 } from '@/components/profileSetup/ProfileSetupNotice';
 import { ProfileSetupReview } from '@/components/profileSetup/ProfileSetupReview';
-import { RADII, SHADOWS, SPACING, type ThemeColors, useThemeColors } from '@/constants/theme';
+import { SPACING, type ThemeColors, useThemeColors } from '@/constants/theme';
 import {
   profileSetupSchema,
   type OptionalAnswer,
@@ -82,6 +84,11 @@ const ANSWER_OPTIONS: { label: string; value: OptionalAnswer }[] = [
   { label: 'Prefiro não informar', value: 'unknown' },
 ];
 
+const FOOTER_BUTTON_HEIGHT = 56;
+const FOOTER_BUTTON_RADIUS = FOOTER_BUTTON_HEIGHT / 2;
+const CONTINUE_BUTTON_MAX_WIDTH = 244;
+const FOOTER_CONTENT_BOTTOM_SPACE = 96;
+
 type ProfileSetupStyles = ReturnType<typeof createProfileSetupStyles>;
 
 const ProfileSetupStylesContext = React.createContext<ProfileSetupStyles | null>(null);
@@ -103,11 +110,23 @@ function formatBirthDateInput(value: string) {
   return parts.join('/');
 }
 
+function formatHeightInput(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 3);
+
+  if (digits.length <= 1) {
+    return digits;
+  }
+
+  return `${digits.slice(0, 1)},${digits.slice(1)}`;
+}
+
 export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenProps) {
   const colors = useThemeColors();
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createProfileSetupStyles(colors), [colors]);
   const [currentStep, setCurrentStep] = useState(0);
+  const continueTranslateX = useRef(new Animated.Value(0)).current;
   const {
     control,
     handleSubmit,
@@ -123,6 +142,24 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
   const values = watch();
   const activeStep = STEPS[currentStep];
   const isLastStep = currentStep === STEPS.length - 1;
+  const footerPaddingBottom = Math.max(insets.bottom, 12);
+
+  function animateContinueAdvance() {
+    Animated.sequence([
+      Animated.timing(continueTranslateX, {
+        toValue: 10,
+        duration: 110,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(continueTranslateX, {
+        toValue: 0,
+        duration: 140,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }
 
   async function goNext() {
     if (activeStep.key === 'personal') {
@@ -138,6 +175,7 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
       return;
     }
 
+    animateContinueAdvance();
     setCurrentStep((step) => Math.min(step + 1, STEPS.length - 1));
   }
 
@@ -214,6 +252,8 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
           currentStep={currentStep}
           isLastStep={isLastStep}
           isSubmitting={isSubmitting}
+          paddingBottom={footerPaddingBottom}
+          continueTranslateX={continueTranslateX}
           onBack={goBack}
           onNext={goNext}
         />
@@ -428,7 +468,7 @@ function PersonalStep({ control, errors, setValue, values }: PersonalStepProps) 
               inputMode="decimal"
               label="Altura"
               onBlur={field.onBlur}
-              onChangeText={field.onChange}
+              onChangeText={(value) => field.onChange(formatHeightInput(value))}
               placeholder="Ex.: 1,65"
               unit="m"
               value={field.value}
@@ -772,56 +812,114 @@ function PrivacyNotice() {
 }
 
 function Footer({
+  continueTranslateX,
   currentStep,
   isLastStep,
   isSubmitting,
   onBack,
   onNext,
+  paddingBottom,
 }: {
+  continueTranslateX: Animated.Value;
   currentStep: number;
   isLastStep: boolean;
   isSubmitting: boolean;
   onBack: () => void;
   onNext: () => void;
+  paddingBottom: number;
 }) {
   const colors = useThemeColors();
   const styles = useProfileSetupStyles();
+  const backButtonProgress = useRef(new Animated.Value(currentStep > 0 ? 1 : 0)).current;
+  const isFirstStep = currentStep === 0;
+  const shouldShowBackButton = currentStep > 0;
+  const [isBackButtonMounted, setIsBackButtonMounted] = useState(shouldShowBackButton);
+  const backTranslateY = backButtonProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [34, 0],
+  });
+
+  useEffect(() => {
+    if (shouldShowBackButton) {
+      setIsBackButtonMounted(true);
+    }
+
+    Animated.timing(backButtonProgress, {
+      toValue: shouldShowBackButton ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && !shouldShowBackButton) {
+        setIsBackButtonMounted(false);
+      }
+    });
+  }, [backButtonProgress, shouldShowBackButton]);
 
   return (
-    <View style={styles.footer}>
-      <View style={styles.footerButtons}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onBack}
-          style={styles.backFooterButton}
-        >
-          <Text style={styles.backFooterText}>
-            {currentStep === 0 ? 'Voltar' : 'Voltar'}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={isSubmitting}
-          onPress={onNext}
-          style={({ pressed }) => [
-            styles.continueButton,
-            pressed || isSubmitting ? styles.buttonPressed : null,
+    <View style={[styles.footer, { paddingBottom }]}>
+      <View
+        style={[
+          styles.footerButtons,
+          isFirstStep ? styles.footerButtonsCentered : styles.footerButtonsWithBack,
+        ]}
+      >
+        {isBackButtonMounted ? (
+          <Animated.View
+            pointerEvents={shouldShowBackButton ? 'auto' : 'none'}
+            style={[
+              styles.backFooterSlot,
+              {
+                opacity: backButtonProgress,
+                transform: [{ translateY: backTranslateY }],
+              },
+            ]}
+          >
+            <Pressable
+              accessibilityLabel={shouldShowBackButton ? 'Voltar etapa' : undefined}
+              accessibilityRole="button"
+              accessible={shouldShowBackButton}
+              onPress={onBack}
+              style={styles.backFooterButton}
+            >
+              <Ionicons color={colors.primaryDark} name="chevron-back" size={20} />
+              <Text style={styles.backFooterText}>Voltar</Text>
+            </Pressable>
+          </Animated.View>
+        ) : null}
+        <Animated.View
+          style={[
+            styles.continueSlot,
+            isFirstStep ? styles.continueSlotCentered : null,
+            {
+              transform: [{ translateX: continueTranslateX }],
+            },
           ]}
         >
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
-            end={{ x: 1, y: 0 }}
-            start={{ x: 0, y: 0 }}
-            style={styles.continueGradient}
+          <Pressable
+            accessibilityLabel={isLastStep ? 'Concluir perfil' : 'Continuar para próxima etapa'}
+            accessibilityRole="button"
+            disabled={isSubmitting}
+            onPress={onNext}
+            style={({ pressed }) => [
+              styles.continueButton,
+              pressed || isSubmitting ? styles.buttonPressed : null,
+            ]}
           >
-            <Text style={styles.continueText}>
-              {isLastStep ? (isSubmitting ? 'Concluindo...' : 'Concluir perfil') : 'Continuar'}
-            </Text>
-            <Ionicons color={colors.onPrimary} name="chevron-forward" size={24} />
-          </LinearGradient>
-        </Pressable>
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              end={{ x: 1, y: 0 }}
+              start={{ x: 0, y: 0 }}
+              style={styles.continueGradient}
+            >
+              <Text style={styles.continueText}>
+                {isLastStep ? (isSubmitting ? 'Concluindo...' : 'Concluir perfil') : 'Continuar'}
+              </Text>
+              <Ionicons color={colors.onPrimary} name="chevron-forward" size={24} />
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
       </View>
-      <View style={styles.homeIndicator} />
     </View>
   );
 }
@@ -836,7 +934,7 @@ function createProfileSetupStyles(colors: ThemeColors) {
     flex: 1,
   },
   content: {
-    paddingBottom: 142,
+    paddingBottom: FOOTER_CONTENT_BOTTOM_SPACE,
   },
   header: {
     alignItems: 'flex-start',
@@ -1183,53 +1281,83 @@ function createProfileSetupStyles(colors: ThemeColors) {
     lineHeight: 20,
   },
   footer: {
-    ...SHADOWS.subtle,
-    backgroundColor: colors.footer,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    backgroundColor: 'transparent',
     bottom: 0,
     left: 0,
-    paddingBottom: 8,
-    paddingHorizontal: 28,
-    paddingTop: 18,
+    paddingHorizontal: 20,
+    paddingTop: 10,
     position: 'absolute',
     right: 0,
   },
   footerButtons: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 14,
+    gap: 12,
+  },
+  footerButtonsCentered: {
+    justifyContent: 'center',
+  },
+  footerButtonsWithBack: {
+    justifyContent: 'space-between',
   },
   backFooterButton: {
     alignItems: 'center',
-    borderColor: colors.primary,
-    borderRadius: RADII.pill,
+    backgroundColor: colors.footer,
+    borderColor: colors.borderStrong,
+    borderRadius: FOOTER_BUTTON_RADIUS,
     borderWidth: 1,
-    height: 54,
+    flexDirection: 'row',
+    gap: 4,
+    height: FOOTER_BUTTON_HEIGHT,
     justifyContent: 'center',
-    width: 112,
+    shadowColor: colors.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    paddingHorizontal: 16,
+    width: 116,
+  },
+  backFooterSlot: {
+    width: 116,
   },
   backFooterText: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontSize: 16,
     fontWeight: '800',
   },
   continueButton: {
-    borderRadius: RADII.pill,
-    flex: 1,
-    height: 56,
+    borderRadius: FOOTER_BUTTON_RADIUS,
+    height: FOOTER_BUTTON_HEIGHT,
+    minWidth: 0,
     overflow: 'hidden',
+    width: '100%',
+  },
+  continueSlot: {
+    flex: 1,
+    maxWidth: CONTINUE_BUTTON_MAX_WIDTH,
+    minWidth: 0,
+  },
+  continueSlotCentered: {
+    flex: 0,
+    width: '100%',
   },
   continueGradient: {
     alignItems: 'center',
+    borderRadius: FOOTER_BUTTON_RADIUS,
     flex: 1,
     flexDirection: 'row',
+    gap: 8,
+    height: FOOTER_BUTTON_HEIGHT,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    overflow: 'hidden',
   },
   continueText: {
     color: colors.onPrimary,
-    flex: 1,
     fontSize: 17,
     fontWeight: '800',
     lineHeight: 22,
@@ -1237,14 +1365,6 @@ function createProfileSetupStyles(colors: ThemeColors) {
   },
   buttonPressed: {
     opacity: 0.86,
-  },
-  homeIndicator: {
-    alignSelf: 'center',
-    backgroundColor: colors.homeIndicator,
-    borderRadius: 999,
-    height: 5,
-    marginTop: 13,
-    width: 134,
   },
   });
 }
