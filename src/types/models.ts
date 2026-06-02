@@ -70,12 +70,20 @@ export type MedicalDocumentFilter = 'Todos' | 'Exames' | 'Receitas' | 'Laudos';
 
 // Interface para documentos médicos
 export interface MedicalDocument {
+  id: string;                                      // Database ID for updates/deletes
   icon: string;                                    // Ícone representativo
   title: string;                                  // Título do documento
   subtitle: string;                               // Subtítulo com informações
   statusLabel: string;                            // Label do status
   statusColor: string;                            // Cor do status
   category: Exclude<MedicalDocumentFilter, 'Todos'>; // Categoria (excluindo "Todos")
+  // Full document data for editing
+  documentType: 'exam' | 'prescription';           // Tipo de documento
+  documentName: string;                           // Nome customizado
+  documentDate: string;                           // Data do documento (YYYY-MM-DD)
+  expirationDate: string | null;                  // Data de validade (nullable)
+  s3FileName: string;                             // Nome do arquivo no S3
+  originalFileName: string;                       // Nome original do arquivo
 }
 
 // =============================================================================
@@ -204,7 +212,7 @@ export interface AppointmentEntry {
 // Interface completa para snapshot de consultas
 export interface AppointmentsSnapshot {
   dates: CalendarDateItem[];                           // Array de datas do calendário
-  appointmentsByDay: Record<number, AppointmentEntry[]>; // Mapeamento dia → consultas
+  appointmentsByDay: Record<number, AppointmentEntry[]>; // Mapeamento dia -> consultas
 }
 
 // =============================================================================

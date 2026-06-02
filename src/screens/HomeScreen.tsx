@@ -24,6 +24,7 @@ import { SectionDivider } from '@/components/SectionDivider';
 import { SocialButton } from '@/components/SocialButton';
 import { useThemeColors } from '@/constants/theme';
 import { serializeAuthError, signInWithGoogle } from '@/services/auth';
+import { initializeUserSession } from '@/services/auth/userSessionService';
 import { blurActiveWebElement } from '@/utils/webFocus';
 
 const loginImage = require('../../assets/images/login_image.png');
@@ -104,6 +105,8 @@ export function HomeScreen({
       });
 
       if (isSignedIn) {
+        // Initialize user session before routing
+        await initializeUserSession();
         onLogin();
       } else if (nextStep.signInStep === 'CONFIRM_SIGN_UP') {
         Alert.alert('Conta não confirmada', 'Verifique seu e-mail para confirmar seu cadastro.');
@@ -139,6 +142,8 @@ export function HomeScreen({
 
     try {
       await signInWithGoogle();
+      // Initialize user session before routing
+      await initializeUserSession();
       onGoogleAuthSuccess();
     } catch (error: any) {
       console.log('Erro no login com Google:', serializeAuthError(error));
@@ -171,10 +176,12 @@ export function HomeScreen({
                   editable={!isLoading}
                   hasError={hasLoginError}
                   icon={<MaterialIcons color={colors.placeholder} name="email" size={20} />}
+                  inputClassName="text-white"
                   keyboardType="email-address"
                   label="E-mail"
                   onChangeText={handleEmailChange}
                   placeholder="Digite seu e-mail"
+                  style={{ color: '#ffffff' }}
                   value={email}
                 />
 
@@ -182,10 +189,12 @@ export function HomeScreen({
                   editable={!isLoading}
                   hasError={hasLoginError}
                   icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
+                  inputClassName="text-white"
                   label="Senha"
                   onChangeText={handlePasswordChange}
                   placeholder="Digite sua senha"
                   secureTextEntry
+                  style={{ color: '#ffffff' }}
                   value={password}
                 />
 

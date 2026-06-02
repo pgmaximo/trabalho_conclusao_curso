@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as DocumentPicker from 'expo-document-picker';
+import { router } from 'expo-router';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
@@ -21,6 +23,7 @@ import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
 import type { MedicalDocument, MedicalDocumentFilter } from '@/types/models';
+import { useSelectedDocument } from '@/contexts/DocumentContext';
 
 type ExamsScreenProps = {
   filterOptions: MedicalDocumentFilter[];
@@ -46,6 +49,41 @@ export function ExamsScreen({
   onFilterChange,
 }: ExamsScreenProps) {
   const [isSheetVisible, setIsSheetVisible] = useState(false);
+  const [isPickingFile, setIsPickingFile] = useState(false);
+  const { setSelectedDocument } = useSelectedDocument();
+
+  async function pickDocument() {
+    try {
+      setIsPickingFile(true);
+
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+
+        // Close the bottom sheet
+        setIsSheetVisible(false);
+
+        // Navigate to AddExamScreen with file details
+        router.push({
+          pathname: '/add-exam',
+          params: {
+            fileName: asset.name,
+            filePath: asset.uri,
+            fileSize: asset.size || 0,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      alert('Erro ao selecionar o documento. Tente novamente.');
+    } finally {
+      setIsPickingFile(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -109,7 +147,14 @@ export function ExamsScreen({
                         subtitle={document.subtitle}
                         statusLabel={document.statusLabel}
                         statusColor={document.statusColor}
-                        onPress={() => {}}
+                        onPress={() => {
+                          // Store document in context
+                          console.log('Clicked document:', document);
+                          setSelectedDocument(document);
+                          console.log('Set selected document, navigating...');
+                          // Navigate to document detail screen
+                          router.push('/(app)/document-detail');
+                        }}
                       />
                     ))
                   ) : (
@@ -148,7 +193,11 @@ export function ExamsScreen({
         description="Escolha o tipo de origem que voce pretende integrar no futuro."
         onClose={() => setIsSheetVisible(false)}
       >
-        <Button title="Enviar PDF ou imagem" onPress={() => setIsSheetVisible(false)} />
+        <Button 
+          title="Enviar PDF ou imagem" 
+          onPress={pickDocument}
+          disabled={isPickingFile}
+        />
         <Button
           title="Capturar com a camera"
           variant="secondary"
