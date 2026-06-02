@@ -26,24 +26,27 @@ import '@/global.css';
 import '@/services/amplify/configureAmplify'; // Configuração global do AWS Amplify
 import React from 'react';                    // Biblioteca principal React
 import { Stack } from 'expo-router';         // Componente de navegação Stack
+import { DocumentProvider } from '@/contexts/DocumentContext'; // Document context provider
 
 // Componente principal do layout raiz
 export default function RootLayout() {
   // Retorna o Stack Navigator configurado com as rotas principais
   return (
-    // Stack Navigator com header desativado para usar headers customizados
-    <Stack screenOptions={{ headerShown: false }}>
-      {/* Rota raiz - Ponto de entrada do aplicativo */}
-      <Stack.Screen name="index" />
-      
-      {/* Rota de registro - Tela para novos usuários */}
-      <Stack.Screen name="register" />
-      
-      {/* Rota de configuração de perfil - Setup inicial do usuário */}
-      <Stack.Screen name="profile-setup" />
-      
-      {/* Grupo de rotas do aplicativo principal - Contém as tabs internas */}
-      <Stack.Screen name="(app)" />
-    </Stack>
+    <DocumentProvider>
+      {/* Stack Navigator com header desativado para usar headers customizados */}
+      <Stack screenOptions={{ headerShown: false }}>
+        {/* Rota raiz - Ponto de entrada do aplicativo */}
+        <Stack.Screen name="index" />
+        
+        {/* Rota de registro - Tela para novos usuários */}
+        <Stack.Screen name="register" />
+        
+        {/* Rota de configuração de perfil - Setup inicial do usuário */}
+        <Stack.Screen name="profile-setup" />
+        
+        {/* Grupo de rotas do aplicativo principal - Contém as tabs internas */}
+        <Stack.Screen name="(app)" />
+      </Stack>
+    </DocumentProvider>
   );
 }

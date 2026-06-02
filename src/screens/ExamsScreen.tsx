@@ -23,6 +23,7 @@ import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
 import type { MedicalDocument, MedicalDocumentFilter } from '@/types/models';
+import { useSelectedDocument } from '@/contexts/DocumentContext';
 
 type ExamsScreenProps = {
   filterOptions: MedicalDocumentFilter[];
@@ -49,6 +50,7 @@ export function ExamsScreen({
 }: ExamsScreenProps) {
   const [isSheetVisible, setIsSheetVisible] = useState(false);
   const [isPickingFile, setIsPickingFile] = useState(false);
+  const { setSelectedDocument } = useSelectedDocument();
 
   async function pickDocument() {
     try {
@@ -145,7 +147,14 @@ export function ExamsScreen({
                         subtitle={document.subtitle}
                         statusLabel={document.statusLabel}
                         statusColor={document.statusColor}
-                        onPress={() => {}}
+                        onPress={() => {
+                          // Store document in context
+                          console.log('Clicked document:', document);
+                          setSelectedDocument(document);
+                          console.log('Set selected document, navigating...');
+                          // Navigate to document detail screen
+                          router.push('/(app)/document-detail');
+                        }}
                       />
                     ))
                   ) : (

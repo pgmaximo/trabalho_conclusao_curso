@@ -7,13 +7,14 @@
 
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
-import { uploadData } from 'aws-amplify/storage';
+import { uploadData, remove } from 'aws-amplify/storage';
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { getUserId } from '@/services/auth';
+import { invalidateExamsCache } from '@/hooks/useExamsData';
 
 const client = generateClient<Schema>();
 
@@ -40,6 +41,11 @@ export interface FileMetadata {
   fileSize: number;
   /** Timestamp de criação */
   createdAt: string;
+}
+
+export interface MedicalDocumentMetadata extends FileMetadata {
+  /** Database ID for updates/deletes */
+  id: string;
 }
 
 export interface CreateExamDocumentInput {
@@ -275,9 +281,99 @@ export async function createExamDocument(input: CreateExamDocumentInput) {
     const savedMetadata = await saveDocumentMetadata(metadata);
     console.log('Documento salvo:', savedMetadata);
 
+    // 4. Invalidate cache so next fetch gets fresh data
+    await invalidateExamsCache();
+
     return savedMetadata;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
     throw new Error(`Erro ao criar documento: ${message}`);
+  }
+}
+
+export interface UpdateExamDocumentInput {
+  id: string;
+  documentType?: DocumentType;
+  documentName?: string;
+  documentDate?: string;
+  expirationDate?: string;
+}
+
+/**
+ * Update an existing document metadata (does not update the S3 file itself)
+ */
+export async function updateExamDocument(input: UpdateExamDocumentInput) {
+  try {
+    const updateData: Record<string, unknown> = {};
+
+    if (input.documentType !== undefined) {
+      updateData.documentType = input.documentType;
+    }
+    if (input.documentName !== undefined) {
+      updateData.documentName = input.documentName;
+    }
+    if (input.documentDate !== undefined) {
+      updateData.documentDate = input.documentDate;
+    }
+    if (input.expirationDate !== undefined) {
+      updateData.expirationDate = input.expirationDate || null;
+    }
+
+    const { data, errors } = await client.models.MedicalDocument.update({
+      id: input.id,
+      ...updateData,
+    });
+
+    if (errors?.length) {
+      const message = errors
+        .map((error) => error.message)
+        .filter(Boolean)
+        .join('; ');
+      throw new Error(message || 'Não foi possível atualizar o documento.');
+    }
+
+    console.log('Documento atualizado:', data);
+    return data;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    throw new Error(`Erro ao atualizar documento: ${message}`);
+  }
+}
+
+/**
+ * Delete a document from S3 and DynamoDB
+ */
+export async function deleteExamDocument(documentId: string, s3FileName: string) {
+  try {
+    // 1. Delete from S3
+    console.log('Deleting from S3:', s3FileName);
+    await remove({
+      path: `medical-documents/{owner}/${s3FileName}`,
+    });
+    console.log('File deleted from S3');
+
+    // 2. Delete from DynamoDB
+    console.log('Deleting from DynamoDB:', documentId);
+    const { data, errors } = await client.models.MedicalDocument.delete({
+      id: documentId,
+    });
+
+    if (errors?.length) {
+      const message = errors
+        .map((error) => error.message)
+        .filter(Boolean)
+        .join('; ');
+      throw new Error(message || 'Não foi possível deletar o documento.');
+    }
+
+    console.log('Documento deletado:', data);
+    
+    // 3. Invalidate cache so list updates
+    await invalidateExamsCache();
+    
+    return data;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    throw new Error(`Erro ao deletar documento: ${message}`);
   }
 }
