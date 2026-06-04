@@ -10,6 +10,8 @@ export const userSchema = {
       heightCm: a.integer(),
       isSmoker: a.boolean(),
       sexuallyActive: a.boolean(),
+      physicalActivity: a.boolean(),
+      alcoholConsumption: a.boolean(),
       pregnancy: a.boolean(),
     })
     .authorization((allow) => [

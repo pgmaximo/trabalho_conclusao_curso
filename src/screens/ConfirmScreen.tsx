@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,10 +9,10 @@ import {
   Pressable,
   ScrollView,
   Text,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { confirmSignUp } from 'aws-amplify/auth';
+import { confirmSignUp, resendSignUpCode } from 'aws-amplify/auth';
+import { useColorScheme } from 'nativewind';
 
 import { AuthInput } from '@/components/AuthInput';
 import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
@@ -32,13 +32,47 @@ type ConfirmScreenProps = {
 
 export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: ConfirmScreenProps) {
   const colors = useThemeColors();
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useColorScheme();
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // ATTENTION: cooldown inicia em 60 pois o código já foi enviado pelo RegisterScreen
+  const [cooldown, setCooldown] = useState(60);
+  const [isResending, setIsResending] = useState(false);
+
+  // DECISION: setInterval com cleanup no unmount evita memory leak do timer
+  useEffect(() => {
+    if (cooldown <= 0) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setCooldown((current) => (current <= 1 ? 0 : current - 1));
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [cooldown]);
 
   function handleBackToLogin() {
     blurActiveWebElement();
     onBackToLogin?.();
+  }
+
+  async function handleResend() {
+    if (cooldown > 0 || isResending) {
+      return;
+    }
+
+    setIsResending(true);
+
+    try {
+      await resendSignUpCode({ username: email });
+      setCooldown(60);
+    } catch (error) {
+      console.log('Erro ao reenviar código:', error);
+      Alert.alert('Erro', 'Não foi possível reenviar o código.');
+    } finally {
+      setIsResending(false);
+    }
   }
 
   async function handleConfirm() {
@@ -55,9 +89,15 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
         confirmationCode: code,
       });
 
+      // Inicializa a sessao local de forma best-effort: a sessao pode ainda nao
+      // estar disponivel logo apos confirmar, e isso nunca pode bloquear o sucesso.
+      try {
+        await initializeUserSession();
+      } catch (sessionError) {
+        console.log('Sessao ainda nao disponivel apos confirmar:', sessionError);
+      }
+
       Alert.alert('Sucesso!', 'Sua conta foi confirmada com sucesso.');
-      // Initialize user session after email confirmation
-      await initializeUserSession();
       blurActiveWebElement();
       onConfirmSuccess();
     } catch (error: any) {
@@ -86,7 +126,7 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
                   Verifique seu e-mail
                 </Text>
                 <Text className="mb-6 text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                  Digite o codigo enviado para {email || 'seu e-mail'}.
+                  Digite o código enviado para {email || 'seu e-mail'}.
                 </Text>
 
                 <AuthInput
@@ -100,9 +140,9 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
                     />
                   }
                   keyboardType="number-pad"
-                  label="Codigo de Confirmacao"
+                  label="Código de Confirmação"
                   onChangeText={setCode}
-                  placeholder="Digite o codigo de 6 digitos"
+                  placeholder="Digite o código de 6 dígitos"
                   value={code}
                 />
 
@@ -115,6 +155,24 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
                 ) : (
                   <Button onPress={handleConfirm} title="Confirmar conta" />
                 )}
+
+                <Pressable
+                  className="mt-4 self-center"
+                  disabled={cooldown > 0 || isResending}
+                  onPress={handleResend}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                >
+                  <Text
+                    className={[
+                      'text-[15px] leading-[22px]',
+                      cooldown > 0
+                        ? 'text-app-textMuted dark:text-app-dark-textMuted'
+                        : 'font-semibold text-app-primary dark:text-app-dark-primary',
+                    ].join(' ')}
+                  >
+                    {cooldown > 0 ? `Reenviar em ${cooldown}s` : 'Reenviar código'}
+                  </Text>
+                </Pressable>
 
                 {onBackToLogin ? (
                   <Pressable

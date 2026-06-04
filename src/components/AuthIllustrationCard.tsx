@@ -18,9 +18,9 @@ export function AuthIllustrationCard({ children, imageSource }: AuthIllustration
   return (
     <View className="w-full justify-center" testID="auth-illustration-card-root">
       <View className="items-stretch">
-        <View className="z-10 -mb-12 items-center">
+        <View className="z-10 -mb-20 items-center">
           <Image
-            className="h-[220px] w-full max-w-[304px]"
+            className="h-[260px] w-full max-w-[320px]"
             resizeMode="contain"
             source={imageSource}
             testID="auth-illustration-card-image"
@@ -28,7 +28,7 @@ export function AuthIllustrationCard({ children, imageSource }: AuthIllustration
         </View>
 
         <View
-          className="rounded-card bg-app-surface p-6 pt-14 dark:bg-app-dark-surface"
+          className="z-20 rounded-card bg-app-surface p-6 pt-[88px] dark:bg-app-dark-surface"
           style={{ boxShadow: `0px 12px 30px ${colors.shadow}14` }}
           testID="auth-illustration-card-content"
         >

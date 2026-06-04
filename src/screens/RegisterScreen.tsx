@@ -9,11 +9,11 @@ import {
   Pressable,
   ScrollView,
   Text,
-  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signUp } from 'aws-amplify/auth';
+import { useColorScheme } from 'nativewind';
 
 import { AuthInput } from '@/components/AuthInput';
 import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
@@ -56,7 +56,7 @@ export function RegisterScreen({
   onGoogleAuthSuccess,
 }: RegisterScreenProps) {
   const colors = useThemeColors();
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useColorScheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

@@ -25,10 +25,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColorScheme } from 'nativewind';
 
 import {
   PROFILE_SETUP_NOTICE_TEXT,
@@ -41,7 +42,7 @@ import {
   type ProfileSetupFormValues,
 } from '@/validation/forms_profile_setup';
 
-type ProfileSetupScreenProps = {
+type OnboardingScreenProps = {
   onBack: () => void;
   onComplete: (values: ProfileSetupFormValues) => void | Promise<void>;
 };
@@ -87,7 +88,7 @@ const ANSWER_OPTIONS: { label: string; value: OptionalAnswer }[] = [
 const FOOTER_BUTTON_HEIGHT = 56;
 const FOOTER_BUTTON_RADIUS = FOOTER_BUTTON_HEIGHT / 2;
 const CONTINUE_BUTTON_MAX_WIDTH = 244;
-const FOOTER_CONTENT_BOTTOM_SPACE = 96;
+const FOOTER_CONTENT_BOTTOM_SPACE = 24;
 
 type ProfileSetupStyles = ReturnType<typeof createProfileSetupStyles>;
 
@@ -120,13 +121,13 @@ function formatHeightInput(value: string) {
   return `${digits.slice(0, 1)},${digits.slice(1)}`;
 }
 
-export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenProps) {
+export function OnboardingScreen({ onBack, onComplete }: OnboardingScreenProps) {
   const colors = useThemeColors();
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const styles = useMemo(() => createProfileSetupStyles(colors), [colors]);
   const [currentStep, setCurrentStep] = useState(0);
-  const continueTranslateX = useRef(new Animated.Value(0)).current;
   const {
     control,
     handleSubmit,
@@ -144,23 +145,6 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
   const isLastStep = currentStep === STEPS.length - 1;
   const footerPaddingBottom = Math.max(insets.bottom, 12);
 
-  function animateContinueAdvance() {
-    Animated.sequence([
-      Animated.timing(continueTranslateX, {
-        toValue: 10,
-        duration: 110,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(continueTranslateX, {
-        toValue: 0,
-        duration: 140,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }
-
   async function goNext() {
     if (activeStep.key === 'personal') {
       const isValid = await trigger(['fullName', 'birthDate']);
@@ -175,7 +159,6 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
       return;
     }
 
-    animateContinueAdvance();
     setCurrentStep((step) => Math.min(step + 1, STEPS.length - 1));
   }
 
@@ -196,7 +179,16 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
 
   return (
     <ProfileSetupStylesContext.Provider value={styles}>
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        // Na web o container precisa estar preso a altura da janela; sem isso a
+        // tela cresce com o conteudo (etapa "Pessoais" e alta), o ScrollView nao
+        // rola internamente e o Footer (position:absolute bottom:0) cai abaixo da
+        // dobra, sumindo o botao "Continuar".
+        process.env.EXPO_OS === 'web' ? { height: windowHeight } : null,
+      ]}
+    >
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <LinearGradient
         colors={[colors.background, colors.surfaceMuted, colors.accentSoft]}
@@ -209,6 +201,7 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
         style={styles.container}
       >
         <ScrollView
+          style={styles.scrollArea}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -253,7 +246,6 @@ export function ProfileSetupScreen({ onBack, onComplete }: ProfileSetupScreenPro
           isLastStep={isLastStep}
           isSubmitting={isSubmitting}
           paddingBottom={footerPaddingBottom}
-          continueTranslateX={continueTranslateX}
           onBack={goBack}
           onNext={goNext}
         />
@@ -280,14 +272,19 @@ function Header({ currentStep, onBack }: { currentStep: number; onBack: () => vo
 
   return (
     <View style={styles.header}>
-      <Pressable
-        accessibilityLabel="Voltar"
-        accessibilityRole="button"
-        onPress={onBack}
-        style={styles.backButton}
-      >
-        <Ionicons color={colors.primary} name="chevron-back" size={28} />
-      </Pressable>
+      {currentStep > 0 ? (
+        <Pressable
+          accessibilityLabel="Voltar"
+          accessibilityRole="button"
+          onPress={onBack}
+          style={styles.backButton}
+        >
+          <Ionicons color={colors.primary} name="chevron-back" size={28} />
+        </Pressable>
+      ) : (
+        // No 1o passo o onboarding e obrigatorio (pos-login): sem seta de voltar.
+        <View style={styles.backButton} />
+      )}
       <View style={styles.headerCenter}>
         <Text style={styles.stepCounter}>Etapa {currentStep + 1} de {STEPS.length}</Text>
         <View style={styles.progressSegments}>
@@ -812,7 +809,6 @@ function PrivacyNotice() {
 }
 
 function Footer({
-  continueTranslateX,
   currentStep,
   isLastStep,
   isSubmitting,
@@ -820,7 +816,6 @@ function Footer({
   onNext,
   paddingBottom,
 }: {
-  continueTranslateX: Animated.Value;
   currentStep: number;
   isLastStep: boolean;
   isSubmitting: boolean;
@@ -887,13 +882,10 @@ function Footer({
             </Pressable>
           </Animated.View>
         ) : null}
-        <Animated.View
+        <View
           style={[
             styles.continueSlot,
             isFirstStep ? styles.continueSlotCentered : null,
-            {
-              transform: [{ translateX: continueTranslateX }],
-            },
           ]}
         >
           <Pressable
@@ -918,7 +910,7 @@ function Footer({
               <Ionicons color={colors.onPrimary} name="chevron-forward" size={24} />
             </LinearGradient>
           </Pressable>
-        </Animated.View>
+        </View>
       </View>
     </View>
   );
@@ -931,6 +923,13 @@ function createProfileSetupStyles(colors: ThemeColors) {
     flex: 1,
   },
   container: {
+    flex: 1,
+  },
+  // ATTENTION: flex:1 faz o ScrollView ocupar a altura disponivel e rolar
+  // internamente, mantendo o Footer (filho em fluxo logo abaixo) preso a base
+  // visivel. Sem isso, na web o conteudo cresceria e empurraria o Footer para
+  // fora da dobra na etapa mais longa (Pessoais), sumindo o botao "Continuar".
+  scrollArea: {
     flex: 1,
   },
   content: {
@@ -1280,14 +1279,13 @@ function createProfileSetupStyles(colors: ThemeColors) {
     fontSize: 14,
     lineHeight: 20,
   },
+  // Rodape em fluxo (ultimo filho da coluna): com o scrollArea em flex:1 ele fica
+  // preso abaixo da area rolavel e sempre visivel. Antes era position:absolute, o
+  // que na web caia abaixo da dobra e sumia o botao "Continuar".
   footer: {
     backgroundColor: 'transparent',
-    bottom: 0,
-    left: 0,
     paddingHorizontal: 20,
     paddingTop: 10,
-    position: 'absolute',
-    right: 0,
   },
   footerButtons: {
     alignItems: 'center',

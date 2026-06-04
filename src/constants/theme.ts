@@ -22,9 +22,10 @@
 //
 // =============================================================================
 
-import { StyleSheet, TextStyle, useColorScheme } from 'react-native';
+import { StyleSheet, TextStyle } from 'react-native';
 
 import themeTokens from './themeTokens.json';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 // Modos de tema suportados
 type PaletteMode = 'light' | 'dark';
@@ -248,9 +249,8 @@ export function getTheme(mode: PaletteMode = 'light') {
 }
 
 export function useThemeColors() {
-  const colorScheme = useColorScheme();
-
-  return getTheme(colorScheme === 'dark' ? 'dark' : 'light').colors;
+  const { colorScheme } = useThemeContext();
+  return getTheme(colorScheme).colors;
 }
 
 // Exportação das cores do tema light para uso direto

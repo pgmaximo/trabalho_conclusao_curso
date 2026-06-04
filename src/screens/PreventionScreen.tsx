@@ -1,7 +1,8 @@
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from 'nativewind';
 
 import { EmptyState } from '@/components/EmptyState';
 import { HealthCheckItem } from '@/components/HealthCheckItem';
@@ -10,7 +11,6 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { UrgentAlert } from '@/components/UrgentAlert';
-import { COLORS, SIZES } from '@/constants/theme';
 import type {
   PreventiveAlert,
   PreventiveCheck,
@@ -34,17 +34,19 @@ export function PreventionScreen({
   errorMessage,
   onRetry,
 }: PreventionScreenProps) {
+  const { colorScheme } = useColorScheme();
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <View className="flex-1">
+        <ScrollView contentContainerClassName="px-6 pt-6 pb-12" showsVerticalScrollIndicator={false}>
           {isLoading ? (
             <ScreenSkeleton blocks={3} />
           ) : errorMessage ? (
             <EmptyState
-              icon="🛡️"
-              title="Nao foi possivel carregar os alertas"
+              icon="alert-circle-outline"
+              title="Não foi possível carregar os alertas"
               description={errorMessage}
               tone="error"
               actionLabel="Tentar novamente"
@@ -54,7 +56,7 @@ export function PreventionScreen({
             <>
               <ScreenHeader
                 title="Prevenção & Alertas"
-                subtitle="Itens que podem ser acompanhados antes de virarem urgencia."
+                subtitle="Itens que podem ser acompanhados antes de virarem urgência."
               />
 
               <UrgentAlert
@@ -64,7 +66,7 @@ export function PreventionScreen({
                 onActionPress={() => {}}
               />
 
-              <Section title="Pontuação preventiva" subtitle="Leitura sintetica do momento atual.">
+              <Section title="Pontuação preventiva" subtitle="Leitura sintética do momento atual.">
                 <PreventiveScore score={score.score} maxScore={score.maxScore} status={score.status} />
               </Section>
 
@@ -81,9 +83,9 @@ export function PreventionScreen({
                   ))
                 ) : (
                   <EmptyState
-                    icon="🩺"
+                    icon="document-text-outline"
                     title="Nenhum item preventivo pendente"
-                    description="Quando surgirem novos acompanhamentos, eles aparecerao aqui."
+                    description="Nenhum exame analisado ainda. Faça o upload de um exame."
                   />
                 )}
               </Section>
@@ -94,18 +96,3 @@ export function PreventionScreen({
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.large,
-    paddingBottom: SIZES.large * 2,
-  },
-});

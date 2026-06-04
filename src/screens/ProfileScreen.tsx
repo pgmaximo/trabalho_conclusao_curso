@@ -1,142 +1,180 @@
 import React from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { AllergiesDisplay } from '@/components/AllergiesDisplay';
-import { EmptyState } from '@/components/EmptyState';
-import { HealthDataRow } from '@/components/HealthDataRow';
-import { ProfileCard } from '@/components/ProfileCard';
-import { ScreenHeader } from '@/components/ScreenHeader';
-import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Avatar } from '@/components/Avatar';
 import { Section } from '@/components/Section';
-import { SettingsMenuItem } from '@/components/SettingsMenuItem';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
-import type { UserProfileSnapshot } from '@/types/models';
+import { useThemeColors } from '@/constants/theme';
+import { useThemeContext, type ThemeMode } from '@/contexts/ThemeContext';
+import type { UserProfile } from '@/contexts/UserContext';
 
 type ProfileScreenProps = {
-  profile: UserProfileSnapshot;
-  isLoading: boolean;
-  errorMessage: string | null;
-  onRetry: () => void;
-  onLogout?: () => void;
+  user: UserProfile | null;
+  theme: ThemeMode;
+  onSetTheme: (t: ThemeMode) => void;
+  onLogout: () => void;
+  onEditProfile: () => void;
 };
 
+const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
+  { label: 'Claro', value: 'light' },
+  { label: 'Automático', value: 'system' },
+  { label: 'Escuro', value: 'dark' },
+];
+
+function calculateBMI(weightKg?: number, heightCm?: number): string | null {
+  if (!weightKg || !heightCm) return null;
+  const heightM = heightCm / 100;
+  return (weightKg / (heightM * heightM)).toFixed(1);
+}
+
+function classifyBMI(bmi: string): string {
+  const value = parseFloat(bmi);
+  if (value < 18.5) return 'Abaixo do peso';
+  if (value < 25) return 'Peso normal';
+  if (value < 30) return 'Sobrepeso';
+  return 'Obesidade';
+}
+
+function calculateAge(birthDate: string): number {
+  const birth = new Date(birthDate);
+  const diff = Date.now() - birth.getTime();
+  return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+}
+
 export function ProfileScreen({
-  profile,
-  isLoading,
-  errorMessage,
-  onRetry,
+  user,
+  theme,
+  onSetTheme,
   onLogout,
+  onEditProfile,
 }: ProfileScreenProps) {
+  const { colorScheme } = useThemeContext();
+  const colors = useThemeColors();
+  const bmi = calculateBMI(user?.weightKg, user?.heightCm);
+  const age = user?.birthDate ? calculateAge(user.birthDate) : null;
+
+  const healthItems = [
+    { label: 'Peso', value: user?.weightKg ? `${user.weightKg} kg` : '—' },
+    { label: 'Altura', value: user?.heightCm ? `${user.heightCm} cm` : '—' },
+    { label: 'IMC', value: bmi ? `${bmi} · ${classifyBMI(bmi)}` : '—' },
+    { label: 'Idade', value: age ? `${age} anos` : '—' },
+    {
+      label: 'Sexo',
+      value: user?.gender === 'male' ? 'Masculino' : user?.gender === 'female' ? 'Feminino' : '—',
+    },
+    {
+      label: 'Tabagismo',
+      value: user?.isSmoker === true ? 'Sim' : user?.isSmoker === false ? 'Não' : '—',
+    },
+  ];
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {isLoading ? (
-            <ScreenSkeleton blocks={3} />
-          ) : errorMessage ? (
-            <EmptyState
-              icon="👤"
-              title="Nao foi possivel carregar o perfil"
-              description={errorMessage}
-              tone="error"
-              actionLabel="Tentar novamente"
-              onActionPress={onRetry}
-            />
-          ) : (
-            <>
-              <ScreenHeader
-                title="Perfil"
-                subtitle="Resumo consolidado dos dados pessoais e de saude do usuario."
-              />
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
+        <View className="items-center">
+          <Avatar name={user?.name} gender={user?.gender} photoUrl={user?.photoUrl} size="lg" />
+          <Text className="mt-4 text-xl font-bold text-app-text dark:text-app-dark-text">
+            {user?.name ?? '—'}
+          </Text>
+          <Text className="mt-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+            {user?.email ?? ''}
+          </Text>
 
-              <ProfileCard
-                name={profile.name}
-                email={profile.email}
-                initials={profile.initials}
-                completionPercentage={profile.completionPercentage}
-              />
+          <Pressable
+            accessibilityLabel="Editar perfil"
+            accessibilityRole="button"
+            onPress={onEditProfile}
+            className="mt-4 flex-row items-center gap-2 rounded-full border border-app-primary bg-app-primarySoft px-5 py-2.5 dark:border-app-dark-primary dark:bg-app-dark-primarySoft"
+            style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+          >
+            <Ionicons color={colors.primary} name="create-outline" size={18} />
+            <Text className="text-[14px] font-semibold text-app-primary dark:text-app-dark-primary">
+              Editar perfil
+            </Text>
+          </Pressable>
+        </View>
 
-              <Section title="Dados de saúde" subtitle="Informacoes principais mantidas no perfil.">
-                <HealthDataRow items={profile.healthData} />
-              </Section>
+        <View className="mt-8">
+          <Section title="Dados de saúde" subtitle="Informações do seu perfil.">
+            <View className="rounded-card border border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface">
+              {healthItems.map((item, index) => (
+                <View
+                  key={item.label}
+                  className={[
+                    'flex-row items-center justify-between px-4 py-3',
+                    index < healthItems.length - 1
+                      ? 'border-b border-app-border dark:border-app-dark-border'
+                      : '',
+                  ].join(' ')}
+                >
+                  <Text className="text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                    {item.label}
+                  </Text>
+                  <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">
+                    {item.value}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Section>
 
-              <Section title="Alergias e condições" subtitle="Itens que merecem destaque clinico.">
-                <AllergiesDisplay title="Condições registradas" items={profile.allergiesAndConditions} />
-              </Section>
+          <Section title="Aparência" subtitle="Escolha como o app deve ser exibido.">
+            <View className="flex-row overflow-hidden rounded-app border border-app-border dark:border-app-dark-border">
+              {THEME_OPTIONS.map((option) => {
+                const isActive = theme === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    className={[
+                      'flex-1 items-center py-3',
+                      isActive
+                        ? 'bg-app-primary dark:bg-app-dark-primary'
+                        : 'bg-app-surface dark:bg-app-dark-surface',
+                    ].join(' ')}
+                    onPress={() => onSetTheme(option.value)}
+                  >
+                    <Text
+                      className={[
+                        'text-sm font-semibold',
+                        isActive
+                          ? 'text-app-onPrimary dark:text-app-dark-onPrimary'
+                          : 'text-app-textSecondary dark:text-app-dark-textSecondary',
+                      ].join(' ')}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Section>
 
-              <Section title="Configurações" subtitle="Entradas preparadas para futuras integrações.">
-                {profile.settings.length > 0 ? (
-                  profile.settings.map((setting) => (
-                    <SettingsMenuItem
-                      key={setting.title}
-                      icon={setting.icon}
-                      title={setting.title}
-                      onPress={() => {}}
-                    />
-                  ))
-                ) : (
-                  <EmptyState
-                    icon="⚙️"
-                    title="Nenhuma configuração disponível"
-                    description="As opções de conta e integração aparecerão nesta área."
-                  />
-                )}
-              </Section>
+          <Section title="Conta" subtitle="Gerencie seus dados e sessão.">
+            <Pressable
+              className="mb-3 flex-row items-center justify-between rounded-app border border-app-border bg-app-surface px-4 py-4 dark:border-app-dark-border dark:bg-app-dark-surface"
+              onPress={() => Alert.alert('Exportar dados', 'Em desenvolvimento.')}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            >
+              <Text className="text-[15px] text-app-text dark:text-app-dark-text">Exportar dados</Text>
+              <Ionicons color="#9CA3AF" name="chevron-forward" size={18} />
+            </Pressable>
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.logoutButton,
-                  pressed && styles.logoutButtonPressed,
-                ]}
-                onPress={onLogout}
-              >
-                <Text style={styles.logoutButtonText}>Sair da conta</Text>
-              </Pressable>
-            </>
-          )}
-        </ScrollView>
-      </View>
+            <Pressable
+              className="items-center rounded-app border border-app-danger bg-app-dangerSoft py-4 dark:border-app-dark-danger dark:bg-app-dark-dangerSoft"
+              onPress={onLogout}
+              style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+            >
+              <Text className="text-[15px] font-semibold text-app-danger dark:text-app-dark-danger">
+                Sair da conta
+              </Text>
+            </Pressable>
+          </Section>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.large,
-    paddingBottom: SIZES.large * 2,
-  },
-  logoutButton: {
-    backgroundColor: COLORS.dangerSoft,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.danger,
-    paddingVertical: SIZES.base,
-    alignItems: 'center',
-    marginTop: SIZES.large,
-  },
-  logoutButtonPressed: {
-    opacity: 0.85,
-  },
-  logoutButtonText: {
-    ...FONTS.body,
-    color: COLORS.danger,
-    fontWeight: '600',
-  },
-});

@@ -9,17 +9,18 @@ import {
   Pressable,
   ScrollView,
   Text,
-  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmResetPassword, resetPassword } from 'aws-amplify/auth';
+import { useColorScheme } from 'nativewind';
 
 import { AuthInput } from '@/components/AuthInput';
 import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
 import { AuthIllustrationCard } from '@/components/AuthIllustrationCard';
 import { Button } from '@/components/Button';
 import { useThemeColors } from '@/constants/theme';
+import { serializeAuthError } from '@/services/auth';
 import { blurActiveWebElement } from '@/utils/webFocus';
 
 const forgotPasswordImage = require('../../assets/images/forgot_password_image.png');
@@ -30,7 +31,7 @@ type ForgotPasswordScreenProps = {
 
 export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProps) {
   const colors = useThemeColors();
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useColorScheme();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -47,7 +48,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail) {
-      Alert.alert('Atencao', 'Digite seu e-mail para recuperar a senha.');
+      Alert.alert('Atenção', 'Digite seu e-mail para recuperar a senha.');
       return;
     }
 
@@ -57,7 +58,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
       await resetPassword({ username: normalizedEmail });
       setEmail(normalizedEmail);
       setCodeSent(true);
-      Alert.alert('Codigo enviado', 'Enviamos um codigo de recuperacao para o seu e-mail.');
+      Alert.alert('Código enviado', 'Enviamos um código de recuperação para o seu e-mail.');
     } catch (error: any) {
       console.log('Erro ao solicitar recuperacao:', serializeAuthError(error));
       Alert.alert('Erro', getResetRequestMessage(error));
@@ -70,12 +71,12 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !code || !newPassword || !confirmPassword) {
-      Alert.alert('Atencao', 'Preencha todos os campos.');
+      Alert.alert('Atenção', 'Preencha todos os campos.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Atencao', 'As senhas nao coincidem.');
+      Alert.alert('Atenção', 'As senhas não coincidem.');
       return;
     }
 
@@ -99,29 +100,19 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
   }
 
   function getResetRequestMessage(error: any) {
-    if (error?.name === 'UserNotFoundException') return 'Usuario nao encontrado.';
+    if (error?.name === 'UserNotFoundException') return 'Usuário não encontrado.';
     if (error?.name === 'LimitExceededException') return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
 
-    return 'Nao foi possivel enviar o codigo. Tente novamente.';
+    return 'Não foi possível enviar o código. Tente novamente.';
   }
 
   function getConfirmResetMessage(error: any) {
-    if (error?.name === 'CodeMismatchException') return 'Codigo invalido.';
-    if (error?.name === 'ExpiredCodeException') return 'Codigo expirado. Solicite um novo codigo.';
-    if (error?.name === 'InvalidPasswordException') return 'A nova senha nao atende aos requisitos minimos.';
+    if (error?.name === 'CodeMismatchException') return 'Código inválido.';
+    if (error?.name === 'ExpiredCodeException') return 'Código expirado. Solicite um novo código.';
+    if (error?.name === 'InvalidPasswordException') return 'A nova senha não atende aos requisitos mínimos.';
     if (error?.name === 'LimitExceededException') return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
 
-    return 'Nao foi possivel atualizar a senha. Tente novamente.';
-  }
-
-  function serializeAuthError(error: any) {
-    return {
-      name: error?.name,
-      message: error?.message,
-      recoverySuggestion: error?.recoverySuggestion,
-      underlyingName: error?.underlyingError?.name,
-      underlyingMessage: error?.underlyingError?.message,
-    };
+    return 'Não foi possível atualizar a senha. Tente novamente.';
   }
 
   return (
@@ -143,8 +134,8 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                 </Text>
                 <Text className="mb-6 text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
                   {codeSent
-                    ? 'Digite o codigo recebido e escolha uma nova senha.'
-                    : 'Informe seu e-mail para receber o codigo de recuperacao.'}
+                    ? 'Digite o código recebido e escolha uma nova senha.'
+                    : 'Informe seu e-mail para receber o código de recuperação.'}
                 </Text>
 
                 <AuthInput
@@ -171,9 +162,9 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                         />
                       }
                       keyboardType="number-pad"
-                      label="Codigo"
+                      label="Código"
                       onChangeText={setCode}
-                      placeholder="Digite o codigo recebido"
+                      placeholder="Digite o código recebido"
                       value={code}
                     />
 
@@ -209,11 +200,11 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                   <View className="gap-3">
                     <Button
                       onPress={codeSent ? handleConfirmPassword : handleSendCode}
-                      title={codeSent ? 'Alterar senha' : 'Enviar codigo'}
+                      title={codeSent ? 'Alterar senha' : 'Enviar código'}
                     />
 
                     {codeSent ? (
-                      <Button onPress={handleSendCode} title="Reenviar codigo" variant="secondary" />
+                      <Button onPress={handleSendCode} title="Reenviar código" variant="secondary" />
                     ) : null}
                   </View>
                 )}

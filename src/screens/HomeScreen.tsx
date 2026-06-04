@@ -1,270 +1,228 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import React from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { signIn, signOut } from 'aws-amplify/auth';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { AuthInput } from '@/components/AuthInput';
-import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
-import { AuthIllustrationCard } from '@/components/AuthIllustrationCard';
-import { Button } from '@/components/Button';
-import { SectionDivider } from '@/components/SectionDivider';
-import { SocialButton } from '@/components/SocialButton';
+import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+import { EventCard } from '@/components/EventCard';
+import { MetricCard } from '@/components/MetricCard';
+import { QuickAccessButton } from '@/components/QuickAccessButton';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
-import { serializeAuthError, signInWithGoogle } from '@/services/auth';
-import { initializeUserSession } from '@/services/auth/userSessionService';
-import { blurActiveWebElement } from '@/utils/webFocus';
-
-const loginImage = require('../../assets/images/login_image.png');
-const googleLogo = require('../../assets/images/google_Glogo.png');
-const invalidLoginMessage = 'E-mail ou senha incorretos. Verifique os dados e tente novamente.';
+import type {
+  DashboardEvent,
+  DashboardMetric,
+  DashboardSummary,
+  MedicalDocument,
+} from '@/types/models';
 
 type HomeScreenProps = {
-  onNavigateToRegister: () => void;
-  onNavigateToForgotPassword: () => void;
-  onLogin: () => void;
-  onGoogleAuthSuccess: () => void;
+  greeting: string;
+  todayLabel: string;
+  summary: DashboardSummary;
+  metrics: DashboardMetric[];
+  upcomingEvents: DashboardEvent[];
+  preventiveAlert: DashboardEvent;
+  recentExams: MedicalDocument[];
+  isLoading: boolean;
+  examsLoading: boolean;
+  errorMessage: string | null;
+  onRetry: () => void;
+  onNavigateToExamDetail: (id: string) => void;
+  onNavigateToAi?: () => void;
+  onNavigateToMedicines?: () => void;
+  onNavigateToAppointments?: () => void;
+  onNavigateToPrevention?: () => void;
 };
 
 export function HomeScreen({
-  onNavigateToRegister,
-  onNavigateToForgotPassword,
-  onLogin,
-  onGoogleAuthSuccess,
+  greeting,
+  todayLabel,
+  summary,
+  metrics,
+  upcomingEvents,
+  preventiveAlert,
+  recentExams,
+  isLoading,
+  examsLoading,
+  errorMessage,
+  onRetry,
+  onNavigateToExamDetail,
+  onNavigateToAi,
+  onNavigateToMedicines,
+  onNavigateToAppointments,
+  onNavigateToPrevention,
 }: HomeScreenProps) {
   const colors = useThemeColors();
-  const colorScheme = useColorScheme();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [loginErrorMessage, setLoginErrorMessage] = useState<string | null>(null);
-  const shakeAnimation = useRef(new Animated.Value(0)).current;
+  const { colorScheme } = useColorScheme();
 
-  const hasLoginError = Boolean(loginErrorMessage);
-
-  function clearLoginError() {
-    if (loginErrorMessage) {
-      setLoginErrorMessage(null);
-    }
-  }
-
-  function handleEmailChange(value: string) {
-    clearLoginError();
-    setEmail(value);
-  }
-
-  function handlePasswordChange(value: string) {
-    clearLoginError();
-    setPassword(value);
-  }
-
-  function triggerLoginErrorFeedback() {
-    shakeAnimation.setValue(0);
-
-    Animated.sequence([
-      Animated.timing(shakeAnimation, { toValue: -8, duration: 48, useNativeDriver: true }),
-      Animated.timing(shakeAnimation, { toValue: 8, duration: 48, useNativeDriver: true }),
-      Animated.timing(shakeAnimation, { toValue: -6, duration: 48, useNativeDriver: true }),
-      Animated.timing(shakeAnimation, { toValue: 6, duration: 48, useNativeDriver: true }),
-      Animated.timing(shakeAnimation, { toValue: 0, duration: 48, useNativeDriver: true }),
-    ]).start();
-  }
-
-  async function handleLogin() {
-    const normalizedEmail = email.trim().toLowerCase();
-
-    if (!normalizedEmail || !password) {
-      Alert.alert('Atenção', 'Por favor, preencha e-mail e senha.');
-      return;
-    }
-
-    setLoginErrorMessage(null);
-    setIsLoading(true);
-
-    try {
-      await signOut().catch(() => {});
-
-      const { isSignedIn, nextStep } = await signIn({
-        username: normalizedEmail,
-        password,
-        options: {
-          authFlowType: 'USER_PASSWORD_AUTH',
-        },
-      });
-
-      if (isSignedIn) {
-        // Initialize user session before routing
-        await initializeUserSession();
-        onLogin();
-      } else if (nextStep.signInStep === 'CONFIRM_SIGN_UP') {
-        Alert.alert('Conta não confirmada', 'Verifique seu e-mail para confirmar seu cadastro.');
-      }
-    } catch (error: any) {
-      console.log('Erro detalhado:', error);
-      let message = 'Ocorreu um erro ao entrar. Tente novamente.';
-
-      if (error.name === 'UserNotFoundException' || error.name === 'NotAuthorizedException') {
-        setLoginErrorMessage(invalidLoginMessage);
-        triggerLoginErrorFeedback();
-        return;
-      }
-
-      if (error.name === 'UserNotConfirmedException') message = 'Usuário ainda não confirmado.';
-
-      if (
-        error.name === 'InvalidParameterException' &&
-        error.message?.includes('USER_PASSWORD_AUTH')
-      ) {
-        message = 'Erro de configuração: Habilite ALLOW_USER_PASSWORD_AUTH no console da AWS.';
-      }
-
-      Alert.alert('Erro no Login', message);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function handleGoogleLogin() {
-    blurActiveWebElement();
-    setIsLoading(true);
-
-    try {
-      await signInWithGoogle();
-      // Initialize user session before routing
-      await initializeUserSession();
-      onGoogleAuthSuccess();
-    } catch (error: any) {
-      console.log('Erro no login com Google:', serializeAuthError(error));
-      setIsLoading(false);
-      Alert.alert('Erro', 'Não foi possível conectar com o Google.');
-    }
-  }
+  const firstRowMetrics = metrics.slice(0, 2);
+  const secondRowMetrics = metrics.slice(2, 4);
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <AuthBackgroundGlow corner="bottomRight" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-      >
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
-          keyboardShouldPersistTaps="handled"
-        >
-          <AuthIllustrationCard imageSource={loginImage}>
-                <Text className="mb-6 text-xl font-bold leading-[26px] text-app-text dark:text-app-dark-text">
-                  Entre na sua conta
-                </Text>
+      <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
+        {isLoading ? (
+          <ScreenSkeleton blocks={4} />
+        ) : errorMessage ? (
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Não foi possível carregar o dashboard"
+            description={errorMessage}
+            tone="error"
+            actionLabel="Tentar novamente"
+            onActionPress={onRetry}
+          />
+        ) : (
+          <>
+            <ScreenHeader title={greeting} subtitle={todayLabel} badgeLabel={summary.status} />
 
-                <AuthInput
-                  autoCapitalize="none"
-                  containerClassName="mt-0"
-                  editable={!isLoading}
-                  hasError={hasLoginError}
-                  icon={<MaterialIcons color={colors.placeholder} name="email" size={20} />}
-                  inputClassName="text-white"
-                  keyboardType="email-address"
-                  label="E-mail"
-                  onChangeText={handleEmailChange}
-                  placeholder="Digite seu e-mail"
-                  style={{ color: '#ffffff' }}
-                  value={email}
-                />
+            <Card variant="soft" padding="spacious">
+              <Text className="mb-1.5 text-[13px] font-bold text-app-primary dark:text-app-dark-primary">
+                Seu resumo de hoje
+              </Text>
+              <Text className="text-xl font-bold text-app-text dark:text-app-dark-text">
+                {summary.value}
+              </Text>
+              <Text className="mt-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                {summary.status}
+              </Text>
+            </Card>
 
-                <AuthInput
-                  editable={!isLoading}
-                  hasError={hasLoginError}
-                  icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
-                  inputClassName="text-white"
-                  label="Senha"
-                  onChangeText={handlePasswordChange}
-                  placeholder="Digite sua senha"
-                  secureTextEntry
-                  style={{ color: '#ffffff' }}
-                  value={password}
-                />
-
-                <Pressable
-                  className="mb-[18px] mt-3 self-end"
-                  disabled={isLoading}
-                  onPress={onNavigateToForgotPassword}
-                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-                >
-                  <Text className="text-[15px] leading-[22px] text-app-primary dark:text-app-dark-primary">
-                    Esqueceu a senha?
-                  </Text>
-                </Pressable>
-
-                {isLoading ? (
-                  <ActivityIndicator
-                    color={colors.primary}
-                    size="large"
-                    style={{ marginBottom: 24, marginTop: 12 }}
-                  />
-                ) : (
-                  <>
-                    {loginErrorMessage ? (
-                      <Text
-                        accessibilityRole="alert"
-                        className="mb-3 text-[13px] leading-[18px] text-app-danger dark:text-app-dark-danger"
-                      >
-                        {loginErrorMessage}
-                      </Text>
-                    ) : null}
-
-                    <Animated.View style={{ transform: [{ translateX: shakeAnimation }] }}>
-                      <Button
-                        onPress={handleLogin}
-                        style={
-                          hasLoginError
-                            ? {
-                                backgroundColor: colors.danger,
-                                boxShadow: `0px 8px 18px ${colors.danger}29`,
-                              }
-                            : undefined
-                        }
-                        title="Entrar"
-                      />
-                    </Animated.View>
-                  </>
-                )}
-
-                <SectionDivider label="ou continue com" />
-
-                <View className="flex-row justify-between">
-                  <SocialButton iconSource={googleLogo} onPress={handleGoogleLogin} title="Google" />
+            <View className="mt-6">
+              <Section
+                title="Indicadores principais"
+                subtitle="Resumo rápido do que merece atenção hoje."
+              >
+                <View className="mb-4 flex-row">
+                  {firstRowMetrics.map((metric) => (
+                    <MetricCard
+                      key={metric.label}
+                      label={metric.label}
+                      value={metric.value}
+                      status={metric.status}
+                      statusColor={metric.statusColor}
+                      progressPercent={metric.progressPercent}
+                    />
+                  ))}
                 </View>
+                <View className="flex-row">
+                  {secondRowMetrics.map((metric) => (
+                    <MetricCard
+                      key={metric.label}
+                      label={metric.label}
+                      value={metric.value}
+                      status={metric.status}
+                      statusColor={metric.statusColor}
+                      progressPercent={metric.progressPercent}
+                    />
+                  ))}
+                </View>
+              </Section>
 
-                <Pressable
-                  className="mt-6 self-center"
-                  disabled={isLoading}
-                  onPress={onNavigateToRegister}
-                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-                >
-                  <Text className="text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                    Não tem uma conta?{' '}
-                    <Text className="font-semibold text-app-primary dark:text-app-dark-primary">
-                      Criar conta
-                    </Text>
-                  </Text>
-                </Pressable>
-          </AuthIllustrationCard>
-        </ScrollView>
-      </KeyboardAvoidingView>
+              <Section title="Últimos exames" subtitle="Documentos enviados recentemente.">
+                {examsLoading ? (
+                  <ScreenSkeleton blocks={2} />
+                ) : recentExams.length > 0 ? (
+                  recentExams.map((exam) => (
+                    <Pressable
+                      key={exam.id}
+                      className="mb-3 flex-row items-center gap-3 rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
+                      onPress={() => onNavigateToExamDetail(exam.id)}
+                      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                    >
+                      <Ionicons color={colors.primary} name="document-text-outline" size={22} />
+                      <View className="flex-1">
+                        <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">
+                          {exam.title}
+                        </Text>
+                        <Text className="text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                          {exam.subtitle}
+                        </Text>
+                      </View>
+                      <Ionicons color={colors.iconMuted} name="chevron-forward" size={18} />
+                    </Pressable>
+                  ))
+                ) : (
+                  <EmptyState
+                    icon="document-text-outline"
+                    title="Nenhum exame enviado"
+                    description="Seus exames aparecerão aqui após o upload."
+                  />
+                )}
+              </Section>
+
+              <Section
+                title="Próximos eventos"
+                subtitle="Compromissos e lembretes mais próximos."
+              >
+                {upcomingEvents.length > 0 ? (
+                  upcomingEvents.map((event) => (
+                    <EventCard
+                      key={event.title}
+                      icon={event.icon}
+                      title={event.title}
+                      subtitle={event.subtitle}
+                      actionLabel={event.actionLabel}
+                      actionColor={event.actionColor}
+                      onActionPress={() => {}}
+                    />
+                  ))
+                ) : (
+                  <EmptyState
+                    icon="calendar-outline"
+                    title="Nenhum evento programado"
+                    description="Quando houver novos exames ou consultas, eles aparecerão aqui."
+                  />
+                )}
+              </Section>
+
+              <Section title="Prevenção" subtitle="Sinais preventivos com base no seu perfil atual.">
+                <EventCard
+                  icon={preventiveAlert.icon}
+                  title={preventiveAlert.title}
+                  subtitle={preventiveAlert.subtitle}
+                  variant={preventiveAlert.variant}
+                />
+              </Section>
+
+              <Section title="Acesso rápido" subtitle="Atalhos para as áreas mais usadas do app.">
+                <View className="flex-row justify-between">
+                  <QuickAccessButton
+                    icon="calendar-outline"
+                    label="Agendas"
+                    onPress={onNavigateToAppointments ?? (() => {})}
+                  />
+                  <QuickAccessButton
+                    icon="bulb-outline"
+                    label="IA p/ Exames"
+                    onPress={onNavigateToAi ?? (() => {})}
+                  />
+                  <QuickAccessButton
+                    icon="medkit-outline"
+                    label="Medicamentos"
+                    onPress={onNavigateToMedicines ?? (() => {})}
+                  />
+                  <QuickAccessButton icon="watch-outline" label="Wearable" onPress={() => {}} />
+                </View>
+                <View className="mt-2 flex-row justify-between">
+                  <QuickAccessButton
+                    icon="shield-checkmark-outline"
+                    label="Prevenção"
+                    onPress={onNavigateToPrevention ?? (() => {})}
+                  />
+                </View>
+              </Section>
+            </View>
+          </>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }

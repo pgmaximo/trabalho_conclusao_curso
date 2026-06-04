@@ -103,7 +103,7 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
                 {isEditMode ? 'Editar documento' : 'Detalhes do documento'}
               </Text>
               {!isEditMode && (
-                <Text style={styles.subtitle}>Clique em "Editar" para fazer alterações</Text>
+                <Text style={styles.subtitle}>{'Clique em "Editar" para fazer alterações'}</Text>
               )}
             </View>
           </View>
@@ -263,7 +263,7 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
                   setDocumentDate(document.documentDate);
                   setExpirationDate(document.expirationDate || '');
                 }}
-                variant="outlined"
+                variant="secondary"
                 style={styles.cancelButton}
               />
             </View>

@@ -1,69 +1,78 @@
 // =============================================================================
 // Arquivo: BottomTabBar.tsx
-// Descrição: Barra de navegação inferior com tabs do aplicativo
-// Componente: BottomTabBar
+// Descrição: Barra de navegação inferior com tabs do aplicativo.
 // =============================================================================
 //
-// Este componente implementa a barra de navegação inferior do aplicativo,
-// exibindo as tabs principais com ícones e labels. Suporta estado ativo,
-// feedback de pressão e navegação entre as seções principais do app.
-//
-// Funcionalidades:
-// - Renderização de múltiplas tabs com ícones e labels
-// - Destaque visual da tab ativa
-// - Feedback visual ao pressionar tabs
-// - Callback para navegação quando tab é selecionada
-//
-// Estrutura Visual:
-// - Container horizontal com borda superior e sombra
-// - Tabs distribuídas igualmente (flex: 1)
-// - Ícone acima do label em cada tab
-// - Cor diferente para tab ativa vs inativas
+// Design: cada tab usa um Ionicon (variante cheia quando ativa, "-outline"
+// quando inativa). A tab ativa ganha uma cápsula suave (primarySoft) atrás do
+// ícone + label na cor primária — affordance clara para baixo letramento digital.
+// Totalmente reativa ao tema (claro/escuro) e respeita a safe area inferior.
 //
 // =============================================================================
 
-// Importações necessárias
-import React from 'react';                    // Biblioteca principal React
-import { View, Pressable, Text, StyleSheet } from 'react-native';  // Componentes UI
-import { COLORS, FONTS, SIZES } from '@/constants/theme';  // Configurações de tema
+import React from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-// Definição de tipos para os itens da barra de navegação
+import { useThemeColors } from '@/constants/theme';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
 type BottomTabBarItem = {
-  icon: string;    // Emoji ou ícone da tab
-  label: string;   // Texto descritivo da tab
-  id: string;      // Identificador único da tab
+  icon: IoniconName; // nome base do Ionicon (ex.: "home" → "home-outline" quando inativo)
+  label: string;
+  id: string;
 };
 
-// Props do componente BottomTabBar
 type BottomTabBarProps = {
-  items: BottomTabBarItem[];           // Array de tabs a serem exibidas
-  activeTab: string;                  // ID da tab atualmente ativa
-  onTabPress: (tabId: string) => void; // Callback quando tab é pressionada
+  items: BottomTabBarItem[];
+  activeTab: string;
+  onTabPress: (tabId: string) => void;
 };
 
-// Componente da barra de navegação inferior
 export function BottomTabBar({ items, activeTab, onTabPress }: BottomTabBarProps) {
-  // Renderiza o container com todas as tabs
+  const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
-      {/* Mapeia cada item para criar uma tab */}
+    <View
+      className="flex-row border-t border-app-border bg-app-surface px-1 pt-2 dark:border-app-dark-border dark:bg-app-dark-surface"
+      style={{ paddingBottom: Math.max(insets.bottom, 10) }}
+    >
       {items.map((item) => {
-        // Verifica se esta é a tab ativa
         const isActive = activeTab === item.id;
-        
+        // DECISION: deriva a variante outline a partir do nome base para nao
+        // duplicar nomes de icone na config de navegacao.
+        const iconName = (isActive ? item.icon : `${item.icon}-outline`) as IoniconName;
+
         return (
           <Pressable
-            key={item.id}  // Chave única para cada tab
-            // Aplica estilos de pressed quando tab é pressionada
-            style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
-            // Executa callback quando tab é pressionada
+            key={item.id}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
+            accessibilityLabel={item.label}
+            className="flex-1 items-center justify-center py-1"
+            style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}
             onPress={() => onTabPress(item.id)}
           >
-            {/* Ícone da tab (emoji) */}
-            <Text style={styles.icon}>{item.icon}</Text>
-            
-            {/* Label da tab com estilo condicional para estado ativo */}
-            <Text style={[styles.label, isActive && styles.labelActive]}>
+            <View
+              className={
+                isActive
+                  ? 'mb-1 items-center justify-center rounded-full bg-app-primarySoft px-4 py-1 dark:bg-app-dark-primarySoft'
+                  : 'mb-1 items-center justify-center rounded-full px-4 py-1'
+              }
+            >
+              <Ionicons name={iconName} size={22} color={isActive ? colors.primary : colors.iconMuted} />
+            </View>
+            <Text
+              numberOfLines={1}
+              className={
+                isActive
+                  ? 'text-[10px] font-semibold text-app-primary dark:text-app-dark-primary'
+                  : 'text-[10px] font-medium text-app-textSecondary dark:text-app-dark-textSecondary'
+              }
+            >
               {item.label}
             </Text>
           </Pressable>
@@ -72,49 +81,3 @@ export function BottomTabBar({ items, activeTab, onTabPress }: BottomTabBarProps
     </View>
   );
 }
-
-// Estilos do componente BottomTabBar
-const styles = StyleSheet.create({
-  // Container principal da barra de navegação
-  container: {
-    flexDirection: 'row',           // Layout horizontal para as tabs
-    backgroundColor: COLORS.surface, // Fundo da barra
-    borderTopWidth: 1,              // Borda superior
-    borderTopColor: COLORS.border,   // Cor da borda
-    paddingBottom: SIZES.large,     // Padding inferior (considera safe area)
-    paddingTop: SIZES.small,         // Padding superior
-    boxShadow: `0px -2px 8px ${COLORS.shadow}14`,
-  },
-  
-  // Estilo individual de cada tab
-  tab: {
-    flex: 1,                        // Distribui espaço igualmente
-    alignItems: 'center',           // Centraliza horizontalmente
-    justifyContent: 'center',       // Centraliza verticalmente
-    paddingVertical: SIZES.small,   // Padding vertical interno
-  },
-  
-  // Estilo aplicado quando tab é pressionada
-  tabPressed: {
-    opacity: 0.7,                   // Reduz opacidade para feedback visual
-  },
-  
-  // Estilo do ícone da tab
-  icon: {
-    fontSize: 20,                   // Tamanho do emoji/ícone
-    marginBottom: 4,                // Espaço entre ícone e label
-  },
-  
-  // Estilo do label (texto) da tab
-  label: {
-    ...FONTS.caption,               // Usa fonte caption do tema
-    color: COLORS.textSecondary,    // Cor secundária para tabs inativas
-    fontWeight: '500',              // Peso da fonte
-  },
-  
-  // Estilo do label quando tab está ativa
-  labelActive: {
-    color: COLORS.primary,          // Cor primária para tab ativa
-    fontWeight: '600',              // Peso mais forte para destaque
-  },
-});

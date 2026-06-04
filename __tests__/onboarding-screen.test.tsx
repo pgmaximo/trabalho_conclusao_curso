@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { ProfileSetupScreen } from '@/screens/ProfileSetupScreen';
+import { OnboardingScreen } from '@/screens/OnboardingScreen';
 
 jest.mock('@expo/vector-icons/Ionicons', () => {
   const React = require('react');
@@ -13,7 +13,7 @@ jest.mock('@expo/vector-icons/Ionicons', () => {
   };
 });
 
-function renderProfileSetupScreen(props?: Partial<React.ComponentProps<typeof ProfileSetupScreen>>) {
+function renderOnboardingScreen(props?: Partial<React.ComponentProps<typeof OnboardingScreen>>) {
   return render(
     <SafeAreaProvider
       initialMetrics={{
@@ -21,14 +21,14 @@ function renderProfileSetupScreen(props?: Partial<React.ComponentProps<typeof Pr
         insets: { bottom: 24, left: 0, right: 0, top: 44 },
       }}
     >
-      <ProfileSetupScreen onBack={jest.fn()} onComplete={jest.fn()} {...props} />
+      <OnboardingScreen onBack={jest.fn()} onComplete={jest.fn()} {...props} />
     </SafeAreaProvider>,
   );
 }
 
-describe('ProfileSetupScreen', () => {
+describe('OnboardingScreen', () => {
   it('renders the first health profile step with the requested composition', () => {
-    renderProfileSetupScreen();
+    renderOnboardingScreen();
 
     expect(screen.getByText('Perfil de Saúde')).toBeTruthy();
     expect(
@@ -50,7 +50,7 @@ describe('ProfileSetupScreen', () => {
   });
 
   it('starts without a selected biological sex option', () => {
-    renderProfileSetupScreen();
+    renderOnboardingScreen();
 
     expect(screen.getByLabelText('Sexo biológico: Feminino').props.accessibilityState).toEqual({
       selected: false,
@@ -71,7 +71,7 @@ describe('ProfileSetupScreen', () => {
   it('lets biological sex stay unselected and lets optional fields stay empty', async () => {
     const onComplete = jest.fn();
 
-    renderProfileSetupScreen({ onComplete });
+    renderOnboardingScreen({ onComplete });
 
     fireEvent.changeText(screen.getByLabelText('Nome Completo'), 'Maria Silva');
     fireEvent.changeText(screen.getByLabelText('Data de nascimento'), '06052000');
@@ -114,7 +114,7 @@ describe('ProfileSetupScreen', () => {
   });
 
   it('shows pregnancy question only when female is selected', () => {
-    renderProfileSetupScreen();
+    renderOnboardingScreen();
 
     expect(screen.queryByText('Você está grávida?')).toBeNull();
 
@@ -128,7 +128,7 @@ describe('ProfileSetupScreen', () => {
   });
 
   it('blocks progression until required personal fields are filled', async () => {
-    renderProfileSetupScreen();
+    renderOnboardingScreen();
 
     fireEvent.press(screen.getByText('Continuar'));
 
@@ -138,7 +138,7 @@ describe('ProfileSetupScreen', () => {
   });
 
   it('keeps blocking progression when only the full name is missing', async () => {
-    renderProfileSetupScreen();
+    renderOnboardingScreen();
 
     fireEvent.changeText(screen.getByLabelText('Data de nascimento'), '06052000');
     fireEvent.press(screen.getByText('Continuar'));
@@ -148,15 +148,31 @@ describe('ProfileSetupScreen', () => {
   });
 
   it('formats height with a decimal comma while typing', () => {
-    renderProfileSetupScreen();
+    renderOnboardingScreen();
 
     fireEvent.changeText(screen.getByLabelText('Altura'), '165');
 
     expect(screen.getByLabelText('Altura').props.value).toBe('1,65');
   });
 
+  it('hides the header back arrow on the first step and shows it after advancing', async () => {
+    renderOnboardingScreen();
+
+    expect(screen.queryByLabelText('Voltar')).toBeNull();
+
+    fireEvent.changeText(screen.getByLabelText('Nome Completo'), 'Maria Silva');
+    fireEvent.changeText(screen.getByLabelText('Data de nascimento'), '06052000');
+    fireEvent.press(screen.getByLabelText('Continuar para próxima etapa'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Histórico clínico')).toBeTruthy();
+    });
+
+    expect(screen.getByLabelText('Voltar')).toBeTruthy();
+  });
+
   it('shows the footer back button only after leaving the first step', async () => {
-    renderProfileSetupScreen();
+    renderOnboardingScreen();
 
     expect(screen.queryByLabelText('Voltar etapa')).toBeNull();
 

@@ -1,27 +1,21 @@
 import React, { useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useColorScheme } from 'nativewind';
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { ExamItem } from '@/components/ExamItem';
 import { FilterChips } from '@/components/FilterChips';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { useThemeColors } from '@/constants/theme';
 import type { MedicalDocument, MedicalDocumentFilter } from '@/types/models';
 import { useSelectedDocument } from '@/contexts/DocumentContext';
 
@@ -48,6 +42,8 @@ export function ExamsScreen({
   onSearchChange,
   onFilterChange,
 }: ExamsScreenProps) {
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
   const [isSheetVisible, setIsSheetVisible] = useState(false);
   const [isPickingFile, setIsPickingFile] = useState(false);
   const { setSelectedDocument } = useSelectedDocument();
@@ -86,16 +82,16 @@ export function ExamsScreen({
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <View className="flex-1">
+        <ScrollView contentContainerClassName="px-6 pt-6 pb-12" showsVerticalScrollIndicator={false}>
           {isLoading ? (
             <ScreenSkeleton blocks={3} />
           ) : errorMessage ? (
             <EmptyState
-              icon="📄"
-              title="Nao foi possivel carregar os documentos"
+              icon="alert-circle-outline"
+              title="Não foi possível carregar os documentos"
               description={errorMessage}
               tone="error"
               actionLabel="Tentar novamente"
@@ -105,23 +101,24 @@ export function ExamsScreen({
             <>
               <ScreenHeader
                 title="Exames & Receitas"
-                subtitle="Seus documentos ficam organizados aqui para acesso rapido e seguro."
+                subtitle="Seus documentos ficam organizados aqui para acesso rápido e seguro."
                 action={
                   <Pressable
-                    style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                    className="h-10 w-10 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
+                    style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
                     onPress={() => setIsSheetVisible(true)}
                   >
-                    <Text style={styles.addButtonText}>+</Text>
+                    <Ionicons name="add" size={24} color={colors.onPrimary} />
                   </Pressable>
                 }
               />
 
-              <View style={styles.searchContainer}>
-                <Text style={styles.searchIcon}>🔍</Text>
+              <View className="mb-6 flex-row items-center rounded-app border border-app-border bg-app-inputBackground px-4 dark:border-app-dark-border dark:bg-app-dark-inputBackground">
+                <Ionicons className="mr-3" name="search-outline" size={18} color={colors.iconMuted} />
                 <TextInput
-                  style={styles.searchInput}
+                  className="flex-1 py-3 text-[15px] text-app-text dark:text-app-dark-text"
                   placeholder="Buscar exames, receitas..."
-                  placeholderTextColor={COLORS.placeholder}
+                  placeholderTextColor={colors.placeholder}
                   value={searchQuery}
                   onChangeText={onSearchChange}
                 />
@@ -135,9 +132,9 @@ export function ExamsScreen({
 
               <Section
                 title="Documentos disponíveis"
-                subtitle="A lista ja responde aos filtros e ao campo de busca."
+                subtitle="A lista já responde aos filtros e ao campo de busca."
               >
-                <View style={styles.listContainer}>
+                <View className="mb-4">
                   {documents.length > 0 ? (
                     documents.map((document) => (
                       <ExamItem
@@ -148,10 +145,7 @@ export function ExamsScreen({
                         statusLabel={document.statusLabel}
                         statusColor={document.statusColor}
                         onPress={() => {
-                          // Store document in context
-                          console.log('Clicked document:', document);
                           setSelectedDocument(document);
-                          console.log('Set selected document, navigating...');
                           // Navigate to document detail screen
                           router.push('/(app)/document-detail');
                         }}
@@ -159,7 +153,7 @@ export function ExamsScreen({
                     ))
                   ) : (
                     <EmptyState
-                      icon="🗂️"
+                      icon="folder-open-outline"
                       title="Nenhum documento encontrado"
                       description="Ajuste os filtros ou a busca para encontrar outro item."
                     />
@@ -170,18 +164,7 @@ export function ExamsScreen({
               <Button
                 title="+ Adicionar novo documento"
                 onPress={() => setIsSheetVisible(true)}
-                style={styles.addDocumentButton}
               />
-
-              <Card variant="outlined">
-                <View style={styles.footerNote}>
-                  <Text style={styles.footerIcon}>🔒</Text>
-                  <Text style={styles.footerText}>
-                    Seus documentos sao armazenados de forma segura e a camada de servicos ja esta
-                    preparada para migrar de mocks para AWS no backend real.
-                  </Text>
-                </View>
-              </Card>
             </>
           )}
         </ScrollView>
@@ -190,16 +173,16 @@ export function ExamsScreen({
       <BottomSheet
         visible={isSheetVisible}
         title="Adicionar documento"
-        description="Escolha o tipo de origem que voce pretende integrar no futuro."
+        description="Selecione o tipo de documento para adicionar."
         onClose={() => setIsSheetVisible(false)}
       >
-        <Button 
-          title="Enviar PDF ou imagem" 
+        <Button
+          title="Enviar PDF ou imagem"
           onPress={pickDocument}
           disabled={isPickingFile}
         />
         <Button
-          title="Capturar com a camera"
+          title="Capturar com a câmera"
           variant="secondary"
           onPress={() => setIsSheetVisible(false)}
         />
@@ -207,75 +190,3 @@ export function ExamsScreen({
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.large,
-    paddingBottom: SIZES.large * 2,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonPressed: {
-    opacity: 0.85,
-  },
-  addButtonText: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: '700',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.inputBackground,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: SIZES.base,
-    marginBottom: SIZES.large,
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: SIZES.small,
-  },
-  searchInput: {
-    flex: 1,
-    ...FONTS.body,
-    color: COLORS.text,
-    paddingVertical: 12,
-    minHeight: 44,
-  },
-  listContainer: {
-    marginBottom: SIZES.base,
-  },
-  addDocumentButton: {
-    marginBottom: SIZES.large,
-  },
-  footerNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  footerIcon: {
-    fontSize: 16,
-    marginRight: SIZES.small,
-    marginTop: 2,
-  },
-  footerText: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    flex: 1,
-  },
-});

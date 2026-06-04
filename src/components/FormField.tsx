@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   StyleProp,
-  StyleSheet,
   Text,
   TextInput,
   TextInputProps,
@@ -10,7 +9,7 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { useThemeColors, COLORS, FONTS, SIZES } from '@/constants/theme';
+import { useThemeColors } from '@/constants/theme';
 
 type FormFieldProps = TextInputProps & {
   label: string;
@@ -38,18 +37,32 @@ export function FormField({
   style,
   ...rest
 }: FormFieldProps) {
+  // ATTENTION: useThemeColors() mantido apenas para placeholderTextColor —
+  // prop nativa do TextInput que não aceita className
   const colors = useThemeColors();
   const isInvalid = Boolean(hasError || errorMessage);
 
-  return (
-    <View style={[styles.container, containerStyle]}>
-      <Text style={styles.label}>{label}</Text>
+  const wrapperClasses = [
+    'flex-row items-center rounded-app border px-4 py-3',
+    isInvalid
+      ? 'border-app-danger bg-app-dangerSoft dark:border-app-dark-danger dark:bg-app-dark-dangerSoft'
+      : 'border-app-border bg-app-inputBackground dark:border-app-dark-border dark:bg-app-dark-inputBackground',
+    inputWrapperClassName ?? '',
+  ].join(' ');
 
-      <View style={[styles.inputWrapper, isInvalid && styles.inputWrapperInvalid]}>
+  return (
+    <View className={`mt-6 ${containerClassName ?? ''}`} style={containerStyle}>
+      <Text className="mb-3 text-sm font-semibold text-app-text dark:text-app-dark-text">
+        {label}
+      </Text>
+
+      <View className={wrapperClasses}>
         {icon ? (
-          <View style={styles.iconContainer}>
+          <View className="mr-3 w-5 items-center justify-center">
             {typeof icon === 'string' ? (
-              <Text style={styles.iconText}>{icon}</Text>
+              <Text className="text-base text-app-placeholder dark:text-app-dark-placeholder">
+                {icon}
+              </Text>
             ) : (
               icon
             )}
@@ -58,70 +71,24 @@ export function FormField({
 
         <TextInput
           accessibilityLabel={label}
+          className={`flex-1 text-[15px] text-app-text dark:text-app-dark-text ${inputClassName ?? ''}`}
           placeholderTextColor={colors.placeholder}
-          style={[styles.input, { color: COLORS.text }, style]}
+          style={style}
           {...rest}
         />
       </View>
 
       {errorMessage ? (
-        <Text style={styles.errorMessage}>{errorMessage}</Text>
+        <Text className="mt-3 text-[13px] text-app-danger dark:text-app-dark-danger">
+          {errorMessage}
+        </Text>
       ) : null}
 
       {!isInvalid && helperText ? (
-        <Text style={styles.helperText}>{helperText}</Text>
+        <Text className="mt-3 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+          {helperText}
+        </Text>
       ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginTop: SIZES.large,
-  },
-  label: {
-    ...FONTS.body,
-    color: COLORS.text,
-    fontWeight: '600',
-    marginBottom: SIZES.small,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.inputBackground,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: SIZES.base,
-    paddingVertical: 12,
-  },
-  inputWrapperInvalid: {
-    borderColor: COLORS.danger,
-    backgroundColor: `${COLORS.danger}15`,
-  },
-  iconContainer: {
-    marginRight: SIZES.small,
-    width: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconText: {
-    fontSize: 16,
-    color: COLORS.placeholder,
-  },
-  input: {
-    flex: 1,
-    ...FONTS.body,
-    minHeight: 20,
-  },
-  errorMessage: {
-    marginTop: SIZES.small,
-    ...FONTS.caption,
-    color: COLORS.danger,
-  },
-  helperText: {
-    marginTop: SIZES.small,
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-  },
-});

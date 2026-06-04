@@ -52,11 +52,4 @@ AGENTS.md
 CLAUDE.md
 .expo-codex.log
 graphify-out/
-
-# local spec-driven notes
-Spec/
-docs/superpowers/
-docs/superpowers/plans/
-docs/superpowers/plans/*.md
-
-1255,56
+docs/
