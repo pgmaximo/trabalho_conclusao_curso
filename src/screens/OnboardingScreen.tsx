@@ -1335,13 +1335,14 @@ function createProfileSetupStyles(colors: ThemeColors) {
     width: '100%',
   },
   continueSlot: {
-    flex: 1,
-    maxWidth: CONTINUE_BUTTON_MAX_WIDTH,
+    width: CONTINUE_BUTTON_MAX_WIDTH,
+    maxWidth: '100%',
     minWidth: 0,
   },
+
   continueSlotCentered: {
-    flex: 0,
-    width: '100%',
+    width: CONTINUE_BUTTON_MAX_WIDTH,
+    maxWidth: '100%',
   },
   continueGradient: {
     alignItems: 'center',
