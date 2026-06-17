@@ -15,6 +15,10 @@ module.exports = {
         app: '20px',
         card: '28px',
       },
+      // <-- MODIFICADO: Vincula o identificador 'Basic-Regular' ao padrão do Tailwind
+      fontFamily: {
+        sans: ['Basic-Regular'],
+      },
     },
   },
   plugins: [],
