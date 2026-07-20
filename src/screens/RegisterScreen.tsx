@@ -36,7 +36,7 @@ type PasswordRequirement = {
 
 type RegisterScreenProps = {
   onNavigateToLogin: () => void;
-  onRegisterSuccess: (email: string) => void;
+  onRegisterSuccess: (email: string, password: string) => void;
   onGoogleAuthSuccess: () => void;
 };
 
@@ -101,7 +101,8 @@ export function RegisterScreen({
 
       if (nextStep.signUpStep === 'CONFIRM_SIGN_UP') {
         Alert.alert('Quase lá!', 'Enviamos um código de confirmação para o seu e-mail.');
-        onRegisterSuccess(normalizedEmail);
+        // DECISION: Passa password para ConfirmScreen para auto-signin apos confirmar email
+        onRegisterSuccess(normalizedEmail, password);
       }
     } catch (error: any) {
       console.log('Erro detalhado:', error);

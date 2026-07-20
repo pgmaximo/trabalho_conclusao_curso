@@ -21,11 +21,14 @@ export default function RegisterRoute() {
     router.replace('/');
   }
 
-  function navigateToConfirm(email: string) {
+  // DECISION: Passa email e password para o ConfirmScreen para que o usuario
+  // seja automaticamente autenticado apos confirmar email.
+  // Em mobile apps, navigation params sao seguros (nao expostos publicamente como em web).
+  function navigateToConfirm(email: string, password: string) {
     blurActiveWebElement();
     router.replace({
       pathname: '/confirm',
-      params: { email },
+      params: { email, password },
     });
   }
 

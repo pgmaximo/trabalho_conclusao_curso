@@ -4,6 +4,7 @@
  * A UI continua independente do client AWS e chama apenas esta camada.
  */
 import { generateClient } from 'aws-amplify/data';
+import { getCurrentUser } from 'aws-amplify/auth';
 
 import type { Schema } from '../../amplify/data/resource';
 import { buildAmplifyUserProfileInput } from '@/services/profileSetupPayload';
@@ -12,6 +13,16 @@ import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
 const client = generateClient<Schema>();
 
 export async function saveUserProfile(values: ProfileSetupFormValues) {
+  // DECISION: Garante que o usuario esta autenticado antes de tentar salvar.
+  // Se o usuario nao estiver autenticado, getCurrentUser lanca uma excecao.
+  try {
+    await getCurrentUser();
+  } catch (authError) {
+    throw new Error(
+      'Usuario nao autenticado. Por favor, faca login novamente ou complete o cadastro no inicio do app.',
+    );
+  }
+
   const input = buildAmplifyUserProfileInput(values);
 
   // DECISION: list() retorna so registros do owner autenticado (auth rule owner()).

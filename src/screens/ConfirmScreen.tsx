@@ -11,7 +11,7 @@ import {
   Text,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { confirmSignUp, resendSignUpCode } from 'aws-amplify/auth';
+import { confirmSignUp, resendSignUpCode, signIn } from 'aws-amplify/auth';
 import { useColorScheme } from 'nativewind';
 
 import { AuthInput } from '@/components/AuthInput';
@@ -26,11 +26,12 @@ const confirmImage = require('../../assets/images/confirm_image.png');
 
 type ConfirmScreenProps = {
   email: string;
+  password?: string;
   onConfirmSuccess: () => void;
   onBackToLogin?: () => void;
 };
 
-export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: ConfirmScreenProps) {
+export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin }: ConfirmScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
   const [code, setCode] = useState('');
@@ -89,12 +90,34 @@ export function ConfirmScreen({ email, onConfirmSuccess, onBackToLogin }: Confir
         confirmationCode: code,
       });
 
-      // Inicializa a sessao local de forma best-effort: a sessao pode ainda nao
-      // estar disponivel logo apos confirmar, e isso nunca pode bloquear o sucesso.
+      // DECISION: Apos confirmar, tenta fazer auto-signin com a senha (se disponivel).
+      // Sem isso, o usuario nao tem tokens JWT para acessar o DynamoDB.
+      // Se password foi passado (normal signup flow), faz signin automaticamente.
+      // Se nao (reset password ou login manual), usuario tera que fazer login separadamente.
+      if (password) {
+        try {
+          await signIn({
+            username: email,
+            password,
+            options: {
+              authFlowType: 'USER_PASSWORD_AUTH',
+            },
+          });
+          console.log('[Confirm] Auto-signin realizado com sucesso apos confirmacao');
+        } catch (signInError) {
+          console.log('[Confirm] Auto-signin falhou, tentando inicializar sessao via autoSignIn:', signInError);
+          // Se auto-signin falhar, tenta inicializar sessao normal
+          // (pode estar autenticado via autoSignIn do signUp)
+        }
+      }
+
+      // Inicializa a sessao local com tokens agora disponiveis
       try {
         await initializeUserSession();
+        console.log('[Confirm] Sessao do usuario inicializada com sucesso');
       } catch (sessionError) {
-        console.log('Sessao ainda nao disponivel apos confirmar:', sessionError);
+        console.log('[Confirm] Aviso: Sessao pode nao estar completamente pronta:', sessionError);
+        // Nao eh bloqueante - pode ser que os tokens estejam disponiveis mesmo assim
       }
 
       Alert.alert('Sucesso!', 'Sua conta foi confirmada com sucesso.');

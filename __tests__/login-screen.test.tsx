@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { confirmResetPassword, confirmSignUp, resetPassword } from 'aws-amplify/auth';
+import { confirmResetPassword, confirmSignUp, resetPassword, signIn } from 'aws-amplify/auth';
 
 import { ConfirmScreen } from '@/screens/ConfirmScreen';
 import { ForgotPasswordScreen } from '@/screens/ForgotPasswordScreen';
@@ -11,6 +11,7 @@ jest.mock('aws-amplify/auth', () => ({
   confirmSignUp: jest.fn(),
   resendSignUpCode: jest.fn(),
   resetPassword: jest.fn(),
+  signIn: jest.fn(),
 }));
 
 // ForgotPasswordScreen importa serializeAuthError de '@/services/auth' (barrel),
