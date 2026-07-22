@@ -6,14 +6,14 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
-  TouchableOpacity,
-  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signUp } from 'aws-amplify/auth';
+import { useColorScheme } from 'nativewind';
 
 import { AuthInput } from '@/components/AuthInput';
 import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
@@ -36,7 +36,7 @@ type PasswordRequirement = {
 
 type RegisterScreenProps = {
   onNavigateToLogin: () => void;
-  onRegisterSuccess: (email: string) => void;
+  onRegisterSuccess: (email: string, password: string) => void;
   onGoogleAuthSuccess: () => void;
 };
 
@@ -56,7 +56,7 @@ export function RegisterScreen({
   onGoogleAuthSuccess,
 }: RegisterScreenProps) {
   const colors = useThemeColors();
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useColorScheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -101,7 +101,8 @@ export function RegisterScreen({
 
       if (nextStep.signUpStep === 'CONFIRM_SIGN_UP') {
         Alert.alert('Quase lá!', 'Enviamos um código de confirmação para o seu e-mail.');
-        onRegisterSuccess(normalizedEmail);
+        // DECISION: Passa password para ConfirmScreen para auto-signin apos confirmar email
+        onRegisterSuccess(normalizedEmail, password);
       }
     } catch (error: any) {
       console.log('Erro detalhado:', error);
@@ -134,7 +135,7 @@ export function RegisterScreen({
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AuthBackgroundGlow corner="bottomLeft" />
       <KeyboardAvoidingView
@@ -143,7 +144,7 @@ export function RegisterScreen({
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName="flex-grow"
+          contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
           keyboardShouldPersistTaps="handled"
         >
           <AuthIllustrationCard imageSource={registerImage}>
@@ -232,11 +233,11 @@ export function RegisterScreen({
                   />
                 </View>
 
-                <TouchableOpacity
-                  activeOpacity={0.7}
+                <Pressable
                   className="mt-6 self-center"
                   disabled={isLoading}
                   onPress={onNavigateToLogin}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                 >
                   <Text className="text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
                     Já tem uma conta?{' '}
@@ -244,7 +245,7 @@ export function RegisterScreen({
                       Entrar
                     </Text>
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
           </AuthIllustrationCard>
         </ScrollView>
       </KeyboardAvoidingView>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { confirmResetPassword, confirmSignUp, resetPassword } from 'aws-amplify/auth';
+import { confirmResetPassword, confirmSignUp, resetPassword, signIn } from 'aws-amplify/auth';
 
 import { ConfirmScreen } from '@/screens/ConfirmScreen';
 import { ForgotPasswordScreen } from '@/screens/ForgotPasswordScreen';
@@ -9,7 +9,16 @@ import { ForgotPasswordScreen } from '@/screens/ForgotPasswordScreen';
 jest.mock('aws-amplify/auth', () => ({
   confirmResetPassword: jest.fn(),
   confirmSignUp: jest.fn(),
+  resendSignUpCode: jest.fn(),
   resetPassword: jest.fn(),
+  signIn: jest.fn(),
+}));
+
+// ForgotPasswordScreen importa serializeAuthError de '@/services/auth' (barrel),
+// que transitivamente carrega 'aws-amplify/data' → uuid (ESM não transformado pelo Jest).
+// Stubar o módulo evita o crash de load sem afetar o comportamento testado.
+jest.mock('aws-amplify/data', () => ({
+  generateClient: jest.fn(() => ({})),
 }));
 
 describe('auth support screens', () => {
@@ -31,7 +40,7 @@ describe('auth support screens', () => {
     expect(view.getByPlaceholderText('Digite seu e-mail')).toBeTruthy();
 
     fireEvent.changeText(view.getByLabelText('E-mail'), ' Pessoa@Email.com ');
-    fireEvent.press(view.getByText('Enviar codigo'));
+    fireEvent.press(view.getByText('Enviar código'));
 
     await waitFor(() => {
       expect(resetPassword).toHaveBeenCalledWith({ username: 'pessoa@email.com' });
@@ -39,7 +48,7 @@ describe('auth support screens', () => {
 
     expect(await view.findByText('Defina uma nova senha')).toBeTruthy();
 
-    fireEvent.changeText(view.getByLabelText('Codigo'), '123456');
+    fireEvent.changeText(view.getByLabelText('Código'), '123456');
     fireEvent.changeText(view.getByLabelText('Nova senha'), 'Senha@123');
     fireEvent.changeText(view.getByLabelText('Confirmar nova senha'), 'Senha@123');
     fireEvent.press(view.getByText('Alterar senha'));
@@ -58,11 +67,11 @@ describe('auth support screens', () => {
   it('validates empty reset e-mail before calling Amplify', () => {
     render(<ForgotPasswordScreen onBackToLogin={jest.fn()} />);
 
-    fireEvent.press(screen.getByText('Enviar codigo'));
+    fireEvent.press(screen.getByText('Enviar código'));
 
     expect(resetPassword).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith(
-      'Atencao',
+      'Atenção',
       'Digite seu e-mail para recuperar a senha.',
     );
   });
@@ -81,9 +90,9 @@ describe('auth support screens', () => {
     );
 
     expect(screen.getByText('Verifique seu e-mail')).toBeTruthy();
-    expect(screen.getByText('Digite o codigo enviado para pessoa@email.com.')).toBeTruthy();
+    expect(screen.getByText('Digite o código enviado para pessoa@email.com.')).toBeTruthy();
 
-    fireEvent.changeText(screen.getByLabelText('Codigo de Confirmacao'), '654321');
+    fireEvent.changeText(screen.getByLabelText('Código de Confirmação'), '654321');
     fireEvent.press(screen.getByText('Confirmar conta'));
 
     await waitFor(() => {

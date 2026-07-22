@@ -1,13 +1,9 @@
 import React from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useColorScheme } from 'nativewind';
 
 import { AppointmentCard } from '@/components/AppointmentCard';
 import { CalendarPicker } from '@/components/CalendarPicker';
@@ -15,10 +11,10 @@ import { EmptyState } from '@/components/EmptyState';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { useThemeColors } from '@/constants/theme';
 import type { AppointmentEntry, CalendarDateItem } from '@/types/models';
 
-type AppointmentsScreenProps = {
+type AgendaScreenProps = {
   dates: CalendarDateItem[];
   selectedDate: number;
   appointments: AppointmentEntry[];
@@ -28,7 +24,7 @@ type AppointmentsScreenProps = {
   onDateSelect: (date: number) => void;
 };
 
-export function AppointmentsScreen({
+export function AgendaScreen({
   dates,
   selectedDate,
   appointments,
@@ -36,18 +32,21 @@ export function AppointmentsScreen({
   errorMessage,
   onRetry,
   onDateSelect,
-}: AppointmentsScreenProps) {
+}: AgendaScreenProps) {
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <View className="flex-1">
+        <ScrollView contentContainerClassName="px-6 pt-6 pb-12" showsVerticalScrollIndicator={false}>
           {isLoading ? (
             <ScreenSkeleton blocks={3} />
           ) : errorMessage ? (
             <EmptyState
-              icon="📆"
-              title="Nao foi possivel carregar a agenda"
+              icon="alert-circle-outline"
+              title="Não foi possível carregar a agenda"
               description={errorMessage}
               tone="error"
               actionLabel="Tentar novamente"
@@ -57,13 +56,14 @@ export function AppointmentsScreen({
             <>
               <ScreenHeader
                 title="Agenda & Consultas"
-                subtitle="Seus compromissos de saude, com espaco para sincronizacao futura."
+                subtitle="Seus compromissos de saúde, com espaço para sincronização futura."
                 action={
                   <Pressable
-                    style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                    className="h-10 w-10 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
+                    style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
                     onPress={() => {}}
                   >
-                    <Text style={styles.addButtonText}>+</Text>
+                    <Ionicons name="add" size={24} color={colors.onPrimary} />
                   </Pressable>
                 }
               />
@@ -84,7 +84,7 @@ export function AppointmentsScreen({
                   ))
                 ) : (
                   <EmptyState
-                    icon="🗓️"
+                    icon="calendar-outline"
                     title="Nenhum compromisso neste dia"
                     description="Escolha outra data ou cadastre um novo atendimento."
                   />
@@ -92,16 +92,16 @@ export function AppointmentsScreen({
               </Section>
 
               <Pressable
-                style={({ pressed }) => [
-                  styles.googleSyncButton,
-                  pressed && styles.googleSyncButtonPressed,
-                ]}
+                className="flex-row items-center rounded-app border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
+                style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
                 onPress={() => {}}
               >
-                <Text style={styles.googleSyncIcon}>📅</Text>
-                <View style={styles.googleSyncContent}>
-                  <Text style={styles.googleSyncTitle}>Sincronizar com Google Calendar</Text>
-                  <Text style={styles.googleSyncSubtitle}>
+                <Ionicons className="mr-4" name="calendar-outline" size={24} color={colors.secondary} />
+                <View className="flex-1">
+                  <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">
+                    Sincronizar com Google Calendar
+                  </Text>
+                  <Text className="mt-0.5 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
                     Exporte seus compromissos automaticamente
                   </Text>
                 </View>
@@ -113,64 +113,3 @@ export function AppointmentsScreen({
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.large,
-    paddingBottom: SIZES.large * 2,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonPressed: {
-    opacity: 0.85,
-  },
-  addButtonText: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  googleSyncButton: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SIZES.base,
-    alignItems: 'center',
-  },
-  googleSyncButtonPressed: {
-    opacity: 0.85,
-  },
-  googleSyncIcon: {
-    fontSize: 24,
-    marginRight: SIZES.base,
-  },
-  googleSyncContent: {
-    flex: 1,
-  },
-  googleSyncTitle: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  googleSyncSubtitle: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-  },
-});

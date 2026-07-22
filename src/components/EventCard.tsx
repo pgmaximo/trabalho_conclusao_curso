@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { View, Text, Pressable } from 'react-native';
+
+import { useThemeColors } from '@/constants/theme';
 
 type EventCardProps = {
   icon: string;
@@ -17,80 +18,42 @@ export function EventCard({
   title,
   subtitle,
   actionLabel,
-  actionColor = COLORS.primary,
+  actionColor,
   onActionPress,
   variant = 'default',
 }: EventCardProps) {
+  const colors = useThemeColors();
   const isAlert = variant === 'alert';
-  const borderColor = isAlert ? '#F5D547' : COLORS.border;
-  const backgroundColor = isAlert ? '#FFFBEB' : COLORS.surface;
 
   return (
-    <View style={[styles.card, { borderColor, backgroundColor }]}>
-      <View style={styles.content}>
-        <Text style={styles.icon}>{icon}</Text>
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+    <View
+      className={[
+        'my-2 flex-row items-center justify-between rounded-app border px-3 py-2',
+        isAlert
+          ? 'border-app-warning bg-app-warningSoft dark:border-app-dark-warning dark:bg-app-dark-warningSoft'
+          : 'border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface',
+      ].join(' ')}
+    >
+      <View className="flex-1 flex-row items-center">
+        <Text className="mr-3 text-2xl">{icon}</Text>
+        <View className="flex-1">
+          <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">{title}</Text>
+          <Text className="mt-0.5 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+            {subtitle}
+          </Text>
         </View>
       </View>
-      {actionLabel && (
+      {actionLabel ? (
         <Pressable
-          style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+          className="px-3 py-2"
           onPress={onActionPress}
+          style={({ pressed }) => [pressed && { opacity: 0.7 }]}
         >
-          <Text style={[styles.actionText, { color: actionColor }]}>{actionLabel}</Text>
+          <Text className="text-xs font-semibold" style={{ color: actionColor ?? colors.primary }}>
+            {actionLabel}
+          </Text>
         </Pressable>
-      )}
+      ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    paddingHorizontal: SIZES.base,
-    paddingVertical: SIZES.small,
-    marginVertical: SIZES.small,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    boxShadow: `0px 2px 4px ${COLORS.shadow}0A`,
-    elevation: 1,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  icon: {
-    fontSize: 24,
-    marginRight: SIZES.base,
-  },
-  textContainer: {
-    flex: 1,
-  },
-  title: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  subtitle: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  action: {
-    paddingHorizontal: SIZES.base,
-    paddingVertical: SIZES.small,
-  },
-  actionPressed: {
-    opacity: 0.7,
-  },
-  actionText: {
-    ...FONTS.body,
-    fontWeight: '600',
-    fontSize: 12,
-  },
-});

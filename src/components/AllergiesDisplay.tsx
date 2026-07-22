@@ -13,7 +13,7 @@ export function AllergiesDisplay({ title, items }: AllergiesDisplayProps) {
       <Text style={styles.title}>{title}</Text>
       <View style={styles.itemsContainer}>
         {items.map((item, index) => (
-          <View key={index} style={styles.badge}>
+          <View key={item} style={styles.badge}>
             <Text style={styles.badgeText}>{item}</Text>
           </View>
         ))}

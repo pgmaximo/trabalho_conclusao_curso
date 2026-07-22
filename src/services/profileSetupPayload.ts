@@ -22,6 +22,8 @@ export type AmplifyUserProfileInput = {
   heightCm?: number;
   isSmoker?: boolean;
   sexuallyActive?: boolean;
+  physicalActivity?: boolean;
+  alcoholConsumption?: boolean;
   pregnancy?: boolean;
 };
 
@@ -173,6 +175,14 @@ export function buildAmplifyUserProfileInput(
 
   if (values.sexuallyActive !== 'unknown') {
     input.sexuallyActive = values.sexuallyActive === 'yes';
+  }
+
+  if (values.physicalActivity !== 'unknown') {
+    input.physicalActivity = values.physicalActivity === 'yes';
+  }
+
+  if (values.alcoholUse !== 'unknown') {
+    input.alcoholConsumption = values.alcoholUse === 'yes';
   }
 
   if (values.biologicalSex === 'female' && values.pregnancyStatus !== 'unknown') {

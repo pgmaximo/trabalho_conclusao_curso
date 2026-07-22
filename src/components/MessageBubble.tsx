@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { Text, View } from 'react-native';
 
 type MessageBubbleProps = {
   type: 'user' | 'ai';
@@ -9,46 +8,30 @@ type MessageBubbleProps = {
 
 export function MessageBubble({ type, content }: MessageBubbleProps) {
   const isUser = type === 'user';
-  const backgroundColor = isUser ? COLORS.primary : '#E8E0F5';
-  const textColor = isUser ? '#fff' : '#5B3B8F';
 
   return (
-    <View style={[styles.container, isUser ? styles.userContainer : styles.aiContainer]}>
-      <View style={[styles.bubble, { backgroundColor }]}>
+    <View className={isUser ? 'mb-3 flex-row justify-end' : 'mb-3 flex-row justify-start'}>
+      <View
+        className={
+          isUser
+            ? 'max-w-[85%] rounded-app bg-app-primary px-4 py-3 dark:bg-app-dark-primary'
+            : 'max-w-[85%] rounded-app border border-app-border bg-app-surface px-4 py-3 dark:border-app-dark-border dark:bg-app-dark-surface'
+        }
+      >
         {typeof content === 'string' ? (
-          <Text style={[styles.text, { color: textColor }]}>{content}</Text>
+          <Text
+            className={
+              isUser
+                ? 'text-[15px] leading-[22px] text-app-onPrimary dark:text-app-dark-onPrimary'
+                : 'text-[15px] leading-[22px] text-app-text dark:text-app-dark-text'
+            }
+          >
+            {content}
+          </Text>
         ) : (
-          <View style={styles.contentContainer}>{content}</View>
+          content
         )}
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: SIZES.base,
-    flexDirection: 'row',
-  },
-  userContainer: {
-    justifyContent: 'flex-end',
-  },
-  aiContainer: {
-    justifyContent: 'flex-start',
-  },
-  bubble: {
-    maxWidth: '85%',
-    borderRadius: SIZES.radius,
-    paddingHorizontal: SIZES.base,
-    paddingVertical: SIZES.small,
-    boxShadow: `0px 2px 6px ${COLORS.shadow}0F`,
-    elevation: 2,
-  },
-  text: {
-    ...FONTS.body,
-    lineHeight: 22,
-  },
-  contentContainer: {
-    gap: 0,
-  },
-});

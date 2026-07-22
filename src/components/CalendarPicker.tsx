@@ -17,7 +17,7 @@ export function CalendarPicker({ selectedDate, onDateSelect, dates }: CalendarPi
     >
       {dates.map((date, index) => (
         <Pressable
-          key={index}
+          key={`${date.day}-${date.month}`}
           style={[
             styles.dateButton,
             selectedDate === date.day && styles.dateButtonSelected,

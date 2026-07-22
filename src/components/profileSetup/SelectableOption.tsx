@@ -41,14 +41,14 @@ export function SelectableOption({ label, description, selected, onPress }: Sele
       </View>
       <View
         className={[
-          'h-5 w-5 items-center justify-center rounded-[10px] border-2',
+          'size-5 items-center justify-center rounded-[10px] border-2',
           selected
             ? 'border-app-primary dark:border-app-dark-primary'
             : 'border-app-borderStrong dark:border-app-dark-borderStrong',
         ].join(' ')}
       >
         {selected ? (
-          <View className="h-2.5 w-2.5 rounded-[5px] bg-app-primary dark:bg-app-dark-primary" />
+          <View className="size-2.5 rounded-[5px] bg-app-primary dark:bg-app-dark-primary" />
         ) : null}
       </View>
     </Pressable>

@@ -5,15 +5,12 @@ import { DocumentDetailScreen } from '@/screens/DocumentDetailScreen';
 export default function DocumentDetailPage() {
   const { selectedDocument } = useSelectedDocument();
 
-  console.log('=== Document Detail Page ===');
-  console.log('Selected document:', selectedDocument);
-
   if (!selectedDocument) {
-    console.log('No document selected, returning null');
     return null;
   }
 
-  // Convert MedicalDocument to MedicalDocumentMetadata
+  // Converte MedicalDocument -> MedicalDocumentMetadata.
+  // expirationDate vem como string | null; o metadata espera string | undefined.
   const document = {
     id: selectedDocument.id,
     fileId: '',
@@ -23,12 +20,10 @@ export default function DocumentDetailPage() {
     documentType: selectedDocument.documentType,
     documentName: selectedDocument.documentName,
     documentDate: selectedDocument.documentDate,
-    expirationDate: selectedDocument.expirationDate,
+    expirationDate: selectedDocument.expirationDate ?? undefined,
     fileSize: 0,
     createdAt: '',
   };
-
-  console.log('Converted document:', document);
 
   return <DocumentDetailScreen document={document} />;
 }

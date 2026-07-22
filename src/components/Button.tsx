@@ -50,11 +50,10 @@ export function Button({ title, variant = 'primary', style, ...rest }: ButtonPro
         isPrimary && !isDisabled
           ? {
               boxShadow: `0px 8px 18px ${colors.shadow}1F`,
-              elevation: 4,
             }
           : null,
         pressed && !isDisabled ? { opacity: 0.88 } : null,
-        isDisabled ? { boxShadow: 'none', elevation: 0 } : null,
+        isDisabled ? { boxShadow: 'none' } : null,
         style,
       ]}
       {...rest}

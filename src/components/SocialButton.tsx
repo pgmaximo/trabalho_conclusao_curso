@@ -28,7 +28,7 @@ export function SocialButton({ title, iconSource, ...rest }: SocialButtonProps) 
     >
       {iconSource ? (
         <Image
-          className="h-5 w-5"
+          className="size-5"
           resizeMode="contain"
           source={iconSource}
           style={{ height: socialIconSize, width: socialIconSize }}

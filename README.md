@@ -8,9 +8,11 @@
 
 ## 📋 Sobre o Projeto
 
-O **SuaSaúde** é um aplicativo móvel voltado ao gerenciamento integrado da saúde do usuário. O sistema consolida informações clínicas como exames e receitas médicas em uma plataforma acessível e intuitiva, incorporando Inteligência Artificial para análise preliminar de exames e integração com dispositivos vestíveis (wearables).
+O **SuaSaúde** é um aplicativo de **saúde móvel (mHealth)** voltado ao gerenciamento integrado da saúde do usuário. Diante da crescente prevalência de doenças crônicas e do envelhecimento populacional, a proposta busca centralizar, em uma única plataforma acessível e intuitiva, informações que normalmente ficam dispersas entre documentos, exames, receitas, agendas e dispositivos — reduzindo essa fragmentação e apoiando o autocuidado.
 
-O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e promover o bem-estar para todos, em todas as idades"* —, promovendo o autocuidado, a prevenção de doenças e o empoderamento do usuário sobre seus próprios dados de saúde.
+O sistema consolida informações clínicas como exames, receitas médicas, medicamentos e consultas, incorpora **Inteligência Artificial como recurso de apoio** à análise preliminar de exames (sempre de caráter informativo, **sem emitir diagnósticos definitivos nem substituir profissionais de saúde**), recomenda proativamente exames com base em bases de dados públicas e integra dados provenientes de dispositivos vestíveis (wearables).
+
+O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e promover o bem-estar para todos, em todas as idades"* —, promovendo o autocuidado, a prevenção de doenças e o empoderamento do usuário sobre seus próprios dados de saúde, inclusive como apoio a sistemas de saúde de baixa infraestrutura ao reduzir a demanda por atendimentos de baixa complexidade.
 
 ---
 
@@ -20,23 +22,25 @@ O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e pro
 |---|---|
 | André Martinez de Souza | Desenvolvedor |
 | Arturo Ochoa Garcia | Desenvolvedor |
-| Brunno Souza | Desenvolvedor |
-| Matheus Passari | Desenvolvedor |
+| Brunno Bernacchi de Souza | Desenvolvedor |
+| Matheus Passari Nascimento | Desenvolvedor |
 | Pedro Gabriel Oliveira Máximo | Desenvolvedor |
 
-**Orientador:** Prof. Dr. Robson Calvetti
+**Orientador:** Prof. MSc. Dr. Robson Calvetti
 
 ---
 
 ## ✨ Funcionalidades Previstas
 
-- 📁 **Gestão de documentos clínicos** — armazenamento e visualização de exames e receitas médicas
-- 🤖 **Análise por IA** — interpretação preliminar de exames, identificando padrões sem emitir diagnósticos definitivos
-- 🔔 **Lembretes e sugestões personalizadas** — baseados na anamnese do usuário e em protocolos oficiais de saúde
+- 📁 **Gestão de documentos clínicos** — cadastro, armazenamento e visualização de exames e receitas médicas, centralizando o histórico de saúde
+- 💊 **Acompanhamento de medicamentos e consultas** — registro de prescrições, horários, compromissos médicos e lembretes da rotina de cuidado
+- 🤖 **Análise por IA** — interpretação preliminar de exames, identificando padrões e oferecendo orientações informativas, **sem emitir diagnósticos definitivos nem substituir a avaliação profissional**
+- 🧪 **Recomendação de exames** — sugestão proativa de exames com base nas características clínicas do usuário e em bases de dados públicas e confiáveis
+- 💉 **Gestão de vacinação** — controle de vacinas tomadas e pretendidas, com integração ao sistema de saúde pública brasileiro para alertar sobre campanhas de vacinação
 - ⌚ **Integração com wearables** — coleta de dados como frequência cardíaca, padrões de sono e níveis de atividade
 - 📊 **Dashboard interativo** — visualização clara das métricas de saúde coletadas pelos wearables
-- 🔗 **Análise contextualizada** — correlação dos dados fisiológicos com eventos e rotina do usuário
-- 🔒 **Segurança e privacidade** — desenvolvimento em conformidade com a **LGPD** (Lei Geral de Proteção de Dados)
+- 🔗 **Análise contextualizada** — correlação dos dados fisiológicos com registros manuais, exames e a rotina do usuário
+- 🔒 **Segurança e privacidade** — desenvolvimento em conformidade com a **LGPD** (Lei Geral de Proteção de Dados), incluindo termo de uso sobre a finalidade da coleta de dados sensíveis de saúde
 
 ---
 
@@ -44,10 +48,12 @@ O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e pro
 
 | Tecnologia | Uso |
 |---|---|
-| [Expo](https://expo.dev/) | Framework principal — React Native full-stack |
-| [React Native](https://reactnative.dev/) | Desenvolvimento mobile (Android e iOS) |
-| [Amazon Web Services (AWS)](https://aws.amazon.com/) | Armazenamento, processamento e escalabilidade em nuvem |
-| Inteligência Artificial | Análise de exames e geração de insights de saúde |
+| [React Native Expo](https://expo.dev/) | Framework principal — base de código única compatível com Android e iOS |
+| [AWS S3](https://aws.amazon.com/s3/) | Armazenamento de documentos e imagens (exames, receitas) |
+| [AWS DynamoDB](https://aws.amazon.com/dynamodb/) | Banco de dados para os metadados e registros de saúde |
+| [AWS Amplify](https://aws.amazon.com/amplify/) | Integração do código JavaScript ao ambiente AWS (backend-as-code, Gen 2) |
+| [AWS Cognito](https://aws.amazon.com/cognito/) | Gerenciamento e autenticação de usuários |
+| Inteligência Artificial | Apoio à análise preliminar de exames — recurso informativo, não diagnóstico |
 
 ---
 

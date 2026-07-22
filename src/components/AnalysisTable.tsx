@@ -15,7 +15,7 @@ export function AnalysisTable({ data }: AnalysisTableProps) {
   return (
     <View style={styles.container}>
       {data.map((row, index) => (
-        <View key={index} style={styles.row}>
+        <View key={row.label} style={styles.row}>
           <View style={styles.leftContent}>
             <Text style={styles.label}>{row.label}</Text>
           </View>

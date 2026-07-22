@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react-native';
 import { SocialButton } from '@/components/SocialButton';
 import { ConfirmScreen } from '@/screens/ConfirmScreen';
 import { ForgotPasswordScreen } from '@/screens/ForgotPasswordScreen';
-import { HomeScreen } from '@/screens/HomeScreen';
+import { LoginScreen } from '@/screens/LoginScreen';
 import { RegisterScreen } from '@/screens/RegisterScreen';
 
 const googleLogo = require('../assets/images/google_Glogo.png');
@@ -29,7 +29,7 @@ describe('auth visual layout', () => {
   it.each([
     [
       'login',
-      <HomeScreen
+      <LoginScreen
         onGoogleAuthSuccess={jest.fn()}
         onLogin={jest.fn()}
         onNavigateToForgotPassword={jest.fn()}

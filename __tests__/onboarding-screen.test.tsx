@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { ProfileSetupScreen } from '@/screens/ProfileSetupScreen';
+import { OnboardingScreen } from '@/screens/OnboardingScreen';
 
 jest.mock('@expo/vector-icons/Ionicons', () => {
   const React = require('react');
@@ -12,9 +13,22 @@ jest.mock('@expo/vector-icons/Ionicons', () => {
   };
 });
 
-describe('ProfileSetupScreen', () => {
+function renderOnboardingScreen(props?: Partial<React.ComponentProps<typeof OnboardingScreen>>) {
+  return render(
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { height: 844, width: 390, x: 0, y: 0 },
+        insets: { bottom: 24, left: 0, right: 0, top: 44 },
+      }}
+    >
+      <OnboardingScreen onBack={jest.fn()} onComplete={jest.fn()} {...props} />
+    </SafeAreaProvider>,
+  );
+}
+
+describe('OnboardingScreen', () => {
   it('renders the first health profile step with the requested composition', () => {
-    render(<ProfileSetupScreen onBack={jest.fn()} onComplete={jest.fn()} />);
+    renderOnboardingScreen();
 
     expect(screen.getByText('Perfil de Saúde')).toBeTruthy();
     expect(
@@ -31,10 +45,12 @@ describe('ProfileSetupScreen', () => {
     expect(screen.queryByText('Você está grávida?')).toBeNull();
     expect(screen.getByText('m')).toBeTruthy();
     expect(screen.getByText('kg')).toBeTruthy();
+    expect(screen.queryByLabelText('Voltar etapa')).toBeNull();
+    expect(screen.getByLabelText('Continuar para próxima etapa')).toBeTruthy();
   });
 
   it('starts without a selected biological sex option', () => {
-    render(<ProfileSetupScreen onBack={jest.fn()} onComplete={jest.fn()} />);
+    renderOnboardingScreen();
 
     expect(screen.getByLabelText('Sexo biológico: Feminino').props.accessibilityState).toEqual({
       selected: false,
@@ -55,7 +71,7 @@ describe('ProfileSetupScreen', () => {
   it('lets biological sex stay unselected and lets optional fields stay empty', async () => {
     const onComplete = jest.fn();
 
-    render(<ProfileSetupScreen onBack={jest.fn()} onComplete={onComplete} />);
+    renderOnboardingScreen({ onComplete });
 
     fireEvent.changeText(screen.getByLabelText('Nome Completo'), 'Maria Silva');
     fireEvent.changeText(screen.getByLabelText('Data de nascimento'), '06052000');
@@ -98,7 +114,7 @@ describe('ProfileSetupScreen', () => {
   });
 
   it('shows pregnancy question only when female is selected', () => {
-    render(<ProfileSetupScreen onBack={jest.fn()} onComplete={jest.fn()} />);
+    renderOnboardingScreen();
 
     expect(screen.queryByText('Você está grávida?')).toBeNull();
 
@@ -112,7 +128,7 @@ describe('ProfileSetupScreen', () => {
   });
 
   it('blocks progression until required personal fields are filled', async () => {
-    render(<ProfileSetupScreen onBack={jest.fn()} onComplete={jest.fn()} />);
+    renderOnboardingScreen();
 
     fireEvent.press(screen.getByText('Continuar'));
 
@@ -122,12 +138,62 @@ describe('ProfileSetupScreen', () => {
   });
 
   it('keeps blocking progression when only the full name is missing', async () => {
-    render(<ProfileSetupScreen onBack={jest.fn()} onComplete={jest.fn()} />);
+    renderOnboardingScreen();
 
     fireEvent.changeText(screen.getByLabelText('Data de nascimento'), '06052000');
     fireEvent.press(screen.getByText('Continuar'));
 
     expect(await screen.findByText('Nome completo e obrigatorio')).toBeTruthy();
     expect(screen.getByText('Pessoais')).toBeTruthy();
+  });
+
+  it('formats height with a decimal comma while typing', () => {
+    renderOnboardingScreen();
+
+    fireEvent.changeText(screen.getByLabelText('Altura'), '165');
+
+    expect(screen.getByLabelText('Altura').props.value).toBe('1,65');
+  });
+
+  it('hides the header back arrow on the first step and shows it after advancing', async () => {
+    renderOnboardingScreen();
+
+    expect(screen.queryByLabelText('Voltar')).toBeNull();
+
+    fireEvent.changeText(screen.getByLabelText('Nome Completo'), 'Maria Silva');
+    fireEvent.changeText(screen.getByLabelText('Data de nascimento'), '06052000');
+    fireEvent.press(screen.getByLabelText('Continuar para próxima etapa'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Histórico clínico')).toBeTruthy();
+    });
+
+    expect(screen.getByLabelText('Voltar')).toBeTruthy();
+  });
+
+  it('shows the footer back button only after leaving the first step', async () => {
+    renderOnboardingScreen();
+
+    expect(screen.queryByLabelText('Voltar etapa')).toBeNull();
+
+    fireEvent.changeText(screen.getByLabelText('Nome Completo'), 'Maria Silva');
+    fireEvent.changeText(screen.getByLabelText('Data de nascimento'), '06052000');
+    fireEvent.press(screen.getByLabelText('Continuar para próxima etapa'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Histórico clínico')).toBeTruthy();
+    });
+
+    expect(screen.getByLabelText('Voltar etapa')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Voltar etapa'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Pessoais')).toBeTruthy();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Voltar etapa')).toBeNull();
+    });
   });
 });

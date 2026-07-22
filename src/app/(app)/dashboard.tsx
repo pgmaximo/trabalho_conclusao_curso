@@ -1,75 +1,47 @@
-// =============================================================================
-// Arquivo: (app)/dashboard.tsx
-// Descrição: Rota do dashboard principal - Centro de comandos do aplicativo
-// Função: DashboardRoute
-// =============================================================================
-//
-// Este arquivo define a rota do dashboard, que é a tela principal do aplicativo.
-// Ele conecta os dados do dashboard com a tela UI e gerencia a navegação
-// para as outras funcionalidades do app.
-//
-// Funcionalidades:
-// - Carregamento e gerenciamento de dados do dashboard
-// - Renderização da tela principal com métricas de saúde
-// - Navegação para todas as funcionalidades principais
-// - Tratamento de estados de loading e erro
-//
-// Dados Exibidos:
-// - Saudação personalizada e data atual
-// - Resumo geral de saúde
-// - Métricas personalizadas (pressão, peso, etc.)
-// - Próximos eventos e consultas
-// - Alertas preventivos
-//
-// =============================================================================
+import React from 'react';
+import { router } from 'expo-router';
 
-// Importações necessárias
-import React from 'react';                    // Biblioteca principal React
-import { router } from 'expo-router';        // Sistema de navegação
-import { DashboardScreen } from '@/screens/DashboardScreen';  // Tela do dashboard
-import { useDashboardData } from '@/hooks/useDashboardData';  // Hook para dados
+import { HomeScreen } from '@/screens/HomeScreen';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import { useUserContext } from '@/contexts/UserContext';
+import { useExamsData } from '@/hooks/useExamsData';
 
-// Componente da rota do dashboard
+function getGreeting(name: string): string {
+  const hour = new Date().getHours();
+  const period = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  return `${period}, ${name.split(' ')[0]}`;
+}
+
 export default function DashboardRoute() {
-  // Hook personalizado que gerencia o estado e dados do dashboard
-  // Retorna: dados, estado de loading, mensagem de erro e função de retry
   const { dashboard, todayLabel, isLoading, errorMessage, retry } = useDashboardData();
+  const { user } = useUserContext();
+  const { documents, isLoading: examsLoading } = useExamsData();
 
-  // Renderiza a tela do dashboard com todos os dados e callbacks
+  const greeting = getGreeting(user?.name ?? 'você');
+
+  // DECISION: ordena por documentDate desc e pega os 3 mais recentes para a Home
+  const recentExams = [...documents]
+    .sort((a, b) => (b.documentDate ?? '').localeCompare(a.documentDate ?? ''))
+    .slice(0, 3);
+
   return (
-    <DashboardScreen
-      // Saudação personalizada baseada no horário (ex: "Bom dia, João")
-      greeting={dashboard?.greeting ?? ''}
-      
-      // Label com a data atual formatada (ex: "Hoje, 23 de abril")
+    <HomeScreen
+      greeting={greeting}
       todayLabel={todayLabel}
-      
-      // Resumo geral do status de saúde (ex: { value: "Bom", status: "Estável" })
       summary={dashboard?.summary ?? { value: '', status: '' }}
-      
-      // Array de métricas de saúde (pressão, peso, batimentos, etc.)
       metrics={dashboard?.metrics ?? []}
-      
-      // Próximos eventos (consultas, exames, lembretes de medicamentos)
       upcomingEvents={dashboard?.upcomingEvents ?? []}
-      
-      // Alerta preventivo com recomendações de saúde
       preventiveAlert={dashboard?.preventiveAlert ?? { icon: '🩺', title: '', subtitle: '' }}
-      
-      // Estado de carregamento dos dados
+      recentExams={recentExams}
       isLoading={isLoading}
-      
-      // Mensagem de erro caso falhe ao carregar dados
+      examsLoading={examsLoading}
       errorMessage={errorMessage}
-      
-      // Função para tentar recarregar os dados em caso de erro
       onRetry={retry}
-      
-      // Callbacks de navegação para as funcionalidades principais
-      onNavigateToAi={() => router.push('/ai')}                    // Análise por IA
-      onNavigateToMedicines={() => router.push('/medicines')}      // Medicamentos
-      onNavigateToAppointments={() => router.push('/appointments')} // Consultas
-      onNavigateToPrevention={() => router.push('/prevention')}     // Prevenção
+      onNavigateToExamDetail={(id) => router.push(`/document-detail?id=${id}`)}
+      onNavigateToAi={() => router.push('/ai')}
+      onNavigateToMedicines={() => router.push('/medicines')}
+      onNavigateToAppointments={() => router.push('/appointments')}
+      onNavigateToPrevention={() => router.push('/prevention')}
     />
   );
 }

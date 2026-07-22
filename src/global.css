@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+
+/* <-- MODIFICADO: Aplicando sua fonte 'Basic-Regular' globalmente */
+@layer base {
+  text {
+    font-family: 'Basic-Regular';
+  }
+}
+
 :root {
   --color-background: #F1EFE8;
   --color-surface: #FFFFFF;

@@ -15,7 +15,7 @@ export function ActionButtonRow({ actions }: ActionButtonRowProps) {
     <View style={styles.container}>
       {actions.map((action, index) => (
         <Pressable
-          key={index}
+          key={action.label}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           onPress={action.onPress}
         >

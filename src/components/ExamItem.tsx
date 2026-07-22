@@ -87,8 +87,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,      // Borda arredondada
     padding: SIZES.base,           // Padding interno
     marginBottom: SIZES.small,      // Margem inferior para espaçamento
-    boxShadow: `0px 2px 6px ${COLORS.shadow}0F`, // Sombra web moderna
-    elevation: 2,                   // Elevação para Android
+    boxShadow: `0px 2px 6px ${COLORS.shadow}0F`,
   },
   
   // Estilo quando item é pressionado
