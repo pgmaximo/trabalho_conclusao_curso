@@ -7,7 +7,7 @@
 
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
-import { uploadData, remove } from 'aws-amplify/storage';
+import { uploadData, remove, getUrl } from 'aws-amplify/storage';
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
@@ -198,6 +198,22 @@ async function uploadFileToS3(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro ao fazer upload do arquivo';
     throw new Error(`Falha no upload para S3: ${message}`);
+  }
+}
+
+/**
+ * Retorna URL assinada para download do documento no S3
+ */
+export async function getDocumentDownloadUrl(s3FileName: string): Promise<string> {
+  try {
+    const result = await getUrl({
+      path: `medical-documents/{owner}/${s3FileName}`,
+    });
+
+    return typeof result === 'string' ? result : (result as { url: string }).url;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao obter o link de download';
+    throw new Error(`Falha ao obter URL de download: ${message}`);
   }
 }
 

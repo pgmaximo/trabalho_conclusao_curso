@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,7 +16,7 @@ import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { FormField } from '@/components/FormField';
 import { COLORS, FONTS, SIZES } from '@/constants/theme';
-import { updateExamDocument, deleteExamDocument, type DocumentType, type MedicalDocumentMetadata } from '@/services/examService';
+import { getDocumentDownloadUrl, updateExamDocument, deleteExamDocument, type DocumentType, type MedicalDocumentMetadata } from '@/services/examService';
 import { invalidateExamsCache } from '@/hooks/useExamsData';
 
 export interface DocumentDetailScreenProps {
@@ -116,10 +117,27 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
                 <Text style={styles.fileName} numberOfLines={2}>
                   {document.originalFileName}
                 </Text>
-                <Text style={styles.fileSize}>
+                <Text style={styles.fileSize} numberOfLines={1}>
                   {document.s3FileName}
                 </Text>
               </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.downloadButton,
+                  pressed && styles.downloadButtonPressed,
+                ]}
+                onPress={async () => {
+                  try {
+                    const downloadUrl = await getDocumentDownloadUrl(document.s3FileName);
+                    await Linking.openURL(downloadUrl);
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : 'Erro ao baixar documento.';
+                    alert(message);
+                  }
+                }}
+              >
+                <Text style={styles.downloadButtonText}>⬇️</Text>
+              </Pressable>
             </View>
           </Card>
 
@@ -340,6 +358,21 @@ const styles = StyleSheet.create({
   fileSize: {
     ...FONTS.caption,
     color: COLORS.textSecondary,
+  },
+  downloadButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  downloadButtonPressed: {
+    backgroundColor: `${COLORS.primary}cc`,
+  },
+  downloadButtonText: {
+    color: COLORS.onPrimary,
+    fontSize: 18,
   },
   section: {
     marginBottom: SIZES.large,
