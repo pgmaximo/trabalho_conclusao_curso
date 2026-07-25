@@ -27,6 +27,18 @@ const GRADE_BADGE_VARIANT: Record<UspstfGrade, 'success' | 'accent' | 'danger' |
   I: 'neutral',
 };
 
+// Explicacao em portugues do que cada grau da USPSTF significa de forma geral.
+// Texto proprio do app (nao e traducao do gradeText especifico retornado pela
+// API) — descreve o sistema de classificacao publico da USPSTF com nossas
+// palavras, sem reproduzir/adaptar o texto especifico com direitos autorais.
+const GRADE_EXPLAINER_PT: Record<UspstfGrade, string> = {
+  A: 'Grau A: forte indicação de que os benefícios superam claramente os riscos.',
+  B: 'Grau B: indicação de que os benefícios superam os riscos.',
+  C: 'Grau C: benefício considerado pequeno para a maioria das pessoas; vale conversar com seu médico.',
+  D: 'Grau D: especialistas recomendam não realizar rotineiramente — os riscos superam os benefícios conhecidos.',
+  I: 'Grau I: ainda não há evidências suficientes para avaliar os benefícios e riscos.',
+};
+
 // title/text sao verbatim da USPSTF (ingles, nao traduzir) por exigencia de
 // direitos autorais da AHRQ. Apenas o texto ao redor (badge, rodape) e app-authored.
 export function RecommendationCard({
@@ -59,6 +71,10 @@ export function RecommendationCard({
         </Pressable>
       </View>
 
+      <Text className="mb-1 text-[13px] font-semibold text-app-text dark:text-app-dark-text">
+        {GRADE_EXPLAINER_PT[grade]}
+      </Text>
+
       <Text className="mb-2 text-[13px] italic text-app-textMuted dark:text-app-dark-textMuted">
         {gradeText}
       </Text>
@@ -66,7 +82,8 @@ export function RecommendationCard({
       <HtmlText html={text} />
 
       <Text className="mt-3 text-[12px] text-app-textMuted dark:text-app-dark-textMuted">
-        Fonte: U.S. Preventive Services Task Force ({citation})
+        Fonte: U.S. Preventive Services Task Force ({citation}) · texto oficial mantido em inglês,
+        conforme exigido pelos termos de direitos autorais da AHRQ
       </Text>
     </Card>
   );

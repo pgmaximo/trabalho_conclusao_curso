@@ -18,7 +18,8 @@ export default function PreventionRoute() {
     errorMessage,
     retry,
     onToggleReminder,
-    pendingReminderId,
+    onEnableRemindersForIds,
+    pendingReminderIds,
   } = usePreventionData();
 
   return (
@@ -30,8 +31,9 @@ export default function PreventionRoute() {
       errorMessage={errorMessage}
       onRetry={retry}
       onToggleReminder={onToggleReminder}
+      onEnableRemindersForIds={onEnableRemindersForIds}
       onCompleteProfile={() => router.push('/profile-setup')}
-      pendingReminderId={pendingReminderId}
+      pendingReminderIds={pendingReminderIds}
     />
   );
 }
