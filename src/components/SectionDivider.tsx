@@ -1,32 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { Text, View } from 'react-native';
 
 export function SectionDivider({ label }: { label: string }) {
   return (
-    <View style={styles.container}>
-      <View style={styles.line} />
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.line} />
+    <View className="my-6 flex-row items-center">
+      <View className="h-px flex-1 bg-app-border dark:bg-app-dark-border" />
+      <Text className="mx-3 text-[13px] uppercase leading-[18px] tracking-[0.7px] text-app-textMuted dark:text-app-dark-textMuted">
+        {label}
+      </Text>
+      <View className="h-px flex-1 bg-app-border dark:bg-app-dark-border" />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: SIZES.large,
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border,
-  },
-  label: {
-    marginHorizontal: SIZES.small,
-    ...FONTS.caption,
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-  },
-});

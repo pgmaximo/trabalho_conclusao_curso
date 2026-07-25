@@ -87,11 +87,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,      // Borda arredondada
     padding: SIZES.base,           // Padding interno
     marginBottom: SIZES.small,      // Margem inferior para espaçamento
-    shadowColor: COLORS.shadow,     // Cor da sombra
-    shadowOffset: { width: 0, height: 2 }, // Offset da sombra
-    shadowOpacity: 0.06,            // Opacidade suave da sombra
-    shadowRadius: 6,               // Raio da sombra
-    elevation: 2,                   // Elevação para Android
+    boxShadow: `0px 2px 6px ${COLORS.shadow}0F`,
   },
   
   // Estilo quando item é pressionado

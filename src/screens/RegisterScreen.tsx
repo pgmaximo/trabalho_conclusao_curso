@@ -1,212 +1,254 @@
-import React from 'react';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { StatusBar } from 'expo-status-bar';
+import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { signUp } from 'aws-amplify/auth';
+import { useColorScheme } from 'nativewind';
 
-import { Card } from '@/components/Card';
+import { AuthInput } from '@/components/AuthInput';
+import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
+import { AuthIllustrationCard } from '@/components/AuthIllustrationCard';
 import { Button } from '@/components/Button';
-import { FormField } from '@/components/FormField';
-import { SocialButton } from '@/components/SocialButton';
 import { SectionDivider } from '@/components/SectionDivider';
-import { ScreenHeader } from '@/components/ScreenHeader';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
-import { registerSchema, type RegisterFormValues } from '@/validation/forms';
+import { SocialButton } from '@/components/SocialButton';
+import { useThemeColors } from '@/constants/theme';
+import { serializeAuthError, signInWithGoogle } from '@/services/auth';
+import { initializeUserSession } from '@/services/auth/userSessionService';
+import { blurActiveWebElement } from '@/utils/webFocus';
+
+const registerImage = require('../../assets/images/register_image.png');
+const googleLogo = require('../../assets/images/google_Glogo.png');
+
+type PasswordRequirement = {
+  label: string;
+  isMet: boolean;
+};
 
 type RegisterScreenProps = {
   onNavigateToLogin: () => void;
-  onRegister: (values: RegisterFormValues) => void | Promise<void>;
+  onRegisterSuccess: (email: string, password: string) => void;
+  onGoogleAuthSuccess: () => void;
 };
 
-export function RegisterScreen({ onNavigateToLogin, onRegister }: RegisterScreenProps) {
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<RegisterFormValues>({
-    defaultValues: {
-      email: '',
-      password: '',
-      confirmPassword: '',
-    },
-    resolver: zodResolver(registerSchema),
-  });
+function getPasswordRequirements(password: string): PasswordRequirement[] {
+  return [
+    { label: 'Ter pelo menos 8 caracteres', isMet: password.length >= 8 },
+    { label: 'Contém pelo menos 1 número', isMet: /\d/.test(password) },
+    { label: 'Contém pelo menos 1 caractere especial', isMet: /[^A-Za-z0-9]/.test(password) },
+    { label: 'Contém pelo menos 1 letra maiúscula', isMet: /[A-Z]/.test(password) },
+    { label: 'Contém pelo menos 1 letra minúscula', isMet: /[a-z]/.test(password) },
+  ];
+}
+
+export function RegisterScreen({
+  onNavigateToLogin,
+  onRegisterSuccess,
+  onGoogleAuthSuccess,
+}: RegisterScreenProps) {
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+
+  const passwordRequirements = getPasswordRequirements(password);
+  const isPasswordRequirementsVisible = isPasswordFocused || password.length > 0;
+  const isPasswordValid = passwordRequirements.every((requirement) => requirement.isMet);
+
+  async function handleRegister() {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password || !confirmPassword) {
+      Alert.alert('Atenção', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (!isPasswordValid) {
+      Alert.alert('Atenção', 'Sua senha ainda não atende a todos os requisitos.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Atenção', 'As senhas não coincidem.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { nextStep } = await signUp({
+        username: normalizedEmail,
+        password,
+        options: {
+          userAttributes: {
+            email: normalizedEmail,
+          },
+          autoSignIn: true,
+        },
+      });
+
+      if (nextStep.signUpStep === 'CONFIRM_SIGN_UP') {
+        Alert.alert('Quase lá!', 'Enviamos um código de confirmação para o seu e-mail.');
+        // DECISION: Passa password para ConfirmScreen para auto-signin apos confirmar email
+        onRegisterSuccess(normalizedEmail, password);
+      }
+    } catch (error: any) {
+      console.log('Erro detalhado:', error);
+      let message = 'Ocorreu um erro ao criar a conta. Tente novamente.';
+
+      if (error.name === 'UsernameExistsException') message = 'Este e-mail já está em uso.';
+      if (error.name === 'InvalidPasswordException') message = 'A senha não atende aos requisitos mínimos de segurança.';
+      if (error.name === 'InvalidParameterException') message = 'Verifique se o e-mail está em um formato válido.';
+
+      Alert.alert('Erro no Cadastro', message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleGoogleRegister() {
+    blurActiveWebElement();
+    setIsLoading(true);
+
+    try {
+      await signInWithGoogle();
+      // Initialize user session after Google sign-in
+      await initializeUserSession();
+      onGoogleAuthSuccess();
+    } catch (error: any) {
+      console.log('Erro no cadastro com Google:', serializeAuthError(error));
+      Alert.alert('Erro', 'Nao foi possivel conectar com o Google.');
+      setIsLoading(false);
+    }
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <AuthBackgroundGlow corner="bottomLeft" />
       <KeyboardAvoidingView
-        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
       >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.hero}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeIcon}>💚</Text>
-            </View>
-            <Text style={styles.title}>SuaSaúde</Text>
-            <Text style={styles.subtitle}>Gerencie sua saúde com IA e dispositivos vestíveis</Text>
-          </View>
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
+          keyboardShouldPersistTaps="handled"
+        >
+          <AuthIllustrationCard imageSource={registerImage}>
+                <Text className="mb-6 text-xl font-bold leading-[26px] text-app-text dark:text-app-dark-text">
+                  Criar conta gratuita
+                </Text>
 
-          <Card padding="spacious" style={styles.card}>
-            <ScreenHeader
-              title="Criar conta gratuita"
-              subtitle="Validamos seus dados agora para que a integração com Cognito entre depois sem retrabalho."
-            />
-            <Controller
-              control={control}
-              name="email"
-              render={({ field }) => (
-                <FormField
-                  label="E-mail"
-                  icon="✉️"
-                  placeholder="Digite seu e-mail"
-                  keyboardType="email-address"
+                <AuthInput
                   autoCapitalize="none"
-                  autoCorrect={false}
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  errorMessage={errors.email?.message}
+                  containerClassName="mt-0"
+                  editable={!isLoading}
+                  icon={<MaterialIcons color={colors.placeholder} name="email" size={20} />}
+                  keyboardType="email-address"
+                  label="E-mail"
+                  onChangeText={setEmail}
+                  placeholder="Digite seu e-mail"
+                  value={email}
                 />
-              )}
-            />
-            <Controller
-              control={control}
-              name="password"
-              render={({ field }) => (
-                <FormField
+
+                <AuthInput
+                  editable={!isLoading}
+                  icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
                   label="Senha"
-                  icon="🔒"
+                  onBlur={() => setIsPasswordFocused(false)}
+                  onChangeText={setPassword}
+                  onFocus={() => setIsPasswordFocused(true)}
                   placeholder="Digite sua senha"
                   secureTextEntry
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  errorMessage={errors.password?.message}
+                  value={password}
                 />
-              )}
-            />
-            <Controller
-              control={control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormField
+
+                {isPasswordRequirementsVisible ? (
+                  <View className="mt-3 gap-3 rounded-app border border-app-border bg-app-surfaceMuted p-3 dark:border-app-dark-border dark:bg-app-dark-surfaceMuted">
+                    {passwordRequirements.map((requirement) => (
+                      <View className="flex-row items-center gap-3" key={requirement.label}>
+                        <MaterialIcons
+                          color={requirement.isMet ? colors.success : colors.textMuted}
+                          name={requirement.isMet ? 'check-circle' : 'radio-button-unchecked'}
+                          size={16}
+                        />
+                        <Text
+                          className={[
+                            'flex-1 text-[13px] leading-[18px] text-app-textSecondary dark:text-app-dark-textSecondary',
+                            requirement.isMet
+                              ? 'text-app-success line-through dark:text-app-dark-success'
+                              : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                        >
+                          {requirement.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                <AuthInput
+                  editable={!isLoading}
+                  icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
                   label="Confirmar senha"
-                  icon="🔒"
+                  onChangeText={setConfirmPassword}
                   placeholder="Confirme sua senha"
                   secureTextEntry
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  errorMessage={errors.confirmPassword?.message}
+                  value={confirmPassword}
                 />
-              )}
-            />
 
-            <Button
-              title={isSubmitting ? 'Criando conta...' : 'Criar conta'}
-              onPress={handleSubmit(onRegister)}
-              disabled={isSubmitting}
-            />
+                {isLoading ? (
+                  <ActivityIndicator
+                    color={colors.primary}
+                    size="large"
+                    style={{ marginBottom: 24, marginTop: 12 }}
+                  />
+                ) : (
+                  <Button onPress={handleRegister} title="Criar conta" />
+                )}
 
-            <SectionDivider label="ou continue com" />
+                <SectionDivider label="ou continue com" />
 
-            <View style={styles.socialRow}>
-              <SocialButton title="G  Google" onPress={() => {}} />
-              <SocialButton title="Apple ID" onPress={() => {}} />
-            </View>
+                <View className="flex-row justify-between">
+                  <SocialButton
+                    disabled={isLoading}
+                    iconSource={googleLogo}
+                    onPress={handleGoogleRegister}
+                    title="Google"
+                  />
+                </View>
 
-            <Text style={styles.termsText}>
-              Ao criar sua conta, você concorda com os Termos de Uso e Política de Privacidade (LGPD)
-            </Text>
-
-            <TouchableOpacity activeOpacity={0.7} style={styles.loginLink} onPress={onNavigateToLogin}>
-              <Text style={styles.loginLinkText}>Já tem uma conta? <Text style={styles.loginLinkBold}>Entrar</Text></Text>
-            </TouchableOpacity>
-          </Card>
+                <Pressable
+                  className="mt-6 self-center"
+                  disabled={isLoading}
+                  onPress={onNavigateToLogin}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                >
+                  <Text className="text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                    Já tem uma conta?{' '}
+                    <Text className="font-semibold text-app-primary dark:text-app-dark-primary">
+                      Entrar
+                    </Text>
+                  </Text>
+                </Pressable>
+          </AuthIllustrationCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: SIZES.large,
-    paddingTop: SIZES.large * 1.5,
-  },
-  hero: {
-    alignItems: 'center',
-    marginBottom: SIZES.large,
-  },
-  badge: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.large,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 22,
-    elevation: 6,
-  },
-  badgeIcon: {
-    fontSize: 28,
-  },
-  title: {
-    ...FONTS.title,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...FONTS.subtitle,
-    textAlign: 'center',
-    marginTop: SIZES.small,
-    maxWidth: 320,
-  },
-  card: {
-    borderRadius: SIZES.cardRadius,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: SIZES.small,
-  },
-  termsText: {
-    ...FONTS.caption,
-    textAlign: 'center',
-    marginTop: SIZES.large,
-    lineHeight: 18,
-  },
-  loginLink: {
-    alignSelf: 'center',
-    marginTop: SIZES.large,
-  },
-  loginLinkText: {
-    ...FONTS.body,
-    color: COLORS.textSecondary,
-  },
-  loginLinkBold: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-});

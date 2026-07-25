@@ -47,3 +47,15 @@ Spec Driven Dev/
 # Claude Code local config (per-developer, not shared)
 CLAUDE.md
 .claude/
+
+# Amplify Backend (artefatos temporários e locais)
+.amplify/
+
+# AWS CLI / Credential
+.aws/
+
+# local agent and generated logs
+AGENTS.md
+.expo-codex.log
+graphify-out/
+docs/

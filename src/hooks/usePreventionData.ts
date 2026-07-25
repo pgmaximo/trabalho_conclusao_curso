@@ -1,5 +1,5 @@
 import { useAsyncResource } from '@/hooks/useAsyncResource';
-import { getPreventionSnapshot } from '@/services/preventionService';
+import { getPreventionSnapshot } from '@/mocks/api';
 
 export function usePreventionData() {
   const { data, status, errorMessage, retry } = useAsyncResource(getPreventionSnapshot);

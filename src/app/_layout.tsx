@@ -1,47 +1,69 @@
-// =============================================================================
-// Arquivo: _layout.tsx
-// Descrição: Layout raiz do aplicativo - Configuração principal de navegação
-// Função: RootLayout
-// =============================================================================
-//
-// Este arquivo define a estrutura de navegação principal do aplicativo usando
-// Stack Navigator do expo-router. Configura todas as rotas principais e suas
-// hierarquias, definindo o fluxo de navegação do usuário.
-//
-// Funcionalidades:
-// - Configuração do Stack Navigator principal
-// - Definição das rotas de autenticação e aplicativo
-// - Ocultação do header padrão para usar headers customizados
-//
-// Rotas Configuradas:
-// - index: Rota raiz (redireciona para dashboard)
-// - register: Tela de registro de usuário
-// - profile-setup: Configuração inicial do perfil
-// - (app): Grupo de rotas do aplicativo principal (tabs internas)
-//
-// =============================================================================
+import '@/global.css';
+import '@/services/amplify/configureAmplify';
+import React, { useEffect } from 'react';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { DocumentProvider } from '@/contexts/DocumentContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { UserProvider } from '@/contexts/UserContext';
+import { useFonts } from 'expo-font';
+import { Text, TextInput } from 'react-native';
 
-// Importações necessárias
-import React from 'react';                    // Biblioteca principal React
-import { Stack } from 'expo-router';         // Componente de navegação Stack
+// ----------------------------------------------------------------------
+// INJEÇÃO GLOBAL DEFINITIVA (O "Monkey Patch" do Render)
+// Em vez de usar defaultProps (que é sobrescrito pelo Tailwind), 
+// nós interceptamos a renderização do Text e forçamos a fonte 
+// a se fundir com os estilos do Tailwind sem que um anule o outro.
+// ----------------------------------------------------------------------
+const oldTextRender = (Text as any).render;
+if (oldTextRender) {
+  (Text as any).render = function (props: any, ref: any) {
+    // Array de estilos: A fonte base vem primeiro, os estilos da sua tela (props.style) vêm depois
+    return oldTextRender({ ...props, style: [{ fontFamily: 'Basic-Regular' }, props.style] }, ref);
+  };
+}
 
-// Componente principal do layout raiz
+const oldTextInputRender = (TextInput as any).render;
+if (oldTextInputRender) {
+  (TextInput as any).render = function (props: any, ref: any) {
+    return oldTextInputRender({ ...props, style: [{ fontFamily: 'Basic-Regular' }, props.style] }, ref);
+  };
+}
+// ----------------------------------------------------------------------
+
+// Segura a splash screen antes de qualquer render
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function RootLayout() {
-  // Retorna o Stack Navigator configurado com as rotas principais
+  const [fontsLoaded, fontError] = useFonts({
+    'Basic-Regular': require('../../assets/fonts/Basic-Regular.ttf'),
+  });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
-    // Stack Navigator com header desativado para usar headers customizados
-    <Stack screenOptions={{ headerShown: false }}>
-      {/* Rota raiz - Ponto de entrada do aplicativo */}
-      <Stack.Screen name="index" />
-      
-      {/* Rota de registro - Tela para novos usuários */}
-      <Stack.Screen name="register" />
-      
-      {/* Rota de configuração de perfil - Setup inicial do usuário */}
-      <Stack.Screen name="profile-setup" />
-      
-      {/* Grupo de rotas do aplicativo principal - Contém as tabs internas */}
-      <Stack.Screen name="(app)" />
-    </Stack>
+    <ThemeProvider>
+      <UserProvider>
+        <DocumentProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="register" />
+            <Stack.Screen name="confirm" />
+            <Stack.Screen name="forgot-password" />
+            <Stack.Screen name="profile-setup" />
+            <Stack.Screen name="edit-profile" />
+            <Stack.Screen name="(app)" />
+          </Stack>
+        </DocumentProvider>
+      </UserProvider>
+    </ThemeProvider>
   );
 }

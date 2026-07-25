@@ -1,192 +1,228 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableOpacity,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Card } from '@/components/Card';
-import { Button } from '@/components/Button';
-import { FormField } from '@/components/FormField';
-import { SocialButton } from '@/components/SocialButton';
-import { SectionDivider } from '@/components/SectionDivider';
+import { EmptyState } from '@/components/EmptyState';
+import { EventCard } from '@/components/EventCard';
+import { MetricCard } from '@/components/MetricCard';
+import { QuickAccessButton } from '@/components/QuickAccessButton';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
-import { loginSchema, type LoginFormValues } from '@/validation/forms';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Section } from '@/components/Section';
+import { useThemeColors } from '@/constants/theme';
+import type {
+  DashboardEvent,
+  DashboardMetric,
+  DashboardSummary,
+  MedicalDocument,
+} from '@/types/models';
 
 type HomeScreenProps = {
-  onNavigateToRegister: () => void;
-  onLogin: (values: LoginFormValues) => void | Promise<void>;
+  greeting: string;
+  todayLabel: string;
+  summary: DashboardSummary;
+  metrics: DashboardMetric[];
+  upcomingEvents: DashboardEvent[];
+  preventiveAlert: DashboardEvent;
+  recentExams: MedicalDocument[];
+  isLoading: boolean;
+  examsLoading: boolean;
+  errorMessage: string | null;
+  onRetry: () => void;
+  onNavigateToExamDetail: (id: string) => void;
+  onNavigateToAi?: () => void;
+  onNavigateToMedicines?: () => void;
+  onNavigateToAppointments?: () => void;
+  onNavigateToPrevention?: () => void;
 };
 
-export function HomeScreen({ onNavigateToRegister, onLogin }: HomeScreenProps) {
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginFormValues>({
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-    resolver: zodResolver(loginSchema),
-  });
+export function HomeScreen({
+  greeting,
+  todayLabel,
+  summary,
+  metrics,
+  upcomingEvents,
+  preventiveAlert,
+  recentExams,
+  isLoading,
+  examsLoading,
+  errorMessage,
+  onRetry,
+  onNavigateToExamDetail,
+  onNavigateToAi,
+  onNavigateToMedicines,
+  onNavigateToAppointments,
+  onNavigateToPrevention,
+}: HomeScreenProps) {
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
+
+  const firstRowMetrics = metrics.slice(0, 2);
+  const secondRowMetrics = metrics.slice(2, 4);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.hero}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeIcon}>💚</Text>
-            </View>
-            <Text style={styles.title}>SuaSaúde</Text>
-            <Text style={styles.subtitle}>Gerencie sua saúde com IA e dispositivos vestíveis</Text>
-          </View>
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
+        {isLoading ? (
+          <ScreenSkeleton blocks={4} />
+        ) : errorMessage ? (
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Não foi possível carregar o dashboard"
+            description={errorMessage}
+            tone="error"
+            actionLabel="Tentar novamente"
+            onActionPress={onRetry}
+          />
+        ) : (
+          <>
+            <ScreenHeader title={greeting} subtitle={todayLabel} badgeLabel={summary.status} />
 
-          <Card padding="spacious" style={styles.card}>
-            <ScreenHeader
-              title="Entre na sua conta"
-              subtitle="Use seu e-mail e senha para acessar os recursos principais do aplicativo."
-            />
-            <Controller
-              control={control}
-              name="email"
-              render={({ field }) => (
-                <FormField
-                  label="E-mail"
-                  icon="✉️"
-                  placeholder="Digite seu e-mail"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  errorMessage={errors.email?.message}
+            <Card variant="soft" padding="spacious">
+              <Text className="mb-1.5 text-[13px] font-bold text-app-primary dark:text-app-dark-primary">
+                Seu resumo de hoje
+              </Text>
+              <Text className="text-xl font-bold text-app-text dark:text-app-dark-text">
+                {summary.value}
+              </Text>
+              <Text className="mt-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                {summary.status}
+              </Text>
+            </Card>
+
+            <View className="mt-6">
+              <Section
+                title="Indicadores principais"
+                subtitle="Resumo rápido do que merece atenção hoje."
+              >
+                <View className="mb-4 flex-row">
+                  {firstRowMetrics.map((metric) => (
+                    <MetricCard
+                      key={metric.label}
+                      label={metric.label}
+                      value={metric.value}
+                      status={metric.status}
+                      statusColor={metric.statusColor}
+                      progressPercent={metric.progressPercent}
+                    />
+                  ))}
+                </View>
+                <View className="flex-row">
+                  {secondRowMetrics.map((metric) => (
+                    <MetricCard
+                      key={metric.label}
+                      label={metric.label}
+                      value={metric.value}
+                      status={metric.status}
+                      statusColor={metric.statusColor}
+                      progressPercent={metric.progressPercent}
+                    />
+                  ))}
+                </View>
+              </Section>
+
+              <Section title="Últimos exames" subtitle="Documentos enviados recentemente.">
+                {examsLoading ? (
+                  <ScreenSkeleton blocks={2} />
+                ) : recentExams.length > 0 ? (
+                  recentExams.map((exam) => (
+                    <Pressable
+                      key={exam.id}
+                      className="mb-3 flex-row items-center gap-3 rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
+                      onPress={() => onNavigateToExamDetail(exam.id)}
+                      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                    >
+                      <Ionicons color={colors.primary} name="document-text-outline" size={22} />
+                      <View className="flex-1">
+                        <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">
+                          {exam.title}
+                        </Text>
+                        <Text className="text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                          {exam.subtitle}
+                        </Text>
+                      </View>
+                      <Ionicons color={colors.iconMuted} name="chevron-forward" size={18} />
+                    </Pressable>
+                  ))
+                ) : (
+                  <EmptyState
+                    icon="document-text-outline"
+                    title="Nenhum exame enviado"
+                    description="Seus exames aparecerão aqui após o upload."
+                  />
+                )}
+              </Section>
+
+              <Section
+                title="Próximos eventos"
+                subtitle="Compromissos e lembretes mais próximos."
+              >
+                {upcomingEvents.length > 0 ? (
+                  upcomingEvents.map((event) => (
+                    <EventCard
+                      key={event.title}
+                      icon={event.icon}
+                      title={event.title}
+                      subtitle={event.subtitle}
+                      actionLabel={event.actionLabel}
+                      actionColor={event.actionColor}
+                      onActionPress={() => {}}
+                    />
+                  ))
+                ) : (
+                  <EmptyState
+                    icon="calendar-outline"
+                    title="Nenhum evento programado"
+                    description="Quando houver novos exames ou consultas, eles aparecerão aqui."
+                  />
+                )}
+              </Section>
+
+              <Section title="Prevenção" subtitle="Sinais preventivos com base no seu perfil atual.">
+                <EventCard
+                  icon={preventiveAlert.icon}
+                  title={preventiveAlert.title}
+                  subtitle={preventiveAlert.subtitle}
+                  variant={preventiveAlert.variant}
                 />
-              )}
-            />
-            <Controller
-              control={control}
-              name="password"
-              render={({ field }) => (
-                <FormField
-                  label="Senha"
-                  icon="🔒"
-                  placeholder="Digite sua senha"
-                  secureTextEntry
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  errorMessage={errors.password?.message}
-                />
-              )}
-            />
+              </Section>
 
-            <TouchableOpacity activeOpacity={0.7} style={styles.forgotPassword}>
-              <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
-            </TouchableOpacity>
-
-            <Button
-              title={isSubmitting ? 'Entrando...' : 'Entrar'}
-              onPress={handleSubmit(onLogin)}
-              disabled={isSubmitting}
-            />
-            <Button title="Criar conta gratuita" variant="secondary" onPress={onNavigateToRegister} />
-
-            <SectionDivider label="ou continue com" />
-
-            <View style={styles.socialRow}>
-              <SocialButton title="Google" onPress={() => {}} />
-              <SocialButton title="Apple ID" onPress={() => {}} />
+              <Section title="Acesso rápido" subtitle="Atalhos para as áreas mais usadas do app.">
+                <View className="flex-row justify-between">
+                  <QuickAccessButton
+                    icon="calendar-outline"
+                    label="Agendas"
+                    onPress={onNavigateToAppointments ?? (() => {})}
+                  />
+                  <QuickAccessButton
+                    icon="bulb-outline"
+                    label="IA p/ Exames"
+                    onPress={onNavigateToAi ?? (() => {})}
+                  />
+                  <QuickAccessButton
+                    icon="medkit-outline"
+                    label="Medicamentos"
+                    onPress={onNavigateToMedicines ?? (() => {})}
+                  />
+                  <QuickAccessButton icon="watch-outline" label="Wearable" onPress={() => {}} />
+                </View>
+                <View className="mt-2 flex-row justify-between">
+                  <QuickAccessButton
+                    icon="shield-checkmark-outline"
+                    label="Prevenção"
+                    onPress={onNavigateToPrevention ?? (() => {})}
+                  />
+                </View>
+              </Section>
             </View>
-
-            <Text style={styles.termsText}>
-              Ao entrar, você concorda com os Termos de Uso e Política de Privacidade (LGPD)
-            </Text>
-          </Card>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: SIZES.large,
-    paddingTop: SIZES.large * 1.5,
-  },
-  hero: {
-    alignItems: 'center',
-    marginBottom: SIZES.large,
-  },
-  badge: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.large,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 22,
-    elevation: 6,
-  },
-  badgeIcon: {
-    fontSize: 28,
-  },
-  title: {
-    ...FONTS.title,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...FONTS.subtitle,
-    textAlign: 'center',
-    marginTop: SIZES.small,
-    maxWidth: 320,
-  },
-  card: {
-    borderRadius: SIZES.cardRadius,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginTop: SIZES.small,
-  },
-  forgotPasswordText: {
-    ...FONTS.body,
-    color: COLORS.primary,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: SIZES.small,
-  },
-  termsText: {
-    ...FONTS.caption,
-    textAlign: 'center',
-    marginTop: SIZES.large,
-    lineHeight: 18,
-  },
-});

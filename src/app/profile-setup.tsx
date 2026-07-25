@@ -1,46 +1,62 @@
-// =============================================================================
-// Arquivo: profile-setup.tsx
-// Descrição: Rota de configuração inicial do perfil do usuário
-// Função: ProfileSetupRoute
-// =============================================================================
-//
-// Este arquivo define a rota de configuração inicial do perfil. É a primeira
-// tela que o usuário vê após o registro, onde ele configura suas informações
-// básicas e preferências de saúde.
-//
-// Funcionalidades:
-// - Renderização da tela de configuração de perfil
-// - Navegação de volta para a tela anterior
-// - Redirecionamento para o dashboard após completar setup
-//
-// Fluxo de Navegação:
-// 1. Usuário vem do registro -> /profile-setup
-// 2. Preenche informações básicas do perfil
-// 3. Ao completar -> /dashboard (início do aplicativo)
-// 4. Ao voltar -> retorna para tela anterior (register)
-//
-// =============================================================================
+/**
+ * Resumo do arquivo:
+ * Rota de configuracao inicial do perfil.
+ * Marca o setup como concluido e leva o usuario para o dashboard autenticado.
+ */
+import React from 'react';
+import { Alert } from 'react-native';
+import { router } from 'expo-router';
+import { getCurrentUser } from 'aws-amplify/auth';
 
-// Importações necessárias
-import React from 'react';                    // Biblioteca principal React
-import { router } from 'expo-router';        // Sistema de navegação
-import { ProfileSetupScreen } from '@/screens/ProfileSetupScreen';  // Tela de setup
+import { OnboardingScreen } from '@/screens/OnboardingScreen';
+import { saveUserProfile } from '@/services/profileSetupRepository';
+import { useUserContext } from '@/contexts/UserContext';
+import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
 
-// Componente da rota de configuração de perfil
 export default function ProfileSetupRoute() {
-  // Renderiza a tela de configuração com as callbacks de navegação
-  return (
-    <ProfileSetupScreen
-      // Callback para voltar para a tela anterior
-      // Usa back() para retornar à tela anterior no histórico de navegação
-      onBack={() => router.back()}
+  const { refreshUser } = useUserContext();
+
+  async function completeProfileSetup(values: ProfileSetupFormValues) {
+    try {
+      // DECISION: Verifica se o usuario esta realmente autenticado antes de salvar o perfil.
+      // Isso fornece um diagnostico melhor se ha problemas de autenticacao.
+      try {
+        const currentUser = await getCurrentUser();
+        console.log('Usuario autenticado:', currentUser.userId);
+      } catch (authError) {
+        console.error('Erro: Usuario nao esta autenticado', authError);
+        Alert.alert(
+          'Erro de autenticacao',
+          'Voce nao esta autenticado. Por favor, faca login novamente ou complete o cadastro.',
+        );
+        return;
+      }
+
+      await saveUserProfile(values);
+      // Atualiza o UserContext (onboardingCompleted: true) antes de navegar
+      await refreshUser();
+      router.replace('/dashboard');
+    } catch (error) {
+      console.log('Erro ao salvar perfil:', error);
       
-      // Callback executado quando o usuário completa a configuração
-      // Redireciona para o dashboard principal do aplicativo
-      onComplete={async () => {
-        // Substitui a rota atual pelo dashboard (início do app)
-        router.replace('/dashboard');
-      }}
+      // Fornece mensagens de erro mais descriptivas baseado no tipo de erro
+      let errorMessage = 'Nao foi possivel salvar seu perfil agora. Verifique sua conexao e tente novamente.';
+      if (error instanceof Error) {
+        if (error.message.includes('NoValidAuthTokens') || error.message.includes('federated jwt')) {
+          errorMessage = 'Erro de autenticacao: Seu session expirou. Por favor, faca login novamente.';
+        } else if (error.message.includes('usuario nao autenticado')) {
+          errorMessage = 'Voce nao esta autenticado. Por favor, faca login para continuar.';
+        }
+      }
+      
+      Alert.alert('Erro ao salvar perfil', errorMessage);
+    }
+  }
+
+  return (
+    <OnboardingScreen
+      onBack={() => router.replace('/')}
+      onComplete={completeProfileSetup}
     />
   );
 }

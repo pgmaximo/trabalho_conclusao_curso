@@ -1,54 +1,30 @@
 import React from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { Pressable, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import { useThemeColors } from '@/constants/theme';
 
 type QuickAccessButtonProps = {
-  icon: string;
+  icon: string; // nome do Ionicon
   label: string;
   onPress: () => void;
 };
 
 export function QuickAccessButton({ icon, label, onPress }: QuickAccessButtonProps) {
+  const colors = useThemeColors();
+
   return (
     <Pressable
-      style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+      className="flex-1 items-center justify-center px-2 py-3"
       onPress={onPress}
+      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
     >
-      <View style={styles.iconContainer}>
-        <Text style={styles.icon}>{icon}</Text>
+      <View className="mb-2 h-12 w-12 items-center justify-center rounded-app bg-app-inputBackground dark:bg-app-dark-inputBackground">
+        <Ionicons color={colors.primary} name={icon as never} size={24} />
       </View>
-      <Text style={styles.label}>{label}</Text>
+      <Text className="text-center text-[13px] font-semibold text-app-text dark:text-app-dark-text">
+        {label}
+      </Text>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: SIZES.small,
-    paddingVertical: SIZES.base,
-  },
-  buttonPressed: {
-    opacity: 0.7,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: SIZES.radius,
-    backgroundColor: COLORS.inputBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.small,
-  },
-  icon: {
-    fontSize: 24,
-  },
-  label: {
-    ...FONTS.caption,
-    color: COLORS.text,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-});

@@ -1,40 +1,74 @@
-// =============================================================================
-// Arquivo: index.tsx
-// Descrição: Ponto de entrada principal do aplicativo - Rota raiz
-// Função: IndexRoute
-// =============================================================================
-// 
-// Este arquivo define a rota inicial do aplicativo. Atualmente, ele redireciona
-// automaticamente para o dashboard, substituindo o fluxo de login original.
-//
-// Funcionalidades:
-// - Redirecionamento automático para /dashboard
-// - Código de login original mantido como comentário para referência
-//
-// =============================================================================
+/**
+ * Resumo do arquivo:
+ * Rota inicial do app no Expo Router (tela de bootstrap + login).
+ * Se ja existe sessao ativa, redireciona direto para o destino pos-auth;
+ * caso contrario, exibe a tela de login. A decisao de rota fica AQUI (tela
+ * filha do Stack) e nao no _layout raiz, para nao remontar o navegador e
+ * cair em loop de roteamento.
+ */
+import React, { useEffect, useState } from 'react';
+import { router } from 'expo-router';
+import { getCurrentUser } from 'aws-amplify/auth';
 
-import React from 'react';
-// import { router } from 'expo-router';  // Navegação entre telas (desativado)
+import { LoginScreen } from '@/screens/LoginScreen';
+import { resolvePostAuthRoute } from '@/services/auth';
+import { blurActiveWebElement } from '@/utils/webFocus';
 
-// import { HomeScreen } from '@/screens/HomeScreen';  // Tela de login (desativada)
+export default function LoginRoute() {
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-// // Fluxo de login original (mantido como comentário)
-// export default function LoginRoute() {
-//   return (
-//     <HomeScreen
-//       onNavigateToRegister={() => router.push('/register')}
-//       onLogin={async () => {
-//         router.replace('/dashboard');
-//       }}
-//     />
-//   );
-// }
+  useEffect(() => {
+    let isActive = true;
 
-// Componente de redirecionamento para o dashboard
-import { Redirect } from 'expo-router';
+    async function redirectIfAuthenticated() {
+      try {
+        await getCurrentUser();
+        const nextRoute = await resolvePostAuthRoute();
+        if (isActive) {
+          router.replace(nextRoute);
+        }
+      } catch {
+        // Sem sessao ativa — exibe o login.
+        if (isActive) {
+          setIsCheckingSession(false);
+        }
+      }
+    }
 
-// Função principal da rota raiz
-export default function IndexRoute() {
-  // Redireciona automaticamente para o dashboard ao iniciar o app
-  return <Redirect href="/dashboard" />;
+    redirectIfAuthenticated();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  async function navigateAfterAuth() {
+    const nextRoute = await resolvePostAuthRoute();
+    router.replace(nextRoute);
+  }
+
+  function navigateToRegister() {
+    blurActiveWebElement();
+    router.push('/register');
+  }
+
+  function navigateToForgotPassword() {
+    blurActiveWebElement();
+    router.push('/forgot-password');
+  }
+
+  // Enquanto verifica a sessao, nao renderiza o login (evita "piscar" o login
+  // antes de redirecionar um usuario ja autenticado).
+  if (isCheckingSession) {
+    return null;
+  }
+
+  return (
+    <LoginScreen
+      onNavigateToRegister={navigateToRegister}
+      onNavigateToForgotPassword={navigateToForgotPassword}
+      onLogin={navigateAfterAuth}
+      onGoogleAuthSuccess={navigateAfterAuth}
+    />
+  );
 }

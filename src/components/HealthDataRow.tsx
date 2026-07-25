@@ -14,7 +14,7 @@ export function HealthDataRow({ items }: HealthDataRowProps) {
     <View style={styles.container}>
       {items.map((item, index) => (
         <View
-          key={index}
+          key={item.label}
           style={[
             styles.item,
             index !== items.length - 1 && styles.itemBorder,

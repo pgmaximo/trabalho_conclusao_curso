@@ -5,7 +5,7 @@ import {
   countPendingMedicines,
   getMedicinesSnapshot,
   toggleMedicineStatus,
-} from '@/services/medicinesService';
+} from '@/mocks/api';
 
 export function useMedicinesData() {
   const { data, status, errorMessage, retry } = useAsyncResource(getMedicinesSnapshot);

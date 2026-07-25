@@ -1,13 +1,43 @@
 import React from 'react';
-import { TextInputProps } from 'react-native';
+import { StyleProp, TextInputProps, ViewStyle } from 'react-native';
 
 import { FormField } from '@/components/FormField';
 
 type AuthInputProps = TextInputProps & {
   label: string;
-  icon?: string;
+  icon?: React.ReactNode;
+  hasError?: boolean;
+  errorMessage?: string;
+  containerStyle?: StyleProp<ViewStyle>;
+  containerClassName?: string;
+  inputWrapperClassName?: string;
+  inputClassName?: string;
 };
 
-export function AuthInput({ label, icon, style, ...rest }: AuthInputProps) {
-  return <FormField label={label} icon={icon} style={style} {...rest} />;
+export function AuthInput({
+  label,
+  icon,
+  hasError,
+  errorMessage,
+  containerStyle,
+  containerClassName,
+  inputWrapperClassName,
+  inputClassName,
+  style,
+  ...rest
+}: AuthInputProps) {
+  return (
+    <FormField
+      label={label}
+      icon={icon}
+      hasError={hasError}
+      errorMessage={errorMessage}
+      containerStyle={containerStyle}
+      containerClassName={containerClassName}
+      inputWrapperClassName={inputWrapperClassName}
+      inputClassName={inputClassName}
+      style={style}
+      {...rest}
+    />
+  );
 }

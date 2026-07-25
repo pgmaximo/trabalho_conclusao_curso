@@ -35,7 +35,7 @@ import { useAsyncResource } from '@/hooks/useAsyncResource';  // Hook genérico 
 import {
   getAppointmentsForDay,         // Função para filtrar consultas por dia
   getAppointmentsSnapshot,        // Função para carregar snapshot de consultas
-} from '@/services/appointmentsService';  // Serviços de consultas
+} from '@/mocks/api';  // Mock API de consultas
 
 /**
  * Hook customizado para gerenciar dados de consultas médicas
