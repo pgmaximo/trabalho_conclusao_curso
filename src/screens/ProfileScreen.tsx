@@ -5,18 +5,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Avatar } from '@/components/Avatar';
+import { FilterChips } from '@/components/FilterChips';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 import { useThemeContext, type ThemeMode } from '@/contexts/ThemeContext';
 import type { UserProfile } from '@/contexts/UserContext';
+import { REMINDER_LEAD_DAYS_OPTIONS } from '@/services/reminderService';
 
 type ProfileScreenProps = {
   user: UserProfile | null;
   theme: ThemeMode;
   onSetTheme: (t: ThemeMode) => void;
+  reminderLeadDays: number;
+  onSetReminderLeadDays: (days: number) => void;
   onLogout: () => void;
   onEditProfile: () => void;
 };
+
+function formatLeadDaysLabel(days: number): string {
+  return `${days} dia${days === 1 ? '' : 's'}`;
+}
 
 const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
   { label: 'Claro', value: 'light' },
@@ -48,6 +56,8 @@ export function ProfileScreen({
   user,
   theme,
   onSetTheme,
+  reminderLeadDays,
+  onSetReminderLeadDays,
   onLogout,
   onEditProfile,
 }: ProfileScreenProps) {
@@ -151,6 +161,24 @@ export function ProfileScreen({
                 );
               })}
             </View>
+          </Section>
+
+          <Section
+            title="Lembretes de prevenção"
+            subtitle="Com quantos dias de antecedência avisar sobre um exame recomendado."
+          >
+            <FilterChips
+              options={REMINDER_LEAD_DAYS_OPTIONS.map(formatLeadDaysLabel)}
+              activeFilter={formatLeadDaysLabel(reminderLeadDays)}
+              onFilterChange={(label) => {
+                const match = REMINDER_LEAD_DAYS_OPTIONS.find(
+                  (days) => formatLeadDaysLabel(days) === label,
+                );
+                if (match !== undefined) {
+                  onSetReminderLeadDays(match);
+                }
+              }}
+            />
           </Section>
 
           <Section title="Conta" subtitle="Gerencie seus dados e sessão.">
