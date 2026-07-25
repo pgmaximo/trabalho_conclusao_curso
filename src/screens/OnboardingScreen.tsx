@@ -89,6 +89,12 @@ const FOOTER_BUTTON_HEIGHT = 56;
 const FOOTER_BUTTON_RADIUS = FOOTER_BUTTON_HEIGHT / 2;
 const CONTINUE_BUTTON_MAX_WIDTH = 244;
 const FOOTER_CONTENT_BOTTOM_SPACE = 24;
+// No nativo, o footer fica position:absolute preso a base da tela (ver estilo
+// "footer" abaixo) em vez de depender da cadeia flex:1 ScrollView->Footer, que
+// se mostrou fragil no Android (o botao "Continuar" podia nunca aparecer,
+// nao so depois do teclado fechar). Esse espaco extra evita que o ultimo campo
+// da etapa fique escondido atras do footer flutuante.
+const NATIVE_FOOTER_CONTENT_BOTTOM_SPACE = 140;
 
 type ProfileSetupStyles = ReturnType<typeof createProfileSetupStyles>;
 
@@ -937,7 +943,8 @@ function createProfileSetupStyles(colors: ThemeColors) {
     flex: 1,
   },
   content: {
-    paddingBottom: FOOTER_CONTENT_BOTTOM_SPACE,
+    paddingBottom:
+      Platform.OS === 'web' ? FOOTER_CONTENT_BOTTOM_SPACE : NATIVE_FOOTER_CONTENT_BOTTOM_SPACE,
   },
   header: {
     alignItems: 'flex-start',
@@ -1283,14 +1290,28 @@ function createProfileSetupStyles(colors: ThemeColors) {
     fontSize: 14,
     lineHeight: 20,
   },
-  // Rodape em fluxo (ultimo filho da coluna): com o scrollArea em flex:1 ele fica
-  // preso abaixo da area rolavel e sempre visivel. Antes era position:absolute, o
-  // que na web caia abaixo da dobra e sumia o botao "Continuar".
-  footer: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
+  // Web: rodape em fluxo (ultimo filho da coluna). Com o scrollArea em flex:1 e
+  // a SafeAreaView presa a altura da janela (ver style acima), ele fica preso
+  // abaixo da area rolavel e sempre visivel.
+  // Nativo (Android/iOS): a cadeia flex:1 ScrollView->Footer se mostrou fragil
+  // no Android (o botao "Continuar" podia nunca aparecer). Ali o footer fica
+  // position:absolute preso a base da tela, independente da altura do conteudo.
+  footer:
+    Platform.OS === 'web'
+      ? {
+          backgroundColor: 'transparent',
+          paddingHorizontal: 20,
+          paddingTop: 10,
+        }
+      : {
+          backgroundColor: 'transparent',
+          paddingHorizontal: 20,
+          paddingTop: 10,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+        },
   footerButtons: {
     alignItems: 'center',
     flexDirection: 'row',
