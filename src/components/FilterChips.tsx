@@ -16,6 +16,7 @@ export function FilterChips({ options, activeFilter, onFilterChange }: FilterChi
         return (
           <Pressable
             key={option}
+            hitSlop={6}
             style={({ pressed }) => [
               styles.chip,
               isActive && styles.chipActive,
@@ -38,13 +39,18 @@ export function FilterChips({ options, activeFilter, onFilterChange }: FilterChi
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     marginVertical: SIZES.base,
     gap: SIZES.small,
   },
   chip: {
-    paddingHorizontal: SIZES.base,
-    paddingVertical: SIZES.small,
-    borderRadius: SIZES.radius,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56,
+    minWidth: 56,
+    paddingHorizontal: SIZES.large,
+    paddingVertical: SIZES.medium,
+    borderRadius: SIZES.large,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
@@ -56,8 +62,8 @@ const styles = StyleSheet.create({
   chipText: {
     ...FONTS.body,
     color: COLORS.textSecondary,
-    fontWeight: '600',
-    fontSize: 12,
+    fontWeight: '700',
+    fontSize: 16,
   },
   chipTextActive: {
     color: '#fff',
