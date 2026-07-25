@@ -43,3 +43,7 @@ yarn-error.*
 
 # local spec-driven notes
 Spec Driven Dev/
+
+# Claude Code local config (per-developer, not shared)
+CLAUDE.md
+.claude/
