@@ -1,9 +1,9 @@
 {
   "auth": {
-    "user_pool_id": "us-east-1_zCfDATatU",
+    "user_pool_id": "us-east-1_CFEpevMNE",
     "aws_region": "us-east-1",
-    "user_pool_client_id": "1v2g5v2beejcifq6sqeb8km7pv",
-    "identity_pool_id": "us-east-1:fb85e028-e232-4061-8bb2-6f27eb1021cf",
+    "user_pool_client_id": "66sa0ki36k87smhsr9ctmfldoi",
+    "identity_pool_id": "us-east-1:365c646a-4636-4b48-b95a-f8ffb4dc9aa2",
     "mfa_methods": [],
     "standard_required_attributes": [
       "email"
@@ -26,7 +26,7 @@
     "unauthenticated_identities_enabled": true
   },
   "data": {
-    "url": "https://46psimaz6rahlmpua5w5itaf2i.appsync-api.us-east-1.amazonaws.com/graphql",
+    "url": "https://2qjmiuhwmjbcbcgx362vehcfru.appsync-api.us-east-1.amazonaws.com/graphql",
     "aws_region": "us-east-1",
     "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
     "authorization_types": [
@@ -281,16 +281,145 @@
           ]
         }
       },
-      "nonModels": {}
+      "nonModels": {
+        "PreventionRecommendation": {
+          "name": "PreventionRecommendation",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "grade": {
+              "name": "grade",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "gradeText": {
+              "name": "gradeText",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "title": {
+              "name": "title",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "text": {
+              "name": "text",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "rationale": {
+              "name": "rationale",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "topic": {
+              "name": "topic",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "citationYear": {
+              "name": "citationYear",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "ageMin": {
+              "name": "ageMin",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "ageMax": {
+              "name": "ageMax",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "sex": {
+              "name": "sex",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "bmi": {
+              "name": "bmi",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
+        "GetPreventionRecommendationsReturnType": {
+          "name": "GetPreventionRecommendationsReturnType",
+          "fields": {
+            "recommendations": {
+              "name": "recommendations",
+              "isArray": true,
+              "type": {
+                "nonModel": "PreventionRecommendation"
+              },
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "lastUpdated": {
+              "name": "lastUpdated",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "profileComplete": {
+              "name": "profileComplete",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            }
+          }
+        }
+      },
+      "queries": {
+        "getPreventionRecommendations": {
+          "name": "getPreventionRecommendations",
+          "isArray": false,
+          "type": {
+            "nonModel": "GetPreventionRecommendationsReturnType"
+          },
+          "isRequired": false
+        }
+      }
     }
   },
   "storage": {
     "aws_region": "us-east-1",
-    "bucket_name": "amplify-tcc-pedro-sandbox-medicaldocumentsbucketd9-yp5x61ik2giw",
+    "bucket_name": "amplify-tcc-artur-sandbox-medicaldocumentsbucketd9-7frolfaxexev",
     "buckets": [
       {
         "name": "medicalDocuments",
-        "bucket_name": "amplify-tcc-pedro-sandbox-medicaldocumentsbucketd9-yp5x61ik2giw",
+        "bucket_name": "amplify-tcc-artur-sandbox-medicaldocumentsbucketd9-7frolfaxexev",
         "aws_region": "us-east-1",
         "paths": {
           "medical-documents/{owner}/*": {

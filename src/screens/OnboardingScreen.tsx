@@ -197,7 +197,11 @@ export function OnboardingScreen({ onBack, onComplete }: OnboardingScreenProps) 
         style={StyleSheet.absoluteFill}
       />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        // Sem behavior no Android, o layout as vezes nao se recupera depois que o
+        // teclado fecha em uma etapa alta (ex.: "Pessoais"), deixando o footer
+        // fora da tela ate um novo re-layout. 'height' e o valor recomendado
+        // pelo React Native para Android nesse caso.
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
         <ScrollView

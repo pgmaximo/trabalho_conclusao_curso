@@ -5,34 +5,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 
 import { EmptyState } from '@/components/EmptyState';
-import { HealthCheckItem } from '@/components/HealthCheckItem';
-import { PreventiveScore } from '@/components/PreventiveScore';
+import { RecommendationCard } from '@/components/RecommendationCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
-import { UrgentAlert } from '@/components/UrgentAlert';
-import type {
-  PreventiveAlert,
-  PreventiveCheck,
-  PreventiveScoreSnapshot,
-} from '@/types/models';
+import type { RecommendationView } from '@/types/models';
 
 type PreventionScreenProps = {
-  alert: PreventiveAlert;
-  score: PreventiveScoreSnapshot;
-  checks: PreventiveCheck[];
+  recommendations: RecommendationView[];
+  lastUpdated: string;
+  profileComplete: boolean;
   isLoading: boolean;
   errorMessage: string | null;
   onRetry: () => void;
+  onToggleReminder: (recommendationId: number) => void;
+  onCompleteProfile: () => void;
+  pendingReminderId: number | null;
 };
 
 export function PreventionScreen({
-  alert,
-  score,
-  checks,
+  recommendations,
+  lastUpdated,
+  profileComplete,
   isLoading,
   errorMessage,
   onRetry,
+  onToggleReminder,
+  onCompleteProfile,
+  pendingReminderId,
 }: PreventionScreenProps) {
   const { colorScheme } = useColorScheme();
 
@@ -46,46 +46,52 @@ export function PreventionScreen({
           ) : errorMessage ? (
             <EmptyState
               icon="alert-circle-outline"
-              title="Não foi possível carregar os alertas"
+              title="Não foi possível carregar as recomendações"
               description={errorMessage}
               tone="error"
               actionLabel="Tentar novamente"
               onActionPress={onRetry}
             />
+          ) : !profileComplete ? (
+            <EmptyState
+              icon="person-outline"
+              title="Complete seu perfil de saúde"
+              description="Precisamos de algumas informações do seu perfil para calcular as recomendações preventivas certas para você."
+              actionLabel="Completar perfil"
+              onActionPress={onCompleteProfile}
+            />
           ) : (
             <>
               <ScreenHeader
                 title="Prevenção & Alertas"
-                subtitle="Itens que podem ser acompanhados antes de virarem urgência."
+                subtitle={`Recomendações da USPSTF para o seu perfil${lastUpdated ? ` · base de ${lastUpdated}` : ''}.`}
+                badgeLabel={`${recommendations.length} recomendaç${recommendations.length === 1 ? 'ão' : 'ões'}`}
+                badgeVariant={recommendations.length > 0 ? 'primary' : 'neutral'}
               />
 
-              <UrgentAlert
-                title={alert.title}
-                description={alert.description}
-                actionLabel={alert.actionLabel}
-                onActionPress={() => {}}
-              />
-
-              <Section title="Pontuação preventiva" subtitle="Leitura sintética do momento atual.">
-                <PreventiveScore score={score.score} maxScore={score.maxScore} status={score.status} />
-              </Section>
-
-              <Section title="Exames e verificações" subtitle="Checklist priorizado para acompanhamento.">
-                {checks.length > 0 ? (
-                  checks.map((check) => (
-                    <HealthCheckItem
-                      key={check.id}
-                      title={check.title}
-                      date={check.date}
-                      status={check.status}
-                      onPress={() => {}}
+              <Section
+                title="Recomendações preventivas"
+                subtitle="Toque no sino para ser lembrado de agendar cada exame."
+              >
+                {recommendations.length > 0 ? (
+                  recommendations.map((recommendation) => (
+                    <RecommendationCard
+                      key={recommendation.id}
+                      grade={recommendation.grade}
+                      gradeText={recommendation.gradeText}
+                      title={recommendation.title}
+                      text={recommendation.text}
+                      citation={recommendation.citationYear ?? recommendation.topic ?? 'USPSTF'}
+                      isReminderOn={recommendation.isReminderOn}
+                      onToggleReminder={() => onToggleReminder(recommendation.id)}
+                      reminderDisabled={pendingReminderId === recommendation.id}
                     />
                   ))
                 ) : (
                   <EmptyState
-                    icon="document-text-outline"
-                    title="Nenhum item preventivo pendente"
-                    description="Nenhum exame analisado ainda. Faça o upload de um exame."
+                    icon="shield-checkmark-outline"
+                    title="Nenhuma recomendação pendente"
+                    description="Não encontramos recomendações preventivas específicas para o seu perfil no momento."
                   />
                 )}
               </Section>

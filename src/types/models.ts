@@ -219,34 +219,37 @@ export interface AppointmentsSnapshot {
 // TIPOS DE PREVENÇÃO E CHECK-UPS
 // =============================================================================
 
-// Tipo para status de check-up preventivo
-export type PreventiveCheckStatus = 'em_dia' | 'vencido' | 'pendente';
+// Grau de recomendacao USPSTF (A/B = recomendado, C = sem recomendacao de rotina,
+// D = recomendado contra, I = evidencia insuficiente)
+export type UspstfGrade = 'A' | 'B' | 'C' | 'D' | 'I';
 
-// Interface para alerta preventivo
-export interface PreventiveAlert {
-  title: string;         // Título do alerta
-  description: string;  // Descrição detalhada
-  actionLabel: string;  // Label do botão de ação
+// Uma recomendacao de prevencao retornada pela funcao getPreventionRecommendations,
+// ja filtrada para o perfil do usuario. title/text/rationale vem verbatim da USPSTF
+// (em ingles, nao traduzir) por exigencia de direitos autorais da AHRQ.
+export interface PreventionRecommendation {
+  id: number;
+  grade: UspstfGrade;
+  gradeText: string;
+  title: string;
+  text: string;
+  rationale: string | null;
+  topic: string | null;
+  citationYear: string | null;
+  ageMin: number | null;
+  ageMax: number | null;
+  sex: string | null;
+  bmi: string | null;
 }
 
-// Interface para snapshot do score de saúde preventivo
-export interface PreventiveScoreSnapshot {
-  score: number;         // Score atual do usuário
-  maxScore: number;      // Score máximo possível
-  status: string;        // Status do score
-}
-
-// Interface para check-up preventivo
-export interface PreventiveCheck {
-  id: number;                           // ID único do check-up
-  title: string;                        // Título do check-up
-  date: string;                         // Data do check-up
-  status: PreventiveCheckStatus;         // Status do check-up
+// Recomendacao com o estado local (nao persistido no backend) de lembrete ativado
+export interface RecommendationView extends PreventionRecommendation {
+  isReminderOn: boolean;
 }
 
 // Interface completa para snapshot de prevenção
 export interface PreventionSnapshot {
-  alert: PreventiveAlert;                    // Alerta preventivo principal
-  score: PreventiveScoreSnapshot;            // Score de saúde preventivo
-  checks: PreventiveCheck[];                 // Array de check-ups preventivos
+  recommendations: PreventionRecommendation[];
+  lastUpdated: string;
+  // false quando o usuario ainda nao completou o cadastro de perfil de saude
+  profileComplete: boolean;
 }

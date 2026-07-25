@@ -50,7 +50,6 @@ CLAUDE.md
 
 # Amplify Backend (artefatos temporários e locais)
 .amplify/
-amplify_outputs.json
 
 # AWS CLI / Credential
 .aws/
