@@ -1,20 +1,24 @@
 import { useEffect, useState } from 'react';
 
 import {
-  DEFAULT_REMINDER_LEAD_DAYS,
-  loadReminderLeadDays,
-  saveReminderLeadDays,
+  DEFAULT_REMINDER_INTERVALS_BY_GRADE,
+  loadReminderIntervalsByGrade,
+  saveReminderIntervalForGrade,
+  type ReminderIntervalsByGrade,
 } from '@/services/reminderService';
+import type { UspstfGrade } from '@/types/models';
 
 export function useReminderPreferences() {
-  const [reminderLeadDays, setReminderLeadDaysState] = useState(DEFAULT_REMINDER_LEAD_DAYS);
+  const [reminderIntervals, setReminderIntervals] = useState<ReminderIntervalsByGrade>(
+    DEFAULT_REMINDER_INTERVALS_BY_GRADE,
+  );
 
   useEffect(() => {
     let isMounted = true;
 
-    loadReminderLeadDays().then((days) => {
+    loadReminderIntervalsByGrade().then((intervals) => {
       if (isMounted) {
-        setReminderLeadDaysState(days);
+        setReminderIntervals(intervals);
       }
     });
 
@@ -23,10 +27,10 @@ export function useReminderPreferences() {
     };
   }, []);
 
-  function setReminderLeadDays(days: number) {
-    setReminderLeadDaysState(days);
-    saveReminderLeadDays(days).catch(() => {});
+  function setReminderIntervalForGrade(grade: UspstfGrade, days: number) {
+    setReminderIntervals((current) => ({ ...current, [grade]: days }));
+    saveReminderIntervalForGrade(grade, days).catch(() => {});
   }
 
-  return { reminderLeadDays, setReminderLeadDays };
+  return { reminderIntervals, setReminderIntervalForGrade };
 }

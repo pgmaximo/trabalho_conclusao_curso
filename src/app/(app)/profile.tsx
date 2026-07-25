@@ -10,7 +10,7 @@ import { logoutUser } from '@/services/auth';
 export default function ProfileRoute() {
   const { user, clearUser } = useUserContext();
   const { theme, setTheme } = useThemeContext();
-  const { reminderLeadDays, setReminderLeadDays } = useReminderPreferences();
+  const { reminderIntervals, setReminderIntervalForGrade } = useReminderPreferences();
 
   async function handleLogout() {
     clearUser(); // limpa UserContext + AsyncStorage do perfil
@@ -23,8 +23,8 @@ export default function ProfileRoute() {
       user={user}
       theme={theme}
       onSetTheme={setTheme}
-      reminderLeadDays={reminderLeadDays}
-      onSetReminderLeadDays={setReminderLeadDays}
+      reminderIntervals={reminderIntervals}
+      onSetReminderInterval={setReminderIntervalForGrade}
       onLogout={handleLogout}
       onEditProfile={() => router.push('/edit-profile')}
     />

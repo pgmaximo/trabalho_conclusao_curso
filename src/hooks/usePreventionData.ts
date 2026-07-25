@@ -72,6 +72,7 @@ export function usePreventionData() {
         reminderMap[key] = await scheduleRecommendationReminder({
           id: key,
           title: target.title,
+          grade: target.grade,
         });
       }
 
@@ -126,6 +127,7 @@ export function usePreventionData() {
         reminderMap[key] = await scheduleRecommendationReminder({
           id: key,
           title: target.title,
+          grade: target.grade,
         });
       }
 

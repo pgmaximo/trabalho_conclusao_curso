@@ -1,21 +1,37 @@
 /**
  * Resumo do arquivo:
  * Gerencia lembretes locais (notificacoes no proprio aparelho) para recomendacoes
- * preventivas. Nao depende de backend/push — agenda via expo-notifications e
- * persiste o mapeamento recomendacao -> notificationId e a preferencia de
- * antecedencia localmente.
+ * preventivas. Nao depende de backend/push — agenda via expo-notifications,
+ * repetindo automaticamente no intervalo configurado para o grau da recomendacao,
+ * e persiste tudo (mapeamento + preferencias) localmente.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 
-const REMINDER_MAP_KEY = '@SuaSaude:preventionReminders';
-const REMINDER_LEAD_DAYS_KEY = '@SuaSaude:reminderLeadDays';
+import type { UspstfGrade } from '@/types/models';
 
-export const DEFAULT_REMINDER_LEAD_DAYS = 7;
-export const REMINDER_LEAD_DAYS_OPTIONS = [1, 3, 7, 14, 30] as const;
+const REMINDER_MAP_KEY = '@SuaSaude:preventionReminders';
+const REMINDER_INTERVALS_KEY = '@SuaSaude:reminderIntervalsByGrade';
+
+// Dias, meses e anos convertidos em dias — cobre desde reforcos curtos ate
+// reavaliacoes anuais, adequado para lembretes recorrentes (nao apenas um aviso
+// unico de curto prazo).
+export const REMINDER_INTERVAL_OPTIONS = [7, 14, 30, 60, 90, 180, 365] as const;
+
+// Graus mais fortemente recomendados (A/B) tendem a justificar reforcos mais
+// frequentes; C/D/I usam um intervalo mais longo por padrao. O usuario pode
+// ajustar cada um livremente na tela de Perfil.
+export const DEFAULT_REMINDER_INTERVALS_BY_GRADE: Record<UspstfGrade, number> = {
+  A: 30,
+  B: 60,
+  C: 90,
+  D: 180,
+  I: 90,
+};
 
 export type ReminderMap = Record<string, string>;
+export type ReminderIntervalsByGrade = Record<UspstfGrade, number>;
 
 export async function ensureNotificationPermission(): Promise<boolean> {
   if (!Device.isDevice) {
@@ -34,8 +50,10 @@ export async function ensureNotificationPermission(): Promise<boolean> {
 export async function scheduleRecommendationReminder(rec: {
   id: string;
   title: string;
+  grade: UspstfGrade;
 }): Promise<string> {
-  const leadDays = await loadReminderLeadDays();
+  const intervals = await loadReminderIntervalsByGrade();
+  const days = intervals[rec.grade] ?? DEFAULT_REMINDER_INTERVALS_BY_GRADE[rec.grade];
 
   return Notifications.scheduleNotificationAsync({
     content: {
@@ -45,7 +63,10 @@ export async function scheduleRecommendationReminder(rec: {
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: leadDays * 24 * 60 * 60,
+      seconds: days * 24 * 60 * 60,
+      // Repete automaticamente nesse intervalo em vez de disparar uma unica vez —
+      // adequado para exames de rastreio periodico, nao so um aviso pontual.
+      repeats: true,
     },
   });
 }
@@ -72,20 +93,34 @@ export async function saveReminderMap(map: ReminderMap): Promise<void> {
   }
 }
 
-export async function loadReminderLeadDays(): Promise<number> {
+export async function loadReminderIntervalsByGrade(): Promise<ReminderIntervalsByGrade> {
   try {
-    const raw = await AsyncStorage.getItem(REMINDER_LEAD_DAYS_KEY);
-    const parsed = raw ? Number(raw) : NaN;
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_REMINDER_LEAD_DAYS;
+    const raw = await AsyncStorage.getItem(REMINDER_INTERVALS_KEY);
+    if (!raw) {
+      return { ...DEFAULT_REMINDER_INTERVALS_BY_GRADE };
+    }
+
+    const parsed = JSON.parse(raw) as Partial<ReminderIntervalsByGrade>;
+    return { ...DEFAULT_REMINDER_INTERVALS_BY_GRADE, ...parsed };
   } catch (error) {
-    console.error('Erro ao carregar preferência de lembrete:', error);
-    return DEFAULT_REMINDER_LEAD_DAYS;
+    console.error('Erro ao carregar preferências de lembrete:', error);
+    return { ...DEFAULT_REMINDER_INTERVALS_BY_GRADE };
   }
 }
 
-export async function saveReminderLeadDays(days: number): Promise<void> {
+/**
+ * Salva o intervalo de um grau especifico. So afeta lembretes agendados a
+ * partir de agora — nao reagenda lembretes ja ativos (eles mantem o intervalo
+ * com que foram criados ate serem desligados e ligados novamente).
+ */
+export async function saveReminderIntervalForGrade(
+  grade: UspstfGrade,
+  days: number,
+): Promise<void> {
   try {
-    await AsyncStorage.setItem(REMINDER_LEAD_DAYS_KEY, String(days));
+    const current = await loadReminderIntervalsByGrade();
+    const updated = { ...current, [grade]: days };
+    await AsyncStorage.setItem(REMINDER_INTERVALS_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error('Erro ao salvar preferência de lembrete:', error);
   }
