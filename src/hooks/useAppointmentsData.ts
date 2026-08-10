@@ -27,53 +27,59 @@
 //
 // =============================================================================
 
-// Importações necessárias
-import { useState } from 'react';  // Hook de estado do React
+import { useMemo, useState } from 'react';
+import { useAsyncResource } from '@/hooks/useAsyncResource';
+import { listAppointmentsForUser, type AppointmentRecord } from '@/services/appointmentService';
+import type { AppointmentEntry, CalendarDateItem } from '@/types/models';
 
-// Importações de hooks e serviços
-import { useAsyncResource } from '@/hooks/useAsyncResource';  // Hook genérico para recursos assíncronos
-import {
-  getAppointmentsForDay,         // Função para filtrar consultas por dia
-  getAppointmentsSnapshot,        // Função para carregar snapshot de consultas
-} from '@/mocks/api';  // Mock API de consultas
+function mapAppointmentToEntry(appointment: AppointmentRecord): AppointmentEntry {
+  const [datePart, timePart] = appointment.scheduledAt.split('T');
+  const displayDate = datePart ? datePart.split('-').reverse().join('/') : appointment.scheduledAt;
+  const displayTime = timePart ? timePart.slice(0, 5) : '00:00';
 
-/**
- * Hook customizado para gerenciar dados de consultas médicas
- * @returns Objeto com dados de consultas e funções de controle
- */
-export function useAppointmentsData() {
-  // Estado para o dia selecionado (padrão: dia 25)
-  const [selectedDate, setSelectedDate] = useState(25);
-  
-  // Usa o hook genérico para carregar dados de consultas
-  const { data, status, errorMessage, retry } = useAsyncResource(getAppointmentsSnapshot);
-  
-  // Referência ao snapshot de dados
-  const snapshot = data;
-
-  // Retorna interface completa para o componente
   return {
-    // Lista de datas disponíveis (array vazio se não houver dados)
-    dates: snapshot?.dates ?? [],
-    
-    // Dia selecionado atualmente
+    id: appointment.id,
+    time: `${displayDate} • ${displayTime}`,
+    title: appointment.appointmentName,
+    location: appointment.address,
+    type: appointment.appointmentType.toLowerCase() as AppointmentEntry['type'],
+  };
+}
+
+function buildCalendarDates(appointments: AppointmentEntry[]): CalendarDateItem[] {
+  const daySet = new Set<number>();
+
+  appointments.forEach((appointment) => {
+    const [datePart] = appointment.time.split(' • ');
+    const [day] = datePart.split('/').map((value) => Number(value));
+    if (day) {
+      daySet.add(day);
+    }
+  });
+
+  return Array.from(daySet).sort((a, b) => a - b).map((day) => ({ day, month: 'ago', hasAppointments: true }));
+}
+
+export function useAppointmentsData() {
+  const [selectedDate, setSelectedDate] = useState(new Date().getDate());
+
+  const { data, status, errorMessage, retry } = useAsyncResource(listAppointmentsForUser);
+
+  const appointments = useMemo(() => {
+    const records = data ?? [];
+    const mapped = records.map(mapAppointmentToEntry);
+    return mapped;
+  }, [data]);
+
+  const dates = useMemo(() => buildCalendarDates(appointments), [appointments]);
+
+  return {
+    dates,
     selectedDate,
-    
-    // Função para selecionar um dia
     setSelectedDate,
-    
-    // Consultas filtradas pelo dia selecionado (array vazio se não houver dados)
-    appointments: snapshot 
-      ? getAppointmentsForDay(selectedDate, snapshot.appointmentsByDay) 
-      : [],
-    
-    // Estado de carregamento
+    appointments,
     isLoading: status === 'loading',
-    
-    // Mensagem de erro (se houver)
     errorMessage,
-    
-    // Função para retry em caso de erro
     retry,
   };
 }

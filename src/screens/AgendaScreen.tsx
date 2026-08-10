@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useColorScheme } from 'nativewind';
+import { router } from 'expo-router';
 
 import { AppointmentCard } from '@/components/AppointmentCard';
 import { CalendarPicker } from '@/components/CalendarPicker';
@@ -61,7 +62,7 @@ export function AgendaScreen({
                   <Pressable
                     className="h-10 w-10 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
                     style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
-                    onPress={() => {}}
+                    onPress={() => router.push('/add-appointment')}
                   >
                     <Ionicons name="add" size={24} color={colors.onPrimary} />
                   </Pressable>

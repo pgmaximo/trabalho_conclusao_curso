@@ -210,7 +210,7 @@ export async function getDocumentDownloadUrl(s3FileName: string): Promise<string
       path: `medical-documents/{owner}/${s3FileName}`,
     });
 
-    return typeof result === 'string' ? result : (result as { url: string }).url;
+    return result.url.toString();
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro ao obter o link de download';
     throw new Error(`Falha ao obter URL de download: ${message}`);

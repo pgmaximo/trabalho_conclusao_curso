@@ -1,9 +1,9 @@
 {
   "auth": {
-    "user_pool_id": "us-east-1_zCfDATatU",
+    "user_pool_id": "us-east-1_KHbhx7005",
     "aws_region": "us-east-1",
-    "user_pool_client_id": "1v2g5v2beejcifq6sqeb8km7pv",
-    "identity_pool_id": "us-east-1:fb85e028-e232-4061-8bb2-6f27eb1021cf",
+    "user_pool_client_id": "15grfvst0aphqev8vktjo3cp64",
+    "identity_pool_id": "us-east-1:70dff581-251d-468e-a684-ca6ba36a3e0f",
     "mfa_methods": [],
     "standard_required_attributes": [
       "email"
@@ -26,7 +26,7 @@
     "unauthenticated_identities_enabled": true
   },
   "data": {
-    "url": "https://46psimaz6rahlmpua5w5itaf2i.appsync-api.us-east-1.amazonaws.com/graphql",
+    "url": "https://hvbpxu3j6narfj5cciqj6ru73i.appsync-api.us-east-1.amazonaws.com/graphql",
     "aws_region": "us-east-1",
     "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
     "authorization_types": [
@@ -263,6 +263,110 @@
             "primaryKeyFieldName": "id",
             "sortKeyFieldNames": []
           }
+        },
+        "Appointment": {
+          "name": "Appointment",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true,
+              "attributes": []
+            },
+            "appointmentType": {
+              "name": "appointmentType",
+              "isArray": false,
+              "type": {
+                "enum": "AppointmentAppointmentType"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "appointmentName": {
+              "name": "appointmentName",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "professionalName": {
+              "name": "professionalName",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "scheduledAt": {
+              "name": "scheduledAt",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "address": {
+              "name": "address",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "observations": {
+              "name": "observations",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "Appointments",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "provider": "userPools",
+                    "ownerField": "owner",
+                    "allow": "owner",
+                    "identityClaim": "cognito:username",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": false,
+            "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
         }
       },
       "enums": {
@@ -279,6 +383,14 @@
             "exam",
             "prescription"
           ]
+        },
+        "AppointmentAppointmentType": {
+          "name": "AppointmentAppointmentType",
+          "values": [
+            "CONSULTA",
+            "EXAME",
+            "CIRURGIA"
+          ]
         }
       },
       "nonModels": {}
@@ -286,11 +398,11 @@
   },
   "storage": {
     "aws_region": "us-east-1",
-    "bucket_name": "amplify-tcc-pedro-sandbox-medicaldocumentsbucketd9-yp5x61ik2giw",
+    "bucket_name": "amplify-tcc-brunn-sandbox-medicaldocumentsbucketd9-lkpcw1i4herq",
     "buckets": [
       {
         "name": "medicalDocuments",
-        "bucket_name": "amplify-tcc-pedro-sandbox-medicaldocumentsbucketd9-yp5x61ik2giw",
+        "bucket_name": "amplify-tcc-brunn-sandbox-medicaldocumentsbucketd9-lkpcw1i4herq",
         "aws_region": "us-east-1",
         "paths": {
           "medical-documents/{owner}/*": {
