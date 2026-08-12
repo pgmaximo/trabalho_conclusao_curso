@@ -34,7 +34,7 @@ interface AppointmentCardProps {
   time: string;                           // Horário da consulta
   title: string;                          // Título/descrição da consulta
   location: string;                       // Local da consulta
-  type: 'consulta' | 'retorno' | 'exame'; // Tipo da consulta
+  type: 'consulta' | 'retorno' | 'exame' | 'cirurgia'; // Tipo da consulta
   onPress?: () => void;                   // Callback ao pressionar o cartão
 }
 
@@ -55,6 +55,8 @@ export function AppointmentCard({
         return '#E74C3C';              // Vermelho para retornos
       case 'exame':
         return '#F39C12';              // Laranja para exames
+      case 'cirurgia':
+        return '#10B981';              // Verde para cirurgias
       default:
         return COLORS.primary;         // Cor padrão
     }
@@ -69,6 +71,8 @@ export function AppointmentCard({
         return 'Retorno';              // Label para retorno
       case 'exame':
         return 'Exame';                // Label para exame
+      case 'cirurgia':
+        return 'Cirurgia';             // Label para cirurgia
       default:
         return '';                     // Label vazio para tipo desconhecido
     }

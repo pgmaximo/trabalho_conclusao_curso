@@ -198,11 +198,11 @@ export interface CalendarDateItem {
 }
 
 // Tipo para tipo de consulta
-export type AppointmentType = 'consulta' | 'exame' | 'retorno';
+export type AppointmentType = 'consulta' | 'exame' | 'retorno' | 'cirurgia';
 
 // Interface para entrada de consulta
 export interface AppointmentEntry {
-  id: number;            // ID único da consulta
+  id: string | number;   // ID único da consulta
   time: string;          // Data e hora formatada
   title: string;         // Título da consulta
   location: string;      // Local da consulta
