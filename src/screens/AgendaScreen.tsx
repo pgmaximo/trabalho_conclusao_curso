@@ -80,7 +80,7 @@ export function AgendaScreen({
                       title={appointment.title}
                       location={appointment.location}
                       type={appointment.type}
-                      onPress={() => {}}
+                      onPress={() => router.push(`/edit-appointment?id=${encodeURIComponent(String(appointment.id))}`)}
                     />
                   ))
                 ) : (

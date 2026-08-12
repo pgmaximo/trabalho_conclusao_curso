@@ -198,7 +198,7 @@ export interface CalendarDateItem {
 }
 
 // Tipo para tipo de consulta
-export type AppointmentType = 'consulta' | 'exame' | 'retorno';
+export type AppointmentType = 'consulta' | 'exame' | 'retorno' | 'cirurgia';
 
 // Interface para entrada de consulta
 export interface AppointmentEntry {

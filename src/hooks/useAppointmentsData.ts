@@ -27,9 +27,10 @@
 //
 // =============================================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAsyncResource } from '@/hooks/useAsyncResource';
 import { listAppointmentsForUser, type AppointmentRecord } from '@/services/appointmentService';
+import { loadCachedAppointments, registerAppointmentsRefetchCallback, saveAppointmentsCache } from '@/hooks/appointmentsCache';
 import type { AppointmentEntry, CalendarDateItem } from '@/types/models';
 
 function mapAppointmentToEntry(appointment: AppointmentRecord): AppointmentEntry {
@@ -60,15 +61,33 @@ function buildCalendarDates(appointments: AppointmentEntry[]): CalendarDateItem[
   return Array.from(daySet).sort((a, b) => a - b).map((day) => ({ day, month: 'ago', hasAppointments: true }));
 }
 
+async function fetchAppointments(): Promise<AppointmentRecord[]> {
+  const cached = await loadCachedAppointments<AppointmentRecord[]>();
+  if (cached) {
+    return cached;
+  }
+
+  const records = await listAppointmentsForUser();
+  await saveAppointmentsCache(records);
+  return records;
+}
+
 export function useAppointmentsData() {
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
 
-  const { data, status, errorMessage, retry } = useAsyncResource(listAppointmentsForUser);
+  const { data, status, errorMessage, retry } = useAsyncResource(fetchAppointments);
+
+  useEffect(() => {
+    const unregister = registerAppointmentsRefetchCallback(() => {
+      retry();
+    });
+
+    return unregister;
+  }, [retry]);
 
   const appointments = useMemo(() => {
     const records = data ?? [];
-    const mapped = records.map(mapAppointmentToEntry);
-    return mapped;
+    return records.map(mapAppointmentToEntry);
   }, [data]);
 
   const dates = useMemo(() => buildCalendarDates(appointments), [appointments]);
