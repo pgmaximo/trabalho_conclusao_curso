@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -7,14 +7,16 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { FormField } from '@/components/FormField';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
 import {
   getTodayDate,
   createExamDocument,
@@ -30,6 +32,9 @@ export interface AddExamScreenProps {
 }
 
 export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenProps) {
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [documentType, setDocumentType] = useState<DocumentTypeState>(null);
   const [documentName, setDocumentName] = useState('');
   const [documentDate, setDocumentDate] = useState(getTodayDate());
@@ -61,12 +66,12 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.background} />
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Text style={styles.backButtonText}>←</Text>
+              <Ionicons name="arrow-back" size={22} color={colors.text} />
             </Pressable>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Adicionar documento</Text>
@@ -77,7 +82,9 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
           {/* File Preview Card */}
           <Card variant="outlined" style={styles.fileCard}>
             <View style={styles.filePreview}>
-              <Text style={styles.fileIcon}>📄</Text>
+              <View style={styles.fileIconWrap}>
+                <Ionicons name="document-text-outline" size={26} color={colors.primary} />
+              </View>
               <View style={styles.fileInfo}>
                 <Text style={styles.fileName} numberOfLines={2}>
                   {fileName}
@@ -87,7 +94,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
                 </Text>
               </View>
               <Pressable style={styles.reuploadButton}>
-                <Text style={styles.reuploadButtonText}>✎</Text>
+                <Ionicons name="create-outline" size={18} color={colors.text} />
               </Pressable>
             </View>
           </Card>
@@ -103,7 +110,12 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
                 ]}
                 onPress={() => setDocumentType('exam')}
               >
-                <Text style={styles.typeButtonIcon}>🩺</Text>
+                <Ionicons
+                  name="flask-outline"
+                  size={28}
+                  color={documentType === 'exam' ? colors.primary : colors.textSecondary}
+                  style={styles.typeButtonIcon}
+                />
                 <Text
                   style={[
                     styles.typeButtonLabel,
@@ -121,7 +133,12 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
                 ]}
                 onPress={() => setDocumentType('prescription')}
               >
-                <Text style={styles.typeButtonIcon}>💊</Text>
+                <Ionicons
+                  name="medkit-outline"
+                  size={28}
+                  color={documentType === 'prescription' ? colors.primary : colors.textSecondary}
+                  style={styles.typeButtonIcon}
+                />
                 <Text
                   style={[
                     styles.typeButtonLabel,
@@ -163,7 +180,12 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
           {/* Info Card */}
           <Card variant="outlined" style={styles.infoCard}>
             <View style={styles.infoContent}>
-              <Text style={styles.infoIcon}>ℹ️</Text>
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color={colors.info}
+                style={styles.infoIcon}
+              />
               <Text style={styles.infoText}>
                 Seus documentos serão salvos de forma segura. Você pode editar ou deletar
                 posteriormente.
@@ -183,10 +205,10 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -206,26 +228,21 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backButtonText: {
-    fontSize: 20,
-    color: COLORS.text,
-    fontWeight: '600',
   },
   titleContainer: {
     flex: 1,
   },
   title: {
     ...FONTS.title,
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SIZES.small,
   },
   subtitle: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   fileCard: {
     marginBottom: SIZES.large,
@@ -235,38 +252,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SIZES.base,
   },
-  fileIcon: {
-    fontSize: 32,
+  fileIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fileInfo: {
     flex: 1,
   },
   fileName: {
     ...FONTS.body,
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
   },
   fileSize: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   reuploadButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.inputBackground,
+    backgroundColor: colors.inputBackground,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  reuploadButtonText: {
-    fontSize: 16,
   },
   section: {
     marginBottom: SIZES.large,
   },
   sectionTitle: {
     ...FONTS.subtitle,
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SIZES.base,
   },
   typeButtonContainer: {
@@ -278,27 +298,27 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.large,
     paddingHorizontal: SIZES.base,
     borderRadius: SIZES.radius,
+    borderCurve: 'continuous',
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
   },
   typeButtonActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}15`,
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}15`,
   },
   typeButtonIcon: {
-    fontSize: 28,
     marginBottom: SIZES.small,
   },
   typeButtonLabel: {
     ...FONTS.body,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '500',
   },
   typeButtonLabelActive: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '700',
   },
   infoCard: {
@@ -310,12 +330,11 @@ const styles = StyleSheet.create({
     gap: SIZES.base,
   },
   infoIcon: {
-    fontSize: 18,
     marginTop: 2,
   },
   infoText: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     flex: 1,
   },
   submitButton: {

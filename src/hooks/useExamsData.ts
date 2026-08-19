@@ -82,9 +82,9 @@ async function fetchMedicalDocuments(): Promise<MedicalDocument[]> {
       
       return {
         id: doc.id,
-        icon: isExam ? '🩺' : '💊',
+        icon: isExam ? 'flask-outline' : 'medkit-outline',
         title: doc.documentName || 'Sem nome',
-        subtitle: `${formatDateForDisplay(doc.documentDate)} • ${doc.s3FileName}`,
+        subtitle: formatDateForDisplay(doc.documentDate),
         statusLabel: isExam ? 'Exame' : 'Receita',
         statusColor: isExam ? '#FBBF24' : '#3B82F6',
         category: isExam ? 'Exames' : 'Receitas',

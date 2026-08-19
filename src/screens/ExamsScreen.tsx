@@ -138,7 +138,7 @@ export function ExamsScreen({
                   {documents.length > 0 ? (
                     documents.map((document) => (
                       <ExamItem
-                        key={`${document.title}-${document.subtitle}`}
+                        key={document.id}
                         icon={document.icon}
                         title={document.title}
                         subtitle={document.subtitle}

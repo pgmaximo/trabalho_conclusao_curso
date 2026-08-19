@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -8,14 +9,16 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { FormField } from '@/components/FormField';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
 import { getDocumentDownloadUrl, updateExamDocument, deleteExamDocument, type DocumentType, type MedicalDocumentMetadata } from '@/services/examService';
 import { invalidateExamsCache } from '@/hooks/useExamsData';
 
@@ -23,7 +26,26 @@ export interface DocumentDetailScreenProps {
   document: MedicalDocumentMetadata;
 }
 
+// Confirmação multiplataforma: `confirm` não existe no React Native nativo.
+async function confirmDeletion(): Promise<boolean> {
+  const message = 'Tem certeza que deseja deletar este documento? Esta ação não pode ser desfeita.';
+
+  if (process.env.EXPO_OS === 'web') {
+    return window.confirm(message);
+  }
+
+  return new Promise((resolve) => {
+    Alert.alert('Excluir documento', message, [
+      { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Excluir', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
+
 export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [documentType, setDocumentType] = useState<DocumentType>(document.documentType);
   const [documentName, setDocumentName] = useState(document.documentName);
@@ -64,10 +86,8 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
     console.log('Document ID:', document.id);
     console.log('S3 FileName:', document.s3FileName);
     
-    const confirmed = confirm(
-      'Tem certeza que deseja deletar este documento? Esta ação não pode ser desfeita.'
-    );
-    
+    const confirmed = await confirmDeletion();
+
     if (!confirmed) {
       console.log('Delete cancelled');
       return;
@@ -90,14 +110,18 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
 
   const isReadOnly = !isEditMode;
 
+  // Tipo do arquivo derivado da extensão da chave do S3 (a chave em si não é exibida)
+  const fileExtension = (document.s3FileName?.split('.').pop() || '').toUpperCase();
+  const fileTypeLabel = fileExtension ? `Arquivo ${fileExtension}` : 'Arquivo';
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.background} />
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Text style={styles.backButtonText}>←</Text>
+              <Ionicons name="arrow-back" size={22} color={colors.text} />
             </Pressable>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>
@@ -112,13 +136,15 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
           {/* Document Preview */}
           <Card variant="outlined" style={styles.fileCard}>
             <View style={styles.filePreview}>
-              <Text style={styles.fileIcon}>📄</Text>
+              <View style={styles.fileIconWrap}>
+                <Ionicons name="document-text-outline" size={26} color={colors.primary} />
+              </View>
               <View style={styles.fileInfo}>
                 <Text style={styles.fileName} numberOfLines={2}>
-                  {document.originalFileName}
+                  {document.documentName}
                 </Text>
                 <Text style={styles.fileSize} numberOfLines={1}>
-                  {document.s3FileName}
+                  {fileTypeLabel}
                 </Text>
               </View>
               <Pressable
@@ -146,9 +172,11 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
             <Text style={styles.sectionTitle}>Tipo de documento</Text>
             {isReadOnly ? (
               <View style={styles.readOnlyTypeDisplay}>
-                <Text style={styles.readOnlyTypeIcon}>
-                  {documentType === 'exam' ? '🩺' : '💊'}
-                </Text>
+                <Ionicons
+                  name={documentType === 'exam' ? 'flask-outline' : 'medkit-outline'}
+                  size={24}
+                  color={colors.primary}
+                />
                 <Text style={styles.readOnlyTypeText}>
                   {documentType === 'exam' ? 'Exame' : 'Receita'}
                 </Text>
@@ -162,7 +190,12 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
                   ]}
                   onPress={() => setDocumentType('exam')}
                 >
-                  <Text style={styles.typeButtonIcon}>🩺</Text>
+                  <Ionicons
+                    name="flask-outline"
+                    size={28}
+                    color={documentType === 'exam' ? colors.primary : colors.textSecondary}
+                    style={styles.typeButtonIcon}
+                  />
                   <Text
                     style={[
                       styles.typeButtonLabel,
@@ -180,7 +213,12 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
                   ]}
                   onPress={() => setDocumentType('prescription')}
                 >
-                  <Text style={styles.typeButtonIcon}>💊</Text>
+                  <Ionicons
+                    name="medkit-outline"
+                    size={28}
+                    color={documentType === 'prescription' ? colors.primary : colors.textSecondary}
+                    style={styles.typeButtonIcon}
+                  />
                   <Text
                     style={[
                       styles.typeButtonLabel,
@@ -292,10 +330,10 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -315,26 +353,21 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backButtonText: {
-    fontSize: 20,
-    color: COLORS.text,
-    fontWeight: '600',
   },
   titleContainer: {
     flex: 1,
   },
   title: {
     ...FONTS.title,
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SIZES.small,
   },
   subtitle: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   fileCard: {
     marginBottom: SIZES.large,
@@ -344,34 +377,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SIZES.base,
   },
-  fileIcon: {
-    fontSize: 32,
+  fileIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fileInfo: {
     flex: 1,
   },
   fileName: {
     ...FONTS.body,
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
   },
   fileSize: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   downloadButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   downloadButtonPressed: {
-    backgroundColor: `${COLORS.primary}cc`,
+    backgroundColor: `${colors.primary}cc`,
   },
   downloadButtonText: {
-    color: COLORS.onPrimary,
+    color: colors.onPrimary,
     fontSize: 18,
   },
   section: {
@@ -379,7 +418,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...FONTS.subtitle,
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: SIZES.base,
   },
   readOnlyTypeDisplay: {
@@ -387,16 +426,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SIZES.base,
     paddingVertical: SIZES.base,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: 12,
+    borderCurve: 'continuous',
     gap: SIZES.base,
-  },
-  readOnlyTypeIcon: {
-    fontSize: 24,
   },
   readOnlyTypeText: {
     ...FONTS.body,
-    color: COLORS.text,
+    color: colors.text,
   },
   typeButtonContainer: {
     flexDirection: 'row',
@@ -407,25 +444,26 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.base,
     paddingHorizontal: SIZES.small,
     borderRadius: 12,
+    borderCurve: 'continuous',
     borderWidth: 2,
-    borderColor: COLORS.surface,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     gap: SIZES.small,
   },
   typeButtonActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}15`,
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}15`,
   },
   typeButtonIcon: {
-    fontSize: 28,
+    marginBottom: SIZES.small,
   },
   typeButtonLabel: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   typeButtonLabelActive: {
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   readOnlyField: {
@@ -433,16 +471,17 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: SIZES.small,
   },
   readOnlyValue: {
     ...FONTS.body,
-    color: COLORS.text,
+    color: colors.text,
     paddingVertical: SIZES.base,
     paddingHorizontal: SIZES.base,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: 8,
+    borderCurve: 'continuous',
   },
   editButton: {
     marginBottom: SIZES.base,
@@ -454,18 +493,17 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.base,
     paddingVertical: SIZES.base,
     paddingHorizontal: SIZES.large,
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
     borderRadius: 12,
+    borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
   },
   deleteButtonPressed: {
-    backgroundColor: '#DC2626',
     opacity: 0.8,
   },
   deleteButtonDisabled: {
-    backgroundColor: '#FCA5A5',
-    opacity: 0.6,
+    opacity: 0.5,
   },
   deleteButtonText: {
     ...FONTS.body,
