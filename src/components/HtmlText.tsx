@@ -61,7 +61,7 @@ export function HtmlText({ html }: HtmlTextProps) {
     <Text style={{ color: colors.text, fontSize: 15, lineHeight: 21 }}>
       {segments.map((segment, index) => (
         <Text
-          key={index}
+          key={`${index}-${segment.text.slice(0, 12)}`}
           style={[
             segment.bold ? { fontWeight: '700' } : null,
             segment.href ? { color: colors.primary } : null,

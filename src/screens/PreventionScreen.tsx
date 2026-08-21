@@ -62,9 +62,9 @@ export function PreventionScreen({
     [recommendations, selectedGradeFilter],
   );
 
-  const filteredIdsWithReminderOff = filteredRecommendations
-    .filter((rec) => !rec.isReminderOn)
-    .map((rec) => rec.id);
+  const filteredIdsWithReminderOff = filteredRecommendations.flatMap((rec) =>
+    rec.isReminderOn ? [] : [rec.id],
+  );
 
   // lastUpdated e exibido no rodape do banner de contexto quando disponivel —
   // a API do USPSTF pode retornar vazio, entao a linha e omitida nesse caso.
