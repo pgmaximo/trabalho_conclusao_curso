@@ -21,35 +21,21 @@ import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { FormField } from '@/components/FormField';
+import { InlineError } from '@/components/InlineError';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
 import { useThemeColors } from '@/constants/theme';
 import {
   formatDateForDisplay,
   getDocumentDownloadUrl,
+  getExamDocumentIncompleteReason,
+  isExamDocumentComplete,
   updateExamDocument,
   deleteExamDocument,
   type MedicalDocumentMetadata,
 } from '@/services/examService';
-import { invalidateExamsCache } from '@/hooks/useExamsData';
 
 export interface DocumentDetailScreenProps {
   document: MedicalDocumentMetadata;
-}
-
-function InlineError({ message }: { message: string }) {
-  return (
-    <View className="mb-4 flex-row items-start gap-2 rounded-2xl border border-app-dangerBadgeBorder bg-app-dangerSoft p-3 dark:border-app-dark-dangerBadgeBorder dark:bg-app-dark-dangerSoft">
-      <View
-        className="items-center justify-center rounded-full bg-app-danger dark:bg-app-dark-danger"
-        style={{ height: 22, width: 22, marginTop: 2 }}
-      >
-        <Text className="text-xs font-bold text-white">!</Text>
-      </View>
-      <Text className="flex-1 text-[16px] text-app-danger dark:text-app-dark-danger">
-        {message}
-      </Text>
-    </View>
-  );
 }
 
 export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
@@ -63,9 +49,21 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
   // validade) — mantido só como valor de leitura para a linha "Tipo" e para a condição da
   // Data de validade, ver specs/03-exames-receitas/detalhe-documento/spec.md §3.
   const documentType = document.documentType;
-  const [documentName, setDocumentName] = useState(document.documentName);
-  const [documentDate, setDocumentDate] = useState(document.documentDate);
-  const [expirationDate, setExpirationDate] = useState(document.expirationDate || '');
+
+  // "Baseline" dos campos editáveis: começa nos valores originais do documento e é
+  // atualizada para os valores recém-salvos após um `handleSave` bem-sucedido. Sem isso,
+  // `handleCancelEdit` sempre restauraria o dado original (A), mesmo depois de um save
+  // que já persistiu um valor novo (B) — sequência editar A→B, Salvar, Editar de novo,
+  // Cancelar voltaria a mostrar A com o banco já em B (achado #3 da revisão final).
+  const [baseline, setBaseline] = useState({
+    documentName: document.documentName,
+    documentDate: document.documentDate,
+    expirationDate: document.expirationDate || '',
+  });
+
+  const [documentName, setDocumentName] = useState(baseline.documentName);
+  const [documentDate, setDocumentDate] = useState(baseline.documentDate);
+  const [expirationDate, setExpirationDate] = useState(baseline.expirationDate);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -78,7 +76,19 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
   const isPrescription = documentType === 'prescription';
   const typeLabel = documentType === 'exam' ? 'Exame' : 'Receita';
 
+  // Mesma fonte única de verdade de validação usada em `AddExamScreen.tsx` (3b) — nunca
+  // grava nome/data/validade vazios silenciosamente (achado #1 da revisão final). Tipo é
+  // sempre não-nulo aqui (documento já existe e é imutável em 3c).
+  const formFields = { documentType, documentName, documentDate, expirationDate };
+  const isFormValid = isExamDocumentComplete(formFields);
+  const disabledReason = isFormValid ? undefined : getExamDocumentIncompleteReason(formFields);
+  const isSaveDisabled = isSubmitting || !isFormValid;
+
   async function handleSave() {
+    if (!isFormValid) {
+      return;
+    }
+
     setIsSubmitting(true);
     setSaveError(null);
 
@@ -90,7 +100,8 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
         expirationDate: isPrescription ? expirationDate : undefined,
       });
 
-      await invalidateExamsCache();
+      // updateExamDocument já invalida o cache internamente (achado #2 da revisão final).
+      setBaseline({ documentName, documentDate, expirationDate });
       setIsEditMode(false);
       setSuccessMessage('Documento atualizado com sucesso!');
     } catch (error) {
@@ -106,9 +117,9 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
   function handleCancelEdit() {
     setIsEditMode(false);
     setSaveError(null);
-    setDocumentName(document.documentName);
-    setDocumentDate(document.documentDate);
-    setExpirationDate(document.expirationDate || '');
+    setDocumentName(baseline.documentName);
+    setDocumentDate(baseline.documentDate);
+    setExpirationDate(baseline.expirationDate);
   }
 
   async function handleConfirmDelete() {
@@ -235,21 +246,35 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityState={{ busy: isSubmitting, disabled: isSubmitting }}
-                  disabled={isSubmitting}
+                  accessibilityState={{ busy: isSubmitting, disabled: isSaveDisabled }}
+                  disabled={isSaveDisabled}
                   onPress={handleSave}
-                  style={({ pressed }) => [pressed && !isSubmitting && { opacity: 0.88 }]}
+                  style={({ pressed }) => [pressed && !isSaveDisabled && { opacity: 0.88 }]}
                   className={
-                    isSubmitting
-                      ? 'h-14 flex-1 items-center justify-center rounded-field bg-app-primaryDark dark:bg-app-dark-primaryDark'
-                      : 'h-14 flex-1 items-center justify-center rounded-field bg-app-primary dark:bg-app-dark-primary'
+                    !isFormValid && !isSubmitting
+                      ? 'h-14 flex-1 items-center justify-center rounded-field border border-app-border bg-app-border dark:border-app-dark-border dark:bg-app-dark-border'
+                      : isSubmitting
+                        ? 'h-14 flex-1 items-center justify-center rounded-field bg-app-primaryDark dark:bg-app-dark-primaryDark'
+                        : 'h-14 flex-1 items-center justify-center rounded-field bg-app-primary dark:bg-app-dark-primary'
                   }
                 >
-                  <Text className="text-[17px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">
+                  <Text
+                    className={
+                      !isFormValid && !isSubmitting
+                        ? 'text-[17px] font-semibold text-app-textMuted dark:text-app-dark-textMuted'
+                        : 'text-[17px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary'
+                    }
+                  >
                     {isSubmitting ? 'Salvando…' : 'Salvar'}
                   </Text>
                 </Pressable>
               </View>
+
+              {disabledReason && !isSubmitting ? (
+                <Text className="mt-2 text-center text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                  {disabledReason}
+                </Text>
+              ) : null}
             </>
           ) : (
             <>

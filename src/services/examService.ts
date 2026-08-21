@@ -446,6 +446,11 @@ export async function updateExamDocument(input: UpdateExamDocumentInput) {
     }
 
     console.log('Documento atualizado:', data);
+
+    // Invalidate cache so next fetch gets fresh data — simétrico a
+    // createExamDocument/deleteExamDocument, que já fazem isso internamente.
+    await invalidateExamsCache();
+
     return data;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
