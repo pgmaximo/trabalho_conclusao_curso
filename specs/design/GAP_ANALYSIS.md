@@ -61,10 +61,13 @@ Nenhuma. Os 17 componentes de tela roteados hoje mapeiam 1:1 para telas do desig
 
 ## Resumo de contagem
 
-- **CRIAR**: 3 telas (3f, 3g, 4e)
-- **ATUALIZAR**: 17 telas + 4 itens de fundação (tokens, componentes base, dark mode, navegação)
-- **MANTER**: 0 (nenhuma tela está fiel ao novo design ainda — o design é uma reformulação completa)
-- **DESCONTINUAR**: 0
+> Atualizado após a conclusão dos Blocos 1/3/4 (Bloco 2 segue no estado original da Fase 0 — 0% implementado, ver `specs/RELATORIO_SDD_SUASAUDE.md`).
+
+- **CONCLUÍDO**: 7 telas — 3d, 3e, 3f, 3g (Bloco 3: Medicamentos + Prevenção), 4b, 4c, 4e (Bloco 4: Perfil, Editar Perfil, Vacinação). Cada uma com pendências pontuais registradas nesta lista, mas nenhuma bloqueante da tela em si.
+- **ATUALIZAR** (spec escrita, implementação pendente ou parcial): 14 telas — 1b–1f (Bloco 1, todas implementadas mas fidelidade não auditada tela-a-tela), 2a–2e (Bloco 2, specs completas, **zero tasks implementadas**), 3a–3c (Bloco 3, núcleo do MVP, implementadas mas com gaps de fidelidade documentados), 4a (Bloco 4, fidelidade de UI concluída, integração de IA real e persistência de histórico em aberto).
+- **CRIAR**: 0 (todas as 21 telas do design já existem como componente roteado no código; nenhuma foi criada do zero nesta fase — todas partiram de uma versão pré-existente).
+- **MANTER**: 0 (nenhuma tela foi auditada como 100% fiel sem nenhuma pendência registrada).
+- **DESCONTINUAR**: 0.
 
 ## Pendências técnicas conhecidas (regra 2 e 4 da constituição — não mockar em silêncio)
 
