@@ -115,30 +115,63 @@ export function formatFileSize(bytes: number): string {
   return `${mb.toFixed(1).replace('.', ',')} MB`;
 }
 
+type ExamDocumentCoreInput = Pick<CreateExamDocumentInput, 'documentName' | 'documentDate' | 'expirationDate'> & {
+  documentType: DocumentType | null;
+};
+
 /**
- * Checagem "documento completo" reaproveitada tanto pelo estado visual
- * preventivo do botão "Salvar documento" (client-side, antes do toque)
- * quanto por `validateExamDocument()` (validação de negócio no submit) —
- * evita duplicar a regra em dois lugares que poderiam divergir.
+ * Fonte única de verdade das checagens "documento completo" (tipo, nome,
+ * data, validade se receita) — em ordem de prioridade. Reaproveitada por
+ * `isExamDocumentComplete`/`getExamDocumentIncompleteReason` (estado visual
+ * preventivo do botão) e por `validateExamDocument` (validação de negócio no
+ * submit), para as duas nunca divergirem.
  */
-export function isExamDocumentComplete(
-  input: Pick<CreateExamDocumentInput, 'documentName' | 'documentDate' | 'expirationDate'> & {
-    documentType: DocumentType | null;
-  },
-): boolean {
+function getCoreValidationErrors(input: ExamDocumentCoreInput): ExamValidationError[] {
+  const errors: ExamValidationError[] = [];
+
   if (!input.documentType) {
-    return false;
+    errors.push({
+      field: 'documentType',
+      message: 'Por favor, selecione o tipo de documento',
+    });
   }
+
   if (!input.documentName?.trim()) {
-    return false;
+    errors.push({
+      field: 'documentName',
+      message: 'Por favor, insira um nome para o documento',
+    });
   }
+
   if (!input.documentDate) {
-    return false;
+    errors.push({
+      field: 'documentDate',
+      message: 'Por favor, selecione a data',
+    });
   }
+
   if (input.documentType === 'prescription' && !input.expirationDate) {
-    return false;
+    errors.push({
+      field: 'expirationDate',
+      message: 'Por favor, insira a data de validade para a receita',
+    });
   }
-  return true;
+
+  return errors;
+}
+
+export function isExamDocumentComplete(input: ExamDocumentCoreInput): boolean {
+  return getCoreValidationErrors(input).length === 0;
+}
+
+/**
+ * Motivo legível (primeiro campo obrigatório faltando, na mesma ordem de
+ * prioridade de `getCoreValidationErrors`) para exibir como `disabledReason`
+ * do botão "Salvar documento" — spec.md §6 "Botão desabilitado sempre com
+ * motivo" (mesmo padrão de `Button.tsx` já usado no Cadastro/1d).
+ */
+export function getExamDocumentIncompleteReason(input: ExamDocumentCoreInput): string | undefined {
+  return getCoreValidationErrors(input)[0]?.message;
 }
 
 /**
@@ -201,35 +234,7 @@ export function formatDateForStorage(displayDate: string): string {
 export function validateExamDocument(
   input: CreateExamDocumentInput,
 ): ExamValidationError[] {
-  const errors: ExamValidationError[] = [];
-
-  if (!input.documentType) {
-    errors.push({
-      field: 'documentType',
-      message: 'Por favor, selecione o tipo de documento',
-    });
-  }
-
-  if (!input.documentName?.trim()) {
-    errors.push({
-      field: 'documentName',
-      message: 'Por favor, insira um nome para o documento',
-    });
-  }
-
-  if (!input.documentDate) {
-    errors.push({
-      field: 'documentDate',
-      message: 'Por favor, selecione a data',
-    });
-  }
-
-  if (input.documentType === 'prescription' && !input.expirationDate) {
-    errors.push({
-      field: 'expirationDate',
-      message: 'Por favor, insira a data de validade para a receita',
-    });
-  }
+  const errors: ExamValidationError[] = getCoreValidationErrors(input);
 
   if (!validateFileType(input.fileName)) {
     errors.push({

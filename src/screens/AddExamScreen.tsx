@@ -21,6 +21,7 @@ import {
   getTodayDate,
   createExamDocument,
   formatFileSize,
+  getExamDocumentIncompleteReason,
   isExamDocumentComplete,
   type DocumentType,
 } from '@/services/examService';
@@ -45,13 +46,13 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
 
   // Estado visual preventivo (Canvas 3b): o botão só habilita quando tipo,
   // nome, data (e validade se receita) estão completos — não depende de
-  // alerta reativo pós-toque. Ver isExamDocumentComplete em examService.ts.
-  const isFormValid = isExamDocumentComplete({
-    documentType,
-    documentName,
-    documentDate,
-    expirationDate,
-  });
+  // alerta reativo pós-toque. Ver isExamDocumentComplete/
+  // getExamDocumentIncompleteReason em examService.ts (fonte única de
+  // verdade compartilhada com validateExamDocument).
+  const formFields = { documentType, documentName, documentDate, expirationDate };
+  const isFormValid = isExamDocumentComplete(formFields);
+  // spec.md §6: botão desabilitado sempre com motivo (padrão já usado em 1d/Cadastro).
+  const disabledReason = isFormValid ? undefined : getExamDocumentIncompleteReason(formFields);
 
   async function handleSubmit() {
     if (!isFormValid) {
@@ -218,6 +219,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
             title="Salvar documento"
             onPress={handleSubmit}
             disabled={!isFormValid}
+            disabledReason={disabledReason}
             loading={isSubmitting}
             style={styles.submitButton}
           />
