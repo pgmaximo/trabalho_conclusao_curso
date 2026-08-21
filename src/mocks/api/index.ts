@@ -6,6 +6,5 @@
 export * from './appointmentsApi';
 export * from './dashboardApi';
 export * from './examsApi';
-export * from './medicinesApi';
 export * from './preventionApi';
 export * from './profileApi';

@@ -160,21 +160,25 @@ export type MedicineStatus = 'pending' | 'taken' | 'missed';
 // Tipo para status de estoque de medicamento
 export type MedicineStockStatus = 'ok' | 'low' | 'critical';
 
-// Interface para dose de medicamento
+// Interface para dose de medicamento — representação de apresentação de uma instância
+// diária de uma dose de `Medicine` (ver src/services/medicineService.ts), derivada em
+// src/hooks/useMedicinesData.ts. `id` é composto (`${medicineId}__${time}`) porque cada
+// `Medicine` pode gerar várias doses/dia (um horário em `times`).
 export interface MedicineDose {
-  id: number;            // ID único da dose
+  id: string;             // ID composto único da dose (`${medicineId}__${time}`)
+  medicineId: string;     // ID do `Medicine` de origem
+  time: string;           // Horário da dose (hh:mm)
   name: string;          // Nome do medicamento
   dosage: string;        // Dosagem e frequência
-  time: string;          // Horário da dose
   status: MedicineStatus; // Status da dose
 }
 
-// Interface para item do inventário de medicamentos
+// Interface para item do inventário de medicamentos — apresentação derivada de `Medicine`.
 export interface MedicineInventoryItem {
-  id: number;                    // ID único do item
+  id: string;                    // ID do `Medicine` de origem
   name: string;                  // Nome do medicamento
-  quantity: number;              // Quantidade em estoque
-  unit: string;                  // Unidade de medida
+  quantity: number;              // Quantidade em estoque (currentStock)
+  unit: string;                  // Unidade de medida (rótulo já traduzido)
   status: MedicineStockStatus;   // Status do estoque
   percentage: number;
 }
