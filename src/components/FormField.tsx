@@ -14,6 +14,8 @@ import { useThemeColors } from '@/constants/theme';
 type FormFieldProps = TextInputProps & {
   label: string;
   icon?: React.ReactNode;
+  /** Slot à direita do valor, dentro do input (ex.: link "Mostrar/Ocultar" no campo de senha). */
+  trailingAction?: React.ReactNode;
   hasError?: boolean;
   helperText?: string;
   errorMessage?: string;
@@ -27,6 +29,7 @@ type FormFieldProps = TextInputProps & {
 export function FormField({
   label,
   icon,
+  trailingAction,
   hasError,
   helperText,
   errorMessage,
@@ -92,6 +95,8 @@ export function FormField({
           }}
           {...rest}
         />
+
+        {trailingAction ? <View className="ml-3">{trailingAction}</View> : null}
       </View>
 
       {errorMessage ? (

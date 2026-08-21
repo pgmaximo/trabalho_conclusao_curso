@@ -18,6 +18,8 @@ type ButtonProps = Omit<PressableProps, 'style' | 'disabled'> & {
   variant?: ButtonVariant;
   /** Estado de carregamento — bloqueia o toque e troca para o bg "pressed" (#0C6341). */
   loading?: boolean;
+  /** Texto exibido no lugar de `title` enquanto `loading` é true (default: `${title}…`). */
+  loadingTitle?: string;
   /** Motivo exibido como texto abaixo do botão quando `disabled` é true (nunca só um botão cinza). */
   disabledReason?: string;
   disabled?: boolean;
@@ -28,6 +30,7 @@ export function Button({
   title,
   variant = 'primary',
   loading = false,
+  loadingTitle,
   disabledReason,
   disabled,
   style,
@@ -75,7 +78,7 @@ export function Button({
     .filter(Boolean)
     .join(' ');
 
-  const label = loading ? `${title}…` : title;
+  const label = loading ? (loadingTitle ?? `${title}…`) : title;
   const spinnerColor = isPrimary ? colors.onPrimary : colors.primary;
 
   const button = (
