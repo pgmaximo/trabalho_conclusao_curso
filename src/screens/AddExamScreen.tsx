@@ -16,10 +16,12 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { FormField } from '@/components/FormField';
-import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
+import { FONTS, RADII, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
 import {
   getTodayDate,
   createExamDocument,
+  formatFileSize,
+  isExamDocumentComplete,
   type DocumentType,
 } from '@/services/examService';
 
@@ -41,7 +43,21 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
   const [expirationDate, setExpirationDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Estado visual preventivo (Canvas 3b): o botão só habilita quando tipo,
+  // nome, data (e validade se receita) estão completos — não depende de
+  // alerta reativo pós-toque. Ver isExamDocumentComplete em examService.ts.
+  const isFormValid = isExamDocumentComplete({
+    documentType,
+    documentName,
+    documentDate,
+    expirationDate,
+  });
+
   async function handleSubmit() {
+    if (!isFormValid) {
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -75,7 +91,6 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
             </Pressable>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Adicionar documento</Text>
-              <Text style={styles.subtitle}>Configure os detalhes do seu arquivo</Text>
             </View>
           </View>
 
@@ -90,11 +105,17 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
                   {fileName}
                 </Text>
                 <Text style={styles.fileSize}>
-                  {(fileSize / 1024).toFixed(1)} KB
+                  {formatFileSize(fileSize)}
                 </Text>
               </View>
-              <Pressable style={styles.reuploadButton}>
-                <Ionicons name="create-outline" size={18} color={colors.text} />
+              <Pressable
+                accessibilityLabel="Remover arquivo selecionado"
+                accessibilityRole="button"
+                hitSlop={8}
+                style={styles.reuploadButton}
+                onPress={() => router.back()}
+              >
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
               </Pressable>
             </View>
           </Card>
@@ -112,8 +133,8 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
               >
                 <Ionicons
                   name="flask-outline"
-                  size={28}
-                  color={documentType === 'exam' ? colors.primary : colors.textSecondary}
+                  size={20}
+                  color={documentType === 'exam' ? colors.primaryDark : colors.textSecondary}
                   style={styles.typeButtonIcon}
                 />
                 <Text
@@ -135,8 +156,8 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
               >
                 <Ionicons
                   name="medkit-outline"
-                  size={28}
-                  color={documentType === 'prescription' ? colors.primary : colors.textSecondary}
+                  size={20}
+                  color={documentType === 'prescription' ? colors.primaryDark : colors.textSecondary}
                   style={styles.typeButtonIcon}
                 />
                 <Text
@@ -155,7 +176,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
           <View style={styles.section}>
             <FormField
               label="Nome do documento"
-              placeholder="ex: Hemograma, Tomografia, Receita de Amoxicilina"
+              placeholder="Ex.: Hemograma completo"
               value={documentName}
               onChangeText={setDocumentName}
             />
@@ -196,7 +217,8 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
           <Button
             title="Salvar documento"
             onPress={handleSubmit}
-            disabled={isSubmitting}
+            disabled={!isFormValid}
+            loading={isSubmitting}
             style={styles.submitButton}
           />
         </ScrollView>
@@ -220,29 +242,28 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: SIZES.large,
     gap: SIZES.base,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderCurve: 'continuous',
+    borderWidth: 1.5,
+    borderColor: colors.border,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   titleContainer: {
     flex: 1,
+    justifyContent: 'center',
   },
   title: {
     ...FONTS.title,
     color: colors.text,
-    marginBottom: SIZES.small,
-  },
-  subtitle: {
-    ...FONTS.caption,
-    color: colors.textSecondary,
   },
   fileCard: {
     marginBottom: SIZES.large,
@@ -274,10 +295,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
   },
   reuploadButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.inputBackground,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -295,30 +319,32 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   typeButton: {
     flex: 1,
-    paddingVertical: SIZES.large,
+    flexDirection: 'row',
+    height: 56,
     paddingHorizontal: SIZES.base,
-    borderRadius: SIZES.radius,
+    borderRadius: RADII.field,
     borderCurve: 'continuous',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: SIZES.small,
     backgroundColor: colors.surface,
   },
   typeButtonActive: {
     borderColor: colors.primary,
-    backgroundColor: `${colors.primary}15`,
+    backgroundColor: colors.primarySoft,
   },
   typeButtonIcon: {
-    marginBottom: SIZES.small,
+    marginBottom: 0,
   },
   typeButtonLabel: {
-    ...FONTS.body,
-    color: colors.text,
-    fontWeight: '500',
+    ...FONTS.apoio,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   typeButtonLabelActive: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontWeight: '700',
   },
   infoCard: {
