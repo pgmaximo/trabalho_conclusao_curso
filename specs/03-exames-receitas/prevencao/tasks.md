@@ -32,5 +32,5 @@
 - [ ] **4.3** Atualizar `GAP_ANALYSIS.md` (pendência #2) e `CODE_INVENTORY.md` (linha `preventionApi.ts`/`PreventionScreen.tsx`) ao concluir, registrando a decisão final tomada e o item "Pressão arterial" removido (se essa foi a decisão) como pendência técnica formal.
 
 ## Fase 5 — Follow-up (após EPIC de 4e "Carteira de vacinação")
-- [ ] **5.1** Quando o schema de vacinação de 4e estiver definido, implementar o banner de campanha de vacinação de 3e lendo dessa mesma fonte (não criar uma fonte paralela).
+- [ ] **5.1** [DESBLOQUEADO — 4e concluída] Schema `VaccineDose` (`amplify/data/schemas/vaccination.ts`) e config de campanhas (`src/config/vaccinationCampaigns.ts`, `getActiveVaccinationCampaign()`) já existem. Implementar o banner de campanha de vacinação de 3e consultando a mesma `getActiveVaccinationCampaign()` (não criar uma fonte paralela) e, opcionalmente, `client.models.VaccineDose.list()` filtrando por `appliedDate == null` para decidir se há vacinas pendentes do usuário — ver `specs/04-ia-perfil-vacinacao/carteira-vacinacao/plan.md` §5.
 - [ ] **5.2** Revisitar a decisão da Fase 0.1 (Opção A vs. B) se, na prática, a heurística textual gerar falsos "Pendente" com frequência alta o suficiente para prejudicar a experiência — considerar migrar para Opção B nesse caso.
