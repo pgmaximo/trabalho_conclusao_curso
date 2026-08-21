@@ -64,6 +64,84 @@ export interface ExamValidationError {
 }
 
 /**
+ * Tamanho máximo de arquivo aceito para upload (10 MB).
+ * Proposta documentada em specs/03-exames-receitas/adicionar-documento/plan.md §3 —
+ * nenhum limite existia antes; valor não confirmado formalmente com o
+ * time/orientador (ambiguidade registrada, regra 8 da constituição).
+ */
+export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Extensões de arquivo aceitas (allowlist), espelhando o filtro do
+ * `DocumentPicker` (`application/pdf`, `image/*`) da tela 3a, mas restrito a
+ * um conjunto explícito de imagens em vez do `image/*` genérico.
+ * Ver specs/03-exames-receitas/adicionar-documento/plan.md §2 e §5.
+ */
+const ALLOWED_FILE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
+
+/**
+ * Revalida o tipo de arquivo pela extensão do nome, como segunda camada de
+ * defesa além do filtro do seletor nativo (que pode ser contornável
+ * dependendo da plataforma/picker usado).
+ */
+export function validateFileType(fileName: string): boolean {
+  const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
+  return ALLOWED_FILE_EXTENSIONS.includes(extension);
+}
+
+/**
+ * Valida se o tamanho do arquivo está dentro do limite máximo permitido.
+ */
+export function validateFileSize(fileSize: number): boolean {
+  return fileSize <= MAX_FILE_SIZE_BYTES;
+}
+
+/**
+ * Formata um tamanho em bytes para exibição amigável (KB abaixo de 1024 KB,
+ * MB acima, com vírgula decimal em pt-BR), batendo com o exemplo do Canvas 3b
+ * ("1,2 MB").
+ */
+export function formatFileSize(bytes: number): string {
+  if (!bytes || bytes <= 0) {
+    return '0 KB';
+  }
+
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(1).replace('.', ',')} KB`;
+  }
+
+  const mb = kb / 1024;
+  return `${mb.toFixed(1).replace('.', ',')} MB`;
+}
+
+/**
+ * Checagem "documento completo" reaproveitada tanto pelo estado visual
+ * preventivo do botão "Salvar documento" (client-side, antes do toque)
+ * quanto por `validateExamDocument()` (validação de negócio no submit) —
+ * evita duplicar a regra em dois lugares que poderiam divergir.
+ */
+export function isExamDocumentComplete(
+  input: Pick<CreateExamDocumentInput, 'documentName' | 'documentDate' | 'expirationDate'> & {
+    documentType: DocumentType | null;
+  },
+): boolean {
+  if (!input.documentType) {
+    return false;
+  }
+  if (!input.documentName?.trim()) {
+    return false;
+  }
+  if (!input.documentDate) {
+    return false;
+  }
+  if (input.documentType === 'prescription' && !input.expirationDate) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Gera um nome único para o arquivo no S3 combinando UUID com timestamp
  * Garante que não há conflitos mesmo se arquivos forem enviados simultaneamente
  */
@@ -150,6 +228,20 @@ export function validateExamDocument(
     errors.push({
       field: 'expirationDate',
       message: 'Por favor, insira a data de validade para a receita',
+    });
+  }
+
+  if (!validateFileType(input.fileName)) {
+    errors.push({
+      field: 'fileName',
+      message: 'Formato de arquivo não suportado. Envie um PDF ou imagem (JPG/PNG).',
+    });
+  }
+
+  if (!validateFileSize(input.fileSize)) {
+    errors.push({
+      field: 'fileSize',
+      message: `Arquivo muito grande. O tamanho máximo permitido é ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB.`,
     });
   }
 
