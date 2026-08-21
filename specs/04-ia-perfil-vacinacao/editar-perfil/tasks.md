@@ -4,16 +4,16 @@ Pré-requisito comum a T3/T7: decisão de schema compartilhada com a Tela 2a (`s
 
 ## Copy e estrutura (regra 1 — sem dependência de schema)
 
-- [ ] **T1. Corrigir ordem e rótulo dos chips de sexo biológico.** Em `src/screens/EditProfileScreen.tsx`, mudar `SEX_OPTIONS` de `[Feminino, Masculino, Prefiro não informar]` para `[Masculino, Feminino, Outro]` (ordem e rótulo do Canvas 4c). O `value` interno pode continuar `'prefer_not_to_say'` até T3/T7 mudarem o schema — só copy/ordem nesta task.
-- [ ] **T2. Corrigir rótulo "Atividade física".** Em `EditProfileScreen.tsx`, trocar o texto "Pratica atividade física?" por "Atividade física" (forma nominal curta, igual ao Canvas 4c — não à interrogativa da Tela 2a).
-- [ ] **T3. Mudar campo de altura para centímetros inteiros diretos.** Remover `formatHeightInput` (vírgula decimal) e `helperText="Em metros"`; pedir "165" cm inteiro, placeholder igual ao Canvas. Ajustar `heightCmToMeters`/`metersToHeightCm` (ou equivalente) em `src/app/edit-profile.tsx` para trabalhar direto em cm, coordenando com a mesma correção da Tela 2a para não haver dois formatos de altura no app.
-- [ ] **T4. Adicionar o link "Alterar foto" ausente no JSX.** Abaixo do `Avatar` em `EditProfileScreen.tsx`, renderizar o texto "Alterar foto" (600 16px, `#1B63C4`) conforme o Canvas — hoje nem existe no componente. Comportamento ao tocar: ver T5.
-- [ ] **T5. Implementar estado "em breve"/desabilitado explícito para "Alterar foto".** Enquanto o upload real (T9) não estiver pronto, o toque no link deve mostrar feedback explícito (ex.: toast/alert "Em breve você poderá trocar sua foto por aqui.") — nunca fingir sucesso, nunca ficar sem handler nenhum. Cobre o cenário "tentar trocar foto (pendência)" do `spec.md`.
+- [x] **T1. Corrigir ordem e rótulo dos chips de sexo biológico.** Em `src/screens/EditProfileScreen.tsx`, mudar `SEX_OPTIONS` de `[Feminino, Masculino, Prefiro não informar]` para `[Masculino, Feminino, Outro]` (ordem e rótulo do Canvas 4c). O `value` interno pode continuar `'prefer_not_to_say'` até T3/T7 mudarem o schema — só copy/ordem nesta task.
+- [x] **T2. Corrigir rótulo "Atividade física".** Em `EditProfileScreen.tsx`, trocar o texto "Pratica atividade física?" por "Atividade física" (forma nominal curta, igual ao Canvas 4c — não à interrogativa da Tela 2a).
+- [x] **T3. Mudar campo de altura para centímetros inteiros diretos.** Removido `formatHeightInput` (vírgula decimal) e `helperText="Em metros"`; agora pede cm inteiro (placeholder "165"). `heightCmToMeters` virou `heightCmToText` em `src/app/edit-profile.tsx` (round direto, sem conversão para metros). Não foi necessário tocar `profileSetupPayload.ts`: `parseHeightCm` já trata `valor > 3` como cm — a Tela 2a (que ainda envia metros com vírgula) continua funcionando sem alteração.
+- [x] **T4. Adicionar o link "Alterar foto" ausente no JSX.** Abaixo do `Avatar` em `EditProfileScreen.tsx`, renderizado o texto "Alterar foto" conforme o Canvas.
+- [x] **T5. Implementar estado "em breve"/desabilitado explícito para "Alterar foto".** Toque exibe `Alert.alert('Alterar foto', 'Em breve você poderá trocar sua foto por aqui.')` — nunca finge sucesso.
 
 ## Validação e correção de comportamento
 
-- [ ] **T6. Confirmar validação de campo obrigatório vazio.** `validate()` em `EditProfileScreen.tsx` já cobre `fullName`/`birthDate` — escrever/atualizar teste (manual ou automatizado, conforme convenção do projeto) cobrindo o cenário "campo obrigatório vazio" do `spec.md` (erro inline, sem chamada ao Amplify).
-- [ ] **T7. Confirmar reset de `pregnancyStatus` ao trocar sexo.** Já implementado (`update('pregnancyStatus', 'unknown')` no `onChange` do chip de sexo) — validar que o comportamento sobrevive às mudanças de T1 (reordenação de `SEX_OPTIONS`) e ao valor "Outro" quando T9-schema mapear `prefer_not_to_say`/"Outro" corretamente.
+- [x] **T6. Confirmar validação de campo obrigatório vazio.** Coberto por teste automatizado novo em `__tests__/edit-profile-screen.test.tsx` ("blocks saving and shows an inline error when a required field is empty").
+- [x] **T7. Confirmar reset de `pregnancyStatus` ao trocar sexo.** Coberto por teste automatizado novo em `__tests__/edit-profile-screen.test.tsx` ("shows the pregnancy question only for Feminino and resets it when switching away"), validando que o comportamento sobrevive à reordenação de T1.
 
 ## Dependente da decisão de schema compartilhada (2a + 4c)
 
@@ -22,7 +22,7 @@ Pré-requisito comum a T3/T7: decisão de schema compartilhada com a Tela 2a (`s
 
 ## Upload de avatar (capacidade nova, escopo próprio — não bloqueia o restante do EPIC)
 
-- [ ] **T10. Investigar origem atual de `photoUrl`.** Confirmar se `UserContext.photoUrl` vem de algum atributo do Cognito hoje ou é puramente não-persistido (ver `plan.md` §6, risco). Documentar achado antes de iniciar T11.
+- [x] **T10. Investigar origem atual de `photoUrl`.** Achado: `UserContext.photoUrl` (`src/contexts/UserContext.tsx:28`) já traz o comentário `ATTENTION: photoUrl reservado para upload futuro de foto — não implementado`. Confirmado por busca em todo `src/`: nenhum lugar do código popula `photoUrl` a partir de Cognito, DynamoDB ou S3 — é um campo puramente não-persistido/reservado hoje. T11 segue bloqueada aguardando decisão explícita de onde essa referência será persistida.
 - [ ] **T11. Decidir e documentar onde a referência da foto será persistida** (novo campo em `UserProfile` vs. key previsível no S3 vs. atributo Cognito) — decisão explícita de schema/design de dados (regra 5), registrar antes de implementar.
 - [ ] **T12. Implementar upload real via Amplify Storage.** Reaproveitar o padrão já usado em `src/services/examService.ts` (`uploadData`/`getUrl`/`remove` de `aws-amplify/storage`) para um novo caminho `avatars/{identityId}/...`; verificar se `expo-image-picker` (ou lib equivalente já usada em outra tela de upload, ex. 3b) já está instalada antes de adicionar dependência nova (regra 3).
 - [ ] **T13. Substituir o estado "em breve" de T5 pelo fluxo real** (abrir picker → upload → atualizar `photoUrl`/referência → refletir no `Avatar` imediatamente e persistir no `UserProfile`/Storage).
