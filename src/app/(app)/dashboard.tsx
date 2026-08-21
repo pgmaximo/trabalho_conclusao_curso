@@ -38,10 +38,9 @@ function buildTodaySummaryText(appointments: { scheduledAt: string; time: string
   }
 
   const [next] = todayAppointments;
-  const hour = next.time.split(' • ')[1] ?? next.time;
   const label = todayAppointments.length === 1 ? 'consulta' : 'consultas';
 
-  return `${todayAppointments.length} ${label} às ${hour}`;
+  return `${todayAppointments.length} ${label} às ${next.time}`;
 }
 
 export default function DashboardRoute() {

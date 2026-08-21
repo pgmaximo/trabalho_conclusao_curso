@@ -14,7 +14,8 @@ export default function AppointmentsRoute() {
     <AgendaScreen
       dates={appointments.dates}
       selectedDate={appointments.selectedDate}
-      appointments={appointments.appointments}
+      selectedDayLabel={appointments.selectedDayLabel}
+      appointments={appointments.appointmentsForSelectedDate}
       isLoading={appointments.isLoading}
       errorMessage={appointments.errorMessage}
       onRetry={appointments.retry}

@@ -46,7 +46,6 @@ type HomeScreenProps = {
 const APPOINTMENT_TYPE_LABEL: Record<AppointmentType, string> = {
   consulta: 'Consulta',
   exame: 'Exame',
-  retorno: 'Retorno',
   cirurgia: 'Cirurgia',
 };
 
@@ -287,12 +286,37 @@ function PreventionAlertCard({
   );
 }
 
+// DECISION (reconciliada com specs/02-perfil-home-agenda/agenda/plan.md item 4,
+// fonte canonica do mapeamento de cor por tipo — mesmo par usado em AppointmentCard.tsx):
+// consulta -> secundario/azul, exame -> warning/ambar, cirurgia -> primario/verde.
 const APPOINTMENT_BAR_CLASS: Record<AppointmentType, string> = {
   consulta: 'bg-app-secondary dark:bg-app-dark-secondary',
-  exame: 'bg-app-primary dark:bg-app-dark-primary',
-  retorno: 'bg-app-secondary dark:bg-app-dark-secondary',
+  exame: 'bg-app-warning dark:bg-app-dark-warning',
   cirurgia: 'bg-app-primary dark:bg-app-dark-primary',
 };
+
+// DECISION: `AppointmentEntry.time` (compartilhado com a Agenda/2c) e so a hora
+// (HH:mm) — a Agenda mostra a data completa uma unica vez, no rotulo do dia
+// selecionado. A Home lista compromissos de varios dias diferentes ao mesmo
+// tempo, entao precisa do proprio "Quando" derivado de `scheduledAt`.
+function formatAppointmentWhen(scheduledAt: string): string {
+  const date = new Date(scheduledAt);
+  const today = new Date();
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  if (isSameDay(date, today)) {
+    return 'Hoje';
+  }
+
+  if (isSameDay(date, tomorrow)) {
+    return 'Amanhã';
+  }
+
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
 
 function UpcomingAppointmentCard({
   appointment,
@@ -313,7 +337,7 @@ function UpcomingAppointmentCard({
           {APPOINTMENT_TYPE_LABEL[appointment.type]} · {appointment.title}
         </Text>
         <Text className="mt-1 text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
-          {appointment.time} · {appointment.location}
+          {formatAppointmentWhen(appointment.scheduledAt)}, {appointment.time} · {appointment.location}
         </Text>
       </View>
     </Pressable>

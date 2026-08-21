@@ -63,7 +63,7 @@ export const APPOINTMENTS_SNAPSHOT: AppointmentsSnapshot = {
         time: '25 abr - 14h00',          // Data e hora
         title: 'Retorno Clínico Geral',  // Título do retorno
         location: 'UBS Central — Dra. Aparecida', // Local e médico
-        type: 'retorno',                 // Tipo: retorno
+        type: 'consulta',                // Tipo: consulta ('retorno' nao existe no enum real)
         scheduledAt: '2025-04-25T14:00:00',
       },
       {

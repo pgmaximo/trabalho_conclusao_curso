@@ -28,8 +28,8 @@ Legenda de Status: `CRIAR` (só no design) · `ATUALIZAR` (existe nos dois, mas 
 | Tela | Existe no código? | Existe no design? | Status | Prioridade |
 |---|---|---|---|---|
 | 2a Perfil de Saúde — wizard 4 etapas | Sim — `OnboardingScreen.tsx` (`/profile-setup`) | Sim | `CONCLUÍDO` (validação manual em dispositivo/sandbox pendente, ver `specs/02-perfil-home-agenda/wizard-perfil-saude/tasks.md` §Testes) | P1 |
-| 2b Home — resumo/indicadores/acesso rápido | Sim — `HomeScreen.tsx` (`/dashboard`), de-mockado (compromissos/resumo de consultas via `Appointment` real; medicamentos/prevenção seguem bloqueados por outros Blocos) | Sim | `CONCLUÍDO` (pendências cross-Bloco documentadas: medicamentos #1, prevenção #2, notificações #14; validação manual/sandbox pendente) | P1 |
-| 2c Agenda — calendário/lista do dia | Sim — `AgendaScreen.tsx` (`/appointments`) | Sim | `ATUALIZAR` | P1 |
+| 2b Home — resumo/indicadores/acesso rápido | Sim — `HomeScreen.tsx` (`/dashboard`), de-mockado (compromissos/resumo de consultas via `Appointment` real; medicamentos/prevenção seguem bloqueados por outros Blocos) | Sim | `CONCLUÍDO` (pendências cross-Bloco documentadas: medicamentos #1, prevenção #2, notificações #9.a; validação manual/sandbox pendente) | P1 |
+| 2c Agenda — calendário, lista do dia e sincronização | Sim — `AgendaScreen.tsx` (`/appointments`), seletor de 7 dias fixo + rótulo do dia + paleta por tipo alinhada ao design system | Sim | `CONCLUÍDO` (sincronização Google Agenda é pendência formal isolada #9.b; validação manual/sandbox pendente) | P1 |
 | 2d Novo agendamento | Sim — `AddAppointmentScreen.tsx` (`/add-appointment`) | Sim | `ATUALIZAR` | P1 |
 | 2e Editar agendamento (com exclusão) | Sim — `EditAppointmentScreen.tsx` (`/edit-appointment`) | Sim | `ATUALIZAR` | P1 |
 
@@ -61,10 +61,10 @@ Nenhuma. Os 17 componentes de tela roteados hoje mapeiam 1:1 para telas do desig
 
 ## Resumo de contagem
 
-> Atualizado após início do Bloco 2 (2a e 2b implementadas nesta sessão; 2c–2e seguem no estado original da Fase 0).
+> Atualizado após início do Bloco 2 (2a, 2b e 2c implementadas nesta sessão; 2d–2e seguem no estado original da Fase 0).
 
-- **CONCLUÍDO**: 9 telas — 2a, 2b (Bloco 2: Perfil de Saúde wizard, Home), 3d, 3e, 3f, 3g (Bloco 3: Medicamentos + Prevenção), 4b, 4c, 4e (Bloco 4: Perfil, Editar Perfil, Vacinação). Cada uma com pendências pontuais registradas nesta lista, mas nenhuma bloqueante da tela em si.
-- **ATUALIZAR** (spec escrita, implementação pendente ou parcial): 12 telas — 1b–1f (Bloco 1, todas implementadas mas fidelidade não auditada tela-a-tela), 2c–2e (Bloco 2, specs completas, **zero tasks implementadas**), 3a–3c (Bloco 3, núcleo do MVP, implementadas mas com gaps de fidelidade documentados), 4a (Bloco 4, fidelidade de UI concluída, integração de IA real e persistência de histórico em aberto).
+- **CONCLUÍDO**: 10 telas — 2a, 2b, 2c (Bloco 2: Perfil de Saúde wizard, Home, Agenda), 3d, 3e, 3f, 3g (Bloco 3: Medicamentos + Prevenção), 4b, 4c, 4e (Bloco 4: Perfil, Editar Perfil, Vacinação). Cada uma com pendências pontuais registradas nesta lista, mas nenhuma bloqueante da tela em si.
+- **ATUALIZAR** (spec escrita, implementação pendente ou parcial): 11 telas — 1b–1f (Bloco 1, todas implementadas mas fidelidade não auditada tela-a-tela), 2d–2e (Bloco 2, specs completas, **zero tasks implementadas** — 2d/2e têm ainda uma decisão pendente de confirmação humana, ver §"Requer decisão" do `RELATORIO_SDD_SUASAUDE.md`), 3a–3c (Bloco 3, núcleo do MVP, implementadas mas com gaps de fidelidade documentados), 4a (Bloco 4, fidelidade de UI concluída, integração de IA real e persistência de histórico em aberto).
 - **CRIAR**: 0 (todas as 21 telas do design já existem como componente roteado no código; nenhuma foi criada do zero nesta fase — todas partiram de uma versão pré-existente).
 - **MANTER**: 0 (nenhuma tela foi auditada como 100% fiel sem nenhuma pendência registrada).
 - **DESCONTINUAR**: 0.
@@ -85,6 +85,7 @@ Nenhuma. Os 17 componentes de tela roteados hoje mapeiam 1:1 para telas do desig
 8. **Código morto identificado** (não bloqueia o SDD, mas deve ser limpo durante a passagem de cada Bloco): `src/navigation/` (vazio), `src/mocks/api/appointmentsApi.ts`, `src/mocks/api/examsApi.ts`, `src/hooks/useProfileData.ts` — todos superados por integrações reais já existentes.
 9. **`medicines` fora da tab bar**: já é uma inconsistência hoje (tela existe mas não está em `APP_TABS`) — será resolvida naturalmente pela reestruturação de navegação do item de Fundação acima.
 9.a **Central de notificações inexistente (achado na EPIC Home, 2b)**: o ícone de sino do cabeçalho (2b) foi implementado apenas como elemento visual estático — sem badge de não-lido, sem painel, sem ação de toque funcional (`onNotificationPress` opcional/no-op) — porque não existe nenhum model Amplify, serviço ou tela de notificações em nenhum lugar do código hoje. Não é um "de-mock" (não havia mock disso antes), é uma feature ausente; fora de escopo de qualquer Bloco já mapeado (1–4). Ver `specs/02-perfil-home-agenda/home/spec.md` §5.
+9.b **Sincronização com Google Agenda inexistente (achado na EPIC Agenda, 2c)**: a linha "Sincronizar com Google Agenda" (`AgendaScreen.tsx`) abre um `Modal` local "Em breve" (`src/services/googleCalendarSync.ts`, `isGoogleCalendarSyncAvailable() → false`) em vez de um `onPress` vazio — nenhuma integração real com a Google Calendar API existe (o único uso de "Google" no repo é login via Cognito/Google Identity Provider, não Calendar API). Implementação real exigiria OAuth com escopo `calendar`, backend de refresh token e sync bidirecional — EPIC própria, se priorizada. Ver `specs/02-perfil-home-agenda/agenda/plan.md` item 7.
 
 ## Pendências adicionais descobertas durante a Fase 1 (Fundação + Blocos 1–3)
 

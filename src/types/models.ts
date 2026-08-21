@@ -207,8 +207,10 @@ export interface CalendarDateItem {
   hasAppointments?: boolean;       // Se há consultas no dia
 }
 
-// Tipo para tipo de consulta
-export type AppointmentType = 'consulta' | 'exame' | 'retorno' | 'cirurgia';
+// Tipo para tipo de consulta — alinhado ao enum real do schema Amplify
+// (`CONSULTA'|'EXAME'|'CIRURGIA'`, ver appointmentService.ts) apos toLowerCase().
+// 'retorno' nunca existiu no backend e foi removido (specs/02-perfil-home-agenda/agenda).
+export type AppointmentType = 'consulta' | 'exame' | 'cirurgia';
 
 // Interface para entrada de consulta
 export interface AppointmentEntry {
