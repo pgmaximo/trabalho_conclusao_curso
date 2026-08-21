@@ -51,7 +51,7 @@ function mapAppointmentToEntry(appointment: AppointmentRecord): AppointmentEntry
     // selecionado (ver selectedDayLabel abaixo), nao duplicada aqui.
     time: displayTime,
     title: appointment.appointmentName,
-    location: appointment.address,
+    location: appointment.address ?? '',
     type: appointment.appointmentType.toLowerCase() as AppointmentEntry['type'],
     scheduledAt: appointment.scheduledAt,
   };

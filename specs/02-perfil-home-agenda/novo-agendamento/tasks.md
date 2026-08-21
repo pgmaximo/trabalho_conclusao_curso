@@ -1,48 +1,56 @@
 # TASKS: Perfil, Home e Agenda — Novo agendamento
 
+## Decisão de schema — confirmada pelo usuário
+- [x] Confirmado explicitamente pelo usuário (2026-08-21): tornar `professionalName`/`address` opcionais no schema, conforme recomendação deste `plan.md`.
+
 ## Schema / backend
-- [ ] Editar `amplify/data/schemas/appointments.ts`: remover `.required()` de `professionalName` e de `address` (mantendo `a.string()` opcional). `appointmentName` e `scheduledAt` permanecem `.required()`.
-- [ ] Rodar `nvm use 20.20.1` e `ampx sandbox` (ou deploy equivalente) para aplicar a mudança de schema; confirmar que registros `Appointment` já existentes continuam sendo lidos sem erro.
-- [ ] Editar `src/services/appointmentService.ts` (`createAppointment`): normalizar `professionalName` e `address` vazios/whitespace para `undefined`/`null` antes de `client.models.Appointment.create(...)`, seguindo o mesmo padrão já usado para `observations`.
+- [x] `amplify/data/schemas/appointments.ts`: `.required()` removido de `professionalName` e `address` (mantidos `a.string()` opcional). `appointmentName`/`scheduledAt` seguem `.required()`.
+- [ ] Rodar `nvm use 20.20.1` e `ampx sandbox` (ou deploy equivalente) para sincronizar o schema no ambiente — não executado nesta sessão (sem acesso a rodar o sandbox neste passe); mudança é aditiva/compatível (campo obrigatório → opcional não quebra registros existentes).
+- [x] `src/services/appointmentService.ts` (`createAppointment`): `professionalName`/`address` agora normalizados via `?.trim() || null` antes do `client.models.Appointment.create(...)`, mesmo padrão de `observations`. Tipos `CreateAppointmentInput`/`AppointmentRecord` atualizados para `professionalName?`/`address?`.
 
-## Componente `Button` (verificar antes de decidir)
-- [ ] Ler `src/components/Button.tsx` e confirmar se já existe suporte a "desabilitado com motivo" (bg `#DFE3E1`/texto `#7A8480`) reutilizável, ou se é preciso adicionar uma variante/prop nova sem quebrar as demais telas que já usam `Button`.
+## Componente `Button` (verificado antes de decidir)
+- [x] `Button.tsx` já suporta `disabled` + `disabledReason` (mostra texto abaixo do botão) — reaproveitado como está, nenhuma mudança no componente compartilhado.
 
-## `AddAppointmentScreen.tsx` — estrutura e copy
-- [ ] Remover o subtítulo "Cadastre um compromisso para sua agenda." do header (não existe no Canvas 2d).
-- [ ] Trocar o rótulo "Tipo de agendamento" por "Tipo".
-- [ ] Ajustar placeholders dos inputs para bater com o Canvas: "Ex.: Consulta cardiologista" (nome), "Ex.: Dr. Ricardo Alves" (profissional), "dd/mm/aaaa" (data), "hh:mm" (hora), "Ex.: Av. Paulista, 1000 - São Paulo/SP" (endereço), "Ex.: levar exames anteriores" (observações) — e rótulo "Observações (opcional)" em vez de "Observações".
+## `AddAppointmentScreen.tsx` — reescrita completa
+- [x] Tela reescrita do zero no padrão de design system atual (useThemeColors + StyleSheet, `FormField`/`DateInput`/`InlineError`/`Button` reaproveitados), substituindo a versão legada pré-SDD (`COLORS`/`FONTS` estáticos, `alert()` bloqueante).
+- [x] Subtítulo "Cadastre um compromisso para sua agenda." removido.
+- [x] Rótulo "Tipo" (era "Tipo de agendamento").
+- [x] Placeholders alinhados ao Canvas: "Ex.: Consulta cardiologista", "Ex.: Dr. Ricardo Alves", "DD/MM/AAAA", "hh:mm", "Ex.: Av. Paulista, 1000 - São Paulo/SP", "Ex.: levar exames anteriores"; rótulo "Observações (opcional)".
 
 ## Chips de tipo (Consulta/Exame/Cirurgia)
-- [ ] Trocar `flexBasis: '31%'` + `flexWrap` por `flex: 1` sem wrap, 3 colunas fixas, altura 64px, radius 14px, `gap: 8`.
-- [ ] Atualizar cores para os tokens exatos de `DESIGN_TOKENS.md`: selecionado = borda 1.5px `#10794E`, bg `#E8F5EE`, ícone/texto `#0C6341`; não selecionado = borda 1.5px `#DFE3E1`, bg branco, ícone/texto neutro (`#363D3B`/`#55605C`).
-- [ ] Decidir e documentar (no PR/commit) se os emojis atuais são mantidos como placeholder de ícone ou substituídos por ícones vetoriais simples (View com bordas replicando os glifos do Canvas: círculo para Consulta, retângulo para Exame, quadrado com cruz para Cirurgia).
-- [ ] Remover a pré-seleção implícita de tipo — `appointmentType` inicia como `null`/indefinido (ajustar tipagem para `AppointmentType | null`) — ou, se optar por manter "Consulta" pré-selecionado, documentar a decisão explicitamente em comentário no código e no PR (referenciando `spec.md` §8).
-- [ ] Ajustar fallback de envio: se `appointmentType` estiver `null` no momento do submit (não deveria acontecer se a validação exige nome/data/hora mas não tipo — revisar se tipo deveria também ser obrigatório; o Canvas não lista tipo em `nfInvalid`, então tratar como sempre com fallback `'CONSULTA'` apenas no payload).
+- [x] `flex: 1` sem wrap, 3 colunas fixas, altura 64px, radius 14px, `gap: 8`.
+- [x] Cores dos tokens de `DESIGN_TOKENS.md`: selecionado = borda `colors.primary`/bg `colors.primarySoft`/ícone+texto `colors.primaryDark`; não selecionado = borda `colors.border`/bg `colors.surface`/texto `colors.textSecondary` (batem com os hex do Canvas via tema).
+- [x] **Decisão registrada**: emojis substituídos por ícones vetoriais Ionicons (`medical-outline`/`flask-outline`/`cut-outline`), consistente com o resto do app (nenhuma outra tela usa emoji como ícone de UI).
+- [x] Pré-seleção removida — `appointmentType: AppointmentType | null`, inicia `null` (ambiguidade do `spec.md` §8 resolvida como "nenhum tipo pré-selecionado").
+- [x] Fallback de envio: `appointmentType ?? 'CONSULTA'` só no payload, nunca refletido como "selecionado" na UI antes do toque.
 
 ## Layout Data + Hora
-- [ ] Envolver os campos "Data" e "Hora" em uma `View` com `flexDirection: 'row', gap: 12`, cada campo com `flex: 1`, replicando o layout lado a lado do Canvas (hoje estão empilhados verticalmente).
-- [ ] Confirmar que `DateInput` funciona corretamente dentro de um container `flex: 1` sem quebrar seu layout interno (label + campo); ajustar estilos internos do componente se necessário (fora do escopo de tela, mas necessário para a tela ficar correta).
-- [ ] Remover o valor default `'14:00'` de `scheduledTime` (`useState('')`).
+- [x] "Data" (`DateInput`) e "Hora" (`FormField`) lado a lado em `View` `flexDirection: row, gap: 12`, cada um `flex: 1`.
+- [x] Confirmado: `DateInput` funciona normalmente dentro de um container `flex: 1` (seu próprio estilo interno não assume largura fixa).
+- [x] Default `'14:00'` removido — `scheduledTime` inicia `''`.
 
 ## Validação inline (sem alert)
-- [ ] Adicionar state derivado `isFormInvalid = !appointmentName.trim() || !scheduledDate.trim() || !scheduledTime.trim()`.
-- [ ] Remover o bloco `if (...) { alert('Preencha todos os campos obrigatórios.'); return; }` de `handleSubmit`.
-- [ ] Passar `disabled={isFormInvalid || isSubmitting}` ao `Button` "Salvar agendamento", com estilo visual desabilitado (`#DFE3E1`/`#7A8480`) quando `isFormInvalid` for `true` (independente de `isSubmitting`).
-- [ ] Renderizar `Text` condicional "Preencha nome, data e hora para salvar." centralizado abaixo do botão, visível apenas quando `isFormInvalid` for `true` (400 16px `#55605C`, `margin-top: 8`).
-- [ ] Confirmar que Profissional, Endereço e Observações vazios **não** bloqueiam o botão (só nome/data/hora bloqueiam).
+- [x] `isFormInvalid = !appointmentName.trim() || !scheduledDate.trim() || !scheduledTime.trim()`.
+- [x] `alert()` de validação removido.
+- [x] `Button` recebe `disabled={isFormInvalid}` + `disabledReason` (renderizado pelo próprio componente `Button`, que já implementa o texto de apoio abaixo do botão quando desabilitado — não foi necessário um `Text` condicional separado).
+- [x] Profissional/Endereço/Observações vazios não bloqueiam o botão.
 
 ## Tratamento de erro de rede/backend
-- [ ] Substituir o `alert(message)` do `catch` em `handleSubmit` por um estado de erro local (`const [submitError, setSubmitError] = useState<string | null>(null)`) exibido como texto/callout inline (reaproveitar padrão de erro de `DESIGN_TOKENS.md` §4), garantindo que os campos preenchidos não sejam limpos.
-- [ ] Confirmar que, em caso de erro, `isSubmitting` volta a `false` e o botão volta ao estado habilitado (já é o comportamento do `finally` atual — manter).
+- [x] `alert(message)` do `catch` substituído por `submitError` + `<InlineError message={submitError} />` (mesmo padrão já usado em `AddExamScreen.tsx`/3b), campos preenchidos preservados.
+- [x] `isSubmitting`/`finally` preservados (`Button loading={isSubmitting}`).
 
 ## Navegação
-- [ ] Confirmar que o botão de voltar (`‹`) chama `router.back()` para a Agenda (2c) sem persistir nada (já é o comportamento atual — só validar que se mantém após as mudanças).
-- [ ] Confirmar que `createAppointment()` bem-sucedido chama `router.back()` e que a Agenda (2c) reflete o novo compromisso via `invalidateAppointmentsCache()` (já implementado em `appointmentService.ts` — validar end-to-end).
+- [x] Botão de voltar (`chevron-back`, 48×48) chama `router.back()`.
+- [x] `createAppointment()` bem-sucedido chama `router.back()`; `invalidateAppointmentsCache()` já ocorre dentro do próprio `appointmentService.ts`.
 
 ## Dark mode
-- [ ] Validar chips (selecionado/não selecionado), inputs, botão (habilitado/desabilitado) e texto de apoio contra os pares de cor de dark mode em `DESIGN_TOKENS.md` §1 ("Dark theme").
+- [x] Toda a tela usa `useThemeColors()` (reativo), não hex hardcoded — cores corretas em light/dark por construção.
+
+## Achados além do escopo original do `plan.md`
+- [x] **Correção necessária em `EditAppointmentScreen.tsx` (2e, fora desta EPIC)**: a mudança de `professionalName`/`address` para opcionais quebrava a tipagem de `EditAppointmentScreen.tsx` (`setProfessionalName(data.professionalName)`/`setAddress(data.address)` esperavam `string`, agora `string | null | undefined`). Corrigido com fallback `?? ''` nos 2 pontos, sem tocar no restante da tela (2e é EPIC própria, ainda não reescrita nesta sessão).
+- [x] `AppointmentEntry.location` (`useAppointmentsData.ts`) também recebeu fallback `?? ''` pela mesma razão (endereço agora pode ser `null`).
 
 ## Verificação final
-- [ ] Comparar visualmente a tela renderizada (light e dark) contra o Canvas 2d (`specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html`, linhas 842-872).
-- [ ] Rodar os cenários Given/When/Then de `spec.md` §2 manualmente (campos faltando, tipo Cirurgia, sucesso volta para 2c, erro de rede) e confirmar os critérios de aceite de `spec.md` §7 um a um.
+- [x] Typecheck (`tsc --noEmit`) e lint limpos em todos os arquivos tocados.
+- [ ] Comparação visual (light/dark) contra o Canvas 2d em dispositivo/simulador — não executada nesta sessão.
+- [ ] Cenários Given/When/Then de `spec.md` §2 executados manualmente contra o Amplify sandbox — não executados nesta sessão (schema ainda não sincronizado, ver item acima).

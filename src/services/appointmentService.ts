@@ -10,9 +10,10 @@ export type AppointmentType = 'CONSULTA' | 'EXAME' | 'CIRURGIA';
 export interface CreateAppointmentInput {
   appointmentType: AppointmentType;
   appointmentName: string;
-  professionalName: string;
+  // Opcionais desde a EPIC 2d — Canvas so exige nome/data/hora (ver schema).
+  professionalName?: string;
   scheduledAt: string;
-  address: string;
+  address?: string;
   observations?: string;
 }
 
@@ -20,9 +21,9 @@ export interface AppointmentRecord {
   id: string;
   appointmentType: AppointmentType;
   appointmentName: string;
-  professionalName: string;
+  professionalName?: string | null;
   scheduledAt: string;
-  address: string;
+  address?: string | null;
   observations?: string | null;
   createdAt?: string;
 }
@@ -33,9 +34,9 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   const { data, errors } = await client.models.Appointment.create({
     appointmentType: input.appointmentType,
     appointmentName: input.appointmentName,
-    professionalName: input.professionalName,
+    professionalName: input.professionalName?.trim() || null,
     scheduledAt: input.scheduledAt,
-    address: input.address,
+    address: input.address?.trim() || null,
     observations: input.observations || null,
   });
 

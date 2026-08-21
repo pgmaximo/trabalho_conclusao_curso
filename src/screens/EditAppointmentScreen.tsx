@@ -30,12 +30,12 @@ export function EditAppointmentScreen({ id }: { id: string }) {
       setAppointment(data);
       setAppointmentType(data.appointmentType);
       setAppointmentName(data.appointmentName);
-      setProfessionalName(data.professionalName);
+      setProfessionalName(data.professionalName ?? '');
       // scheduledAt expected like YYYY-MM-DDTHH:MM
       const [datePart, timePart] = data.scheduledAt.split('T');
       setScheduledDate(datePart || '');
       setScheduledTime((timePart || '14:00').slice(0,5));
-      setAddress(data.address);
+      setAddress(data.address ?? '');
       setObservations(data.observations ?? '');
     }
     void load();
