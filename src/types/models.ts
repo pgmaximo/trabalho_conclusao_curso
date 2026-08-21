@@ -65,17 +65,22 @@ export interface DashboardSnapshot {
 // TIPOS DE DOCUMENTOS MÉDICOS
 // =============================================================================
 
-// Tipo para filtro de documentos médicos
-export type MedicalDocumentFilter = 'Todos' | 'Exames' | 'Receitas' | 'Laudos';
+// Tipo para filtro de documentos médicos (Canvas 3a: Todos/Exames/Receitas/Alterados —
+// "Alterados" substitui o antigo "Laudos", que não correspondia a nenhum documentType real)
+export type MedicalDocumentFilter = 'Todos' | 'Exames' | 'Receitas' | 'Alterados';
+
+// Status de validade de receita, calculado localmente (expirationDate vs. hoje) — nunca persistido.
+// Não existe equivalente para exames (nenhuma fonte real de resultado clínico no schema —
+// ver specs/03-exames-receitas/lista/plan.md §2, Opção A).
+export type DocumentValidityStatus = 'valida' | 'vencida';
 
 // Interface para documentos médicos
 export interface MedicalDocument {
   id: string;                                      // Database ID for updates/deletes
   icon: string;                                    // Ícone representativo
   title: string;                                  // Título do documento
-  subtitle: string;                               // Subtítulo com informações
-  statusLabel: string;                            // Label do status
-  statusColor: string;                            // Cor do status
+  subtitle: string;                               // Linha de meta já composta: "{Tipo} · {data}" (exame) ou "{Tipo} · emitida {data}" (receita)
+  iconColor: string;                              // Cor de destaque do ícone do tipo de documento (accent, não é badge de status de resultado)
   category: Exclude<MedicalDocumentFilter, 'Todos'>; // Categoria (excluindo "Todos")
   // Full document data for editing
   documentType: 'exam' | 'prescription';           // Tipo de documento
@@ -84,6 +89,8 @@ export interface MedicalDocument {
   expirationDate: string | null;                  // Data de validade (nullable)
   s3FileName: string;                             // Nome do arquivo no S3
   originalFileName: string;                       // Nome original do arquivo
+  // Badge de validade (Válida/Vencida), presente só para receitas — ver DocumentValidityStatus acima
+  validityStatus?: DocumentValidityStatus | null;
 }
 
 // =============================================================================

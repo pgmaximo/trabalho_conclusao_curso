@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, Text, StyleSheet } from 'react-native';
 
 import { FONTS, RADII, SPACING, useThemeColors } from '@/constants/theme';
 
@@ -7,57 +7,74 @@ type FilterChipsProps = {
   options: string[];
   activeFilter: string;
   onFilterChange: (filter: string) => void;
+  /**
+   * Opções desabilitadas — não disparam `onFilterChange` e recebem indicação visual
+   * "Em breve" (ex.: filtro "Alterados" em 3a, sem dado real de status de resultado,
+   * ver specs/03-exames-receitas/lista/plan.md §2).
+   */
+  disabledOptions?: string[];
 };
 
 // Padrão de chip selecionado/não-selecionado do Canvas 1a (DESIGN_TOKENS.md §4
 // "Segmented/chip selectors"), reutilizável para filtros de lista, sexo,
-// tabagismo, sim/não, tipo de consulta etc.
-export function FilterChips({ options, activeFilter, onFilterChange }: FilterChipsProps) {
+// tabagismo, sim/não, tipo de consulta etc. Scroll horizontal conforme Canvas 3a §3.
+export function FilterChips({ options, activeFilter, onFilterChange, disabledOptions }: FilterChipsProps) {
   const colors = useThemeColors();
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.container}
+    >
       {options.map((option) => {
         const isActive = activeFilter === option;
+        const isDisabled = disabledOptions?.includes(option) ?? false;
         return (
           <Pressable
             key={option}
+            disabled={isDisabled}
+            accessibilityState={{ disabled: isDisabled, selected: isActive }}
             style={({ pressed }) => [
               styles.chip,
               {
-                borderColor: isActive ? colors.primary : colors.border,
-                backgroundColor: isActive ? colors.primarySoft : colors.surface,
+                borderColor: isDisabled ? colors.border : isActive ? colors.primary : colors.border,
+                backgroundColor: isDisabled ? colors.surfaceMuted : isActive ? colors.primarySoft : colors.surface,
+                opacity: isDisabled ? 0.6 : 1,
               },
-              pressed && styles.chipPressed,
+              pressed && !isDisabled && styles.chipPressed,
             ]}
             onPress={() => onFilterChange(option)}
           >
             <Text
               style={[
                 FONTS.rotulo,
-                { color: isActive ? colors.primaryDark : colors.textSecondary },
+                { color: isDisabled ? colors.textMuted : isActive ? colors.primaryDark : colors.textSecondary },
               ]}
             >
               {option}
+              {isDisabled ? ' · Em breve' : ''}
             </Text>
           </Pressable>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginVertical: SPACING.md,
     gap: SPACING.sm,
+    paddingVertical: SPACING.md,
   },
   chip: {
+    height: 48,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADII.sm,
+    borderRadius: RADII.pill,
     borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipPressed: {
     opacity: 0.8,

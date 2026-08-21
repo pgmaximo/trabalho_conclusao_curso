@@ -4,8 +4,28 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 
 import { useAsyncResource } from '@/hooks/useAsyncResource';
-import type { MedicalDocument, MedicalDocumentFilter } from '@/types/models';
-import { formatDateForDisplay } from '@/services/examService';
+import type { DocumentValidityStatus, MedicalDocument, MedicalDocumentFilter } from '@/types/models';
+import { formatDateForDisplay, getTodayDate } from '@/services/examService';
+
+// Cor de destaque do ícone por tipo de documento (accent visual, não é badge de status —
+// o badge de status/validade é calculado separadamente, ver `computeValidityStatus`).
+const EXAM_ICON_COLOR = '#8A5300'; // âmbar — token de atenção/neutro reaproveitado como accent
+const PRESCRIPTION_ICON_COLOR = '#1B63C4'; // azul secundário
+
+/**
+ * Calcula o status de validade de uma receita comparando `expirationDate` com a data atual.
+ * Só se aplica a receitas — exames não têm nenhuma fonte de dado real de resultado clínico
+ * (ver specs/03-exames-receitas/lista/plan.md §2, Opção A), então retornam `undefined`.
+ */
+function computeValidityStatus(
+  documentType: 'exam' | 'prescription',
+  expirationDate: string | null,
+): DocumentValidityStatus | undefined {
+  if (documentType !== 'prescription' || !expirationDate) {
+    return undefined;
+  }
+  return expirationDate >= getTodayDate() ? 'valida' : 'vencida';
+}
 
 const client = generateClient<Schema>();
 const EXAMS_CACHE_KEY = '@SuaSaude:examsCache';
@@ -79,22 +99,27 @@ async function fetchMedicalDocuments(): Promise<MedicalDocument[]> {
     const transformedDocuments = documents.map((doc) => {
       const isExam = doc.documentType === 'exam';
       const documentType = (doc.documentType || 'exam') as 'exam' | 'prescription';
-      
+      const expirationDate = doc.expirationDate || null;
+      const formattedDate = formatDateForDisplay(doc.documentDate);
+
       return {
         id: doc.id,
         icon: isExam ? 'flask-outline' : 'medkit-outline',
         title: doc.documentName || 'Sem nome',
-        subtitle: formatDateForDisplay(doc.documentDate),
-        statusLabel: isExam ? 'Exame' : 'Receita',
-        statusColor: isExam ? '#FBBF24' : '#3B82F6',
+        // Linha de meta: "Exame · {data}" (exame) ou "Receita · emitida {data}" (receita) —
+        // Canvas 3a §3 (specs/03-exames-receitas/lista/spec.md); local/laboratório omitido
+        // de propósito (campo inexistente no schema, ver spec.md §5).
+        subtitle: isExam ? `Exame · ${formattedDate}` : `Receita · emitida ${formattedDate}`,
+        iconColor: isExam ? EXAM_ICON_COLOR : PRESCRIPTION_ICON_COLOR,
         category: isExam ? 'Exames' : 'Receitas',
         // Full document data
         documentType,
         documentName: doc.documentName || '',
         documentDate: doc.documentDate,
-        expirationDate: doc.expirationDate || null,
+        expirationDate,
         s3FileName: doc.s3FileName,
         originalFileName: doc.s3FileName, // This might need to be stored separately
+        validityStatus: computeValidityStatus(documentType, expirationDate),
       } satisfies MedicalDocument;
     });
 
@@ -117,17 +142,27 @@ async function fetchMedicalDocuments(): Promise<MedicalDocument[]> {
  * Get available filter options
  */
 function getMedicalDocumentFilters(): MedicalDocumentFilter[] {
-  return ['Todos', 'Exames', 'Receitas', 'Laudos'];
+  return ['Todos', 'Exames', 'Receitas', 'Alterados'];
 }
 
 /**
- * Filter documents based on search query and active filter
+ * Filter documents based on search query and active filter.
+ *
+ * "Alterados" nunca tem correspondência real: o schema `MedicalDocument` não tem nenhum
+ * campo de resultado clínico (Normal/Alterado), então este filtro retorna sempre lista
+ * vazia — comportamento honesto e documentado (não simula dado falso), ver
+ * specs/03-exames-receitas/lista/plan.md §2. A UI (`ExamsScreen`) trata o chip como
+ * desabilitado com indicação "Em breve".
  */
 function filterMedicalDocuments(
   documents: MedicalDocument[],
   searchQuery: string,
   activeFilter: MedicalDocumentFilter,
 ): MedicalDocument[] {
+  if (activeFilter === 'Alterados') {
+    return [];
+  }
+
   return documents.filter((doc) => {
     // Filter by category
     if (activeFilter !== 'Todos' && doc.category !== activeFilter) {
