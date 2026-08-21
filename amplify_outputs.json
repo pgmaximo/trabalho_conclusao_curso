@@ -483,6 +483,186 @@
             "primaryKeyFieldName": "id",
             "sortKeyFieldNames": []
           }
+        },
+        "Medicine": {
+          "name": "Medicine",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true,
+              "attributes": []
+            },
+            "name": {
+              "name": "name",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "dosage": {
+              "name": "dosage",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "form": {
+              "name": "form",
+              "isArray": false,
+              "type": {
+                "enum": "MedicineForm"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "times": {
+              "name": "times",
+              "isArray": true,
+              "type": "String",
+              "isRequired": true,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "frequencyType": {
+              "name": "frequencyType",
+              "isArray": false,
+              "type": {
+                "enum": "MedicineFrequencyType"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "weekDays": {
+              "name": "weekDays",
+              "isArray": true,
+              "type": "String",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "intervalHours": {
+              "name": "intervalHours",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "startDate": {
+              "name": "startDate",
+              "isArray": false,
+              "type": "AWSDate",
+              "isRequired": true,
+              "attributes": []
+            },
+            "endDate": {
+              "name": "endDate",
+              "isArray": false,
+              "type": "AWSDate",
+              "isRequired": false,
+              "attributes": []
+            },
+            "currentStock": {
+              "name": "currentStock",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "initialStock": {
+              "name": "initialStock",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "unit": {
+              "name": "unit",
+              "isArray": false,
+              "type": {
+                "enum": "MedicineUnit"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "lowStockThreshold": {
+              "name": "lowStockThreshold",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "notes": {
+              "name": "notes",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "active": {
+              "name": "active",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "takenToday": {
+              "name": "takenToday",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "Medicines",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "provider": "userPools",
+                    "ownerField": "owner",
+                    "allow": "owner",
+                    "identityClaim": "cognito:username",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": false,
+            "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
         }
       },
       "enums": {
@@ -506,6 +686,31 @@
             "CONSULTA",
             "EXAME",
             "CIRURGIA"
+          ]
+        },
+        "MedicineForm": {
+          "name": "MedicineForm",
+          "values": [
+            "PILL",
+            "DROPS",
+            "INJECTION",
+            "OTHER"
+          ]
+        },
+        "MedicineFrequencyType": {
+          "name": "MedicineFrequencyType",
+          "values": [
+            "DAILY",
+            "SPECIFIC_DAYS",
+            "EVERY_X_HOURS"
+          ]
+        },
+        "MedicineUnit": {
+          "name": "MedicineUnit",
+          "values": [
+            "COMP",
+            "ML",
+            "CAPS"
           ]
         }
       },
