@@ -98,13 +98,11 @@ function parseOptionalNumber(value: string) {
 }
 
 function parseHeightCm(value: string) {
+  // Campo "Altura (cm)" do wizard (2a) ja coleta centimetros inteiros
+  // diretamente (Canvas), sem necessidade de detectar entrada em metros.
   const parsedHeight = parseOptionalNumber(value);
 
-  if (parsedHeight === undefined) {
-    return undefined;
-  }
-
-  return Math.round(parsedHeight <= 3 ? parsedHeight * 100 : parsedHeight);
+  return parsedHeight === undefined ? undefined : Math.round(parsedHeight);
 }
 
 function mapBiologicalSex(value: ProfileSetupFormValues['biologicalSex']) {

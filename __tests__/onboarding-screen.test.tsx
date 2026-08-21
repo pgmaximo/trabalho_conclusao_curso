@@ -41,10 +41,10 @@ describe('OnboardingScreen', () => {
     expect(screen.getByText('Sexo biológico')).toBeTruthy();
     expect(screen.getByText('Feminino')).toBeTruthy();
     expect(screen.getByText('Masculino')).toBeTruthy();
-    expect(screen.getByText('Desejo não informar')).toBeTruthy();
+    expect(screen.getByText('Outro')).toBeTruthy();
     expect(screen.queryByText('Você está grávida?')).toBeNull();
-    expect(screen.getByText('m')).toBeTruthy();
-    expect(screen.getByText('kg')).toBeTruthy();
+    expect(screen.getByText('Altura (cm)')).toBeTruthy();
+    expect(screen.getByText('Peso (kg)')).toBeTruthy();
     expect(screen.queryByLabelText('Voltar etapa')).toBeNull();
     expect(screen.getByLabelText('Continuar para próxima etapa')).toBeTruthy();
   });
@@ -58,7 +58,7 @@ describe('OnboardingScreen', () => {
     expect(screen.getByLabelText('Sexo biológico: Masculino').props.accessibilityState).toEqual({
       selected: false,
     });
-    expect(screen.getByLabelText('Sexo biológico: Desejo não informar').props.accessibilityState).toEqual({
+    expect(screen.getByLabelText('Sexo biológico: Outro').props.accessibilityState).toEqual({
       selected: false,
     });
     expect(
@@ -84,14 +84,14 @@ describe('OnboardingScreen', () => {
     fireEvent.press(screen.getByText('Continuar'));
 
     await waitFor(() => {
-      expect(screen.getByText('Hábitos de vida')).toBeTruthy();
+      expect(screen.getByText('Consome bebida alcoólica?')).toBeTruthy();
     });
 
     fireEvent.press(screen.getByText('Continuar'));
 
     await waitFor(() => {
       expect(
-        screen.getByText('Confira as respostas principais antes de concluir o Perfil de Saúde.'),
+        screen.getByText('Confira antes de concluir. Você pode editar depois no seu Perfil.'),
       ).toBeTruthy();
     });
 
@@ -147,12 +147,12 @@ describe('OnboardingScreen', () => {
     expect(screen.getByText('Pessoais')).toBeTruthy();
   });
 
-  it('formats height with a decimal comma while typing', () => {
+  it('accepts height directly in whole centimeters while typing', () => {
     renderOnboardingScreen();
 
-    fireEvent.changeText(screen.getByLabelText('Altura'), '165');
+    fireEvent.changeText(screen.getByLabelText('Altura (cm)'), '165');
 
-    expect(screen.getByLabelText('Altura').props.value).toBe('1,65');
+    expect(screen.getByLabelText('Altura (cm)').props.value).toBe('165');
   });
 
   it('hides the header back arrow on the first step and shows it after advancing', async () => {

@@ -32,10 +32,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useColorScheme } from 'nativewind';
 
 import {
-  PROFILE_SETUP_NOTICE_TEXT,
+  CLINICAL_STEP_NOTICE_TEXT,
+  HABITS_STEP_NOTICE_TEXT,
+  LgpdNotice,
+  REVIEW_STEP_CONFIRMATION_TEXT,
 } from '@/components/profileSetup/ProfileSetupNotice';
 import { ProfileSetupReview } from '@/components/profileSetup/ProfileSetupReview';
-import { SPACING, type ThemeColors, useThemeColors } from '@/constants/theme';
+import { type ThemeColors, useThemeColors } from '@/constants/theme';
 import {
   profileSetupSchema,
   type OptionalAnswer,
@@ -112,13 +115,9 @@ function formatBirthDateInput(value: string) {
 }
 
 function formatHeightInput(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 3);
-
-  if (digits.length <= 1) {
-    return digits;
-  }
-
-  return `${digits.slice(0, 1)},${digits.slice(1)}`;
+  // Canvas 2a pede centimetros inteiros diretamente (placeholder "165"), sem
+  // conversao de metros decimais — heightCm no schema ja e a.integer().
+  return value.replace(/\D/g, '').slice(0, 3);
 }
 
 export function OnboardingScreen({ onBack, onComplete }: OnboardingScreenProps) {
@@ -236,7 +235,7 @@ export function OnboardingScreen({ onBack, onComplete }: OnboardingScreenProps) 
             ) : null}
 
             {activeStep.key === 'review' ? (
-              <ReviewStep values={values} />
+              <ReviewStep onEditStep={selectStep} values={values} />
             ) : null}
           </View>
         </ScrollView>
@@ -394,47 +393,29 @@ function PersonalStep({ control, errors, setValue, values }: PersonalStepProps) 
 
       <View style={styles.sectionBlock}>
         <Text style={styles.label}>Sexo biológico</Text>
-        <View style={styles.sexGrid}>
-          <SexCard
-            icon="woman"
-            label="Feminino"
-            onPress={() => setValue('biologicalSex', 'female')}
-            selected={values.biologicalSex === 'female'}
-            tone="female"
-          />
-          <SexCard
-            icon="man"
+        <View style={styles.sexChipRow}>
+          <SexChip
             label="Masculino"
             onPress={() => {
               setValue('biologicalSex', 'male');
               setValue('pregnancyStatus', 'unknown');
             }}
             selected={values.biologicalSex === 'male'}
-            tone="male"
+          />
+          <SexChip
+            label="Feminino"
+            onPress={() => setValue('biologicalSex', 'female')}
+            selected={values.biologicalSex === 'female'}
+          />
+          <SexChip
+            label="Outro"
+            onPress={() => {
+              setValue('biologicalSex', 'prefer_not_to_say');
+              setValue('pregnancyStatus', 'unknown');
+            }}
+            selected={values.biologicalSex === 'prefer_not_to_say'}
           />
         </View>
-        <Pressable
-          accessibilityLabel="Sexo biológico: Desejo não informar"
-          accessibilityRole="button"
-          accessibilityState={{ selected: values.biologicalSex === 'prefer_not_to_say' }}
-          onPress={() => {
-            setValue('biologicalSex', 'prefer_not_to_say');
-            setValue('pregnancyStatus', 'unknown');
-          }}
-          style={[
-            styles.preferNotCard,
-            values.biologicalSex === 'prefer_not_to_say' ? styles.preferNotCardSelected : null,
-          ]}
-        >
-          <Text
-            style={[
-              styles.preferNotText,
-              values.biologicalSex === 'prefer_not_to_say' ? styles.preferNotTextSelected : null,
-            ]}
-          >
-            Desejo não informar
-          </Text>
-        </Pressable>
       </View>
 
       {values.biologicalSex === 'female' ? (
@@ -460,14 +441,12 @@ function PersonalStep({ control, errors, setValue, values }: PersonalStepProps) 
             <FieldBlock
               compact
               errorMessage={errors.heightCm?.message}
-              helperText="Use vírgula decimal (ex.: 1,65)"
               icon="resize-outline"
-              inputMode="decimal"
-              label="Altura"
+              inputMode="numeric"
+              label="Altura (cm)"
               onBlur={field.onBlur}
               onChangeText={(value) => field.onChange(formatHeightInput(value))}
-              placeholder="Ex.: 1,65"
-              unit="m"
+              placeholder="165"
               value={field.value}
             />
           )}
@@ -479,14 +458,12 @@ function PersonalStep({ control, errors, setValue, values }: PersonalStepProps) 
             <FieldBlock
               compact
               errorMessage={errors.weightKg?.message}
-              helperText="Em quilogramas (kg)"
               icon="scale-outline"
               inputMode="numeric"
-              label="Peso"
+              label="Peso (kg)"
               onBlur={field.onBlur}
               onChangeText={field.onChange}
-              placeholder="Ex.: 68"
-              unit="kg"
+              placeholder="68"
               value={field.value}
             />
           )}
@@ -504,12 +481,15 @@ function ClinicalStep({ control }: StepProps) {
   return (
     <View>
       <Text style={styles.stepHeading}>Histórico clínico</Text>
+      <View style={styles.noticeSlot}>
+        <LgpdNotice text={CLINICAL_STEP_NOTICE_TEXT} tone="info" />
+      </View>
       <Controller
         control={control}
         name="chronicConditions"
         render={({ field }) => (
           <FieldBlock
-            helperText="Ex.: hipertensão, diabetes, asma."
+            helperText="Ex.: diabetes tipo 2, hipertensão — deixe em branco se não tiver."
             label="Condições crônicas"
             multiline
             onBlur={field.onBlur}
@@ -524,7 +504,7 @@ function ClinicalStep({ control }: StepProps) {
         name="medications"
         render={({ field }) => (
           <FieldBlock
-            helperText="Pode ficar em branco se não houver medicamentos em uso."
+            helperText="Ex.: losartana 50mg, 1x ao dia."
             label="Medicamentos em uso"
             multiline
             onBlur={field.onBlur}
@@ -539,8 +519,8 @@ function ClinicalStep({ control }: StepProps) {
         name="allergies"
         render={({ field }) => (
           <FieldBlock
-            helperText="Pode ficar em branco se não houver alergias."
-            label="Alergias conhecidas"
+            helperText="Ex.: dipirona, poeira — deixe em branco se não tiver."
+            label="Alergias"
             multiline
             onBlur={field.onBlur}
             onChangeText={field.onChange}
@@ -549,7 +529,6 @@ function ClinicalStep({ control }: StepProps) {
           />
         )}
       />
-      <PrivacyNotice />
     </View>
   );
 }
@@ -559,14 +538,17 @@ function HabitsStep({ control }: StepProps) {
 
   return (
     <View>
-      <Text style={styles.stepHeading}>Hábitos de vida</Text>
+      <Text style={styles.stepHeading}>Hábitos</Text>
+      <View style={styles.noticeSlot}>
+        <LgpdNotice text={HABITS_STEP_NOTICE_TEXT} tone="info" />
+      </View>
       <Controller
         control={control}
         name="tobaccoUse"
         render={({ field }) => (
           <AnswerCards
             onChange={field.onChange}
-            title="Tabagismo"
+            title="Você fuma?"
             value={field.value}
           />
         )}
@@ -577,7 +559,7 @@ function HabitsStep({ control }: StepProps) {
         render={({ field }) => (
           <AnswerCards
             onChange={field.onChange}
-            title="Atividade sexual"
+            title="Você é sexualmente ativo(a)?"
             value={field.value}
           />
         )}
@@ -599,27 +581,34 @@ function HabitsStep({ control }: StepProps) {
         render={({ field }) => (
           <AnswerCards
             onChange={field.onChange}
-            title="Consumo de álcool"
+            title="Consome bebida alcoólica?"
             value={field.value}
           />
         )}
       />
-      <PrivacyNotice />
     </View>
   );
 }
 
-function ReviewStep({ values }: { values: ProfileSetupFormValues }) {
+function ReviewStep({
+  onEditStep,
+  values,
+}: {
+  onEditStep: (step: 0 | 1 | 2) => void;
+  values: ProfileSetupFormValues;
+}) {
   const styles = useProfileSetupStyles();
 
   return (
     <View>
-      <Text style={styles.stepHeading}>Revisão</Text>
+      <Text style={styles.stepHeading}>Revise suas informações</Text>
       <Text style={styles.stepCopy}>
-        Confira as respostas principais antes de concluir o Perfil de Saúde.
+        Confira antes de concluir. Você pode editar depois no seu Perfil.
       </Text>
-      <PrivacyNotice />
-      <ProfileSetupReview values={values} />
+      <ProfileSetupReview onEditStep={onEditStep} values={values} />
+      <View style={styles.noticeSlot}>
+        <LgpdNotice text={REVIEW_STEP_CONFIRMATION_TEXT} tone="success" />
+      </View>
     </View>
   );
 }
@@ -693,22 +682,16 @@ function FieldBlock({
   );
 }
 
-function SexCard({
-  icon,
+function SexChip({
   label,
   onPress,
   selected,
-  tone,
 }: {
-  icon: 'woman' | 'man';
   label: string;
   onPress: () => void;
   selected: boolean;
-  tone: 'female' | 'male';
 }) {
-  const colors = useThemeColors();
   const styles = useProfileSetupStyles();
-  const toneColor = tone === 'female' ? colors.female : colors.info;
 
   return (
     <Pressable
@@ -716,15 +699,11 @@ function SexCard({
       accessibilityLabel={`Sexo biológico: ${label}`}
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={[
-        styles.sexCard,
-        selected && tone === 'female' ? styles.sexCardFemaleSelected : null,
-        selected && tone === 'male' ? styles.sexCardMaleSelected : null,
-        !selected ? styles.sexCardInactive : null,
-      ]}
+      style={[styles.sexChip, selected ? styles.sexChipSelected : null]}
     >
-      <Ionicons color={toneColor} name={icon} size={42} />
-      <Text style={[styles.sexCardText, { color: toneColor }]}>{label}</Text>
+      <Text style={[styles.sexChipText, selected ? styles.sexChipTextSelected : null]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -792,18 +771,6 @@ function SecurityCard() {
         Suas informações são seguras e nos ajudam a preparar recomendações de prevenção mais
         relevantes para você no futuro.
       </Text>
-    </View>
-  );
-}
-
-function PrivacyNotice() {
-  const colors = useThemeColors();
-  const styles = useProfileSetupStyles();
-
-  return (
-    <View style={styles.privacyNotice}>
-      <Ionicons color={colors.primary} name="shield-checkmark-outline" size={24} />
-      <Text style={styles.privacyNoticeText}>{PROFILE_SETUP_NOTICE_TEXT}</Text>
     </View>
   );
 }
@@ -1119,59 +1086,32 @@ function createProfileSetupStyles(colors: ThemeColors) {
   sectionBlock: {
     marginTop: 28,
   },
-  sexGrid: {
+  sexChipRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginTop: 12,
   },
-  sexCard: {
+  sexChip: {
     alignItems: 'center',
     backgroundColor: colors.surfaceTranslucent,
     borderColor: colors.border,
     borderRadius: 14,
-    borderWidth: 1,
+    borderWidth: 1.5,
     flex: 1,
-    height: 116,
+    height: 56,
     justifyContent: 'center',
   },
-  sexCardFemaleSelected: {
-    backgroundColor: colors.femaleSoft,
-    borderColor: colors.female,
+  sexChipSelected: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
-  sexCardMaleSelected: {
-    backgroundColor: colors.infoSoft,
-    borderColor: colors.info,
-  },
-  sexCardInactive: {
-    borderColor: colors.border,
-  },
-  sexCardText: {
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 21,
-    marginTop: 10,
-  },
-  preferNotCard: {
-    alignItems: 'center',
-    backgroundColor: colors.surfaceTranslucent,
-    borderColor: colors.border,
-    borderRadius: 14,
-    borderWidth: 1,
-    height: 50,
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-  preferNotCardSelected: {
-    backgroundColor: colors.neutralSoft,
-    borderColor: colors.neutralBorder,
-  },
-  preferNotText: {
+  sexChipText: {
     color: colors.textSecondary,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
   },
-  preferNotTextSelected: {
-    color: colors.neutral,
+  sexChipTextSelected: {
+    color: colors.primary,
   },
   questionHelper: {
     color: colors.textSecondary,
@@ -1262,22 +1202,8 @@ function createProfileSetupStyles(colors: ThemeColors) {
     marginBottom: 22,
     marginTop: 8,
   },
-  privacyNotice: {
-    alignItems: 'flex-start',
-    backgroundColor: colors.noticeSoft,
-    borderColor: colors.noticeBorder,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginTop: 22,
-    padding: SPACING.md,
-  },
-  privacyNoticeText: {
-    color: colors.textSecondary,
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
+  noticeSlot: {
+    marginTop: 18,
   },
   // Rodape em fluxo (ultimo filho da coluna): com o scrollArea em flex:1 ele fica
   // preso abaixo da area rolavel e sempre visivel. Antes era position:absolute, o

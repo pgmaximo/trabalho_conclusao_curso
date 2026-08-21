@@ -66,7 +66,7 @@ describe('profile setup payload helpers', () => {
       birthDate: '06/05/2000',
       biologicalSex: 'female',
       pregnancyStatus: 'no',
-      heightCm: '1,65',
+      heightCm: '165',
       weightKg: '70,5',
       chronicConditions: '',
       medications: '',
