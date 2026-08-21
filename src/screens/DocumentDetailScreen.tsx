@@ -153,7 +153,7 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
               accessibilityRole="button"
               onPress={() => router.back()}
               style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-              className="h-12 w-12 items-center justify-center rounded-field border-[1.5px] border-app-border dark:border-app-dark-border"
+              className="size-12 items-center justify-center rounded-field border-[1.5px] border-app-border dark:border-app-dark-border"
             >
               <Ionicons color={colors.text} name="chevron-back" size={22} />
             </Pressable>
