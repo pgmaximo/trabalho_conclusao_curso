@@ -31,7 +31,7 @@ Legenda de Status: `CRIAR` (só no design) · `ATUALIZAR` (existe nos dois, mas 
 | 2b Home — resumo/indicadores/acesso rápido | Sim — `HomeScreen.tsx` (`/dashboard`), de-mockado (compromissos/resumo de consultas via `Appointment` real; medicamentos/prevenção seguem bloqueados por outros Blocos) | Sim | `CONCLUÍDO` (pendências cross-Bloco documentadas: medicamentos #1, prevenção #2, notificações #9.a; validação manual/sandbox pendente) | P1 |
 | 2c Agenda — calendário, lista do dia e sincronização | Sim — `AgendaScreen.tsx` (`/appointments`), seletor de 7 dias fixo + rótulo do dia + paleta por tipo alinhada ao design system | Sim | `CONCLUÍDO` (sincronização Google Agenda é pendência formal isolada #9.b; validação manual/sandbox pendente) | P1 |
 | 2d Novo agendamento | Sim — `AddAppointmentScreen.tsx` (`/add-appointment`), reescrita completa no design system atual | Sim | `CONCLUÍDO` (validação manual/sandbox pendente, ver `specs/02-perfil-home-agenda/novo-agendamento/tasks.md`) | P1 |
-| 2e Editar agendamento (com exclusão) | Sim — `EditAppointmentScreen.tsx` (`/edit-appointment`), versão legada pré-SDD ainda não reescrita (só ajuste mínimo de tipagem para compilar após 2d) | Sim | `ATUALIZAR` | P1 |
+| 2e Editar agendamento (com exclusão) | Sim — `EditAppointmentScreen.tsx` (`/edit-appointment`), reescrita completa no design system atual, confirmação de exclusão inline (`DeleteConfirmPanel` reaproveitado de 3c) | Sim | `CONCLUÍDO` (validação manual/sandbox pendente) | P1 |
 
 ## 3. Bloco 3 — Exames & Receitas, Medicamentos, Prevenção
 
@@ -61,10 +61,10 @@ Nenhuma. Os 17 componentes de tela roteados hoje mapeiam 1:1 para telas do desig
 
 ## Resumo de contagem
 
-> Atualizado após início do Bloco 2 (2a, 2b, 2c e 2d implementadas nesta sessão; 2e segue no estado original da Fase 0).
+> Atualizado após conclusão do Bloco 2 nesta sessão (2a–2e, as 5 telas — wizard de Perfil de Saúde, Home, Agenda, Novo agendamento e Editar agendamento).
 
-- **CONCLUÍDO**: 11 telas — 2a, 2b, 2c, 2d (Bloco 2: Perfil de Saúde wizard, Home, Agenda, Novo agendamento), 3d, 3e, 3f, 3g (Bloco 3: Medicamentos + Prevenção), 4b, 4c, 4e (Bloco 4: Perfil, Editar Perfil, Vacinação). Cada uma com pendências pontuais registradas nesta lista, mas nenhuma bloqueante da tela em si.
-- **ATUALIZAR** (spec escrita, implementação pendente ou parcial): 10 telas — 1b–1f (Bloco 1, todas implementadas mas fidelidade não auditada tela-a-tela), 2e (Bloco 2, spec completa, **zero tasks implementadas** — versão legada pré-SDD ainda em produção), 3a–3c (Bloco 3, núcleo do MVP, implementadas mas com gaps de fidelidade documentados), 4a (Bloco 4, fidelidade de UI concluída, integração de IA real e persistência de histórico em aberto).
+- **CONCLUÍDO**: 12 telas — 2a, 2b, 2c, 2d, 2e (Bloco 2 completo: Perfil de Saúde wizard, Home, Agenda, Novo agendamento, Editar agendamento), 3d, 3e, 3f, 3g (Bloco 3: Medicamentos + Prevenção), 4b, 4c, 4e (Bloco 4: Perfil, Editar Perfil, Vacinação). Cada uma com pendências pontuais registradas nesta lista, mas nenhuma bloqueante da tela em si.
+- **ATUALIZAR** (spec escrita, implementação pendente ou parcial): 9 telas — 1b–1f (Bloco 1, todas implementadas mas fidelidade não auditada tela-a-tela), 3a–3c (Bloco 3, núcleo do MVP, implementadas mas com gaps de fidelidade documentados), 4a (Bloco 4, fidelidade de UI concluída, integração de IA real e persistência de histórico em aberto).
 - **CRIAR**: 0 (todas as 21 telas do design já existem como componente roteado no código; nenhuma foi criada do zero nesta fase — todas partiram de uma versão pré-existente).
 - **MANTER**: 0 (nenhuma tela foi auditada como 100% fiel sem nenhuma pendência registrada).
 - **DESCONTINUAR**: 0.
