@@ -193,7 +193,7 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
             className="mb-5 flex-row items-start gap-3 border border-app-infoBadgeBorder bg-app-infoSoft p-4 dark:border-app-dark-infoBadgeBorder dark:bg-app-dark-infoSoft"
             style={{ borderRadius: 16 }}
           >
-            <View className="h-7 w-7 items-center justify-center rounded-[8px] bg-app-infoIconBg dark:bg-app-dark-infoIconBg">
+            <View className="size-7 items-center justify-center rounded-[8px] bg-app-infoIconBg dark:bg-app-dark-infoIconBg">
               <MaterialIcons color={colors.onPrimary} name="mail-outline" size={16} />
             </View>
             <Text className="flex-1 text-[17px] leading-[24px] text-app-text dark:text-app-dark-text">
@@ -213,7 +213,7 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
             <View className="flex-row gap-1.5">
               {digits.map((digit, index) => (
                 <TextInput
-                  key={index}
+                  key={`digit-box-${index}`}
                   accessibilityLabel={`Dígito ${index + 1} de 6`}
                   autoFocus={index === 0}
                   className="h-[60px] flex-1 rounded-[12px] border-[1.5px] border-app-border bg-app-surface text-center text-2xl font-semibold text-app-text dark:border-app-dark-border dark:bg-app-dark-surface dark:text-app-dark-text"
