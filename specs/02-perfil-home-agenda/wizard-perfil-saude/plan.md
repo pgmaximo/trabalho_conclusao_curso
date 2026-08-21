@@ -45,6 +45,8 @@ Cabeçalho com "Etapa N de 4" + barra de progresso de 4 segmentos, navegação V
 
 ## 2. Decisão de schema (regra 5 da constituição)
 
+> **`RESOLVIDO`** — decisão confirmada e implementada como parte da EPIC de Editar Perfil (4c), que compartilha o mesmo `UserProfile`/`buildAmplifyUserProfileInput` (`specs/04-ia-perfil-vacinacao/editar-perfil/tasks.md` T8/T9): `sex` estendido para `a.enum(['Masculino', 'Feminino', 'Outro'])`, e `chronicConditions`/`medications`/`allergies` (`a.string()`) adicionados. Nenhuma mudança de código foi necessária nesta tela (2a) além da já existente: `OnboardingScreen.tsx` já chamava `saveUserProfile(values)` com o formulário completo (`ProfileSetupFormValues`, incluindo os 3 campos clínicos e `biologicalSex`), então a correção em `profileSetupPayload.ts` — camada compartilhada pelas duas telas — já passou a persistir os dados de 2a automaticamente.
+
 Duas mudanças de schema são necessárias para não continuar perdendo dado (item 2 e 3 do resumo acima). Ambas alteram `amplify/data/schemas/user.ts` (`UserProfile`), que hoje é:
 ```ts
 UserProfile: a.model({
