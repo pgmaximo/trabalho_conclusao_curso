@@ -9,6 +9,8 @@ import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 import { useThemeContext, type ThemeMode } from '@/contexts/ThemeContext';
 import type { UserProfile } from '@/contexts/UserContext';
+import { requestDataExport } from '@/services/export/dataExportService';
+import { getHealthConnectStatus } from '@/services/health/healthAppConnectService';
 
 type ProfileScreenProps = {
   user: UserProfile | null;
@@ -55,6 +57,22 @@ export function ProfileScreen({
   const colors = useThemeColors();
   const bmi = calculateBMI(user?.weightKg, user?.heightCm);
   const age = user?.birthDate ? calculateAge(user.birthDate) : null;
+  const healthConnectStatus = getHealthConnectStatus();
+
+  const handleExportData = async () => {
+    await requestDataExport();
+    Alert.alert(
+      'Exportar meus dados',
+      'Em breve. Para solicitar seus dados agora, contate o suporte.',
+    );
+  };
+
+  const handleHealthConnectPress = () => {
+    Alert.alert(
+      'App de Saúde do celular',
+      'Em breve você poderá conectar o Apple Health ou Google Fit por aqui.',
+    );
+  };
 
   const healthItems = [
     { label: 'Peso', value: user?.weightKg ? `${user.weightKg} kg` : '—' },
@@ -153,13 +171,43 @@ export function ProfileScreen({
             </View>
           </Section>
 
-          <Section title="Conta" subtitle="Gerencie seus dados e sessão.">
+          <Section title="Configurações" subtitle="Gerencie seus dados e sessão.">
+            <View className="mb-3 rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface">
+              <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+                Dispositivos conectados
+              </Text>
+              <Text className="mt-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                Conecte o app de Saúde do seu celular (Apple Health ou Google Fit) para o
+                Assistente de IA usar esses dados nas respostas. Eles não são exibidos em
+                nenhuma outra tela do app.
+              </Text>
+
+              <Pressable
+                accessibilityLabel="App de Saúde do celular"
+                accessibilityRole="button"
+                className="mt-3 flex-row items-center justify-between rounded-app border border-app-border p-3 dark:border-app-dark-border"
+                onPress={handleHealthConnectPress}
+                style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+              >
+                <Text className="text-[15px] text-app-text dark:text-app-dark-text">
+                  App de Saúde do celular
+                </Text>
+                <View className="rounded-full bg-app-border px-3 py-1 dark:bg-app-dark-border">
+                  <Text className="text-[13px] font-semibold text-app-textSecondary dark:text-app-dark-textSecondary">
+                    {healthConnectStatus === 'unavailable' ? 'Indisponível' : 'Conectado'}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+
             <Pressable
-              className="mb-3 flex-row items-center justify-between rounded-app border border-app-border bg-app-surface px-4 py-4 dark:border-app-dark-border dark:bg-app-dark-surface"
-              onPress={() => Alert.alert('Exportar dados', 'Em desenvolvimento.')}
+              className="mb-3 flex-row items-center justify-between rounded-app border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
+              onPress={handleExportData}
               style={({ pressed }) => [pressed && { opacity: 0.7 }]}
             >
-              <Text className="text-[15px] text-app-text dark:text-app-dark-text">Exportar dados</Text>
+              <Text className="text-[15px] text-app-text dark:text-app-dark-text">
+                Exportar meus dados
+              </Text>
               <Ionicons color="#9CA3AF" name="chevron-forward" size={18} />
             </Pressable>
 
