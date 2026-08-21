@@ -39,7 +39,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [documentType, setDocumentType] = useState<DocumentTypeState>(null);
   const [documentName, setDocumentName] = useState('');
-  const [documentDate, setDocumentDate] = useState(getTodayDate());
+  const [documentDate, setDocumentDate] = useState(() => getTodayDate());
   const [expirationDate, setExpirationDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
