@@ -16,6 +16,7 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { FormField } from '@/components/FormField';
+import { InlineError } from '@/components/InlineError';
 import { FONTS, RADII, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
 import {
   getTodayDate,
@@ -43,6 +44,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
   const [documentDate, setDocumentDate] = useState(() => getTodayDate());
   const [expirationDate, setExpirationDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Estado visual preventivo (Canvas 3b): o botão só habilita quando tipo,
   // nome, data (e validade se receita) estão completos — não depende de
@@ -60,13 +62,17 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
     }
 
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
       await createExamDocument({
         fileName,
         filePath,
         fileSize,
-        documentType: documentType || 'exam',
+        // documentType já é garantido não-nulo neste ponto por isFormValid (a checagem em
+        // getCoreValidationErrors exige tipo selecionado) — o fallback `|| 'exam'` era
+        // inalcançável e, com o tipo agora imutável após a criação (3c), enganoso.
+        documentType: documentType as DocumentType,
         documentName,
         documentDate,
         expirationDate,
@@ -75,7 +81,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
       router.back();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao salvar documento';
-      alert(message);
+      setSubmitError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -214,6 +220,8 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
               </Text>
             </View>
           </Card>
+
+          {submitError ? <InlineError message={submitError} /> : null}
 
           <Button
             title="Salvar documento"

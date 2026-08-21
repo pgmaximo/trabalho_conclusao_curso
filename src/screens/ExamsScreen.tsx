@@ -12,6 +12,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { EmptyState } from '@/components/EmptyState';
 import { ExamItem } from '@/components/ExamItem';
 import { FilterChips } from '@/components/FilterChips';
+import { InlineError } from '@/components/InlineError';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
@@ -53,6 +54,8 @@ export function ExamsScreen({
   const [isPickingFile, setIsPickingFile] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraPermissionError, setCameraPermissionError] = useState<string | null>(null);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const { setSelectedDocument } = useSelectedDocument();
 
   // Distingue "vazio real" (nenhum documento ainda) de "busca sem resultado" — spec.md
@@ -68,6 +71,7 @@ export function ExamsScreen({
   async function pickDocument() {
     try {
       setIsPickingFile(true);
+      setPickerError(null);
 
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
@@ -90,7 +94,7 @@ export function ExamsScreen({
       }
     } catch (error) {
       console.error('Error picking document:', error);
-      alert('Erro ao selecionar o documento. Tente novamente.');
+      setPickerError('Erro ao selecionar o documento. Tente novamente.');
     } finally {
       setIsPickingFile(false);
     }
@@ -100,6 +104,7 @@ export function ExamsScreen({
     try {
       setIsCapturing(true);
       setCameraPermissionError(null);
+      setCameraError(null);
 
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
@@ -131,7 +136,7 @@ export function ExamsScreen({
       }
     } catch (error) {
       console.error('Error capturing photo:', error);
-      alert('Erro ao capturar a foto. Tente novamente.');
+      setCameraError('Erro ao capturar a foto. Tente novamente.');
     } finally {
       setIsCapturing(false);
     }
@@ -260,6 +265,12 @@ export function ExamsScreen({
           <Text style={[styles.sheetRowText, { color: colors.text }]}>Enviar PDF ou imagem</Text>
         </Pressable>
 
+        {pickerError ? (
+          <View style={{ marginTop: 8 }}>
+            <InlineError message={pickerError} />
+          </View>
+        ) : null}
+
         <Pressable
           style={({ pressed }) => [
             styles.sheetRow,
@@ -277,6 +288,12 @@ export function ExamsScreen({
           <Text style={[styles.permissionError, { color: colors.danger }]}>
             {cameraPermissionError}
           </Text>
+        ) : null}
+
+        {cameraError ? (
+          <View style={{ marginTop: 8 }}>
+            <InlineError message={cameraError} />
+          </View>
         ) : null}
 
         <Pressable
