@@ -6,5 +6,8 @@ export const storage = defineStorage({
     'medical-documents/{owner}/*': [
       allow.authenticated.to(['read', 'write', 'delete']),
     ],
+    'avatars/{owner}/*': [
+      allow.authenticated.to(['read', 'write', 'delete']),
+    ],
   }),
 });
