@@ -29,7 +29,7 @@ export function AuthAppHeader({
   return (
     <View className="mb-[26px] flex-row items-center gap-3" testID="auth-app-header">
       <View
-        className="h-11 w-11 items-center justify-center rounded-[13px] bg-app-primary dark:bg-app-dark-primary"
+        className="size-11 items-center justify-center rounded-[13px] bg-app-primary dark:bg-app-dark-primary"
         testID="auth-app-header-icon"
       >
         <View style={{ height: 24, width: 24 }}>
