@@ -151,4 +151,16 @@ describe('syncMedicineReminders', () => {
     await syncMedicineReminders(baseMedicine({ endDate: '2099-01-01' }));
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
   });
+
+  it('still schedules reminders when endDate is today (local date, not UTC)', async () => {
+    const now = new Date();
+    const todayISO = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+
+    await syncMedicineReminders(baseMedicine({ endDate: todayISO }));
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
+  });
 });

@@ -166,17 +166,21 @@ export async function saveMedicineReminderMap(map: MedicineReminderMap): Promise
  * salvar o medicamento por causa disso — quem chama decide se propaga erro).
  */
 function isEndDateInThePast(endDate: string | null | undefined): boolean {
-  if (!endDate) {
+  if (!endDate || !/^\d{4}-\d{2}-\d{2}/.test(endDate)) {
     return false;
   }
-  const end = new Date(endDate);
-  if (Number.isNaN(end.getTime())) {
-    return false;
-  }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  end.setHours(0, 0, 0, 0);
-  return end.getTime() < today.getTime();
+  // Compara strings YYYY-MM-DD diretamente (sem round-trip por Date/setHours):
+  // Date() interpreta uma string "YYYY-MM-DD" como meia-noite UTC, e setHours()
+  // trunca no fuso local — em fusos negativos (ex. Brasil, UTC-3) isso faz
+  // endDate="hoje" virar "ontem", parando o lembrete um dia cedo demais.
+  const todayLocal = new Date();
+  const todayISO = [
+    todayLocal.getFullYear(),
+    String(todayLocal.getMonth() + 1).padStart(2, '0'),
+    String(todayLocal.getDate()).padStart(2, '0'),
+  ].join('-');
+
+  return endDate.slice(0, 10) < todayISO;
 }
 
 export async function syncMedicineReminders(medicine: MedicineRecord): Promise<void> {
