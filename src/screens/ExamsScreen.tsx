@@ -211,7 +211,10 @@ export function ExamsScreen({
                           validityStatus={document.validityStatus}
                           onPress={() => {
                             setSelectedDocument(document);
-                            router.push('/(app)/document-detail');
+                            router.push({
+                              pathname: '/(app)/document-detail',
+                              params: { id: document.id },
+                            });
                           }}
                         />
                       ))

@@ -25,6 +25,60 @@ function computeValidityStatus(
 const client = generateClient<Schema>();
 const EXAMS_CACHE_KEY = '@SuaSaude:examsCache';
 
+/**
+ * Converte um registro cru do DynamoDB (`Schema['MedicalDocument']['type']`, ou o
+ * subconjunto de campos retornado por `.get()`) para o formato `MedicalDocument` da UI.
+ * Extraído de `fetchMedicalDocuments` para ser reaproveitado por `getDocumentById`
+ * (busca pontual usada pelo fallback de deep link de `document-detail`) sem duplicar a
+ * lógica de mapeamento.
+ */
+function mapDocumentToMedicalDocument(doc: {
+  id: string;
+  documentType: string | null;
+  documentName: string | null;
+  documentDate: string;
+  expirationDate: string | null;
+  s3FileName: string;
+}): MedicalDocument {
+  const isExam = doc.documentType === 'exam';
+  const documentType = (doc.documentType || 'exam') as 'exam' | 'prescription';
+  const expirationDate = doc.expirationDate || null;
+  const formattedDate = formatDateForDisplay(doc.documentDate);
+
+  return {
+    id: doc.id,
+    icon: isExam ? 'flask-outline' : 'medkit-outline',
+    title: doc.documentName || 'Sem nome',
+    subtitle: isExam ? `Exame · ${formattedDate}` : `Receita · emitida ${formattedDate}`,
+    category: isExam ? 'Exames' : 'Receitas',
+    documentType,
+    documentName: doc.documentName || '',
+    documentDate: doc.documentDate,
+    expirationDate,
+    s3FileName: doc.s3FileName,
+    originalFileName: doc.s3FileName,
+    validityStatus: computeValidityStatus(documentType, expirationDate),
+  } satisfies MedicalDocument;
+}
+
+/**
+ * Busca um único documento pelo `id` diretamente no DynamoDB (via `client.models.
+ * MedicalDocument.get`), sem passar pelo cache de lista. Usado por `document-detail`
+ * quando o `DocumentContext` está vazio (deep link/cold start) mas a rota carrega um
+ * `?id=` — ver specs/03-exames-receitas/detalhe-documento/plan.md §3, Opção B.
+ * Retorna `null` quando o documento não existe/não pertence ao usuário, para que a UI
+ * decida o estado "Documento não encontrado" em vez de propagar uma exceção genérica.
+ */
+export async function getDocumentById(id: string): Promise<MedicalDocument | null> {
+  const { data: doc, errors } = await client.models.MedicalDocument.get({ id });
+
+  if (errors?.length || !doc) {
+    return null;
+  }
+
+  return mapDocumentToMedicalDocument(doc);
+}
+
 // Global cache version to signal refetch when cache is invalidated
 let cacheVersion = 0;
 let refetchCallbacks: Array<() => void> = [];
@@ -79,43 +133,8 @@ async function fetchMedicalDocuments(): Promise<MedicalDocument[]> {
       return [];
     }
 
-    // Debug: Log raw documents from DB
-    console.log('Raw documents from DynamoDB:', documents);
-    documents.forEach((doc) => {
-      console.log('Document:', { 
-        documentType: doc.documentType, 
-        documentName: doc.documentName,
-        documentDate: doc.documentDate,
-        expirationDate: doc.expirationDate 
-      });
-    });
-
     // Transform raw database documents to UI format
-    const transformedDocuments = documents.map((doc) => {
-      const isExam = doc.documentType === 'exam';
-      const documentType = (doc.documentType || 'exam') as 'exam' | 'prescription';
-      const expirationDate = doc.expirationDate || null;
-      const formattedDate = formatDateForDisplay(doc.documentDate);
-
-      return {
-        id: doc.id,
-        icon: isExam ? 'flask-outline' : 'medkit-outline',
-        title: doc.documentName || 'Sem nome',
-        // Linha de meta: "Exame · {data}" (exame) ou "Receita · emitida {data}" (receita) —
-        // Canvas 3a §3 (specs/03-exames-receitas/lista/spec.md); local/laboratório omitido
-        // de propósito (campo inexistente no schema, ver spec.md §5).
-        subtitle: isExam ? `Exame · ${formattedDate}` : `Receita · emitida ${formattedDate}`,
-        category: isExam ? 'Exames' : 'Receitas',
-        // Full document data
-        documentType,
-        documentName: doc.documentName || '',
-        documentDate: doc.documentDate,
-        expirationDate,
-        s3FileName: doc.s3FileName,
-        originalFileName: doc.s3FileName, // This might need to be stored separately
-        validityStatus: computeValidityStatus(documentType, expirationDate),
-      } satisfies MedicalDocument;
-    });
+    const transformedDocuments = documents.map(mapDocumentToMedicalDocument);
 
     // Cache the results
     try {
