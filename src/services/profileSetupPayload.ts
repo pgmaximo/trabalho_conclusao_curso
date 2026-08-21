@@ -17,7 +17,7 @@ export type PreventionTaskForceQuery = {
 export type AmplifyUserProfileInput = {
   fullName: string;
   birthDate: string;
-  sex?: 'Masculino' | 'Feminino';
+  sex?: 'Masculino' | 'Feminino' | 'Outro';
   weightKg?: number;
   heightCm?: number;
   isSmoker?: boolean;
@@ -25,6 +25,9 @@ export type AmplifyUserProfileInput = {
   physicalActivity?: boolean;
   alcoholConsumption?: boolean;
   pregnancy?: boolean;
+  chronicConditions?: string;
+  medications?: string;
+  allergies?: string;
 };
 
 function parseBrazilianDate(value: string) {
@@ -107,6 +110,10 @@ function parseHeightCm(value: string) {
 function mapBiologicalSex(value: ProfileSetupFormValues['biologicalSex']) {
   if (value === 'female') return 'Feminino';
   if (value === 'male') return 'Masculino';
+  // DECISION (regra 5): 'prefer_not_to_say' e o valor interno compartilhado pelas
+  // Telas 2a e 4c para a 3a opcao de sexo biologico (rotulada "Outro" no Canvas
+  // 4c) — mapeia para o valor real do enum em vez de ser descartado.
+  if (value === 'prefer_not_to_say') return 'Outro';
   return undefined;
 }
 
@@ -187,6 +194,22 @@ export function buildAmplifyUserProfileInput(
 
   if (values.biologicalSex === 'female' && values.pregnancyStatus !== 'unknown') {
     input.pregnancy = values.pregnancyStatus === 'yes';
+  }
+
+  // DECISION (regra 2 e 5): so inclui os 3 campos clinicos quando preenchidos.
+  // A Tela 4c (edit-profile.tsx) nao coleta esses campos e sempre envia string
+  // vazia aqui — omiti-los do payload evita sobrescrever com vazio o que o
+  // usuario preencheu no wizard (2a), sem exigir logica separada por tela.
+  if (values.chronicConditions.trim()) {
+    input.chronicConditions = values.chronicConditions.trim();
+  }
+
+  if (values.medications.trim()) {
+    input.medications = values.medications.trim();
+  }
+
+  if (values.allergies.trim()) {
+    input.allergies = values.allergies.trim();
   }
 
   return input;

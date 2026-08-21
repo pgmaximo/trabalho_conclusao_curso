@@ -89,4 +89,76 @@ describe('profile setup payload helpers', () => {
       pregnancy: false,
     });
   });
+
+  it('maps the shared "prefer_not_to_say" value to the real "Outro" schema enum', () => {
+    const values: ProfileSetupFormValues = {
+      fullName: 'Maria Souza',
+      birthDate: '10/05/1990',
+      biologicalSex: 'prefer_not_to_say',
+      pregnancyStatus: 'unknown',
+      heightCm: '165',
+      weightKg: '68',
+      chronicConditions: '',
+      medications: '',
+      allergies: '',
+      tobaccoUse: 'unknown',
+      alcoholUse: 'unknown',
+      physicalActivity: 'unknown',
+      sexuallyActive: 'unknown',
+    };
+
+    expect(buildAmplifyUserProfileInput(values).sex).toBe('Outro');
+  });
+
+  it('includes chronic condition fields when filled (Tela 2a, onboarding)', () => {
+    const values: ProfileSetupFormValues = {
+      fullName: 'Maria Souza',
+      birthDate: '10/05/1990',
+      biologicalSex: 'female',
+      pregnancyStatus: 'unknown',
+      heightCm: '165',
+      weightKg: '68',
+      chronicConditions: 'Hipertensão',
+      medications: 'Losartana',
+      allergies: 'Dipirona',
+      tobaccoUse: 'unknown',
+      alcoholUse: 'unknown',
+      physicalActivity: 'unknown',
+      sexuallyActive: 'unknown',
+    };
+
+    const input = buildAmplifyUserProfileInput(values);
+
+    expect(input.chronicConditions).toBe('Hipertensão');
+    expect(input.medications).toBe('Losartana');
+    expect(input.allergies).toBe('Dipirona');
+  });
+
+  it('omits chronic condition fields when empty, so an update never wipes existing values (Tela 4c regression)', () => {
+    // Tela 4c (edit-profile.tsx) nao coleta estes 3 campos e sempre monta o
+    // formulario com string vazia — o payload final nao pode conter chaves
+    // vazias, ou um `update()` sobrescreveria condicoes cronicas ja salvas via
+    // onboarding (2a) com valor vazio.
+    const values: ProfileSetupFormValues = {
+      fullName: 'Maria Souza',
+      birthDate: '10/05/1990',
+      biologicalSex: 'female',
+      pregnancyStatus: 'unknown',
+      heightCm: '165',
+      weightKg: '68',
+      chronicConditions: '',
+      medications: '',
+      allergies: '',
+      tobaccoUse: 'unknown',
+      alcoholUse: 'unknown',
+      physicalActivity: 'unknown',
+      sexuallyActive: 'unknown',
+    };
+
+    const input = buildAmplifyUserProfileInput(values);
+
+    expect(input).not.toHaveProperty('chronicConditions');
+    expect(input).not.toHaveProperty('medications');
+    expect(input).not.toHaveProperty('allergies');
+  });
 });
