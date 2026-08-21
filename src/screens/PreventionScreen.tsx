@@ -26,6 +26,7 @@ type PreventionScreenProps = {
   onEnableRemindersForIds: (recommendationIds: number[]) => void;
   onCompleteProfile: () => void;
   pendingReminderIds: Set<number>;
+  activeCampaignMessage: string | null;
 };
 
 const ALL_FILTER = 'Todos';
@@ -42,6 +43,7 @@ export function PreventionScreen({
   onEnableRemindersForIds,
   onCompleteProfile,
   pendingReminderIds,
+  activeCampaignMessage,
 }: PreventionScreenProps) {
   const { colorScheme } = useColorScheme();
   const colors = useThemeColors();
@@ -101,6 +103,17 @@ export function PreventionScreen({
                 badgeLabel={`${recommendations.length} recomendaç${recommendations.length === 1 ? 'ão' : 'ões'}`}
                 badgeVariant={recommendations.length > 0 ? 'primary' : 'neutral'}
               />
+
+              {activeCampaignMessage ? (
+                <View className="mb-6 flex-row items-start gap-3 rounded-app border border-app-successBadgeBorder bg-app-successSoft px-4 py-3 dark:border-app-dark-successBadgeBorder dark:bg-app-dark-successSoft">
+                  <View className="size-6 items-center justify-center rounded-full bg-app-successIconBg dark:bg-app-dark-successIconBg">
+                    <Ionicons color="#FFFFFF" name="medical" size={14} />
+                  </View>
+                  <Text className="flex-1 text-[15px] leading-[20px] text-app-primaryDark dark:text-app-dark-primaryDark">
+                    {activeCampaignMessage}
+                  </Text>
+                </View>
+              ) : null}
 
               {recommendations.length > 0 ? (
                 <Card variant="soft" padding="compact" style={{ marginBottom: 16 }}>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { getActiveVaccinationCampaign } from '@/config/vaccinationCampaigns';
 import { useAsyncResource } from '@/hooks/useAsyncResource';
 import { getPreventionRecommendations } from '@/services/preventionService';
 import {
@@ -156,5 +157,6 @@ export function usePreventionData() {
     onToggleReminder,
     onEnableRemindersForIds,
     pendingReminderIds,
+    activeCampaignMessage: getActiveVaccinationCampaign()?.message ?? null,
   };
 }

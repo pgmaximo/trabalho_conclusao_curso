@@ -15,6 +15,7 @@ export default function PreventionRoute() {
     onToggleReminder,
     onEnableRemindersForIds,
     pendingReminderIds,
+    activeCampaignMessage,
   } = usePreventionData();
 
   return (
@@ -29,6 +30,7 @@ export default function PreventionRoute() {
       onEnableRemindersForIds={onEnableRemindersForIds}
       onCompleteProfile={() => router.push('/edit-profile')}
       pendingReminderIds={pendingReminderIds}
+      activeCampaignMessage={activeCampaignMessage}
     />
   );
 }
