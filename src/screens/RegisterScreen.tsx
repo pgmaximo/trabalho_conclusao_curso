@@ -16,6 +16,7 @@ import { useColorScheme } from 'nativewind';
 
 import { AuthInput } from '@/components/AuthInput';
 import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
+import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
 import { SectionDivider } from '@/components/SectionDivider';
 import { SocialButton } from '@/components/SocialButton';
@@ -148,24 +149,12 @@ export function RegisterScreen({
           contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
           keyboardShouldPersistTaps="handled"
         >
-          <View className="mb-6 flex-row items-center gap-2" testID="register-header">
-            <Pressable
-              accessibilityLabel="Voltar"
-              accessibilityRole="button"
-              disabled={isLoading}
-              hitSlop={8}
-              onPress={onNavigateToLogin}
-              style={({ pressed }) => [
-                { height: 48, width: 48, alignItems: 'center', justifyContent: 'center' },
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <MaterialIcons color={colors.text} name="chevron-left" size={28} />
-            </Pressable>
-            <Text className="text-xl font-semibold leading-[26px] text-app-text dark:text-app-dark-text">
-              Criar conta
-            </Text>
-          </View>
+          <BackHeader
+            disabled={isLoading}
+            onBack={onNavigateToLogin}
+            testID="register-header"
+            title="Criar conta"
+          />
 
           <View
             className="rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
