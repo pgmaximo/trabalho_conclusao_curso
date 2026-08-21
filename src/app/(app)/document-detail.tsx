@@ -12,12 +12,13 @@ import { DocumentDetailScreen } from '@/screens/DocumentDetailScreen';
  * Fallback de deep link vazio (GAP_ANALYSIS.md item 20, P0 desta EPIC): a rota nunca
  * renderiza `null`/tela em branco. Três caminhos, ver
  * specs/03-exames-receitas/detalhe-documento/plan.md §3 (Opção B):
- * (a) `selectedDocument` já populado no contexto (navegação normal a partir de 3a/Home
- *     via `setSelectedDocument`) → renderiza direto;
- * (b) contexto vazio mas `?id=` presente na URL (deep link/cold start, ex. Home já
- *     navega assim em `dashboard.tsx`) → busca pontual via `getDocumentById`, com estado
- *     de carregamento e um estado de erro claro ("Documento não encontrado") em caso de
- *     falha/id inexistente;
+ * (a) `selectedDocument` já populado no contexto **e** bate com `id` (ou `id` ausente)
+ *     → renderiza direto;
+ * (b) `id` presente e `selectedDocument` vazio OU desatualizado (`selectedDocument.id !==
+ *     id` — contexto é um `useState` nunca limpo na navegação, então um deep link para um
+ *     documento B pode chegar com o documento A ainda em memória) → busca pontual via
+ *     `getDocumentById`, com estado de carregamento e um estado de erro claro ("Documento
+ *     não encontrado") em caso de falha/id inexistente;
  * (c) nem contexto nem `id` presentes (acesso direto à rota sem nenhum contexto) →
  *     redireciona para `/exams`.
  */
@@ -26,8 +27,15 @@ export default function DocumentDetailPage() {
   const { selectedDocument, setSelectedDocument } = useSelectedDocument();
   const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'error'>('idle');
 
+  // Contexto existe mas não corresponde ao `id` da URL atual (ex.: usuário viu o
+  // documento A, voltou, e abriu um link para `?id=documentB` com o app ainda em
+  // memória) — tratar como se o contexto estivesse vazio, nunca renderizar dados stale
+  // sob um `id` que não os identifica.
+  const isContextStale = Boolean(id) && Boolean(selectedDocument) && selectedDocument?.id !== id;
+  const hasValidContextDocument = Boolean(selectedDocument) && !isContextStale;
+
   useEffect(() => {
-    if (selectedDocument || !id) {
+    if (hasValidContextDocument || !id) {
       return undefined;
     }
 
@@ -55,9 +63,9 @@ export default function DocumentDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, selectedDocument, setSelectedDocument]);
+  }, [id, hasValidContextDocument, setSelectedDocument]);
 
-  if (selectedDocument) {
+  if (hasValidContextDocument && selectedDocument) {
     // Converte MedicalDocument -> MedicalDocumentMetadata.
     // expirationDate vem como string | null; o metadata espera string | undefined.
     const document = {
