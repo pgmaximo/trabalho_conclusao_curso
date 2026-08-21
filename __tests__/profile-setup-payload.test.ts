@@ -85,6 +85,7 @@ describe('profile setup payload helpers', () => {
       weightKg: 70.5,
       isSmoker: false,
       sexuallyActive: true,
+      physicalActivity: true,
       pregnancy: false,
     });
   });
