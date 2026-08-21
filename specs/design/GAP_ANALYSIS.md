@@ -49,11 +49,11 @@ Legenda de Status: `CRIAR` (só no design) · `ATUALIZAR` (existe nos dois, mas 
 
 | Tela | Existe no código? | Existe no design? | Status | Prioridade |
 |---|---|---|---|---|
-| 4a Assistente de IA — chat interativo | Sim — `ChatBotScreen.tsx` (`/ai`), `chatService` 100% mock (respostas fixas) | Sim | `ATUALIZAR` (+ pendência: integração real com IA) | P2 |
+| 4a Assistente de IA — chat interativo | Sim — `ChatBotScreen.tsx` (`/ai`); disclaimer, header, sugestões, "digitando" e drawer de histórico implementados conforme Canvas; `aiAssistantService` (ex-`chatService`) 100% mock (respostas fixas) | Sim | `ATUALIZAR` (fidelidade de UI concluída; pendências: item 4.a integração real de IA, 4.b persistência de histórico) | P2 |
 | 4b Perfil — dados de saúde e preferências | Sim — `ProfileScreen.tsx` (`/profile`) | Sim | `ATUALIZAR` | P1 |
 | 4c Editar perfil — scroll único | Sim — `EditProfileScreen.tsx` (`/edit-profile`) | Sim | `ATUALIZAR` | P1 |
 | 4d | — | **Não existe no design** (gap na numeração, confirmado) | — | — |
-| 4e Carteira de vacinação | **Não** (nenhuma tela/rota de vacinação no código) | Sim | `CRIAR` | P2 |
+| 4e Carteira de vacinação | Sim — `VaccinationScreen.tsx` (`/vaccination`), model `VaccineDose` real (schema próprio, `allow.owner()`), sem mock | Sim | `CONCLUÍDO` (ver pendência 3.a) | P2 |
 
 ## Telas só no código (candidatas a `DESCONTINUAR`)
 
@@ -70,8 +70,12 @@ Nenhuma. Os 17 componentes de tela roteados hoje mapeiam 1:1 para telas do desig
 
 1. **Medicamentos (3d/3f/3g)**: não existe model Amplify/DynamoDB para medicamentos. Precisa de schema novo (`amplify/data/schemas/medicines.ts` ou similar) antes de sair do mock — decisão explícita de schema, documentar em `plan.md` do Bloco 3.
 2. **Prevenção (3e)**: mesma situação — sem model Amplify; o "score preventivo" e checklist precisam de fonte real (provavelmente derivado de exames/vacinas/consultas já persistidos, não uma tabela nova) — decisão de design de dados a tomar no `plan.md`.
-3. **Carteira de vacinação (4e)**: sem model Amplify. Pode reaproveitar `MedicalDocument` (tipo vacina) ou exigir schema novo — decisão a documentar.
-4. **Assistente de IA (4a)**: `chatService` é mock declarado (respostas fixas). Isolar atrás de um serviço nomeado (ex.: `aiAssistantService`) e documentar a integração real pendente — regra da constituição §7 do prompt original (não simular dados falsos silenciosamente).
+3. **Carteira de vacinação (4e) — decisão de schema tomada e implementada:** model dedicado `VaccineDose` (`amplify/data/schemas/vaccination.ts`, `allow.owner()`), não reaproveita `MedicalDocument` — justificativa completa em `specs/04-ia-perfil-vacinacao/carteira-vacinacao/plan.md` §2 (o campo `s3FileName` obrigatório de `MedicalDocument` não modela "recomendada, ainda não aplicada, sem arquivo"). Duas pendências remanescentes, nenhuma bloqueante da tela em si:
+   - **3.a Integração com fonte pública de calendário/campanhas de vacinação** (ex. API do PNI/Ministério da Saúde): não implementada. O banner de campanha institucional usa hoje uma config estática (`src/config/vaccinationCampaigns.ts`), mantida manualmente — ver `plan.md` §4.
+   - **3.b Follow-up cross-EPIC (Prevenção, 3e):** `PreventionScreen.tsx` ainda não consulta `VaccineDose`/`vaccinationCampaigns.ts` para reexibir seu próprio banner de vacinação (hoje oculto, conforme `specs/03-exames-receitas/prevencao/plan.md` §2.5) — schema já existe e desbloqueia essa tarefa, mas a integração em si não foi feita nesta EPIC (fora de escopo, não tocar em `PreventionScreen.tsx`). Ver task registrada em `specs/03-exames-receitas/prevencao/tasks.md`.
+4. **Assistente de IA (4a) — duas pendências distintas, ambas resolvidas nesta camada de UI, nenhuma decidida no backend:**
+   - **4.a Integração real de IA**: `sendMessage` em `src/services/aiAssistantService.ts` (renomeado de `chatService.ts`) continua mock (respostas fixas de `MOCK_RESPONSES`), isolado atrás da interface nomeada `AiAssistantService`. Decisão de provedor (Anthropic Claude API é a candidata já esboçada em comentário), custo por token e — principalmente — política de privacidade para dados de saúde enviados a uma API de terceiros (LGPD) requer confirmação explícita do usuário/orientador do TCC antes de qualquer implementação. Ver `specs/04-ia-perfil-vacinacao/assistente-ia/plan.md` §3.1.
+   - **4.b Persistência de histórico de conversas**: o drawer de histórico (UI completa) foi implementado em `HistoryDrawer.tsx`, mas `historyGroups` inicia e permanece sempre vazio (`useChatBot.ts`) — nenhuma conversa passada é de fato recuperável. Duas rotas possíveis (local via AsyncStorage/SecureStore vs. novo model Amplify `ChatConversation`/`ChatMessage` no DynamoDB), nenhuma escolhida; a segunda rota é mudança de schema (regra 5/6 da constituição) e cria uma nova superfície de dados de saúde sensíveis sob LGPD. Ver `plan.md` §3.2 para o detalhamento completo e a recomendação registrada (não decisão).
 5. **Resumo do Dashboard (2b)**: métricas/alertas/próximos compromissos ainda mockados em `dashboardApi.ts` (a lista de exames recentes já é real). Avaliar se dá para compor a partir de `MedicalDocument`/`Appointment` reais em vez de manter mock.
 6. **Menu "Mais"**: o design nunca desenha a tela do hub "Mais" em si — apenas destaca a aba como ativa em 3e/4a/4b. É necessário decidir a estrutura desse menu (lista de atalhos? sub-navegação?) antes de implementar a navegação de 5 abas. Documentar a interpretação escolhida no `spec.md` da Fundação/Navegação.
 7. **Estados padrão (loading/vazio/erro/sucesso)**: o padrão de 4 estados da tela 1a é declarado como reutilizável em todas as listas/formulários/uploads, mas a maioria das telas do design só mostra o estado populado. Cada `spec.md` de tela deve assumir o padrão de 1a por padrão e sinalizar se algo específico diverge.
@@ -123,5 +127,5 @@ Nenhuma. Os 17 componentes de tela roteados hoje mapeiam 1:1 para telas do desig
 5. Bloco 3 — Medicamentos (3d, 3f, 3g) — depende de decisão de schema (pendência #1)
 6. Bloco 3 — Prevenção (3e) — depende de decisão de dados (pendência #2)
 7. Bloco 4 — Perfil (4b, 4c)
-8. Bloco 4 — Vacinação (4e) — depende de decisão de schema (pendência #3)
+8. Bloco 4 — Vacinação (4e) — `CONCLUÍDO`, decisão de schema #3 tomada e implementada
 9. Bloco 4 — Assistente de IA (4a) — maior atenção a LGPD/responsabilidade (pendência #4)
