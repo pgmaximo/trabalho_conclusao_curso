@@ -20,6 +20,7 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
+import { DetailHeader } from '@/components/DetailHeader';
 import { FormField } from '@/components/FormField';
 import { InlineError } from '@/components/InlineError';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
@@ -157,36 +158,25 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
       <StatusBar backgroundColor={colors.background} style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View className="flex-1">
         <ScrollView contentContainerClassName="px-6 pt-6 pb-32" showsVerticalScrollIndicator={false}>
-          {/* Cabeçalho: voltar + título dinâmico + "Editar" (só em modo visualização) */}
-          <View className="mb-6 flex-row items-center gap-3">
-            <Pressable
-              accessibilityLabel="Voltar"
-              accessibilityRole="button"
-              onPress={() => router.back()}
-              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-              className="size-12 items-center justify-center rounded-field border-[1.5px] border-app-border dark:border-app-dark-border"
-            >
-              <Ionicons color={colors.text} name="chevron-back" size={22} />
-            </Pressable>
-
-            <Text className="flex-1 text-[20px] font-semibold text-app-text dark:text-app-dark-text">
-              {isEditMode ? 'Editar documento' : 'Detalhes do documento'}
-            </Text>
-
-            {!isEditMode ? (
-              <Pressable
-                accessibilityLabel="Editar documento"
-                accessibilityRole="button"
-                onPress={() => setIsEditMode(true)}
-                style={({ pressed }) => [pressed && { opacity: 0.8 }]}
-                className="h-12 items-center justify-center rounded-field border-[1.5px] border-app-border px-4 dark:border-app-dark-border"
-              >
-                <Text className="text-[15px] font-semibold text-app-secondary dark:text-app-dark-secondary">
-                  Editar
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
+          <DetailHeader
+            title={isEditMode ? 'Editar documento' : 'Detalhes do documento'}
+            onBack={() => router.back()}
+            action={
+              !isEditMode ? (
+                <Pressable
+                  accessibilityLabel="Editar documento"
+                  accessibilityRole="button"
+                  onPress={() => setIsEditMode(true)}
+                  style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+                  className="h-12 items-center justify-center rounded-field border-[1.5px] border-app-border px-4 dark:border-app-dark-border"
+                >
+                  <Text className="text-[15px] font-semibold text-app-secondary dark:text-app-dark-secondary">
+                    Editar
+                  </Text>
+                </Pressable>
+              ) : undefined
+            }
+          />
 
           {/* Pré-visualização do arquivo — placeholder decorativo, não é preview real do
               conteúdo (spec.md §3: "fundo hachurado ... placeholder visual"). */}

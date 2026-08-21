@@ -15,6 +15,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
+import { DetailHeader } from '@/components/DetailHeader';
 import { FormField } from '@/components/FormField';
 import { InlineError } from '@/components/InlineError';
 import { FONTS, RADII, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
@@ -92,14 +93,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.background} />
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={22} color={colors.text} />
-            </Pressable>
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>Adicionar documento</Text>
-            </View>
-          </View>
+          <DetailHeader title="Adicionar documento" onBack={() => router.back()} />
 
           {/* File Preview Card */}
           <Card variant="outlined" style={styles.fileCard}>
@@ -249,31 +243,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: SIZES.large,
     paddingTop: SIZES.base,
     paddingBottom: SIZES.large * 2,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SIZES.large,
-    gap: SIZES.base,
-  },
-  backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderCurve: 'continuous',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  titleContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  title: {
-    ...FONTS.title,
-    color: colors.text,
   },
   fileCard: {
     marginBottom: SIZES.large,
