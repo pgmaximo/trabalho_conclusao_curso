@@ -1,7 +1,15 @@
 /**
  * Resumo do arquivo:
- * Camada de servico que abstrai a chamada de IA do chat de saude.
- * Hoje retorna respostas mockadas; a UI/hook nao sabem que e mock.
+ * Fronteira explícita com o provedor de IA do Assistente (tela 4a). Hoje retorna
+ * respostas mockadas — a UI/hook do chat não sabem disso, só conhecem o contrato
+ * `AiAssistantService`.
+ *
+ * ATENÇÃO — pendência fora do escopo desta camada: a troca por uma IA real
+ * (provedor, custo por token, política de retenção de dados de saúde enviados a
+ * uma API de terceiros, base legal LGPD) é uma decisão maior que requer
+ * confirmação explícita do usuário/orientador do TCC antes de ser tomada. Este
+ * arquivo apenas prepara a fronteira (contrato de interface) para que, quando
+ * decidida, a troca seja um swap desta função — nunca uma refatoração de UI.
  */
 
 export interface ChatMessage {
@@ -11,14 +19,14 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
-export interface ChatService {
+export interface AiAssistantService {
   // userContext (futuro): perfil + exames serializados injetados no system prompt
   sendMessage: (message: string, history: ChatMessage[], userContext?: string) => Promise<string>;
 }
 
 const MOCK_RESPONSES = [
   'Baseado no seu perfil, recomendo consultar um médico para avaliar esses resultados.',
-  'Seus exames indicam que os valores estão dentro da faixa normal para sua idade.',
+  'Seus exames indicam que os valores estão dentro da faixa de referência usual para sua idade — isso é uma leitura informativa, não substitui a avaliação de um profissional de saúde.',
   'Para entender melhor esse resultado, seria útil verificar o histórico dos últimos 6 meses.',
   'Posso analisar seu exame com mais detalhes. Você pode me enviar o arquivo pelo botão de anexo.',
 ];
@@ -44,4 +52,4 @@ export async function sendMessage(
 //       .concat({ role: 'user', content: message }),
 //   });
 //   return completion.content[0].type === 'text' ? completion.content[0].text : '';
-// A interface ChatService permanece a mesma — UI e hook nao mudam.
+// A interface AiAssistantService permanece a mesma — UI e hook nao mudam.

@@ -1,11 +1,16 @@
 /**
  * Resumo do arquivo:
  * Hook que gerencia o estado do chat (mensagens, input, "digitando") e
- * orquestra a chamada ao chatService. Sem persistencia entre sessoes.
+ * orquestra a chamada ao aiAssistantService. Sem persistencia entre sessoes.
  */
 import { useCallback, useState } from 'react';
 
-import { sendMessage as sendChatMessage, type ChatMessage } from '@/services/chatService';
+import { sendMessage as sendChatMessage, type ChatMessage } from '@/services/aiAssistantService';
+
+export type HistoryGroup = {
+  group: string;
+  items: { title: string; onSelect: () => void }[];
+};
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
@@ -29,12 +34,21 @@ export interface UseChatBotReturn {
   isTyping: boolean;
   sendMessage: (override?: string) => Promise<void>;
   clearHistory: () => void;
+  historyOpen: boolean;
+  // DECISION (plan.md §3.2): nenhuma conversa é persistida ainda — historyGroups
+  // fica sempre vazio nesta versão, comunicado ao usuário via copy de estado
+  // vazio no HistoryDrawer, nunca preenchido com dado inventado.
+  historyGroups: HistoryGroup[];
+  openHistory: () => void;
+  closeHistory: () => void;
+  newChat: () => void;
 }
 
 export function useChatBot(): UseChatBotReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // DECISION: aceita `override` para os prompts rapidos enviarem direto,
   // sem depender da atualizacao assincrona de `inputText`.
@@ -85,5 +99,25 @@ export function useChatBot(): UseChatBotReturn {
     setInputText('');
   }, []);
 
-  return { messages, inputText, setInputText, isTyping, sendMessage, clearHistory };
+  const openHistory = useCallback(() => setHistoryOpen(true), []);
+  const closeHistory = useCallback(() => setHistoryOpen(false), []);
+
+  const newChat = useCallback(() => {
+    clearHistory();
+    setHistoryOpen(false);
+  }, [clearHistory]);
+
+  return {
+    messages,
+    inputText,
+    setInputText,
+    isTyping,
+    sendMessage,
+    clearHistory,
+    historyOpen,
+    historyGroups: [],
+    openHistory,
+    closeHistory,
+    newChat,
+  };
 }
