@@ -42,9 +42,6 @@ export type AppTabId = (typeof APP_TABS)[number]['id'];
 
 // Itens do hub "Mais" (tela de menu, ver src/screens/MoreScreen.tsx).
 // Config estática local, sem dependência de dados remotos (spec.md §5).
-// NOTA: "Carteira de vacinação" (/vaccination) fica de fora até a tela 4e
-// existir (plan.md §7) — quando existir, adicionar aqui e em
-// MORE_ROUTE_PREFIXES abaixo (mudança de 1 linha em cada).
 export const MORE_MENU_ITEMS = [
   {
     id: 'prevention',
@@ -61,6 +58,13 @@ export const MORE_MENU_ITEMS = [
     href: '/ai',
   },
   {
+    id: 'vaccination',
+    icon: 'medical',
+    label: 'Carteira de vacinação',
+    description: 'Doses aplicadas e recomendadas',
+    href: '/vaccination',
+  },
+  {
     id: 'profile',
     icon: 'person',
     label: 'Perfil',
@@ -71,7 +75,7 @@ export const MORE_MENU_ITEMS = [
 
 // Prefixos de pathname que ficam "atrás" da aba Mais — qualquer rota que
 // comece com um destes prefixos marca a aba 'more' como ativa.
-export const MORE_ROUTE_PREFIXES = ['/more', '/ai', '/prevention', '/profile'] as const;
+export const MORE_ROUTE_PREFIXES = ['/more', '/ai', '/prevention', '/profile', '/vaccination'] as const;
 
 /**
  * Função para determinar qual tab está ativa baseada no pathname atual
