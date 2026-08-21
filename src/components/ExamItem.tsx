@@ -1,24 +1,22 @@
 // =============================================================================
 // Arquivo: ExamItem.tsx
-// Descrição: Componente de item para exibir documentos médicos (exames, receitas, laudos)
+// Descrição: Componente de item para exibir documentos médicos (exames, receitas)
 // Componente: ExamItem
 // =============================================================================
 //
 // Este componente implementa um item para exibir documentos médicos com ícone,
-// título, chip de tipo e data. É usado na tela de exames para mostrar
-// diferentes tipos de documentos médicos.
+// título, linha de meta (tipo · data) e um badge de status opcional. É usado na
+// tela de exames para mostrar diferentes tipos de documentos médicos.
 //
 // Funcionalidades:
 // - Ícone vetorial (Ionicons) representativo do tipo de documento
-// - Título com elipse e linha de meta (chip de tipo + data)
+// - Título com elipse e linha de meta em texto simples ("Exame · 12/08/2026")
+// - Badge de status (pill ícone-círculo + texto) — Canvas 3a, só renderizado
+//   quando há dado real de validade (receitas); ausente para exames (nenhuma
+//   fonte real de resultado clínico hoje, ver plan.md §2 do EPIC 3a)
 // - Indicador de navegação (chevron) à direita
 // - Feedback visual ao pressionar
 // - Layout horizontal robusto para telas estreitas
-//
-// Tipos de Documentos:
-// - exam: Exames laboratoriais e imagens
-// - prescription: Receitas médicas
-// - report: Laudos e resultados
 //
 // =============================================================================
 
@@ -29,17 +27,18 @@ import Ionicons from '@expo/vector-icons/Ionicons';  // Ícones vetoriais do pro
 
 // Importações de tema
 import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';  // Configurações
-
-// Exportação do tipo para uso em outros componentes
-export type ExamItemType = 'exam' | 'prescription' | 'report';
+import type { DocumentValidityStatus } from '@/types/models';
 
 // Props do componente ExamItem
 type ExamItemProps = {
   icon: string;                    // Nome do Ionicon (ex: "flask-outline") ou emoji legado
   title: string;                   // Título/nome do documento
-  subtitle: string;                // Subtítulo (data do documento)
-  statusLabel: string;             // Texto do tipo (ex: "Exame", "Receita")
-  statusColor: string;              // Cor de destaque do tipo
+  subtitle: string;                // Linha de meta já composta ("Exame · 12/08/2026")
+  documentType: 'exam' | 'prescription'; // Tipo real do documento — usado só para resolver a
+                                          // cor de destaque do ícone (accent, não é status);
+                                          // a cor de verdade é resolvida via useThemeColors()
+                                          // abaixo, nunca hardcoded, para respeitar dark mode.
+  validityStatus?: DocumentValidityStatus | null; // Badge de status — só receitas têm dado real
   onPress?: () => void;            // Callback ao pressionar o item
 };
 
@@ -48,18 +47,47 @@ function isIoniconName(icon: string): boolean {
   return /^[a-z0-9-]+$/.test(icon);
 }
 
+// Cor de destaque do ícone por tipo de documento, resolvida a partir dos tokens de tema
+// (nunca hex fixo) — âmbar/warning para exame, azul/secondary para receita.
+function getIconAccentColor(colors: ThemeColors, documentType: 'exam' | 'prescription'): string {
+  return documentType === 'exam' ? colors.warning : colors.secondary;
+}
+
+// Configuração visual do badge de validade — 2 dos 5 tokens semânticos canônicos de
+// DESIGN_TOKENS.md §1 (Válida=azul/info, Vencida=cinza-neutro), conforme Canvas 3a §3.
+function getValidityBadgeConfig(colors: ThemeColors, status: DocumentValidityStatus) {
+  if (status === 'valida') {
+    return {
+      label: 'Válida',
+      icon: 'checkmark-circle' as const,
+      textColor: colors.info,
+      bg: colors.infoSoft,
+      border: colors.infoBadgeBorder,
+    };
+  }
+  return {
+    label: 'Vencida',
+    icon: 'time-outline' as const,
+    textColor: colors.neutral,
+    bg: colors.neutralSoft,
+    border: colors.neutralBadgeBorder,
+  };
+}
+
 // Componente ExamItem principal
 export function ExamItem({
   icon,                    // Ícone do documento
   title,                   // Título
-  subtitle,                // Subtítulo (data)
-  statusLabel,             // Label do tipo
-  statusColor,             // Cor do tipo
+  subtitle,                // Linha de meta (tipo · data)
+  documentType,             // Tipo real do documento — resolve a cor de destaque do ícone
+  validityStatus,           // Status de validade (badge), quando existir
   onPress,                 // Callback de pressão
 }: ExamItemProps) {
   // Cores do tema atual (claro/escuro) e estilos derivados
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const badge = validityStatus ? getValidityBadgeConfig(colors, validityStatus) : null;
+  const iconColor = getIconAccentColor(colors, documentType);
 
   // Renderiza o item de documento
   return (
@@ -69,9 +97,9 @@ export function ExamItem({
       onPress={onPress}                // Callback de pressão
     >
       {/* Container do ícone com fundo tonal do tipo */}
-      <View style={[styles.iconContainer, { backgroundColor: `${statusColor}1A` }]}>
+      <View style={[styles.iconContainer, { backgroundColor: `${iconColor}1A` }]}>
         {isIoniconName(icon) ? (
-          <Ionicons name={icon as never} size={22} color={statusColor} />
+          <Ionicons name={icon as never} size={22} color={iconColor} />
         ) : (
           <Text style={styles.iconEmoji}>{icon}</Text>
         )}
@@ -82,15 +110,18 @@ export function ExamItem({
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
-        <View style={styles.metaRow}>
-          <View style={[styles.typeChip, { backgroundColor: `${statusColor}1A` }]}>
-            <Text style={[styles.typeChipText, { color: statusColor }]}>{statusLabel}</Text>
-          </View>
-          <Text style={styles.date} numberOfLines={1}>
-            {subtitle}
-          </Text>
-        </View>
+        <Text style={styles.meta} numberOfLines={1}>
+          {subtitle}
+        </Text>
       </View>
+
+      {/* Badge de status de validade (só quando há dado real) */}
+      {badge ? (
+        <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+          <Ionicons name={badge.icon} size={14} color={badge.textColor} />
+          <Text style={[styles.badgeText, { color: badge.textColor }]}>{badge.label}</Text>
+        </View>
+      ) : null}
 
       {/* Indicador de navegação */}
       <Ionicons
@@ -154,34 +185,30 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,             // Cor principal do texto
   },
 
-  // Linha de meta (chip de tipo + data)
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SIZES.small,
+  // Linha de meta ("Exame · 12/08/2026")
+  meta: {
+    ...FONTS.caption,               // Usa fonte caption do tema
+    color: colors.textSecondary,    // Cor secundária do texto
     marginTop: 4,
   },
 
-  // Chip do tipo de documento
-  typeChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,              // Pílula
-    flexShrink: 0,                  // Não encolhe
+  // Badge de status de validade (pill ícone-círculo + texto)
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexShrink: 0,
   },
 
-  // Texto do chip de tipo
-  typeChipText: {
-    fontSize: 11,
+  // Texto do badge de status
+  badgeText: {
+    fontSize: 13,
     lineHeight: 16,
     fontWeight: '700',
-  },
-
-  // Data do documento
-  date: {
-    ...FONTS.caption,               // Usa fonte caption do tema
-    color: colors.textSecondary,    // Cor secundária do texto
-    flexShrink: 1,                  // Trunca antes do chip
   },
 
   // Indicador de navegação

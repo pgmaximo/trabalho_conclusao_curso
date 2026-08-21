@@ -9,9 +9,9 @@
 // resultados laboratoriais.
 //
 // Funcionalidades:
-// - Listagem completa de documentos médicos (exames, receitas, laudos)
+// - Listagem completa de documentos médicos (exames, receitas)
 // - Busca por nome ou tipo de documento
-// - Filtros por categoria (Todos, Exames, Receitas, Laudos)
+// - Filtros por categoria (Todos, Exames, Receitas, Alterados)
 // - Visualização detalhada de cada documento
 //
 // Dados Gerenciados:
@@ -36,7 +36,7 @@ export default function ExamsRoute() {
   // Renderiza a tela de exames com todos os dados e callbacks
   return (
     <ExamsScreen
-      // Array de opções de filtro disponíveis (Todos, Exames, Receitas, Laudos)
+      // Array de opções de filtro disponíveis (Todos, Exames, Receitas, Alterados)
       filterOptions={exams.filterOptions}
       
       // Texto atual digitado no campo de busca
