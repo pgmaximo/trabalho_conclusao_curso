@@ -1,21 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Avatar } from '@/components/Avatar';
+import { BottomSheet } from '@/components/BottomSheet';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 import { useThemeContext, type ThemeMode } from '@/contexts/ThemeContext';
 import type { UserProfile } from '@/contexts/UserContext';
 import { requestDataExport } from '@/services/export/dataExportService';
 import { getHealthConnectStatus } from '@/services/health/healthAppConnectService';
+import {
+  REMINDER_INTERVAL_OPTIONS,
+  type ReminderIntervalsByGrade,
+} from '@/services/reminderService';
+import type { UspstfGrade } from '@/types/models';
 
 type ProfileScreenProps = {
   user: UserProfile | null;
   theme: ThemeMode;
   onSetTheme: (t: ThemeMode) => void;
+  reminderIntervals: ReminderIntervalsByGrade;
+  onSetReminderInterval: (grade: UspstfGrade, days: number) => void;
   onLogout: () => void;
   onEditProfile: () => void;
 };
@@ -25,6 +33,24 @@ const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
   { label: 'Automático', value: 'system' },
   { label: 'Escuro', value: 'dark' },
 ];
+
+const REMINDER_GRADE_ORDER: UspstfGrade[] = ['A', 'B', 'C', 'D', 'I'];
+
+// Converte dias em uma unidade mais legivel (meses/anos) quando fizer sentido —
+// intervalos recorrentes de 30+ dias ficam mais claros como "1 mês"/"1 ano".
+function formatIntervalLabel(days: number): string {
+  if (days % 365 === 0) {
+    const years = days / 365;
+    return `${years} ano${years === 1 ? '' : 's'}`;
+  }
+
+  if (days >= 30 && days % 30 === 0) {
+    const months = days / 30;
+    return `${months} ${months === 1 ? 'mês' : 'meses'}`;
+  }
+
+  return `${days} dias`;
+}
 
 function calculateBMI(weightKg?: number, heightCm?: number): string | null {
   if (!weightKg || !heightCm) return null;
@@ -50,6 +76,8 @@ export function ProfileScreen({
   user,
   theme,
   onSetTheme,
+  reminderIntervals,
+  onSetReminderInterval,
   onLogout,
   onEditProfile,
 }: ProfileScreenProps) {
@@ -58,6 +86,7 @@ export function ProfileScreen({
   const bmi = calculateBMI(user?.weightKg, user?.heightCm);
   const age = user?.birthDate ? calculateAge(user.birthDate) : null;
   const healthConnectStatus = getHealthConnectStatus();
+  const [activeIntervalGrade, setActiveIntervalGrade] = useState<UspstfGrade | null>(null);
 
   const handleExportData = async () => {
     await requestDataExport();
@@ -170,6 +199,85 @@ export function ProfileScreen({
               })}
             </View>
           </Section>
+
+          <Section
+            title="Lembretes de prevenção"
+            subtitle="Toque em um grau para escolher de quanto em quanto tempo repetir o lembrete."
+          >
+            <View className="overflow-hidden rounded-card border border-app-border dark:border-app-dark-border">
+              {REMINDER_GRADE_ORDER.map((grade, index) => (
+                <Pressable
+                  key={grade}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Intervalo de lembrete para grau ${grade}`}
+                  onPress={() => setActiveIntervalGrade(grade)}
+                  className={[
+                    'flex-row items-center justify-between bg-app-surface px-4 py-4 dark:bg-app-dark-surface',
+                    index < REMINDER_GRADE_ORDER.length - 1
+                      ? 'border-b border-app-border dark:border-app-dark-border'
+                      : '',
+                  ].join(' ')}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                >
+                  <Text className="text-[15px] text-app-text dark:text-app-dark-text">
+                    Grau {grade}
+                  </Text>
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="text-[15px] font-semibold text-app-primary dark:text-app-dark-primary">
+                      {formatIntervalLabel(reminderIntervals[grade])}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.iconMuted} />
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </Section>
+
+          <BottomSheet
+            visible={activeIntervalGrade !== null}
+            title={activeIntervalGrade ? `Grau ${activeIntervalGrade}` : ''}
+            description="Escolha de quanto em quanto tempo repetir o lembrete para este grau."
+            onClose={() => setActiveIntervalGrade(null)}
+          >
+            {REMINDER_INTERVAL_OPTIONS.map((days) => {
+              const isSelected =
+                activeIntervalGrade !== null && reminderIntervals[activeIntervalGrade] === days;
+
+              return (
+                <Pressable
+                  key={days}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  onPress={() => {
+                    if (activeIntervalGrade !== null) {
+                      onSetReminderInterval(activeIntervalGrade, days);
+                    }
+                    setActiveIntervalGrade(null);
+                  }}
+                  className={[
+                    'flex-row items-center justify-between rounded-app px-4 py-3.5',
+                    isSelected
+                      ? 'bg-app-primarySoft dark:bg-app-dark-primarySoft'
+                      : 'bg-app-surfaceMuted dark:bg-app-dark-surfaceMuted',
+                  ].join(' ')}
+                >
+                  <Text
+                    className={[
+                      'text-[15px]',
+                      isSelected
+                        ? 'font-bold text-app-primary dark:text-app-dark-primary'
+                        : 'text-app-text dark:text-app-dark-text',
+                    ].join(' ')}
+                  >
+                    {formatIntervalLabel(days)}
+                  </Text>
+                  {isSelected ? (
+                    <Ionicons name="checkmark" size={20} color={colors.primary} />
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </BottomSheet>
 
           <Section title="Configurações" subtitle="Gerencie seus dados e sessão.">
             <View className="mb-3 rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface">

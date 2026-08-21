@@ -4,11 +4,13 @@ import { router } from 'expo-router';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { useUserContext } from '@/contexts/UserContext';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useReminderPreferences } from '@/hooks/useReminderPreferences';
 import { logoutUser } from '@/services/auth';
 
 export default function ProfileRoute() {
   const { user, clearUser } = useUserContext();
   const { theme, setTheme } = useThemeContext();
+  const { reminderIntervals, setReminderIntervalForGrade } = useReminderPreferences();
 
   async function handleLogout() {
     clearUser(); // limpa UserContext + AsyncStorage do perfil
@@ -21,6 +23,8 @@ export default function ProfileRoute() {
       user={user}
       theme={theme}
       onSetTheme={setTheme}
+      reminderIntervals={reminderIntervals}
+      onSetReminderInterval={setReminderIntervalForGrade}
       onLogout={handleLogout}
       onEditProfile={() => router.push('/edit-profile')}
     />
