@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
@@ -38,7 +38,9 @@ export function EditAppointmentScreen({ id }: { id: string }) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [status, setStatus] = useState<LoadStatus>('loading');
-  const [appointment, setAppointment] = useState<AppointmentRecord | null>(null);
+  // Lido só dentro de handlers (id/guard) — nunca no render, então não precisa
+  // disparar re-render (quem controla a UI é `status`, ver useEffect abaixo).
+  const appointmentRef = useRef<AppointmentRecord | null>(null);
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('CONSULTA');
   const [appointmentName, setAppointmentName] = useState('');
   const [professionalName, setProfessionalName] = useState('');
@@ -67,7 +69,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
           return;
         }
 
-        setAppointment(data);
+        appointmentRef.current = data;
         setAppointmentType(data.appointmentType);
         setAppointmentName(data.appointmentName);
         setProfessionalName(data.professionalName ?? '');
@@ -94,6 +96,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
   const disabledReason = isFormInvalid ? 'Preencha nome, data e hora para salvar.' : undefined;
 
   async function handleSave() {
+    const appointment = appointmentRef.current;
     if (!appointment || isFormInvalid) {
       return;
     }
@@ -123,6 +126,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
   }
 
   async function handleConfirmDelete() {
+    const appointment = appointmentRef.current;
     if (!appointment) return;
 
     setIsDeleting(true);
