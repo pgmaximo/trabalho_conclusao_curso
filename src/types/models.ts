@@ -80,7 +80,6 @@ export interface MedicalDocument {
   icon: string;                                    // Ícone representativo
   title: string;                                  // Título do documento
   subtitle: string;                               // Linha de meta já composta: "{Tipo} · {data}" (exame) ou "{Tipo} · emitida {data}" (receita)
-  iconColor: string;                              // Cor de destaque do ícone do tipo de documento (accent, não é badge de status de resultado)
   category: Exclude<MedicalDocumentFilter, 'Todos'>; // Categoria (excluindo "Todos")
   // Full document data for editing
   documentType: 'exam' | 'prescription';           // Tipo de documento

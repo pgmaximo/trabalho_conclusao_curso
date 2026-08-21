@@ -34,7 +34,10 @@ type ExamItemProps = {
   icon: string;                    // Nome do Ionicon (ex: "flask-outline") ou emoji legado
   title: string;                   // Título/nome do documento
   subtitle: string;                // Linha de meta já composta ("Exame · 12/08/2026")
-  iconColor: string;               // Cor de destaque do ícone do tipo (accent, não é status)
+  documentType: 'exam' | 'prescription'; // Tipo real do documento — usado só para resolver a
+                                          // cor de destaque do ícone (accent, não é status);
+                                          // a cor de verdade é resolvida via useThemeColors()
+                                          // abaixo, nunca hardcoded, para respeitar dark mode.
   validityStatus?: DocumentValidityStatus | null; // Badge de status — só receitas têm dado real
   onPress?: () => void;            // Callback ao pressionar o item
 };
@@ -42,6 +45,12 @@ type ExamItemProps = {
 // Detecta nomes de Ionicon (ASCII com hífen) vs emoji legado — mesmo padrão de EmptyState
 function isIoniconName(icon: string): boolean {
   return /^[a-z0-9-]+$/.test(icon);
+}
+
+// Cor de destaque do ícone por tipo de documento, resolvida a partir dos tokens de tema
+// (nunca hex fixo) — âmbar/warning para exame, azul/secondary para receita.
+function getIconAccentColor(colors: ThemeColors, documentType: 'exam' | 'prescription'): string {
+  return documentType === 'exam' ? colors.warning : colors.secondary;
 }
 
 // Configuração visual do badge de validade — 2 dos 5 tokens semânticos canônicos de
@@ -70,7 +79,7 @@ export function ExamItem({
   icon,                    // Ícone do documento
   title,                   // Título
   subtitle,                // Linha de meta (tipo · data)
-  iconColor,                // Cor de destaque do ícone
+  documentType,             // Tipo real do documento — resolve a cor de destaque do ícone
   validityStatus,           // Status de validade (badge), quando existir
   onPress,                 // Callback de pressão
 }: ExamItemProps) {
@@ -78,6 +87,7 @@ export function ExamItem({
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const badge = validityStatus ? getValidityBadgeConfig(colors, validityStatus) : null;
+  const iconColor = getIconAccentColor(colors, documentType);
 
   // Renderiza o item de documento
   return (

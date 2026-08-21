@@ -7,11 +7,6 @@ import { useAsyncResource } from '@/hooks/useAsyncResource';
 import type { DocumentValidityStatus, MedicalDocument, MedicalDocumentFilter } from '@/types/models';
 import { formatDateForDisplay, getTodayDate } from '@/services/examService';
 
-// Cor de destaque do ícone por tipo de documento (accent visual, não é badge de status —
-// o badge de status/validade é calculado separadamente, ver `computeValidityStatus`).
-const EXAM_ICON_COLOR = '#8A5300'; // âmbar — token de atenção/neutro reaproveitado como accent
-const PRESCRIPTION_ICON_COLOR = '#1B63C4'; // azul secundário
-
 /**
  * Calcula o status de validade de uma receita comparando `expirationDate` com a data atual.
  * Só se aplica a receitas — exames não têm nenhuma fonte de dado real de resultado clínico
@@ -110,7 +105,6 @@ async function fetchMedicalDocuments(): Promise<MedicalDocument[]> {
         // Canvas 3a §3 (specs/03-exames-receitas/lista/spec.md); local/laboratório omitido
         // de propósito (campo inexistente no schema, ver spec.md §5).
         subtitle: isExam ? `Exame · ${formattedDate}` : `Receita · emitida ${formattedDate}`,
-        iconColor: isExam ? EXAM_ICON_COLOR : PRESCRIPTION_ICON_COLOR,
         category: isExam ? 'Exames' : 'Receitas',
         // Full document data
         documentType,

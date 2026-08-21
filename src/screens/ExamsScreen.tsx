@@ -207,7 +207,7 @@ export function ExamsScreen({
                           icon={document.icon}
                           title={document.title}
                           subtitle={document.subtitle}
-                          iconColor={document.iconColor}
+                          documentType={document.documentType}
                           validityStatus={document.validityStatus}
                           onPress={() => {
                             setSelectedDocument(document);
