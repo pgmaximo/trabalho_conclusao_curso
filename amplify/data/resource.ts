@@ -4,6 +4,7 @@ import { medicalDocumentsSchema } from './schemas/medical-documents.js';
 import { appointmentsSchema } from './schemas/appointments.js';
 import { vaccinationSchema } from './schemas/vaccination.js';
 import { medicinesSchema } from './schemas/medicines.js';
+import { preventionSchema } from './schemas/prevention.js';
 
 const schema = a.schema({
   ...userSchema,
@@ -11,6 +12,7 @@ const schema = a.schema({
   ...appointmentsSchema,
   ...vaccinationSchema,
   ...medicinesSchema,
+  ...preventionSchema,
 });
 
 export type Schema = ClientSchema<typeof schema>;
