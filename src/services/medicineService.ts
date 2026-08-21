@@ -50,6 +50,8 @@ export function validateMedicineReminder(input: MedicineInput): MedicineValidati
     errors.push({ field: 'times', message: 'Adicione ao menos um horário de dose.' });
   } else if (new Set(input.times).size !== input.times.length) {
     errors.push({ field: 'times', message: 'Horários de dose duplicados.' });
+  } else if (!input.times.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time))) {
+    errors.push({ field: 'times', message: 'Informe os horários de dose no formato hh:mm.' });
   }
 
   if (!input.frequencyType) {

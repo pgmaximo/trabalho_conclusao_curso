@@ -165,6 +165,20 @@ export async function saveMedicineReminderMap(map: MedicineReminderMap): Promise
  * negada, nenhum lembrete novo e criado (nunca falha a operacao de
  * salvar o medicamento por causa disso — quem chama decide se propaga erro).
  */
+function isEndDateInThePast(endDate: string | null | undefined): boolean {
+  if (!endDate) {
+    return false;
+  }
+  const end = new Date(endDate);
+  if (Number.isNaN(end.getTime())) {
+    return false;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  return end.getTime() < today.getTime();
+}
+
 export async function syncMedicineReminders(medicine: MedicineRecord): Promise<void> {
   const map = await loadMedicineReminderMap();
   const existingIds = map[medicine.id] ?? [];
@@ -174,7 +188,10 @@ export async function syncMedicineReminders(medicine: MedicineRecord): Promise<v
     delete map[medicine.id];
   }
 
-  if (medicine.active !== false) {
+  // Curso de tratamento ja encerrado (endDate no passado): trata como inativo,
+  // nao agenda nada novo. Nao implementa janela parcial/agendamento futuro —
+  // apenas o corte quando a data final ja passou. Ver GAP_ANALYSIS.md item 22.
+  if (medicine.active !== false && !isEndDateInThePast(medicine.endDate)) {
     const granted = await ensureNotificationPermission();
     if (granted) {
       const newIds = await scheduleMedicineReminders(medicine);

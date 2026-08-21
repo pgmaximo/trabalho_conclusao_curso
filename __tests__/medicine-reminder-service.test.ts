@@ -1,7 +1,45 @@
+jest.mock('expo-notifications', () => ({
+  scheduleNotificationAsync: jest.fn(() => Promise.resolve('notification-id')),
+  cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  SchedulableTriggerInputTypes: {
+    DAILY: 'daily',
+    WEEKLY: 'weekly',
+    TIME_INTERVAL: 'timeInterval',
+  },
+}));
+
+jest.mock('@/services/reminderService', () => ({
+  ensureNotificationPermission: jest.fn(() => Promise.resolve(true)),
+}));
+
+import * as Notifications from 'expo-notifications';
+import { ensureNotificationPermission } from '@/services/reminderService';
+import type { MedicineRecord } from '@/services/medicineService';
 import {
   buildMedicineReminderPlans,
   parseTimeToHourMinute,
+  syncMedicineReminders,
 } from '@/services/medicineReminderService';
+
+function baseMedicine(overrides: Partial<MedicineRecord> = {}): MedicineRecord {
+  return {
+    id: 'med-1',
+    name: 'Dipirona',
+    dosage: '500mg',
+    form: 'PILL',
+    times: ['08:00'],
+    frequencyType: 'DAILY',
+    weekDays: [],
+    intervalHours: undefined,
+    startDate: '2020-01-01',
+    endDate: null,
+    currentStock: 10,
+    initialStock: 10,
+    unit: 'COMP',
+    active: true,
+    ...overrides,
+  };
+}
 
 describe('parseTimeToHourMinute', () => {
   it('parses a valid HH:MM string', () => {
@@ -89,5 +127,28 @@ describe('buildMedicineReminderPlans', () => {
         intervalHours: undefined,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('syncMedicineReminders', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (ensureNotificationPermission as jest.Mock).mockResolvedValue(true);
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('notification-id');
+  });
+
+  it('schedules reminders for a medicine without an endDate', async () => {
+    await syncMedicineReminders(baseMedicine({ endDate: null }));
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
+  });
+
+  it('skips scheduling entirely when endDate is already in the past', async () => {
+    await syncMedicineReminders(baseMedicine({ endDate: '2020-01-02' }));
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('still schedules reminders when endDate is in the future', async () => {
+    await syncMedicineReminders(baseMedicine({ endDate: '2099-01-01' }));
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
   });
 });
