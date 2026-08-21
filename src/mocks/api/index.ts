@@ -6,5 +6,4 @@
 export * from './appointmentsApi';
 export * from './dashboardApi';
 export * from './examsApi';
-export * from './preventionApi';
 export * from './profileApi';
