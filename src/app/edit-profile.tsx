@@ -23,9 +23,9 @@ function awsDateToBrazilian(value?: string): string {
   return `${day}/${month}/${year}`;
 }
 
-function heightCmToMeters(value?: number): string {
+function heightCmToText(value?: number): string {
   if (!value) return '';
-  return (value / 100).toFixed(2).replace('.', ',');
+  return String(Math.round(value));
 }
 
 function boolToAnswer(value?: boolean): EditProfileFormState['tobaccoUse'] {
@@ -40,7 +40,7 @@ function userToFormState(user: UserProfile): EditProfileFormState {
     birthDate: awsDateToBrazilian(user.birthDate),
     biologicalSex:
       user.gender === 'female' ? 'female' : user.gender === 'male' ? 'male' : 'prefer_not_to_say',
-    heightCm: heightCmToMeters(user.heightCm),
+    heightCm: heightCmToText(user.heightCm),
     weightKg: user.weightKg ? String(user.weightKg) : '',
     tobaccoUse: boolToAnswer(user.isSmoker),
     sexuallyActive: boolToAnswer(user.sexuallyActive),

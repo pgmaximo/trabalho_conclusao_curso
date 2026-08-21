@@ -12,6 +12,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -35,7 +36,7 @@ export type EditProfileFormState = {
   fullName: string;
   birthDate: string; // DD/MM/AAAA
   biologicalSex: BiologicalSexValue;
-  heightCm: string; // metros com vírgula (ex.: 1,72)
+  heightCm: string; // centímetros inteiros (ex.: 165)
   weightKg: string; // kg
   tobaccoUse: OptionalAnswerValue;
   sexuallyActive: OptionalAnswerValue;
@@ -56,9 +57,9 @@ type EditProfileScreenProps = {
 };
 
 const SEX_OPTIONS: { label: string; value: Exclude<BiologicalSexValue, ''> }[] = [
-  { label: 'Feminino', value: 'female' },
   { label: 'Masculino', value: 'male' },
-  { label: 'Prefiro não informar', value: 'prefer_not_to_say' },
+  { label: 'Feminino', value: 'female' },
+  { label: 'Outro', value: 'prefer_not_to_say' },
 ];
 
 const ANSWER_OPTIONS: { label: string; value: OptionalAnswerValue }[] = [
@@ -74,9 +75,7 @@ function formatBirthDateInput(value: string) {
 }
 
 function formatHeightInput(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 3);
-  if (digits.length <= 1) return digits;
-  return `${digits.slice(0, 1)},${digits.slice(1)}`;
+  return value.replace(/\D/g, '').slice(0, 3);
 }
 
 function formatWeightInput(value: string) {
@@ -121,6 +120,10 @@ export function EditProfileScreen({
     onSubmit(values);
   }
 
+  function handleChangePhoto() {
+    Alert.alert('Alterar foto', 'Em breve você poderá trocar sua foto por aqui.');
+  }
+
   const showPregnancy = values.biologicalSex === 'female';
 
   return (
@@ -133,7 +136,7 @@ export function EditProfileScreen({
           accessibilityLabel="Voltar"
           accessibilityRole="button"
           onPress={onCancel}
-          className="h-11 w-11 items-center justify-center rounded-full"
+          className="size-11 items-center justify-center rounded-full"
           style={({ pressed }) => [pressed && { opacity: 0.6 }]}
         >
           <Ionicons color={colorScheme === 'dark' ? '#F8FAFC' : '#0F172A'} name="chevron-back" size={26} />
@@ -141,7 +144,7 @@ export function EditProfileScreen({
         <Text className="text-[17px] font-bold text-app-text dark:text-app-dark-text">
           Editar perfil
         </Text>
-        <View className="h-11 w-11" />
+        <View className="size-11" />
       </View>
 
       <KeyboardAvoidingView
@@ -155,6 +158,16 @@ export function EditProfileScreen({
         >
           <View className="mb-8 items-center">
             <Avatar name={displayName} gender={gender} photoUrl={photoUrl} size="lg" />
+            <Pressable
+              accessibilityLabel="Alterar foto"
+              accessibilityRole="button"
+              onPress={handleChangePhoto}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            >
+              <Text className="mt-3 text-[16px] font-semibold text-app-primary dark:text-app-dark-primary">
+                Alterar foto
+              </Text>
+            </Pressable>
             {email ? (
               <Text className="mt-3 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
                 {email}
@@ -203,9 +216,10 @@ export function EditProfileScreen({
             <View className="flex-row gap-3">
               <FormField
                 label="Altura"
-                inputMode="decimal"
-                placeholder="1,72"
-                helperText="Em metros"
+                inputMode="numeric"
+                maxLength={3}
+                placeholder="165"
+                helperText="Em cm"
                 value={values.heightCm}
                 onChangeText={(text) => update('heightCm', formatHeightInput(text))}
                 containerClassName="mt-0 flex-1"
@@ -248,7 +262,7 @@ export function EditProfileScreen({
 
             <View className="mt-6">
               <Text className="mb-3 text-sm font-semibold text-app-text dark:text-app-dark-text">
-                Pratica atividade física?
+                Atividade física
               </Text>
               <PillGroup
                 options={ANSWER_OPTIONS}
