@@ -114,7 +114,7 @@ export function FormField({
       ) : null}
 
       {!isInvalid && helperText ? (
-        <Text className="mt-3 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+        <Text className="mt-3 text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
           {helperText}
         </Text>
       ) : null}

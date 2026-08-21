@@ -23,7 +23,11 @@ interface MedicineStockProps {
 
 export function MedicineStock({ name, quantity, unit, status, percentage = 100, onPress }: MedicineStockProps) {
   const colors = useThemeColors();
-  const isLow = status === 'low' || status === 'critical';
+  const isCritical = status === 'critical';
+  const isLow = status === 'low' || isCritical;
+  const alertColor = isCritical ? colors.danger : colors.warning;
+  const alertBorderColor = isCritical ? colors.dangerBadgeBorder : colors.warningBadgeBorder;
+  const alertMessage = isCritical ? 'Estoque esgotado — compre mais o quanto antes' : 'Estoque baixo — hora de comprar mais';
 
   return (
     <Pressable
@@ -35,7 +39,7 @@ export function MedicineStock({ name, quantity, unit, status, percentage = 100, 
         padding="compact"
         style={{
           marginBottom: 10,
-          borderColor: isLow ? colors.warningBadgeBorder : undefined,
+          borderColor: isLow ? alertBorderColor : undefined,
           borderWidth: isLow ? 1.5 : undefined,
         }}
       >
@@ -45,7 +49,7 @@ export function MedicineStock({ name, quantity, unit, status, percentage = 100, 
           </Text>
           <Text
             className="text-[16px] font-semibold"
-            style={{ color: isLow ? colors.warning : colors.textSecondary }}
+            style={{ color: isLow ? alertColor : colors.textSecondary }}
           >
             {quantity} {unit}
           </Text>
@@ -59,16 +63,16 @@ export function MedicineStock({ name, quantity, unit, status, percentage = 100, 
             style={{
               width: `${percentage}%`,
               height: '100%',
-              backgroundColor: isLow ? colors.warning : colors.primary,
+              backgroundColor: isLow ? alertColor : colors.primary,
             }}
           />
         </View>
 
         {isLow ? (
           <View className="mt-3 flex-row items-center gap-2">
-            <Ionicons color={colors.warning} name="alert-circle" size={16} />
-            <Text className="text-[13px] font-semibold" style={{ color: colors.warning }}>
-              Estoque baixo — hora de comprar mais
+            <Ionicons color={alertColor} name="alert-circle" size={16} />
+            <Text className="text-[13px] font-semibold" style={{ color: alertColor }}>
+              {alertMessage}
             </Text>
           </View>
         ) : null}

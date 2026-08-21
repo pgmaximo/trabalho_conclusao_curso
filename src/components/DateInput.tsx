@@ -64,11 +64,7 @@ export function DateInput({ label, value, onChange, placeholder }: DateInputProp
     return weeks.map((week, weekIndex) => (
       <View key={weekIndex} style={styles.weekRow}>
         {week.map((day, dayIndex) => {
-          const isSelected =
-            day &&
-            day === selectedDate.getDate() &&
-            selectedDate.getMonth() === new Date().getMonth() &&
-            selectedDate.getFullYear() === new Date().getFullYear();
+          const isSelected = day === selectedDate.getDate();
 
           return (
             <Pressable

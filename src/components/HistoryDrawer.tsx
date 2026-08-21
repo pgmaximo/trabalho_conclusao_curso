@@ -62,7 +62,7 @@ export function HistoryDrawer({ visible, groups, onClose, onNewChat }: HistoryDr
                   </Text>
                   {group.items.map((item) => (
                     <Pressable
-                      key={item.title}
+                      key={item.id}
                       accessibilityRole="button"
                       onPress={item.onSelect}
                       className="min-h-12 justify-center rounded-xl p-3"

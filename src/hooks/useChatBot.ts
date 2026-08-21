@@ -9,7 +9,7 @@ import { sendMessage as sendChatMessage, type ChatMessage } from '@/services/aiA
 
 export type HistoryGroup = {
   group: string;
-  items: { title: string; onSelect: () => void }[];
+  items: { id: string; title: string; onSelect: () => void }[];
 };
 
 const WELCOME_MESSAGE: ChatMessage = {

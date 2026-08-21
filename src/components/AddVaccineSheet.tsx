@@ -10,6 +10,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { DateInput } from '@/components/DateInput';
 import { FormField } from '@/components/FormField';
 import type { CreateVaccineDoseInput } from '@/services/vaccinationService';
 
@@ -20,26 +21,14 @@ type AddVaccineSheetProps = {
   onSubmit: (input: CreateVaccineDoseInput) => void | Promise<void>;
 };
 
-function formatDateInput(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 8);
-  const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
-  return parts.join('/');
-}
-
-function brazilianDateToIso(value: string): string | undefined {
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value.trim())) return undefined;
-  const [day, month, year] = value.split('/');
-  return `${year}-${month}-${day}`;
-}
-
 type FormState = {
   name: string;
   wasApplied: boolean | null;
-  dateText: string;
+  date: string; // YYYY-MM-DD, vazio quando não preenchido
   location: string;
 };
 
-const EMPTY_FORM: FormState = { name: '', wasApplied: null, dateText: '', location: '' };
+const EMPTY_FORM: FormState = { name: '', wasApplied: null, date: '', location: '' };
 
 export function AddVaccineSheet({ visible, isSaving, onClose, onSubmit }: AddVaccineSheetProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -71,11 +60,7 @@ export function AddVaccineSheet({ visible, isSaving, onClose, onSubmit }: AddVac
       return;
     }
 
-    const isoDate = form.dateText.trim() ? brazilianDateToIso(form.dateText) : undefined;
-    if (form.dateText.trim() && !isoDate) {
-      Alert.alert('Data inválida', 'Use o formato DD/MM/AAAA.');
-      return;
-    }
+    const isoDate = form.date.trim() || undefined;
 
     await onSubmit({
       name: form.name.trim(),
@@ -137,13 +122,10 @@ export function AddVaccineSheet({ visible, isSaving, onClose, onSubmit }: AddVac
         </View>
       </View>
 
-      <FormField
+      <DateInput
         label={form.wasApplied ? 'Data de aplicação' : 'Data recomendada (opcional)'}
-        inputMode="numeric"
-        maxLength={10}
-        placeholder="DD/MM/AAAA"
-        value={form.dateText}
-        onChangeText={(text) => update('dateText', formatDateInput(text))}
+        value={form.date}
+        onChange={(value) => update('date', value)}
       />
 
       {form.wasApplied ? (

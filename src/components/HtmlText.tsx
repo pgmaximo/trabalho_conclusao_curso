@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Linking, Text } from 'react-native';
 
 import { useThemeColors } from '@/constants/theme';
@@ -55,7 +55,7 @@ function parseSegments(html: string): Segment[] {
  */
 export function HtmlText({ html }: HtmlTextProps) {
   const colors = useThemeColors();
-  const segments = parseSegments(html);
+  const segments = useMemo(() => parseSegments(html), [html]);
 
   return (
     <Text style={{ color: colors.text, fontSize: 15, lineHeight: 21 }}>

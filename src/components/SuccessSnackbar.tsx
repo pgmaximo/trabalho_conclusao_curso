@@ -7,7 +7,7 @@
 // reaproveitado por Cadastro/Confirmacao/Recuperar senha.
 // =============================================================================
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Text, View } from 'react-native';
 
 type SuccessSnackbarProps = {
@@ -31,17 +31,20 @@ export function SuccessSnackbar({
   onHide,
   durationMs = 4000,
 }: SuccessSnackbarProps) {
+  const onHideRef = useRef(onHide);
+  onHideRef.current = onHide;
+
   useEffect(() => {
     if (!visible) {
       return undefined;
     }
 
     const timer = setTimeout(() => {
-      onHide?.();
+      onHideRef.current?.();
     }, durationMs);
 
     return () => clearTimeout(timer);
-  }, [visible, durationMs, onHide]);
+  }, [visible, durationMs]);
 
   if (!visible) {
     return null;

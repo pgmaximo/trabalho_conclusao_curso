@@ -5,7 +5,15 @@ import { HomeScreen } from '@/screens/HomeScreen';
 import { useUserContext } from '@/contexts/UserContext';
 import { useExamsData } from '@/hooks/useExamsData';
 import { useAppointmentsData } from '@/hooks/useAppointmentsData';
-import { getDashboardTodayLabel } from '@/mocks/api';
+
+function getDashboardTodayLabel(date = new Date()): string {
+  return date.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
 function getGreeting(name: string): string {
   const hour = new Date().getHours();
