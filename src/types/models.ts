@@ -256,3 +256,26 @@ export interface PreventionSnapshot {
   score: PreventiveScoreSnapshot;            // Score de saúde preventivo
   checks: PreventiveCheck[];                 // Array de check-ups preventivos
 }
+
+// Status derivado de uma dose de vacina — nunca persistido, sempre calculado a
+// partir de appliedDate/dueDate (ver useVaccinationData.ts).
+export type VaccineDoseStatus = 'pendente' | 'atrasada' | 'aplicada';
+
+// Item de apresentação de uma dose de vacina (recomendação futura ou histórico).
+export interface VaccineDoseItem {
+  id: string;
+  name: string;
+  doseNumber?: number;
+  status: VaccineDoseStatus;
+  description: string;          // ex.: "Dose anual · campanha até 30/09" / "Reforço a cada 10 anos"
+  appliedDate?: string;         // preenchido só quando status === 'aplicada'
+  location?: string;            // idem
+  dueDate?: string;             // preenchido só quando pendente/atrasada
+}
+
+// Snapshot completo da Carteira de Vacinação (tela 4e).
+export interface VaccinationSnapshot {
+  upcoming: VaccineDoseItem[];        // status pendente/atrasada
+  history: VaccineDoseItem[];         // status aplicada, ordenado do mais recente
+  activeCampaignMessage: string | null; // conteúdo institucional, não dado do usuário
+}
