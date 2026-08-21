@@ -217,6 +217,9 @@ export interface AppointmentEntry {
   title: string;         // Título da consulta
   location: string;      // Local da consulta
   type: AppointmentType; // Tipo da consulta
+  scheduledAt: string;   // ISO original (AppointmentRecord.scheduledAt) — usado para
+                          // ordenar/filtrar por proximidade (ex.: Home 2b), já que
+                          // `time` é uma string formatada sem ano.
 }
 
 // Interface completa para snapshot de consultas

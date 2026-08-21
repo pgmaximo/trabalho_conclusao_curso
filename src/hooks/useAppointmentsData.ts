@@ -44,6 +44,7 @@ function mapAppointmentToEntry(appointment: AppointmentRecord): AppointmentEntry
     title: appointment.appointmentName,
     location: appointment.address,
     type: appointment.appointmentType.toLowerCase() as AppointmentEntry['type'],
+    scheduledAt: appointment.scheduledAt,
   };
 }
 

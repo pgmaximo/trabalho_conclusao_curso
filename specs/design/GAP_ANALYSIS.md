@@ -27,8 +27,8 @@ Legenda de Status: `CRIAR` (só no design) · `ATUALIZAR` (existe nos dois, mas 
 
 | Tela | Existe no código? | Existe no design? | Status | Prioridade |
 |---|---|---|---|---|
-| 2a Perfil de Saúde — wizard 4 etapas | Sim — `OnboardingScreen.tsx` (`/profile-setup`) | Sim | `ATUALIZAR` | P1 |
-| 2b Home — resumo/indicadores/acesso rápido | Sim — `HomeScreen.tsx` (`/dashboard`), parcialmente mockado (resumo/métricas/alertas) | Sim | `ATUALIZAR` (+ remover mock do resumo) | P1 |
+| 2a Perfil de Saúde — wizard 4 etapas | Sim — `OnboardingScreen.tsx` (`/profile-setup`) | Sim | `CONCLUÍDO` (validação manual em dispositivo/sandbox pendente, ver `specs/02-perfil-home-agenda/wizard-perfil-saude/tasks.md` §Testes) | P1 |
+| 2b Home — resumo/indicadores/acesso rápido | Sim — `HomeScreen.tsx` (`/dashboard`), de-mockado (compromissos/resumo de consultas via `Appointment` real; medicamentos/prevenção seguem bloqueados por outros Blocos) | Sim | `CONCLUÍDO` (pendências cross-Bloco documentadas: medicamentos #1, prevenção #2, notificações #14; validação manual/sandbox pendente) | P1 |
 | 2c Agenda — calendário/lista do dia | Sim — `AgendaScreen.tsx` (`/appointments`) | Sim | `ATUALIZAR` | P1 |
 | 2d Novo agendamento | Sim — `AddAppointmentScreen.tsx` (`/add-appointment`) | Sim | `ATUALIZAR` | P1 |
 | 2e Editar agendamento (com exclusão) | Sim — `EditAppointmentScreen.tsx` (`/edit-appointment`) | Sim | `ATUALIZAR` | P1 |
@@ -61,10 +61,10 @@ Nenhuma. Os 17 componentes de tela roteados hoje mapeiam 1:1 para telas do desig
 
 ## Resumo de contagem
 
-> Atualizado após a conclusão dos Blocos 1/3/4 (Bloco 2 segue no estado original da Fase 0 — 0% implementado, ver `specs/RELATORIO_SDD_SUASAUDE.md`).
+> Atualizado após início do Bloco 2 (2a e 2b implementadas nesta sessão; 2c–2e seguem no estado original da Fase 0).
 
-- **CONCLUÍDO**: 7 telas — 3d, 3e, 3f, 3g (Bloco 3: Medicamentos + Prevenção), 4b, 4c, 4e (Bloco 4: Perfil, Editar Perfil, Vacinação). Cada uma com pendências pontuais registradas nesta lista, mas nenhuma bloqueante da tela em si.
-- **ATUALIZAR** (spec escrita, implementação pendente ou parcial): 14 telas — 1b–1f (Bloco 1, todas implementadas mas fidelidade não auditada tela-a-tela), 2a–2e (Bloco 2, specs completas, **zero tasks implementadas**), 3a–3c (Bloco 3, núcleo do MVP, implementadas mas com gaps de fidelidade documentados), 4a (Bloco 4, fidelidade de UI concluída, integração de IA real e persistência de histórico em aberto).
+- **CONCLUÍDO**: 9 telas — 2a, 2b (Bloco 2: Perfil de Saúde wizard, Home), 3d, 3e, 3f, 3g (Bloco 3: Medicamentos + Prevenção), 4b, 4c, 4e (Bloco 4: Perfil, Editar Perfil, Vacinação). Cada uma com pendências pontuais registradas nesta lista, mas nenhuma bloqueante da tela em si.
+- **ATUALIZAR** (spec escrita, implementação pendente ou parcial): 12 telas — 1b–1f (Bloco 1, todas implementadas mas fidelidade não auditada tela-a-tela), 2c–2e (Bloco 2, specs completas, **zero tasks implementadas**), 3a–3c (Bloco 3, núcleo do MVP, implementadas mas com gaps de fidelidade documentados), 4a (Bloco 4, fidelidade de UI concluída, integração de IA real e persistência de histórico em aberto).
 - **CRIAR**: 0 (todas as 21 telas do design já existem como componente roteado no código; nenhuma foi criada do zero nesta fase — todas partiram de uma versão pré-existente).
 - **MANTER**: 0 (nenhuma tela foi auditada como 100% fiel sem nenhuma pendência registrada).
 - **DESCONTINUAR**: 0.
@@ -79,11 +79,12 @@ Nenhuma. Os 17 componentes de tela roteados hoje mapeiam 1:1 para telas do desig
 4. **Assistente de IA (4a) — duas pendências distintas, ambas resolvidas nesta camada de UI, nenhuma decidida no backend:**
    - **4.a Integração real de IA**: `sendMessage` em `src/services/aiAssistantService.ts` (renomeado de `chatService.ts`) continua mock (respostas fixas de `MOCK_RESPONSES`), isolado atrás da interface nomeada `AiAssistantService`. Decisão de provedor (Anthropic Claude API é a candidata já esboçada em comentário), custo por token e — principalmente — política de privacidade para dados de saúde enviados a uma API de terceiros (LGPD) requer confirmação explícita do usuário/orientador do TCC antes de qualquer implementação. Ver `specs/04-ia-perfil-vacinacao/assistente-ia/plan.md` §3.1.
    - **4.b Persistência de histórico de conversas**: o drawer de histórico (UI completa) foi implementado em `HistoryDrawer.tsx`, mas `historyGroups` inicia e permanece sempre vazio (`useChatBot.ts`) — nenhuma conversa passada é de fato recuperável. Duas rotas possíveis (local via AsyncStorage/SecureStore vs. novo model Amplify `ChatConversation`/`ChatMessage` no DynamoDB), nenhuma escolhida; a segunda rota é mudança de schema (regra 5/6 da constituição) e cria uma nova superfície de dados de saúde sensíveis sob LGPD. Ver `plan.md` §3.2 para o detalhamento completo e a recomendação registrada (não decisão).
-5. **Resumo do Dashboard (2b)**: métricas/alertas/próximos compromissos ainda mockados em `dashboardApi.ts` (a lista de exames recentes já é real). Avaliar se dá para compor a partir de `MedicalDocument`/`Appointment` reais em vez de manter mock.
+5. **Resumo do Dashboard (2b) — `PARCIALMENTE RESOLVIDO`:** "Próximos compromissos" e a cláusula de consultas de "Resumo de hoje" migrados para dado real via `Appointment`/`useAppointmentsData` (`dashboard.tsx` parou de consumir `useDashboardData()`/`dashboardApi.ts` — arquivos mantidos como código morto, não deletados nesta EPIC). Seguem bloqueados, por dependerem de outros Blocos: a cláusula de medicamentos pendentes em "Resumo de hoje" (Medicamentos, 100% mock — pendência #1) e o card "Prevenção em atraso" (agora condicional a uma prop `preventionAlert`, sempre `null` até a EPIC de Prevenção expor um hook real — nota: 3e já tem backend real via USPSTF/AHRQ desde a pendência #2 acima, mas não expõe hoje um "item atrasado mais urgente" pronto para a Home consumir; conectar os dois é um follow-up, não decidido nesta EPIC). Ver `specs/02-perfil-home-agenda/home/tasks.md`.
 6. **Menu "Mais"**: o design nunca desenha a tela do hub "Mais" em si — apenas destaca a aba como ativa em 3e/4a/4b. É necessário decidir a estrutura desse menu (lista de atalhos? sub-navegação?) antes de implementar a navegação de 5 abas. Documentar a interpretação escolhida no `spec.md` da Fundação/Navegação.
 7. **Estados padrão (loading/vazio/erro/sucesso)**: o padrão de 4 estados da tela 1a é declarado como reutilizável em todas as listas/formulários/uploads, mas a maioria das telas do design só mostra o estado populado. Cada `spec.md` de tela deve assumir o padrão de 1a por padrão e sinalizar se algo específico diverge.
 8. **Código morto identificado** (não bloqueia o SDD, mas deve ser limpo durante a passagem de cada Bloco): `src/navigation/` (vazio), `src/mocks/api/appointmentsApi.ts`, `src/mocks/api/examsApi.ts`, `src/hooks/useProfileData.ts` — todos superados por integrações reais já existentes.
 9. **`medicines` fora da tab bar**: já é uma inconsistência hoje (tela existe mas não está em `APP_TABS`) — será resolvida naturalmente pela reestruturação de navegação do item de Fundação acima.
+9.a **Central de notificações inexistente (achado na EPIC Home, 2b)**: o ícone de sino do cabeçalho (2b) foi implementado apenas como elemento visual estático — sem badge de não-lido, sem painel, sem ação de toque funcional (`onNotificationPress` opcional/no-op) — porque não existe nenhum model Amplify, serviço ou tela de notificações em nenhum lugar do código hoje. Não é um "de-mock" (não havia mock disso antes), é uma feature ausente; fora de escopo de qualquer Bloco já mapeado (1–4). Ver `specs/02-perfil-home-agenda/home/spec.md` §5.
 
 ## Pendências adicionais descobertas durante a Fase 1 (Fundação + Blocos 1–3)
 

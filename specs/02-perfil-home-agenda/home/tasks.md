@@ -3,35 +3,37 @@
 Referência: `spec.md` e `plan.md` nesta mesma pasta. Nenhuma tarefa aqui toca `amplify/data/schemas/*`.
 
 ## 1. Dados — de-mock de "Próximos compromissos" e "Resumo de hoje"
-- [ ] Em `src/app/(app)/dashboard.tsx`, importar e usar `useAppointmentsData()` ao lado de `useExamsData()`.
-- [ ] Derivar `upcomingAppointments`: filtrar `appointments` para `scheduledAt >= agora`, ordenar por proximidade, pegar os 2 primeiros; mapear para o shape de card do Canvas (título `"{Tipo} · {Nome}"`, meta `"{Quando}, {Hora} · {Local}"`, cor da barra lateral por `appointment.type`).
-- [ ] Derivar `todaySummaryText`: contar compromissos com data de hoje; montar frase `"{N} consulta(s) às {hora do mais próximo}"` ou `"Nenhum compromisso hoje"` quando vazio — **sem** cláusula de medicamentos (fonte não existe, ver `plan.md` §2).
-- [ ] Remover o uso de `useDashboardData()` em `dashboard.tsx` (ou reduzir ao mínimo necessário só se algo ainda depender dele — checar antes de remover o arquivo/hook por completo, que não é obrigatório nesta EPIC).
-- [ ] Confirmar que `recentExams` (já existente) continua vindo 100% de `useExamsData()`, sem alteração de lógica.
+- [x] `dashboard.tsx` agora usa `useAppointmentsData()` ao lado de `useExamsData()`; `useDashboardData()`/`useUserContext()` (parcial) removidos do fluxo.
+- [x] `upcomingAppointments` derivado: filtra por `scheduledAt >= agora` (ISO, ver campo novo abaixo), ordena por proximidade, top 2; renderizado por `UpcomingAppointmentCard` (título `"{Tipo} · {Nome}"`, meta `"{time} · {location}"`, barra lateral azul/verde por `appointment.type`).
+- [x] `todaySummaryText` derivado em `buildTodaySummaryText()`: conta compromissos com `scheduledAt` no dia de hoje, monta `"{N} consulta(s) às {hora}"` ou a copy neutra "Nenhum compromisso ou pendência para hoje." quando vazio — sem cláusula de medicamentos.
+- [x] `useDashboardData()` removido do fluxo da Home (import trocado por `getDashboardTodayLabel` direto de `@/mocks/api`, que é função pura, sem mock de rede — `dashboardApi.ts`/`useDashboardData.ts` continuam existindo, apenas não são mais importados por `dashboard.tsx`).
+- [x] `recentExams` inalterado, 100% `useExamsData()`.
+- [x] **Extensão de tipo necessária, fora do escopo original do plan.md**: `AppointmentEntry` (mapeado por `useAppointmentsData`) não expunha o `scheduledAt` ISO bruto, só uma string formatada sem ano (`time`) — impossível filtrar "futuro"/"hoje" corretamente a partir dela. Adicionado campo `scheduledAt: string` a `AppointmentEntry` (`types/models.ts`) e populado em `mapAppointmentToEntry` (`useAppointmentsData.ts`), aditivo/não-quebrando (`AgendaScreen.tsx`/2c não usa o campo novo).
 
 ## 2. `HomeScreen.tsx` — remover mock, refazer estrutura
-- [ ] Remover props e renderização da seção "Indicadores principais" (`metrics`, `MetricCard` x4) — sem correspondência no Canvas 2b nem fonte real.
-- [ ] Remover props `summary`/`metrics`/`upcomingEvents`/`preventiveAlert` vindas do mock; substituir por props por widget: `todaySummaryText`, `appointmentsToday`, `upcomingAppointments`, `appointmentsLoading`, `appointmentsError`, `onRetryAppointments`, `recentExams`, `examsLoading`, `examsError`, `onRetryExams`.
-- [ ] Reconstruir card "Resumo de hoje" com fundo sólido `#0C6341` (avaliar estender `Card` com variante `tone="brand"`/`solid` ou compor via `View` direta), título "Resumo de hoje", `todaySummaryText`, pill "Ver agenda de hoje →" navegando para `/appointments`.
-- [ ] Adicionar ícone de sino no cabeçalho (44×44, borda `#DFE3E1`, glyph `Ionicons name="notifications-outline"`), sem badge (nenhuma contagem inventada); ação de toque pode ser um no-op documentado ou navegação para uma tela "em breve" — decidir no momento da implementação, registrar a escolha em comentário no código.
-- [ ] Tornar a seção "Prevenção em atraso" condicional a uma prop opcional (`preventionAlert?: {...} | null`), renderizando `null`/nada quando ausente — não usar mais o `preventiveAlert` do mock; a prop fica `undefined`/`null` até a EPIC de Prevenção existir.
-- [ ] Adicionar link "Ver todos" na seção "Últimos exames" (`router.push('/exams')`).
-- [ ] Substituir seção "Próximos eventos" (mock) por "Próximos compromissos" usando `upcomingAppointments`/`EventCard` (ou variante com barra lateral), com link "Ver agenda" (`router.push('/appointments')`).
-- [ ] Aplicar loading (`ScreenSkeleton` por seção) e erro (`EmptyState tone="error"` + retry) independentemente para o bloco de exames e o bloco de compromissos — remover o `isLoading`/`errorMessage` global que hoje esconde a tela inteira.
-- [ ] Corrigir grid "Acesso rápido": remover tile "Wearable"; corrigir labels para "Agenda"/"Análise IA"/"Remédios"/"Prevenção"; montar como grid 2×2 único (não 2×2 + linha solta).
+- [x] Seção "Indicadores principais" (`metrics`/`MetricCard` x4) removida por completo.
+- [x] Props do mock (`summary`/`metrics`/`upcomingEvents`/`preventiveAlert`/`isLoading`/`errorMessage` globais) substituídas por props por widget (`todaySummaryText`, `preventionAlert`, `recentExams`/`examsLoading`/`examsError`/`onRetryExams`, `upcomingAppointments`/`appointmentsLoading`/`appointmentsError`/`onRetryAppointments`).
+- [x] Card "Resumo de hoje" reconstruído com `bg-app-primaryDark dark:bg-app-dark-primaryDark` (token `#0C6341`/`#3AA377`, batendo com o Canvas sem hex novo hardcoded), pill "Ver agenda de hoje →" navegando para `/appointments`.
+- [x] Ícone de sino adicionado no cabeçalho (44×44 via `h-11 w-11`, borda `app-border`, `Ionicons name="notifications-outline"`), sem badge; `onNotificationPress` é opcional/no-op por ora (central de notificações não existe — pendência nova registrada no GAP_ANALYSIS).
+- [x] Seção "Prevenção em atraso" tornada condicional via prop `preventionAlert?: {title, subtitle} | null` — `dashboard.tsx` passa `null` (nunca renderiza ainda; JSX pronta para quando a EPIC de Prevenção expuser um hook real).
+- [x] Link "Ver todos" adicionado em "Últimos exames" (`onNavigateToExams` → `/exams`).
+- [x] Seção "Próximos eventos" (mock) substituída por "Próximos compromissos" com `upcomingAppointments` (card local `UpcomingAppointmentCard`, não o `AppointmentCard.tsx` compartilhado — ver nota abaixo) + link "Ver agenda" (→ `/appointments`).
+- [x] Loading/erro tratados por widget (`ScreenSkeleton`/`EmptyState tone="error"` + retry independentes para exames e compromissos) — nenhum estado global esconde a tela inteira.
+- [x] Grid "Acesso rápido" corrigido: tile "Wearable" removido; labels "Agenda"/"Análise IA"/"Remédios"/"Prevenção"; grid 2×2 único.
+- [x] **Decisão de implementação não antecipada no plan.md**: não reaproveitei `AppointmentCard.tsx` (usado por 2c/Agenda) para o card de "Próximos compromissos" — esse componente usa `COLORS`/`FONTS` estáticos (não reativos a dark mode, mesma pendência #19 do GAP_ANALYSIS) e sua paleta por tipo (azul/vermelho/laranja/verde) não bate com a paleta do Canvas 2b (azul consulta / verde exame). Criei `UpcomingAppointmentCard` local em `HomeScreen.tsx`, usando os tokens reativos do tema, para não herdar o gap de dark mode nem alterar um componente compartilhado com uma EPIC ainda não implementada (2c) fora do escopo desta.
 
 ## 3. Estados e cenários (validação manual/QA)
-- [ ] Cenário dashboard vazio: usuário sem exames nem compromissos → ambas as seções mostram `EmptyState` apropriado; card de resumo mostra copy neutra; seção de prevenção ausente.
-- [ ] Cenário carregamento: skeleton aparece por seção enquanto os hooks carregam.
-- [ ] Cenário erro parcial: simular falha de `useExamsData` mantendo `useAppointmentsData` OK (e vice-versa) — confirmar que só a seção afetada mostra erro+retry, o resto da tela continua funcional.
-- [ ] Cenário notificação sem itens não lidos: sino renderiza sem badge vermelho.
+- [x] Cenário dashboard vazio, carregamento e erro parcial: cobertos estruturalmente pela composição por widget (`examsLoading`/`examsError` e `appointmentsLoading`/`appointmentsError` são independentes) — não executado como teste automatizado nesta sessão (nenhuma suite de testes existia para `HomeScreen`/`dashboard.tsx` antes desta EPIC; não criada uma nova neste passe, ver §5).
+- [ ] Validação manual em dispositivo/simulador com dados reais (Amplify sandbox) não executada nesta sessão.
+- [x] Cenário notificação sem itens não lidos: sino sempre renderiza sem badge (nenhum estado de contagem existe na prop).
 
 ## 4. Documentação / rastreabilidade
-- [ ] Adicionar/atualizar em `GAP_ANALYSIS.md` a pendência de central de notificações (nova, não coberta pelas pendências #1–#7 atuais).
-- [ ] Confirmar que a pendência #5 ("Resumo do Dashboard 2b") em `GAP_ANALYSIS.md` linha 75 é atualizada/fechada parcialmente (compromissos des-mockados) e mantida aberta só para a parte de medicamentos + prevenção, referenciando este `spec.md`/`plan.md`.
-- [ ] Não modificar `GAP_ANALYSIS.md` de forma que duplique ou reabra a decisão de schema de Prevenção (pendência #2) ou Medicamentos (pendência #1) — apenas referenciar a dependência.
+- [x] Pendência de central de notificações registrada em `GAP_ANALYSIS.md` (nova, ver item #14 já existente — atualizado para referenciar esta EPIC).
+- [x] Pendência #5 ("Resumo do Dashboard 2b") em `GAP_ANALYSIS.md` atualizada: parte de compromissos des-mockada, mantida aberta só para medicamentos + prevenção.
+- [x] Nenhuma reabertura/duplicação das decisões de schema de Prevenção (#2) ou Medicamentos (#1) — apenas referenciadas.
 
-## 5. Fora de escopo (não fazer nesta EPIC)
+## 5. Fora de escopo (não fazer/não feito nesta EPIC)
 - [ ] Não implementar model Amplify de notificações, medicamentos ou prevenção.
 - [ ] Não implementar badge de status Normal/Alterado nem campo de laboratório em "Últimos exames" (herda decisão de `specs/03-exames-receitas/lista`).
-- [ ] Não deletar `src/mocks/dashboard.ts`/`src/mocks/api/dashboardApi.ts`/`src/hooks/useDashboardData.ts` (ficam órfãos por ora; limpeza de código morto é decisão separada, fora desta EPIC).
+- [x] Não deletado `src/mocks/dashboard.ts`/`src/mocks/api/dashboardApi.ts`/`src/hooks/useDashboardData.ts` (ficam órfãos por ora — `dashboard.tsx` parou de importá-los, mas os arquivos continuam existindo; limpeza de código morto é decisão separada, fora desta EPIC).
+- [ ] Nenhuma suite de teste automatizado (`__tests__/home-screen.test.tsx`) foi criada para esta tela — nenhuma existia antes; considerar como follow-up.

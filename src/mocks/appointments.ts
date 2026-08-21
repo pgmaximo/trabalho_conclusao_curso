@@ -48,6 +48,7 @@ export const APPOINTMENTS_SNAPSHOT: AppointmentsSnapshot = {
         title: 'Cardiologia — Dr. Gomes', // Título com especialista
         location: 'Clínica IMT — Av. Principal, 100', // Local completo
         type: 'consulta',                // Tipo: consulta médica
+        scheduledAt: '2025-04-25T10:00:00',
       },
       {
         id: 2,                           // ID único da consulta
@@ -55,6 +56,7 @@ export const APPOINTMENTS_SNAPSHOT: AppointmentsSnapshot = {
         title: 'Coleta de sangue',        // Título do procedimento
         location: 'Lab Central — Jejum obrigatório', // Local com observação
         type: 'exame',                   // Tipo: exame
+        scheduledAt: '2025-03-30T07:30:00',
       },
       {
         id: 3,                           // ID único da consulta
@@ -62,6 +64,7 @@ export const APPOINTMENTS_SNAPSHOT: AppointmentsSnapshot = {
         title: 'Retorno Clínico Geral',  // Título do retorno
         location: 'UBS Central — Dra. Aparecida', // Local e médico
         type: 'retorno',                 // Tipo: retorno
+        scheduledAt: '2025-04-25T14:00:00',
       },
       {
         id: 4,                           // ID único da consulta
@@ -69,6 +72,7 @@ export const APPOINTMENTS_SNAPSHOT: AppointmentsSnapshot = {
         title: 'Dermatologista',         // Título da especialidade
         location: 'Clínica SkinCare',     // Local da consulta
         type: 'consulta',                // Tipo: consulta médica
+        scheduledAt: '2025-04-10T03:00:00',
       },
     ],
   },
