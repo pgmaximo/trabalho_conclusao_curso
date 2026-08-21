@@ -30,6 +30,7 @@ import {
   updateMedicine,
   type MedicineRecord,
 } from '@/services/medicineService';
+import { removeMedicineReminders, syncMedicineReminders } from '@/services/medicineReminderService';
 
 export interface EditMedicineScreenProps {
   id: string;
@@ -109,7 +110,14 @@ export function EditMedicineScreen({ id }: EditMedicineScreenProps) {
       // Reposição: se o novo estoque atual superar o inicial registrado, o inicial sobe
       // junto (mantém o percentual da barra coerente) — nunca diminui silenciosamente.
       const nextInitialStock = Math.max(medicine.initialStock, nextStock);
-      await updateMedicine(medicine.id, toMedicineInput(form, nextInitialStock));
+      const updated = await updateMedicine(medicine.id, toMedicineInput(form, nextInitialStock));
+
+      try {
+        await syncMedicineReminders(updated);
+      } catch (reminderError) {
+        console.error('Erro ao agendar lembretes do medicamento:', reminderError);
+      }
+
       router.replace('/medicines');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao atualizar o medicamento.';
@@ -127,6 +135,13 @@ export function EditMedicineScreen({ id }: EditMedicineScreenProps) {
 
     try {
       await deleteMedicine(medicine.id);
+
+      try {
+        await removeMedicineReminders(medicine.id);
+      } catch (reminderError) {
+        console.error('Erro ao cancelar lembretes do medicamento:', reminderError);
+      }
+
       router.replace('/medicines');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao excluir o medicamento.';

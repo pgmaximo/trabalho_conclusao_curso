@@ -23,6 +23,7 @@ import {
 } from '@/components/MedicineFormFields';
 import { useThemeColors } from '@/constants/theme';
 import { createMedicine } from '@/services/medicineService';
+import { syncMedicineReminders } from '@/services/medicineReminderService';
 
 export function AddMedicineScreen() {
   const { colorScheme } = useColorScheme();
@@ -47,7 +48,14 @@ export function AddMedicineScreen() {
 
     try {
       const currentStock = form.currentStock ? Number(form.currentStock) : 0;
-      await createMedicine(toMedicineInput(form, currentStock));
+      const record = await createMedicine(toMedicineInput(form, currentStock));
+
+      try {
+        await syncMedicineReminders(record);
+      } catch (reminderError) {
+        console.error('Erro ao agendar lembretes do medicamento:', reminderError);
+      }
+
       router.replace('/medicines');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao salvar o lembrete.';
