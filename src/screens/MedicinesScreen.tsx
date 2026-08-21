@@ -1,158 +1,152 @@
+// =============================================================================
+// Arquivo: MedicinesScreen.tsx
+// Descrição: Tela 3d do Canvas — "Medicamentos — doses e estoque". Banner de
+// lembretes ativos (contagem real), lista de doses de hoje e estoques.
+// =============================================================================
+
 import React from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { EmptyState } from '@/components/EmptyState';
 import { MedicineCard } from '@/components/MedicineCard';
 import { MedicineStock } from '@/components/MedicineStock';
-import { ReminderBanner } from '@/components/ReminderBanner';
-import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
-import { COLORS, SIZES } from '@/constants/theme';
-import type { MedicineDose, MedicineInventoryItem, ReminderInfo } from '@/types/models';
+import { useThemeColors } from '@/constants/theme';
+import type { MedicineDose, MedicineInventoryItem } from '@/types/models';
 
 type MedicinesScreenProps = {
   medicines: MedicineDose[];
   stocks: MedicineInventoryItem[];
-  reminder: ReminderInfo;
+  hasMedicines: boolean;
   pendingCount: number;
   isLoading: boolean;
   errorMessage: string | null;
   onRetry: () => void;
-  onToggleMedicineStatus: (medicineId: number) => void;
+  onToggleMedicineStatus: (doseId: string) => void;
 };
 
 export function MedicinesScreen({
   medicines,
   stocks,
-  reminder,
+  hasMedicines,
   pendingCount,
   isLoading,
   errorMessage,
   onRetry,
   onToggleMedicineStatus,
 }: MedicinesScreenProps) {
+  const { colorScheme } = useColorScheme();
+  const colors = useThemeColors();
+
+  function goToAddMedicine() {
+    router.push('/add-medicine');
+  }
+
+  function goToEditMedicine(id: string) {
+    router.push({ pathname: '/edit-medicine', params: { id } });
+  }
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {isLoading ? (
-            <ScreenSkeleton blocks={3} />
-          ) : errorMessage ? (
-            <EmptyState
-              icon="💊"
-              title="Nao foi possivel carregar os medicamentos"
-              description={errorMessage}
-              tone="error"
-              actionLabel="Tentar novamente"
-              onActionPress={onRetry}
-            />
-          ) : (
-            <>
-              <ScreenHeader
-                title="Medicamentos"
-                subtitle="Controle de doses, estoque e lembretes em um unico lugar."
-                badgeLabel={`${pendingCount} pendente${pendingCount !== 1 ? 's' : ''}`}
-                badgeVariant={pendingCount > 0 ? 'accent' : 'success'}
-                action={
-                  <Pressable
-                    style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-                    onPress={() => {}}
-                  >
-                    <Text style={styles.addButtonText}>+</Text>
-                  </Pressable>
-                }
-              />
+    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
+        <View className="mb-6 flex-row items-center justify-between gap-3">
+          <Text className="text-[26px] font-semibold text-app-text dark:text-app-dark-text">
+            Medicamentos
+          </Text>
+          <Pressable
+            accessibilityLabel="Adicionar medicamento"
+            accessibilityRole="button"
+            onPress={goToAddMedicine}
+            style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+            className="size-12 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
+          >
+            <Ionicons color={colors.onPrimary} name="add" size={24} />
+          </Pressable>
+        </View>
 
-              <Section title="Próximas doses" subtitle="Marque cada item conforme a administracao.">
-                {medicines.length > 0 ? (
-                  medicines.map((medicine) => (
-                    <MedicineCard
-                      key={medicine.id}
-                      name={medicine.name}
-                      dosage={medicine.dosage}
-                      time={medicine.time}
-                      status={medicine.status}
-                      onToggle={() => onToggleMedicineStatus(medicine.id)}
-                    />
-                  ))
-                ) : (
-                  <EmptyState
-                    icon="✅"
-                    title="Nenhuma dose pendente"
-                    description="Todas as medicacoes previstas para hoje ja foram registradas."
+        {isLoading ? (
+          <ScreenSkeleton blocks={3} />
+        ) : errorMessage ? (
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Não foi possível carregar os medicamentos"
+            description={errorMessage}
+            tone="error"
+            actionLabel="Tentar novamente"
+            onActionPress={onRetry}
+          />
+        ) : !hasMedicines ? (
+          <EmptyState
+            icon="medkit-outline"
+            title="Você ainda não tem medicamentos cadastrados"
+            description="Adicione um lembrete de medicamento para controlar doses e estoque."
+            actionLabel="Adicionar medicamento"
+            onActionPress={goToAddMedicine}
+          />
+        ) : (
+          <>
+            <View className="mb-6 flex-row items-center gap-3 rounded-app border border-app-infoBadgeBorder bg-app-infoSoft px-4 py-3 dark:border-app-dark-infoBadgeBorder dark:bg-app-dark-infoSoft">
+              <View className="size-8 items-center justify-center rounded-full bg-app-infoIconBg dark:bg-app-dark-infoIconBg">
+                <Ionicons color="#FFFFFF" name="notifications" size={16} />
+              </View>
+              <Text className="flex-1 text-[15px] leading-[20px] text-app-text dark:text-app-dark-text">
+                Você tem {pendingCount} lembrete{pendingCount !== 1 ? 's' : ''} ativo{pendingCount !== 1 ? 's' : ''} para hoje.
+              </Text>
+            </View>
+
+            <Section title="Próximas doses" subtitle="Marque cada item conforme a administração.">
+              {medicines.length > 0 ? (
+                medicines.map((medicine) => (
+                  <MedicineCard
+                    key={medicine.id}
+                    name={medicine.name}
+                    dosage={medicine.dosage}
+                    time={medicine.time}
+                    status={medicine.status}
+                    onPress={() => goToEditMedicine(medicine.medicineId)}
+                    onToggle={() => onToggleMedicineStatus(medicine.id)}
                   />
-                )}
-              </Section>
+                ))
+              ) : (
+                <EmptyState
+                  icon="checkmark-circle-outline"
+                  title="Nenhuma dose pendente"
+                  description="Todas as medicações previstas para hoje já foram registradas."
+                />
+              )}
+            </Section>
 
-              <Section title="Estoques" subtitle="Visao rapida dos medicamentos que podem acabar em breve.">
-                {stocks.length > 0 ? (
-                  stocks.map((stock) => (
-                    <MedicineStock
-                      key={stock.id}
-                      name={stock.name}
-                      quantity={stock.quantity}
-                      unit={stock.unit}
-                      status={stock.status}
-                      percentage={stock.percentage}
-                    />
-                  ))
-                ) : (
-                  <EmptyState
-                    icon="📦"
-                    title="Nenhum estoque cadastrado"
-                    description="Os estoques aparecerao aqui quando a integracao estiver conectada."
+            <Section title="Estoques" subtitle="Visão rápida dos medicamentos que podem acabar em breve.">
+              {stocks.length > 0 ? (
+                stocks.map((stock) => (
+                  <MedicineStock
+                    key={stock.id}
+                    name={stock.name}
+                    quantity={stock.quantity}
+                    unit={stock.unit}
+                    status={stock.status}
+                    percentage={stock.percentage}
+                    onPress={() => goToEditMedicine(stock.id)}
                   />
-                )}
-              </Section>
-
-              <Section title="Lembretes ativados" subtitle="Regra atual configurada para o usuario.">
-                <ReminderBanner title={reminder.title} description={reminder.description} />
-              </Section>
-            </>
-          )}
-        </ScrollView>
-      </View>
+                ))
+              ) : (
+                <EmptyState
+                  icon="cube-outline"
+                  title="Nenhum estoque cadastrado"
+                  description="Os estoques aparecerão aqui quando um medicamento for adicionado."
+                />
+              )}
+            </Section>
+          </>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.large,
-    paddingBottom: SIZES.large * 2,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonPressed: {
-    opacity: 0.85,
-  },
-  addButtonText: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-});
