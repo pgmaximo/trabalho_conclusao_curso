@@ -157,6 +157,20 @@ function getCoreValidationErrors(input: ExamDocumentCoreInput): ExamValidationEr
     });
   }
 
+  // Uma receita não pode vencer antes de ter sido emitida — regra de negócio
+  // não especificada no Canvas, confirmada pelo usuário (2026-08-21, GAP_ANALYSIS.md #37).
+  if (
+    input.documentType === 'prescription' &&
+    input.expirationDate &&
+    input.documentDate &&
+    input.expirationDate < input.documentDate
+  ) {
+    errors.push({
+      field: 'expirationDate',
+      message: 'A data de validade não pode ser anterior à data de emissão da receita',
+    });
+  }
+
   return errors;
 }
 
@@ -346,6 +360,7 @@ async function saveDocumentMetadata(metadata: FileMetadata): Promise<FileMetadat
     const { data, errors } = await client.models.MedicalDocument.create({
       documentType: metadata.documentType as Schema['MedicalDocument']['type']['documentType'],
       s3FileName: metadata.s3FileName,
+      originalFileName: metadata.originalFileName,
       documentName: metadata.documentName,
       documentDate: metadata.documentDate,
       expirationDate: metadata.expirationDate || null,

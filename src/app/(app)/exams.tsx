@@ -47,7 +47,11 @@ export default function ExamsRoute() {
       
       // Array de documentos médicos filtrados pela busca e filtro
       documents={exams.documents}
-      
+
+      // Indica se existe ao menos um documento sem filtro/busca aplicados —
+      // usado para distinguir "vazio real" de "busca sem resultado"
+      hasAnyDocuments={exams.hasAnyDocuments}
+
       // Estado de carregamento dos dados de exames
       isLoading={exams.isLoading}
       

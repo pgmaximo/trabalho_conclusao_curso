@@ -204,10 +204,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexShrink: 0,
   },
 
-  // Texto do badge de status
+  // Texto do badge de status — piso tipográfico "Apoio" (16px/400, DESIGN_TOKENS.md §2),
+  // mesma convenção usada por Badge.tsx via FONTS.caption.
   badgeText: {
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '700',
   },
 

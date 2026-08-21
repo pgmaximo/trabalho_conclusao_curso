@@ -30,6 +30,7 @@ type ExamsScreenProps = {
   searchQuery: string;
   activeFilter: MedicalDocumentFilter;
   documents: MedicalDocument[];
+  hasAnyDocuments: boolean;
   isLoading: boolean;
   errorMessage: string | null;
   onRetry: () => void;
@@ -42,6 +43,7 @@ export function ExamsScreen({
   searchQuery,
   activeFilter,
   documents,
+  hasAnyDocuments,
   isLoading,
   errorMessage,
   onRetry,
@@ -59,9 +61,10 @@ export function ExamsScreen({
   const { setSelectedDocument } = useSelectedDocument();
 
   // Distingue "vazio real" (nenhum documento ainda) de "busca sem resultado" — spec.md
-  // cenário "Busca sem resultados" e critério de aceite correspondente.
-  const hasActiveSearchOrFilter = searchQuery.trim() !== '' || activeFilter !== 'Todos';
-  const isEmptySearchResult = documents.length === 0 && hasActiveSearchOrFilter;
+  // cenário "Busca sem resultados" e critério de aceite correspondente. Usa o total
+  // bruto (`hasAnyDocuments`), não o estado do filtro/busca, para não confundir o
+  // edge case de conta vazia + busca digitada com "busca sem resultado" (#33).
+  const isEmptySearchResult = documents.length === 0 && hasAnyDocuments;
 
   function clearFilters() {
     onSearchChange('');
@@ -350,7 +353,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   permissionError: {
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 24,
     marginTop: -4,
   },
   cancelButton: {

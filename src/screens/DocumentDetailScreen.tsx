@@ -22,6 +22,7 @@ import { DateInput } from '@/components/DateInput';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { DetailHeader } from '@/components/DetailHeader';
 import { FormField } from '@/components/FormField';
+import { HachuraPlaceholder } from '@/components/HachuraPlaceholder';
 import { InlineError } from '@/components/InlineError';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
 import { useThemeColors } from '@/constants/theme';
@@ -170,7 +171,7 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
                   style={({ pressed }) => [pressed && { opacity: 0.8 }]}
                   className="h-12 items-center justify-center rounded-field border-[1.5px] border-app-border px-4 dark:border-app-dark-border"
                 >
-                  <Text className="text-[15px] font-semibold text-app-secondary dark:text-app-dark-secondary">
+                  <Text className="text-[17px] font-semibold text-app-secondary dark:text-app-dark-secondary">
                     Editar
                   </Text>
                 </Pressable>
@@ -180,17 +181,21 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
 
           {/* Pré-visualização do arquivo — placeholder decorativo, não é preview real do
               conteúdo (spec.md §3: "fundo hachurado ... placeholder visual"). */}
-          <View
-            className="mb-6 items-center justify-center rounded-2xl border-[1.5px] border-dashed border-app-border bg-app-surfaceMuted dark:border-app-dark-border dark:bg-app-dark-surfaceMuted"
-            style={{ height: 150 }}
+          <HachuraPlaceholder
+            bgColor={colors.background}
+            borderColor={colors.border}
+            borderRadius={16}
+            height={150}
+            stripeColor={colors.surfaceMuted}
+            style={{ marginBottom: 24 }}
           >
             <View
-              className="items-center justify-center rounded-2xl border-2 border-app-textMuted dark:border-app-dark-textMuted"
+              className="items-center justify-center rounded-2xl border-2 border-app-textMuted bg-app-surface dark:border-app-dark-textMuted dark:bg-app-dark-surface"
               style={{ height: 80, width: 64 }}
             >
               <Ionicons color={colors.textMuted} name="document-text-outline" size={32} />
             </View>
-          </View>
+          </HachuraPlaceholder>
 
           {isEditMode ? (
             <>

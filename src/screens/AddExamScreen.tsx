@@ -17,6 +17,7 @@ import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { DetailHeader } from '@/components/DetailHeader';
 import { FormField } from '@/components/FormField';
+import { HachuraPlaceholder } from '@/components/HachuraPlaceholder';
 import { InlineError } from '@/components/InlineError';
 import { FONTS, RADII, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
 import {
@@ -95,8 +96,15 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <DetailHeader title="Adicionar documento" onBack={() => router.back()} />
 
-          {/* File Preview Card */}
-          <Card variant="outlined" style={styles.fileCard}>
+          {/* Pré-visualização do arquivo — fundo hachurado decorativo, conforme Canvas 3b
+              (specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html linha 298). */}
+          <HachuraPlaceholder
+            bgColor={colors.background}
+            borderColor={colors.borderStrong}
+            borderRadius={RADII.card}
+            stripeColor={colors.surfaceMuted}
+            style={[styles.fileCard, { padding: SIZES.base }]}
+          >
             <View style={styles.filePreview}>
               <View style={styles.fileIconWrap}>
                 <Ionicons name="document-text-outline" size={26} color={colors.primary} />
@@ -119,7 +127,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
                 <Ionicons name="close" size={18} color={colors.textSecondary} />
               </Pressable>
             </View>
-          </Card>
+          </HachuraPlaceholder>
 
           {/* Document Type Selection */}
           <View style={styles.section}>

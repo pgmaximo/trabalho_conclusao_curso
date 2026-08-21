@@ -39,6 +39,7 @@ function mapDocumentToMedicalDocument(doc: {
   documentDate: string;
   expirationDate: string | null;
   s3FileName: string;
+  originalFileName?: string | null;
 }): MedicalDocument {
   const isExam = doc.documentType === 'exam';
   const documentType = (doc.documentType || 'exam') as 'exam' | 'prescription';
@@ -56,7 +57,10 @@ function mapDocumentToMedicalDocument(doc: {
     documentDate: doc.documentDate,
     expirationDate,
     s3FileName: doc.s3FileName,
-    originalFileName: doc.s3FileName,
+    // Documentos criados antes deste campo existir não têm `originalFileName` no banco —
+    // cai para `s3FileName` (comportamento anterior) só como fallback, nunca esconde o dado
+    // real quando ele existe (GAP_ANALYSIS.md #38).
+    originalFileName: doc.originalFileName || doc.s3FileName,
     validityStatus: computeValidityStatus(documentType, expirationDate),
   } satisfies MedicalDocument;
 }
@@ -218,6 +222,10 @@ export function useExamsData() {
     activeFilter,
     setActiveFilter,
     documents: filterMedicalDocuments(documents, searchQuery, activeFilter),
+    // Total bruto (sem filtro/busca) — distingue "vazio real" de "busca sem
+    // resultado" em ExamsScreen mesmo quando a conta não tem nenhum documento
+    // e o usuário digita uma busca (ver GAP_ANALYSIS.md #33).
+    hasAnyDocuments: documents.length > 0,
     isLoading: status === 'loading',
     errorMessage,
     retry,

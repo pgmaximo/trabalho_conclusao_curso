@@ -117,6 +117,34 @@
               "isRequired": false,
               "attributes": []
             },
+            "chronicConditions": {
+              "name": "chronicConditions",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "medications": {
+              "name": "medications",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "allergies": {
+              "name": "allergies",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "photoKey": {
+              "name": "photoKey",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "createdAt": {
               "name": "createdAt",
               "isArray": false,
@@ -191,6 +219,13 @@
               "isArray": false,
               "type": "String",
               "isRequired": true,
+              "attributes": []
+            },
+            "originalFileName": {
+              "name": "originalFileName",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
               "attributes": []
             },
             "documentName": {
@@ -294,7 +329,7 @@
               "name": "professionalName",
               "isArray": false,
               "type": "String",
-              "isRequired": true,
+              "isRequired": false,
               "attributes": []
             },
             "scheduledAt": {
@@ -308,7 +343,7 @@
               "name": "address",
               "isArray": false,
               "type": "String",
-              "isRequired": true,
+              "isRequired": false,
               "attributes": []
             },
             "observations": {
@@ -670,7 +705,8 @@
           "name": "UserProfileSex",
           "values": [
             "Masculino",
-            "Feminino"
+            "Feminino",
+            "Outro"
           ]
         },
         "MedicalDocumentDocumentType": {
@@ -714,7 +750,136 @@
           ]
         }
       },
-      "nonModels": {}
+      "nonModels": {
+        "PreventionRecommendation": {
+          "name": "PreventionRecommendation",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "grade": {
+              "name": "grade",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "gradeText": {
+              "name": "gradeText",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "title": {
+              "name": "title",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "text": {
+              "name": "text",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "rationale": {
+              "name": "rationale",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "topic": {
+              "name": "topic",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "citationYear": {
+              "name": "citationYear",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "ageMin": {
+              "name": "ageMin",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "ageMax": {
+              "name": "ageMax",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "sex": {
+              "name": "sex",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "bmi": {
+              "name": "bmi",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
+        "GetPreventionRecommendationsReturnType": {
+          "name": "GetPreventionRecommendationsReturnType",
+          "fields": {
+            "recommendations": {
+              "name": "recommendations",
+              "isArray": true,
+              "type": {
+                "nonModel": "PreventionRecommendation"
+              },
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "lastUpdated": {
+              "name": "lastUpdated",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "profileComplete": {
+              "name": "profileComplete",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            }
+          }
+        }
+      },
+      "queries": {
+        "getPreventionRecommendations": {
+          "name": "getPreventionRecommendations",
+          "isArray": false,
+          "type": {
+            "nonModel": "GetPreventionRecommendationsReturnType"
+          },
+          "isRequired": false
+        }
+      }
     }
   },
   "storage": {
@@ -727,6 +892,14 @@
         "aws_region": "us-east-1",
         "paths": {
           "medical-documents/{owner}/*": {
+            "authenticated": [
+              "get",
+              "list",
+              "write",
+              "delete"
+            ]
+          },
+          "avatars/{owner}/*": {
             "authenticated": [
               "get",
               "list",
