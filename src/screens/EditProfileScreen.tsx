@@ -21,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -49,11 +50,13 @@ type EditProfileScreenProps = {
   initialValues: EditProfileFormState;
   displayName?: string;
   email?: string;
-  gender?: 'male' | 'female' | undefined;
+  gender?: 'male' | 'female' | 'other' | undefined;
   photoUrl?: string;
   isSaving: boolean;
   onCancel: () => void;
   onSubmit: (values: EditProfileFormState) => void | Promise<void>;
+  /** Faz upload real da foto (URI local) e persiste a key no UserProfile. */
+  onUploadPhoto: (localUri: string) => Promise<void>;
 };
 
 const SEX_OPTIONS: { label: string; value: Exclude<BiologicalSexValue, ''> }[] = [
@@ -91,10 +94,13 @@ export function EditProfileScreen({
   isSaving,
   onCancel,
   onSubmit,
+  onUploadPhoto,
 }: EditProfileScreenProps) {
   const { colorScheme } = useColorScheme();
   const [values, setValues] = useState<EditProfileFormState>(initialValues);
   const [errors, setErrors] = useState<{ fullName?: string; birthDate?: string }>({});
+  const [previewPhotoUri, setPreviewPhotoUri] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   function update<K extends keyof EditProfileFormState>(key: K, value: EditProfileFormState[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -120,8 +126,42 @@ export function EditProfileScreen({
     onSubmit(values);
   }
 
-  function handleChangePhoto() {
-    Alert.alert('Alterar foto', 'Em breve você poderá trocar sua foto por aqui.');
+  async function handleChangePhoto() {
+    if (isUploadingPhoto) return;
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Permissão necessária',
+          'Habilite o acesso às fotos nas configurações do dispositivo para trocar sua foto de perfil.',
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const localUri = result.assets[0].uri;
+      // Preview otimista: some se o upload falhar (nunca finge sucesso — regra 2).
+      setPreviewPhotoUri(localUri);
+      setIsUploadingPhoto(true);
+
+      await onUploadPhoto(localUri);
+    } catch (error) {
+      setPreviewPhotoUri(null);
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível enviar sua foto agora.';
+      Alert.alert('Erro ao trocar foto', message);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   }
 
   const showPregnancy = values.biologicalSex === 'female';
@@ -157,16 +197,25 @@ export function EditProfileScreen({
           showsVerticalScrollIndicator={false}
         >
           <View className="mb-8 items-center">
-            <Avatar name={displayName} gender={gender} photoUrl={photoUrl} size="lg" />
+            <Avatar
+              name={displayName}
+              gender={gender}
+              photoUrl={previewPhotoUri ?? photoUrl}
+              size="lg"
+            />
             <Pressable
               accessibilityLabel="Alterar foto"
               accessibilityRole="button"
+              disabled={isUploadingPhoto}
               onPress={handleChangePhoto}
-              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [(pressed || isUploadingPhoto) && { opacity: 0.6 }]}
             >
-              <Text className="mt-3 text-[16px] font-semibold text-app-primary dark:text-app-dark-primary">
-                Alterar foto
-              </Text>
+              <View className="mt-3 flex-row items-center gap-2">
+                {isUploadingPhoto ? <ActivityIndicator color="#10794E" size="small" /> : null}
+                <Text className="text-[16px] font-semibold text-app-primary dark:text-app-dark-primary">
+                  {isUploadingPhoto ? 'Enviando foto...' : 'Alterar foto'}
+                </Text>
+              </View>
             </Pressable>
             {email ? (
               <Text className="mt-3 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">

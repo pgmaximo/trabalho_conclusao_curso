@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { EditProfileScreen, type EditProfileFormState } from '@/screens/EditProfileScreen';
@@ -13,6 +13,15 @@ jest.mock('@expo/vector-icons/Ionicons', () => {
     return <Text>{name}</Text>;
   };
 });
+
+const mockRequestMediaLibraryPermissionsAsync = jest.fn();
+const mockLaunchImageLibraryAsync = jest.fn();
+
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: (...args: unknown[]) =>
+    mockRequestMediaLibraryPermissionsAsync(...args),
+  launchImageLibraryAsync: (...args: unknown[]) => mockLaunchImageLibraryAsync(...args),
+}));
 
 const EMPTY_VALUES: EditProfileFormState = {
   fullName: '',
@@ -40,6 +49,7 @@ function renderEditProfileScreen(props?: Partial<React.ComponentProps<typeof Edi
         isSaving={false}
         onCancel={jest.fn()}
         onSubmit={jest.fn()}
+        onUploadPhoto={jest.fn().mockResolvedValue(undefined)}
         {...props}
       />
     </SafeAreaProvider>,
@@ -79,15 +89,51 @@ describe('EditProfileScreen', () => {
     expect(screen.queryByText('Você está grávida?')).toBeNull();
   });
 
-  it('shows an "Em breve" alert instead of a real upload when changing the photo', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('uploads the picked photo when permission is granted and an image is selected', async () => {
+    mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true });
+    mockLaunchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///local/photo.jpg' }],
+    });
+    const onUploadPhoto = jest.fn().mockResolvedValue(undefined);
 
-    renderEditProfileScreen();
+    renderEditProfileScreen({ onUploadPhoto });
     fireEvent.press(screen.getByLabelText('Alterar foto'));
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Alterar foto',
-      'Em breve você poderá trocar sua foto por aqui.',
+    await waitFor(() => expect(onUploadPhoto).toHaveBeenCalledWith('file:///local/photo.jpg'));
+  });
+
+  it('shows a permission alert and never uploads when media library access is denied', async () => {
+    mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false });
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const onUploadPhoto = jest.fn();
+
+    renderEditProfileScreen({ onUploadPhoto });
+    fireEvent.press(screen.getByLabelText('Alterar foto'));
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Permissão necessária',
+        'Habilite o acesso às fotos nas configurações do dispositivo para trocar sua foto de perfil.',
+      ),
+    );
+    expect(onUploadPhoto).not.toHaveBeenCalled();
+  });
+
+  it('shows an error alert and never claims success when the upload fails', async () => {
+    mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true });
+    mockLaunchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///local/photo.jpg' }],
+    });
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const onUploadPhoto = jest.fn().mockRejectedValue(new Error('Falha no upload da foto de perfil.'));
+
+    renderEditProfileScreen({ onUploadPhoto });
+    fireEvent.press(screen.getByLabelText('Alterar foto'));
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith('Erro ao trocar foto', 'Falha no upload da foto de perfil.'),
     );
   });
 });

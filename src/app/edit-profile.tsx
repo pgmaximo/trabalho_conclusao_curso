@@ -9,7 +9,8 @@ import { Alert } from 'react-native';
 import { router } from 'expo-router';
 
 import { EditProfileScreen, type EditProfileFormState } from '@/screens/EditProfileScreen';
-import { saveUserProfile } from '@/services/profileSetupRepository';
+import { saveUserProfile, updateUserPhotoKey } from '@/services/profileSetupRepository';
+import { uploadAvatarPhoto } from '@/services/avatarService';
 import { useUserContext } from '@/contexts/UserContext';
 import type { UserProfile } from '@/contexts/UserContext';
 import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
@@ -80,6 +81,12 @@ export default function EditProfileRoute() {
     return null;
   }
 
+  async function handleUploadPhoto(localUri: string) {
+    const photoKey = await uploadAvatarPhoto(localUri);
+    await updateUserPhotoKey(photoKey);
+    await refreshUser();
+  }
+
   async function handleSubmit(form: EditProfileFormState) {
     setIsSaving(true);
     try {
@@ -107,6 +114,7 @@ export default function EditProfileRoute() {
       isSaving={isSaving}
       onCancel={() => router.back()}
       onSubmit={handleSubmit}
+      onUploadPhoto={handleUploadPhoto}
     />
   );
 }
