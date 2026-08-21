@@ -110,7 +110,14 @@ export function ProfileScreen({
     { label: 'Idade', value: age ? `${age} anos` : '—' },
     {
       label: 'Sexo',
-      value: user?.gender === 'male' ? 'Masculino' : user?.gender === 'female' ? 'Feminino' : '—',
+      value:
+        user?.gender === 'male'
+          ? 'Masculino'
+          : user?.gender === 'female'
+            ? 'Feminino'
+            : user?.gender === 'other'
+              ? 'Outro'
+              : '—',
     },
     {
       label: 'Tabagismo',
