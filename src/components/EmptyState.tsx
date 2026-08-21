@@ -32,21 +32,24 @@ export function EmptyState({
 }: EmptyStateProps) {
   const colors = useThemeColors();
   const accentColor = tone === 'error' ? colors.danger : colors.primary;
+  // Ícone-tile 56×56 (Canvas 1a — DESIGN_TOKENS.md §3): bg #E8F5EE, borda #C7E8D6
+  const tileBg = tone === 'error' ? colors.dangerSoft : colors.primarySoft;
+  const tileBorder = tone === 'error' ? colors.dangerBadgeBorder : colors.successBadgeBorder;
 
   return (
     <View className="items-center justify-center py-8">
-      {isIoniconName(icon) ? (
-        <Ionicons
-          color={accentColor}
-          name={icon as never}
-          size={28}
-          style={{ marginBottom: 8 }}
-        />
-      ) : (
-        <Text className="mb-2 text-[28px]" style={{ color: accentColor }}>
-          {icon}
-        </Text>
-      )}
+      <View
+        className="mb-2 items-center justify-center rounded-full border"
+        style={{ backgroundColor: tileBg, borderColor: tileBorder, height: 56, width: 56 }}
+      >
+        {isIoniconName(icon) ? (
+          <Ionicons color={accentColor} name={icon as never} size={28} />
+        ) : (
+          <Text className="text-[28px]" style={{ color: accentColor }}>
+            {icon}
+          </Text>
+        )}
+      </View>
       <Text className="mb-1 text-center text-2xl font-bold text-app-text dark:text-app-dark-text">
         {title}
       </Text>

@@ -13,11 +13,14 @@ module.exports = {
       },
       borderRadius: {
         app: '20px',
-        card: '28px',
+        field: '14px',
+        card: '20px',
       },
-      // <-- MODIFICADO: Vincula o identificador 'Basic-Regular' ao padrão do Tailwind
+      // Vincula os identificadores das faces do IBM Plex Sans (carregadas via
+      // @expo-google-fonts/ibm-plex-sans) ao padrão do Tailwind — ver src/app/_layout.tsx
+      // para o mapeamento dinâmico peso→face aplicado a todo Text/TextInput.
       fontFamily: {
-        sans: ['Basic-Regular'],
+        sans: ['IBMPlexSans_400Regular', 'system-ui', 'sans-serif'],
       },
     },
   },

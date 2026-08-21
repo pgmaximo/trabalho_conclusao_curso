@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+
+import { FONTS, RADII, SPACING, useThemeColors } from '@/constants/theme';
 
 type FilterChipsProps = {
   options: string[];
@@ -8,7 +9,12 @@ type FilterChipsProps = {
   onFilterChange: (filter: string) => void;
 };
 
+// Padrão de chip selecionado/não-selecionado do Canvas 1a (DESIGN_TOKENS.md §4
+// "Segmented/chip selectors"), reutilizável para filtros de lista, sexo,
+// tabagismo, sim/não, tipo de consulta etc.
 export function FilterChips({ options, activeFilter, onFilterChange }: FilterChipsProps) {
+  const colors = useThemeColors();
+
   return (
     <View style={styles.container}>
       {options.map((option) => {
@@ -18,13 +24,19 @@ export function FilterChips({ options, activeFilter, onFilterChange }: FilterChi
             key={option}
             style={({ pressed }) => [
               styles.chip,
-              isActive && styles.chipActive,
+              {
+                borderColor: isActive ? colors.primary : colors.border,
+                backgroundColor: isActive ? colors.primarySoft : colors.surface,
+              },
               pressed && styles.chipPressed,
             ]}
             onPress={() => onFilterChange(option)}
           >
             <Text
-              style={[styles.chipText, isActive && styles.chipTextActive]}
+              style={[
+                FONTS.rotulo,
+                { color: isActive ? colors.primaryDark : colors.textSecondary },
+              ]}
             >
               {option}
             </Text>
@@ -38,29 +50,14 @@ export function FilterChips({ options, activeFilter, onFilterChange }: FilterChi
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginVertical: SIZES.base,
-    gap: SIZES.small,
+    marginVertical: SPACING.md,
+    gap: SPACING.sm,
   },
   chip: {
-    paddingHorizontal: SIZES.base,
-    paddingVertical: SIZES.small,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  chipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  chipText: {
-    ...FONTS.body,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  chipTextActive: {
-    color: '#fff',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADII.sm,
+    borderWidth: 1.5,
   },
   chipPressed: {
     opacity: 0.8,

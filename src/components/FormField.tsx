@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleProp,
   Text,
@@ -35,24 +35,32 @@ export function FormField({
   inputWrapperClassName,
   inputClassName,
   style,
+  onFocus,
+  onBlur,
   ...rest
 }: FormFieldProps) {
   // ATTENTION: useThemeColors() mantido apenas para placeholderTextColor —
   // prop nativa do TextInput que não aceita className
   const colors = useThemeColors();
+  const [isFocused, setIsFocused] = useState(false);
   const isInvalid = Boolean(hasError || errorMessage);
 
+  // Estados do campo (Canvas 1a — DESIGN_TOKENS.md §4 "Inputs"):
+  // default: borda 1.5px; focus: borda 2px secundária; error: borda 2px
+  // danger + fundo tintado. Altura fixa 56px, raio 14px (rounded-field).
   const wrapperClasses = [
-    'flex-row items-center rounded-app border px-4 py-3',
+    'h-14 flex-row items-center rounded-field border px-4',
     isInvalid
-      ? 'border-app-danger bg-app-dangerSoft dark:border-app-dark-danger dark:bg-app-dark-dangerSoft'
-      : 'border-app-border bg-app-inputBackground dark:border-app-dark-border dark:bg-app-dark-inputBackground',
+      ? 'border-2 border-app-danger bg-app-dangerSoft dark:border-app-dark-danger dark:bg-app-dark-dangerSoft'
+      : isFocused
+        ? 'border-2 border-app-secondary bg-app-inputBackground dark:border-app-dark-secondary dark:bg-app-dark-inputBackground'
+        : 'border-[1.5px] border-app-border bg-app-inputBackground dark:border-app-dark-border dark:bg-app-dark-inputBackground',
     inputWrapperClassName ?? '',
   ].join(' ');
 
   return (
     <View className={`mt-6 ${containerClassName ?? ''}`} style={containerStyle}>
-      <Text className="mb-3 text-sm font-semibold text-app-text dark:text-app-dark-text">
+      <Text className="mb-3 text-[16px] font-semibold text-app-text dark:text-app-dark-text">
         {label}
       </Text>
 
@@ -71,17 +79,33 @@ export function FormField({
 
         <TextInput
           accessibilityLabel={label}
-          className={`flex-1 text-[15px] text-app-text dark:text-app-dark-text ${inputClassName ?? ''}`}
+          className={`flex-1 text-[17px] text-app-text dark:text-app-dark-text ${inputClassName ?? ''}`}
           placeholderTextColor={colors.placeholder}
           style={style}
+          onBlur={(event) => {
+            setIsFocused(false);
+            onBlur?.(event);
+          }}
+          onFocus={(event) => {
+            setIsFocused(true);
+            onFocus?.(event);
+          }}
           {...rest}
         />
       </View>
 
       {errorMessage ? (
-        <Text className="mt-3 text-[13px] text-app-danger dark:text-app-dark-danger">
-          {errorMessage}
-        </Text>
+        <View className="mt-3 flex-row items-center gap-2">
+          <View
+            className="items-center justify-center rounded-full bg-app-danger dark:bg-app-dark-danger"
+            style={{ height: 22, width: 22 }}
+          >
+            <Text className="text-xs font-bold text-white">!</Text>
+          </View>
+          <Text className="flex-1 text-[16px] text-app-danger dark:text-app-dark-danger">
+            {errorMessage}
+          </Text>
+        </View>
       ) : null}
 
       {!isInvalid && helperText ? (
