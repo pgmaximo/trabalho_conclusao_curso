@@ -14,7 +14,7 @@ Toda a implementação seguiu o processo SDD: spec → plan → tasks → códig
 **Status: concluído.** Commits `1464276` (design tokens) e `80fd38e` (navegação 5 abas + "Mais"). Paleta/tipografia/espaçamento migrados para os tokens reais extraídos do Canvas (`#10794E`/`#1B63C4`, IBM Plex Sans); estrutura de navegação reorganizada nas 5 abas do design (Início/Consultas/Exames/Remédios/Mais). Pendências pontuais em `design-tokens/tasks.md` (5 itens) e `navegacao/tasks.md` (5 itens) — nenhuma bloqueante, ver `GAP_ANALYSIS.md` itens 7-9.
 
 ### Bloco 1 — Autenticação (1b–1f)
-**Status: implementado, spec aplicada.** Commits `66577c7` (login), `326d934` (cadastro), `ce77aab` (confirmação), `52a0cad` (recuperar senha). Pendências residuais menores por tela (2-8 itens cada em `tasks.md`), principalmente o padrão recorrente de confirmação de exclusão via `Alert` nativo em vez do painel inline (`GAP_ANALYSIS.md` #18) e auditoria de dark mode tela-a-tela (#19) — nenhuma tela precisa ser refeita, são ajustes finos.
+**Status: implementado, spec aplicada.** Commits `66577c7` (login), `326d934` (cadastro), `ce77aab` (confirmação), `52a0cad` (recuperar senha). Pendências residuais menores por tela (2-8 itens cada em `tasks.md`), principalmente auditoria de dark mode tela-a-tela (`GAP_ANALYSIS.md` #19) — nenhuma tela precisa ser refeita, são ajustes finos. O item #18 (padrão de confirmação de exclusão via `Alert` nativo) foi verificado nesta sessão como não aplicável a este Bloco: login/cadastro/confirmação não têm nenhuma ação de exclusão.
 
 ### Bloco 2 — Perfil de Saúde, Home e Agenda (2a–2e)
 **Status: `CONCLUÍDO` nesta sessão — as 5 telas implementadas.** Commits `60a0b24` (2a, wizard de perfil de saúde), `e30fe7d` (2b, Home), `57fca85` (2c, Agenda), `0a76a8f` (2d, Novo agendamento), `39096d3` (2e, Editar agendamento). Este era o único Bloco do roadmap original sem nenhuma implementação SDD antes desta sessão (specs prontas desde a Fase 0/1, zero tasks concluídas).
@@ -31,9 +31,9 @@ Pendências remanescentes do Bloco 2, nenhuma bloqueante:
 
 ### Bloco 3 — Exames & Receitas, Medicamentos, Prevenção
 **Status: misto.**
-- **3a/3b/3c (núcleo do MVP — lista, adicionar documento, detalhe do documento):** implementados (`3031844`, `7bc03a2`, `5e70e93`), com gaps de fidelidade documentados (badge "Normal/Alterado" sem fonte real, validação de MIME só por extensão, cabeçalhos inconsistentes entre as 3 telas) — ver `GAP_ANALYSIS.md` #17, #29, #34.
-- **3d/3f/3g (Medicamentos, Novo lembrete, Editar medicamento): `CONCLUÍDO`.** Model `Medicine` real no DynamoDB, CRUD completo. Lembretes locais de verdade (push no horário agendado) ainda não disparam — `expo-notifications` já está instalado (veio junto do port da Prevenção) mas a fiação em 3d/3f/3g não foi feita.
-- **3e (Prevenção): `CONCLUÍDO`, com uma decisão maior no meio do caminho.** Integração real com a API USPSTF/AHRQ via função Lambda, portada de uma branch divergente (`feat/exame_sugest`) que já continha essa implementação real e testada. UI reconstruída como lista filtrável de recomendações por grau (A–I) em vez do layout de score/checklist do Canvas — divergência deliberada e documentada. Pendência remanescente: o banner de campanha de vacinação de 3e ainda não consulta a fonte real que a Vacinação (4e) já disponibiliza.
+- **3a/3b/3c (núcleo do MVP — lista, adicionar documento, detalhe do documento):** implementados (`3031844`, `7bc03a2`, `5e70e93`). O badge "Normal/Alterado" sem fonte real (#17) e os cabeçalhos inconsistentes entre as 3 telas (#34) já foram corrigidos — o primeiro já estava certo desde a implementação original (badge omitido para exames, filtro "Alterados" desabilitado), o segundo via o novo componente `DetailHeader.tsx` (3b/3c). Gap remanescente: validação de MIME só por extensão de arquivo (#29), limitação conhecida e aceita por ora.
+- **3d/3f/3g (Medicamentos, Novo lembrete, Editar medicamento): `CONCLUÍDO`.** Model `Medicine` real no DynamoDB, CRUD completo. Lembretes locais reais agora disparam de fato — `src/services/medicineReminderService.ts` agenda notificações via `expo-notifications` (trigger DAILY/WEEKLY/TIME_INTERVAL), conectado em 3f (ao criar) e 3g (ao editar/excluir).
+- **3e (Prevenção): `CONCLUÍDO`, com uma decisão maior no meio do caminho.** Integração real com a API USPSTF/AHRQ via função Lambda, portada de uma branch divergente (`feat/exame_sugest`) que já continha essa implementação real e testada. UI reconstruída como lista filtrável de recomendações por grau (A–I) em vez do layout de score/checklist do Canvas — divergência deliberada e documentada. O banner de campanha de vacinação de 3e agora consulta a mesma fonte que a Vacinação (4e) já disponibiliza (`vaccinationCampaigns.ts`).
 
 ### Bloco 4 — Assistente de IA, Perfil, Carteira de Vacinação
 **Status: praticamente concluído.**
@@ -61,15 +61,15 @@ Ver `specs/design/GAP_ANALYSIS.md`, seção "Pendências técnicas conhecidas", 
 
 **Prontas para implementar, sem decisão pendente:**
 - Rodar `ampx sandbox` para sincronizar o schema de `Appointment` (`professionalName`/`address` agora opcionais) — necessário antes de validar 2d/2e end-to-end.
-- Conectar lembretes de medicamento (3d/3f/3g) ao `expo-notifications` já instalado — #22.
-- Banner de campanha de vacinação em Prevenção (3e), consultando a fonte que 4e já disponibiliza — #2/#3.b.
 - Composição de "Resumo de hoje" (medicamentos) e "Prevenção em atraso" na Home (2b), quando Medicamentos e Prevenção expuserem os hooks/dados necessários — dependência cross-Bloco, não decidida nesta sessão.
 
 **Cosmético / limpeza, baixa prioridade:**
-- Padrão de confirmação de exclusão via `Alert` nativo em vez do painel inline (#18) — Bloco 1 ainda pendente dessa migração, Bloco 2/3 já usam `DeleteConfirmPanel`.
+- Confirmação de exclusão via `Alert` nativo (#18): verificado nesta sessão como não aplicável a nenhuma tela — Bloco 1 não tem ação de exclusão, e as únicas telas que de fato tinham esse padrão (3c, 2e) já usam `DeleteConfirmPanel`.
 - Auditoria de dark mode tela-a-tela (#19), código morto (`src/mocks/api/*Api.ts`, `useDashboardData.ts`/`dashboardApi.ts` agora órfãos após a EPIC de Home, #8/#39), pisos tipográficos furados no Bloco 3 (#35).
 - Central de notificações (#9.a) e sincronização real com Google Agenda (#9.b) — features inteiramente ausentes, isoladas atrás de stubs nomeados, sem dono de Bloco definido.
 
 ## 5. Próximo passo recomendado
 
 Com o Bloco 2 concluído, os 4 Blocos do roadmap original têm ao menos as telas núcleo implementadas. As pendências de maior prioridade sem decisão bloqueante são: **rodar `ampx sandbox`** para sincronizar o schema de `Appointment` alterado nesta sessão (pré-requisito para qualquer QA real de 2d/2e), e **auditar o Bloco 1 (Autenticação, 1b–1f)** contra o Canvas — é o único Bloco totalmente implementado que nunca passou por uma auditoria de fidelidade tela-a-tela dedicada, mesmo já estando em produção. Alternativamente, o núcleo do MVP em Exames (3a–3c) tem gaps de fidelidade documentados e prontos para correção sem decisão pendente.
+
+Em uma sessão subsequente (2026-08-21), a EPIC `docs/superpowers/plans/2026-08-21-pendencias-bloco3-vacinacao-headers.md` fechou seis pendências do `GAP_ANALYSIS.md`: #34 (cabeçalhos de 3b/3c padronizados via `DetailHeader.tsx`), #22 (lembretes reais de medicamento via `medicineReminderService.ts`, conectados em 3f/3g), #2/#3.b (banner de campanha de vacinação em Prevenção, 3e, consultando a mesma fonte de 4e), e #17/#18 — dois itens que, verificados nesta sessão, já estavam de fato resolvidos antes dela (badge "Normal/Alterado" e o escopo real do padrão de exclusão), mas nunca haviam sido marcados como tal no `GAP_ANALYSIS.md`. Nenhuma dessas seis pendências permanece em aberto; o restante da lista do `GAP_ANALYSIS.md` (incluindo #29, MIME por conteúdo real, deliberadamente fora de escopo) segue sem alteração.
