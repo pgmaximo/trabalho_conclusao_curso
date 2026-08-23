@@ -189,12 +189,6 @@ export function OnboardingScreen({ onBack, onComplete }: OnboardingScreenProps) 
       ]}
     >
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <LinearGradient
-        colors={[colors.background, colors.surfaceMuted, colors.accentSoft]}
-        end={{ x: 1, y: 1 }}
-        start={{ x: 0, y: 0 }}
-        style={StyleSheet.absoluteFill}
-      />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}

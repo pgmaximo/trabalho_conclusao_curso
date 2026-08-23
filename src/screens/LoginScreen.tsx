@@ -16,7 +16,6 @@ import { signIn, signOut } from 'aws-amplify/auth';
 
 import { AuthAppHeader } from '@/components/AuthAppHeader';
 import { AuthInput } from '@/components/AuthInput';
-import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
 import { Button } from '@/components/Button';
 import { SectionDivider } from '@/components/SectionDivider';
 import { SocialButton } from '@/components/SocialButton';
@@ -184,7 +183,6 @@ export function LoginScreen({
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <AuthBackgroundGlow corner="bottomRight" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"

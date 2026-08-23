@@ -16,7 +16,6 @@ import { confirmResetPassword, resetPassword } from 'aws-amplify/auth';
 import { useColorScheme } from 'nativewind';
 
 import { AuthInput } from '@/components/AuthInput';
-import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
 import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
@@ -152,7 +151,6 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <AuthBackgroundGlow corner="topLeft" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"

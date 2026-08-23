@@ -17,7 +17,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { confirmSignUp, resendSignUpCode, signIn } from 'aws-amplify/auth';
 import { useColorScheme } from 'nativewind';
 
-import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
 import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
 import { useThemeColors } from '@/constants/theme';
@@ -171,7 +170,6 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <AuthBackgroundGlow corner="topRight" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -210,13 +208,13 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
               Digite o código
             </Text>
 
-            <View className="flex-row gap-1.5">
+            <View className="flex-row justify-between gap-1.5">
               {digits.map((digit, index) => (
                 <TextInput
                   key={`digit-box-${index}`}
                   accessibilityLabel={`Dígito ${index + 1} de 6`}
                   autoFocus={index === 0}
-                  className="h-[60px] flex-1 rounded-[12px] border-[1.5px] border-app-border bg-app-surface text-center text-2xl font-semibold text-app-text dark:border-app-dark-border dark:bg-app-dark-surface dark:text-app-dark-text"
+                  className="h-[60px] w-[52px] rounded-[12px] border-[1.5px] border-app-border bg-app-surface text-center text-2xl font-semibold text-app-text dark:border-app-dark-border dark:bg-app-dark-surface dark:text-app-dark-text"
                   editable={!isLoading}
                   keyboardType="number-pad"
                   maxLength={1}
