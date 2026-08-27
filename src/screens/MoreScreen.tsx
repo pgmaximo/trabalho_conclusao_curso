@@ -67,15 +67,20 @@ export function MoreScreen() {
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={[FONTS.corpoForte, { color: colors.text }]}>{item.label}</Text>
+                <Text style={[FONTS.corpoForte, { color: colors.text }]} numberOfLines={1}>
+                  {item.label}
+                </Text>
                 {item.description ? (
-                  <Text style={[FONTS.apoio, { color: colors.textSecondary, marginTop: 2 }]}>
+                  <Text
+                    style={[FONTS.apoio, { color: colors.textSecondary, marginTop: 2 }]}
+                    numberOfLines={1}
+                  >
                     {item.description}
                   </Text>
                 ) : null}
               </View>
 
-              <Ionicons name="chevron-forward" size={20} color={colors.iconMuted} />
+              <Ionicons name="chevron-forward" size={20} color={colors.iconMuted} style={{ flexShrink: 0 }} />
             </Pressable>
           ))}
         </View>

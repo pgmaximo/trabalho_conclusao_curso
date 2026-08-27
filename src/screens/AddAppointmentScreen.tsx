@@ -164,7 +164,6 @@ export function AddAppointmentScreen() {
             />
 
             <FormField
-              inputWrapperClassName="h-auto min-h-[76px] items-start py-3"
               label="Observações (opcional)"
               multiline
               numberOfLines={3}

@@ -187,8 +187,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: SIZES.base,
-    paddingVertical: 12,
-    minHeight: 44,
+    // 56px fixo — mesma altura do wrapper `h-14` de FormField, para que o
+    // par "Data"/"Hora" (DateInput + FormField lado a lado) fique alinhado.
+    height: 56,
   },
   inputText: {
     ...FONTS.body,

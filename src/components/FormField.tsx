@@ -47,12 +47,19 @@ export function FormField({
   const colors = useThemeColors();
   const [isFocused, setIsFocused] = useState(false);
   const isInvalid = Boolean(hasError || errorMessage);
+  const isMultiline = Boolean(rest.multiline);
 
   // Estados do campo (Canvas 1a — DESIGN_TOKENS.md §4 "Inputs"):
   // default: borda 1.5px; focus: borda 2px secundária; error: borda 2px
   // danger + fundo tintado. Altura fixa 56px, raio 14px (rounded-field).
+  // Campos `multiline` não podem usar a altura/alinhamento fixos acima — o
+  // wrapper precisa crescer com o texto (senão o TextInput fica maior que o
+  // wrapper e vaza para cima, sobrepondo o label do campo). Aplicado aqui
+  // (e não deixado a cargo do caller via `inputWrapperClassName`) porque um
+  // dos formulários esquecia o override e reproduzia o bug.
   const wrapperClasses = [
-    'h-14 flex-row items-center rounded-field border px-4',
+    isMultiline ? 'min-h-14 h-auto items-start py-3' : 'h-14 items-center',
+    'flex-row rounded-field border px-4',
     isInvalid
       ? 'border-2 border-app-danger bg-app-dangerSoft dark:border-app-dark-danger dark:bg-app-dark-dangerSoft'
       : isFocused

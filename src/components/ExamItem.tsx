@@ -119,7 +119,9 @@ export function ExamItem({
       {badge ? (
         <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
           <Ionicons name={badge.icon} size={14} color={badge.textColor} />
-          <Text style={[styles.badgeText, { color: badge.textColor }]}>{badge.label}</Text>
+          <Text style={[styles.badgeText, { color: badge.textColor }]} numberOfLines={1}>
+            {badge.label}
+          </Text>
         </View>
       ) : null}
 
@@ -139,6 +141,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   // Container principal do item
   container: {
     flexDirection: 'row',           // Layout horizontal
+    flexWrap: 'nowrap',              // Nunca quebra em 2 linhas (ícone/chevron ficam presos ao lado do texto)
     alignItems: 'center',          // Centraliza verticalmente
     backgroundColor: colors.surface, // Fundo do card conforme tema
     borderRadius: SIZES.radius,      // Borda arredondada

@@ -39,7 +39,7 @@ export function FilterChips({ options, activeFilter, onFilterChange, disabledOpt
               styles.chip,
               {
                 borderColor: isDisabled ? colors.border : isActive ? colors.primary : colors.border,
-                backgroundColor: isDisabled ? colors.surfaceMuted : isActive ? colors.primarySoft : colors.surface,
+                backgroundColor: isDisabled ? colors.surfaceMuted : isActive ? colors.primary : colors.surface,
                 opacity: isDisabled ? 0.6 : 1,
               },
               pressed && !isDisabled && styles.chipPressed,
@@ -49,7 +49,8 @@ export function FilterChips({ options, activeFilter, onFilterChange, disabledOpt
             <Text
               style={[
                 FONTS.rotulo,
-                { color: isDisabled ? colors.textMuted : isActive ? colors.primaryDark : colors.textSecondary },
+                { color: isDisabled ? colors.textMuted : isActive ? colors.onPrimary : colors.textSecondary },
+                isActive && !isDisabled ? { fontWeight: '600' } : null,
               ]}
             >
               {option}

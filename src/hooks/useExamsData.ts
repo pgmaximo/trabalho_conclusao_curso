@@ -5,7 +5,7 @@ import type { Schema } from '../../amplify/data/resource';
 
 import { useAsyncResource } from '@/hooks/useAsyncResource';
 import type { DocumentValidityStatus, MedicalDocument, MedicalDocumentFilter } from '@/types/models';
-import { formatDateForDisplay, getTodayDate } from '@/services/examService';
+import { formatDateForDisplay, getTodayDate } from '@/utils/date';
 
 /**
  * Calcula o status de validade de uma receita comparando `expirationDate` com a data atual.
