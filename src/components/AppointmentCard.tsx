@@ -36,6 +36,7 @@ interface AppointmentCardProps {
   location: string;                       // Local da consulta
   type: 'consulta' | 'retorno' | 'exame' | 'cirurgia'; // Tipo da consulta
   onPress?: () => void;                   // Callback ao pressionar o cartão
+  onSyncPress?: () => void;               // Callback para exportar este compromisso para o Google Calendar
 }
 
 // Componente AppointmentCard principal
@@ -45,6 +46,7 @@ export function AppointmentCard({
   location,                // Local
   type,                    // Tipo da consulta
   onPress,                 // Callback de pressão
+  onSyncPress,             // Callback para exportar este compromisso
 }: AppointmentCardProps) {
   // Função para obter a cor baseada no tipo de consulta
   const getTypeColor = () => {
@@ -93,6 +95,17 @@ export function AppointmentCard({
         {/* Header com horário e badge de tipo */}
         <View style={styles.header}>
           <Text style={styles.time}>{time}</Text>
+          {onSyncPress ? (
+            <Pressable
+              style={styles.syncButton}
+              onPress={(event) => {
+                event.stopPropagation();
+                onSyncPress();
+              }}
+            >
+              <Text style={styles.syncButtonText}>Google</Text>
+            </Pressable>
+          ) : null}
           <View style={[styles.typeBadge, { backgroundColor: getTypeColor() }]}>
             <Text style={styles.typeLabel}>{getTypeLabel()}</Text>
           </View>
@@ -151,6 +164,21 @@ const styles = StyleSheet.create({
     fontSize: 12,                   // Tamanho pequeno
   },
   
+  // Botão de sincronização do compromisso
+  syncButton: {
+    backgroundColor: '#E8F0FE',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: SIZES.small,
+  },
+
+  syncButtonText: {
+    color: '#1A73E8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
   // Badge do tipo de consulta
   typeBadge: {
     paddingVertical: 4,            // Padding vertical

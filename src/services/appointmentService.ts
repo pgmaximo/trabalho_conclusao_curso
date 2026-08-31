@@ -2,6 +2,13 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getUserId } from '@/services/auth/userSessionService';
 import { invalidateAppointmentsCache } from '@/hooks/appointmentsCache';
+import {
+  cancelAppointmentReminder,
+  getStoredAppointmentNotificationId,
+  removeAppointmentNotificationId,
+  saveAppointmentNotificationId,
+  scheduleAppointmentReminder,
+} from '@/services/appointmentNotifications';
 
 const client = generateClient<Schema>();
 
@@ -49,6 +56,11 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   }
 
   await invalidateAppointmentsCache();
+
+  const notificationId = await scheduleAppointmentReminder(data.id, data.appointmentName, data.scheduledAt);
+  if (notificationId) {
+    await saveAppointmentNotificationId(data.id, notificationId);
+  }
 
   return {
     id: data.id,
@@ -115,6 +127,11 @@ export async function updateAppointment(id: string, input: Partial<CreateAppoint
 
   await invalidateAppointmentsCache();
 
+  const notificationId = await scheduleAppointmentReminder(data.id, data.appointmentName, data.scheduledAt);
+  if (notificationId) {
+    await saveAppointmentNotificationId(data.id, notificationId);
+  }
+
   return {
     id: data.id,
     appointmentType: data.appointmentType as AppointmentType,
@@ -134,5 +151,7 @@ export async function deleteAppointment(id: string): Promise<void> {
     throw new Error(message || 'Não foi possível deletar o agendamento.');
   }
 
+  await cancelAppointmentReminder(await getStoredAppointmentNotificationId(id));
+  await removeAppointmentNotificationId(id);
   await invalidateAppointmentsCache();
 }
