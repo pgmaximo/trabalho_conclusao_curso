@@ -13,14 +13,12 @@
 // - Configuração da navegação por tabs
 // - Estrutura para todas as telas internas do app
 //
-// Estrutura do AppShell:
-// - Dashboard (tab principal)
-// - Consultas
-// - Medicamentos  
+// Estrutura do AppShell (5 abas + hub "Mais" — ver src/constants/navigation.ts):
+// - Início (dashboard)
+// - Consultas (agenda, /appointments)
 // - Exames
-// - Prevenção
-// - Análise IA
-// - Perfil
+// - Remédios (medicines)
+// - Mais (hub: Prevenção, Assistente de IA, Perfil)
 //
 // =============================================================================
 

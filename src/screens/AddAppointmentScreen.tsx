@@ -1,44 +1,63 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { FormField } from '@/components/FormField';
+import { InlineError } from '@/components/InlineError';
+import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
 import { createAppointment, type AppointmentType } from '@/services/appointmentService';
 
-const appointmentTypeOptions: Array<{ value: AppointmentType; label: string; icon: string }> = [
-  { value: 'CONSULTA', label: 'Consulta', icon: '🩺' },
-  { value: 'EXAME', label: 'Exame', icon: '🧪' },
-  { value: 'CIRURGIA', label: 'Cirurgia', icon: '🔪' },
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+// DECISION (specs/02-perfil-home-agenda/novo-agendamento/tasks.md): emojis
+// substituidos por icones vetoriais Ionicons, consistente com o resto do app
+// (nenhuma outra tela usa emoji como icone de UI).
+const APPOINTMENT_TYPE_OPTIONS: { value: AppointmentType; label: string; icon: IoniconName }[] = [
+  { value: 'CONSULTA', label: 'Consulta', icon: 'medical-outline' },
+  { value: 'EXAME', label: 'Exame', icon: 'flask-outline' },
+  { value: 'CIRURGIA', label: 'Cirurgia', icon: 'cut-outline' },
 ];
 
 export function AddAppointmentScreen() {
-  const [appointmentType, setAppointmentType] = useState<AppointmentType>('CONSULTA');
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // DECISION (spec.md §8, ambiguidade documentada): nenhum tipo vem
+  // pre-selecionado ao abrir a tela — nfInvalid do Canvas so cita nome/data/hora,
+  // nao tipo, entao um fallback silencioso ('CONSULTA') e usado so no payload
+  // se o usuario nunca tocar em um chip.
+  const [appointmentType, setAppointmentType] = useState<AppointmentType | null>(null);
   const [appointmentName, setAppointmentName] = useState('');
   const [professionalName, setProfessionalName] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('14:00');
+  const [scheduledTime, setScheduledTime] = useState('');
   const [address, setAddress] = useState('');
   const [observations, setObservations] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const isFormInvalid = !appointmentName.trim() || !scheduledDate.trim() || !scheduledTime.trim();
+  const disabledReason = isFormInvalid ? 'Preencha nome, data e hora para salvar.' : undefined;
 
   async function handleSubmit() {
-    if (!appointmentName.trim() || !professionalName.trim() || !scheduledDate.trim() || !scheduledTime.trim() || !address.trim()) {
-      alert('Preencha todos os campos obrigatórios.');
+    if (isFormInvalid) {
       return;
     }
 
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
-      // Combine date (YYYY-MM-DD) and time (HH:MM) into ISO-like string
       const scheduledAtIso = `${scheduledDate}T${scheduledTime}`;
       await createAppointment({
-        appointmentType,
+        appointmentType: appointmentType ?? 'CONSULTA',
         appointmentName: appointmentName.trim(),
         professionalName: professionalName.trim(),
         scheduledAt: scheduledAtIso,
@@ -48,8 +67,7 @@ export function AddAppointmentScreen() {
 
       router.back();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao salvar agendamento';
-      alert(message);
+      setSubmitError(error instanceof Error ? error.message : 'Erro ao salvar agendamento.');
     } finally {
       setIsSubmitting(false);
     }
@@ -57,115 +75,206 @@ export function AddAppointmentScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
+      <StatusBar backgroundColor={colors.background} style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Text style={styles.backButtonText}>←</Text>
+            <Pressable
+              accessibilityLabel="Voltar"
+              accessibilityRole="button"
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
+              <Ionicons color={colors.text} name="chevron-back" size={22} />
             </Pressable>
             <View style={styles.titleContainer}>
               <Text style={styles.title}>Novo agendamento</Text>
-              <Text style={styles.subtitle}>Cadastre um compromisso para sua agenda.</Text>
             </View>
           </View>
 
-          <Card variant="outlined" style={styles.card}>
-            <Text style={styles.sectionTitle}>Tipo de agendamento</Text>
-            <View style={styles.typeButtonContainer}>
-              {appointmentTypeOptions.map((option) => (
-                <Pressable
-                  key={option.value}
-                  style={[styles.typeButton, appointmentType === option.value && styles.typeButtonActive]}
-                  onPress={() => setAppointmentType(option.value)}
-                >
-                  <Text style={styles.typeButtonIcon}>{option.icon}</Text>
-                  <Text style={[styles.typeButtonLabel, appointmentType === option.value && styles.typeButtonLabelActive]}>
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </Card>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tipo</Text>
+            <View style={styles.typeRow}>
+              {APPOINTMENT_TYPE_OPTIONS.map((option) => {
+                const isSelected = appointmentType === option.value;
 
-          <View style={styles.formSection}>
-            <Text style={styles.fieldLabel}>Nome do agendamento</Text>
-            <TextInput
-              style={styles.input}
-              value={appointmentName}
+                return (
+                  <Pressable
+                    accessibilityLabel={`Tipo: ${option.label}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    key={option.value}
+                    onPress={() => setAppointmentType(option.value)}
+                    style={[styles.typeChip, isSelected ? styles.typeChipSelected : null]}
+                  >
+                    <Ionicons
+                      color={isSelected ? colors.primaryDark : colors.textSecondary}
+                      name={option.icon}
+                      size={22}
+                    />
+                    <Text style={[styles.typeChipLabel, isSelected ? styles.typeChipLabelSelected : null]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <FormField
+              label="Nome do agendamento"
               onChangeText={setAppointmentName}
-              placeholder="Ex: Consulta cardiológica"
+              placeholder="Ex.: Consulta cardiologista"
+              value={appointmentName}
             />
 
-            <Text style={styles.fieldLabel}>Nome do profissional</Text>
-            <TextInput
-              style={styles.input}
-              value={professionalName}
+            <FormField
+              label="Profissional"
               onChangeText={setProfessionalName}
-              placeholder="Ex: Dra. Carla"
+              placeholder="Ex.: Dr. Ricardo Alves"
+              value={professionalName}
             />
 
-            <DateInput
-              label="Data"
-              value={scheduledDate}
-              onChange={setScheduledDate}
-              placeholder="DD/MM/YYYY"
-            />
+            <View style={styles.dateTimeRow}>
+              <View style={styles.dateTimeField}>
+                <DateInput
+                  label="Data"
+                  onChange={setScheduledDate}
+                  placeholder="DD/MM/AAAA"
+                  value={scheduledDate}
+                />
+              </View>
+              <View style={styles.dateTimeField}>
+                <FormField
+                  inputMode="numeric"
+                  label="Hora"
+                  onChangeText={setScheduledTime}
+                  placeholder="hh:mm"
+                  value={scheduledTime}
+                />
+              </View>
+            </View>
 
-            <Text style={styles.fieldLabel}>Hora</Text>
-            <TextInput
-              style={styles.input}
-              value={scheduledTime}
-              onChangeText={setScheduledTime}
-              placeholder="14:30"
-            />
-
-            <Text style={styles.fieldLabel}>Endereço</Text>
-            <TextInput
-              style={styles.input}
-              value={address}
+            <FormField
+              label="Endereço"
               onChangeText={setAddress}
-              placeholder="Rua X, 123"
+              placeholder="Ex.: Av. Paulista, 1000 - São Paulo/SP"
+              value={address}
             />
 
-            <Text style={styles.fieldLabel}>Observações</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={observations}
-              onChangeText={setObservations}
-              placeholder="Informe detalhes adicionais"
+            <FormField
+              label="Observações (opcional)"
               multiline
-              numberOfLines={4}
+              numberOfLines={3}
+              onChangeText={setObservations}
+              placeholder="Ex.: levar exames anteriores"
+              style={styles.textArea}
+              value={observations}
             />
           </View>
 
-          <Button title="Salvar agendamento" onPress={handleSubmit} disabled={isSubmitting} />
+          {submitError ? <InlineError message={submitError} /> : null}
+
+          <Button
+            disabled={isFormInvalid}
+            disabledReason={disabledReason}
+            loading={isSubmitting}
+            onPress={handleSubmit}
+            title="Salvar agendamento"
+          />
         </ScrollView>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.background },
-  container: { flex: 1 },
-  content: { paddingHorizontal: SIZES.large, paddingTop: SIZES.base, paddingBottom: SIZES.large * 2 },
-  header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: SIZES.large, gap: SIZES.base },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
-  backButtonText: { fontSize: 20, color: COLORS.text, fontWeight: '600' },
-  titleContainer: { flex: 1 },
-  title: { ...FONTS.title, color: COLORS.text, marginBottom: SIZES.small },
-  subtitle: { ...FONTS.caption, color: COLORS.textSecondary },
-  card: { marginBottom: SIZES.large },
-  sectionTitle: { ...FONTS.subtitle, color: COLORS.text, marginBottom: SIZES.base },
-  typeButtonContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: SIZES.small },
-  typeButton: { flexBasis: '31%', paddingVertical: SIZES.base, borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', backgroundColor: COLORS.surface },
-  typeButtonActive: { borderColor: COLORS.primary, backgroundColor: `${COLORS.primary}15` },
-  typeButtonIcon: { fontSize: 22, marginBottom: 4 },
-  typeButtonLabel: { ...FONTS.caption, color: COLORS.textSecondary },
-  typeButtonLabelActive: { color: COLORS.primary, fontWeight: '700' },
-  formSection: { marginBottom: SIZES.large },
-  fieldLabel: { ...FONTS.body, color: COLORS.text, fontWeight: '600', marginTop: SIZES.base, marginBottom: SIZES.small },
-  input: { backgroundColor: COLORS.inputBackground, borderColor: COLORS.border, borderWidth: 1, borderRadius: SIZES.radius, paddingHorizontal: SIZES.base, paddingVertical: SIZES.base, color: COLORS.text },
-  textArea: { minHeight: 100, textAlignVertical: 'top' },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      flex: 1,
+    },
+    content: {
+      paddingHorizontal: SIZES.large,
+      paddingTop: SIZES.base,
+      paddingBottom: SIZES.large * 2,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: SIZES.large,
+      gap: SIZES.base,
+    },
+    backButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      borderCurve: 'continuous',
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    titleContainer: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    title: {
+      ...FONTS.title,
+      color: colors.text,
+    },
+    section: {
+      marginTop: SIZES.large,
+    },
+    sectionTitle: {
+      ...FONTS.body,
+      color: colors.textSecondary,
+      fontWeight: '600',
+      marginBottom: SIZES.small,
+    },
+    typeRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    typeChip: {
+      flex: 1,
+      height: 64,
+      borderRadius: 14,
+      borderCurve: 'continuous',
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+    },
+    typeChipSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    typeChipLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    typeChipLabelSelected: {
+      color: colors.primaryDark,
+    },
+    dateTimeRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    dateTimeField: {
+      flex: 1,
+    },
+    textArea: {
+      minHeight: 76,
+      textAlignVertical: 'top',
+      paddingTop: 14,
+    },
+  });

@@ -9,7 +9,8 @@ import { Alert } from 'react-native';
 import { router } from 'expo-router';
 
 import { EditProfileScreen, type EditProfileFormState } from '@/screens/EditProfileScreen';
-import { saveUserProfile } from '@/services/profileSetupRepository';
+import { saveUserProfile, updateUserPhotoKey } from '@/services/profileSetupRepository';
+import { uploadAvatarPhoto } from '@/services/avatarService';
 import { useUserContext } from '@/contexts/UserContext';
 import type { UserProfile } from '@/contexts/UserContext';
 import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
@@ -23,9 +24,9 @@ function awsDateToBrazilian(value?: string): string {
   return `${day}/${month}/${year}`;
 }
 
-function heightCmToMeters(value?: number): string {
+function heightCmToText(value?: number): string {
   if (!value) return '';
-  return (value / 100).toFixed(2).replace('.', ',');
+  return String(Math.round(value));
 }
 
 function boolToAnswer(value?: boolean): EditProfileFormState['tobaccoUse'] {
@@ -40,7 +41,7 @@ function userToFormState(user: UserProfile): EditProfileFormState {
     birthDate: awsDateToBrazilian(user.birthDate),
     biologicalSex:
       user.gender === 'female' ? 'female' : user.gender === 'male' ? 'male' : 'prefer_not_to_say',
-    heightCm: heightCmToMeters(user.heightCm),
+    heightCm: heightCmToText(user.heightCm),
     weightKg: user.weightKg ? String(user.weightKg) : '',
     tobaccoUse: boolToAnswer(user.isSmoker),
     sexuallyActive: boolToAnswer(user.sexuallyActive),
@@ -80,6 +81,12 @@ export default function EditProfileRoute() {
     return null;
   }
 
+  async function handleUploadPhoto(localUri: string) {
+    const photoKey = await uploadAvatarPhoto(localUri);
+    await updateUserPhotoKey(photoKey);
+    await refreshUser();
+  }
+
   async function handleSubmit(form: EditProfileFormState) {
     setIsSaving(true);
     try {
@@ -107,6 +114,7 @@ export default function EditProfileRoute() {
       isSaving={isSaving}
       onCancel={() => router.back()}
       onSubmit={handleSubmit}
+      onUploadPhoto={handleUploadPhoto}
     />
   );
 }

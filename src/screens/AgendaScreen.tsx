@@ -11,13 +11,13 @@ import { CalendarPicker } from '@/components/CalendarPicker';
 import { EmptyState } from '@/components/EmptyState';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
-import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 import type { AppointmentEntry, CalendarDateItem } from '@/types/models';
 
 type AgendaScreenProps = {
   dates: CalendarDateItem[];
   selectedDate: number;
+  selectedDayLabel: string;
   appointments: AppointmentEntry[];
   isLoading: boolean;
   errorMessage: string | null;
@@ -28,6 +28,7 @@ type AgendaScreenProps = {
 export function AgendaScreen({
   dates,
   selectedDate,
+  selectedDayLabel,
   appointments,
   isLoading,
   errorMessage,
@@ -87,8 +88,8 @@ export function AgendaScreen({
           ) : (
             <>
               <ScreenHeader
-                title="Agenda & Consultas"
-                subtitle="Seus compromissos de saúde, com espaço para sincronização futura."
+                title="Agenda"
+                subtitle="Seus compromissos de saúde"
                 action={
                   <Pressable
                     className="h-10 w-10 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
@@ -102,27 +103,31 @@ export function AgendaScreen({
 
               <CalendarPicker selectedDate={selectedDate} onDateSelect={onDateSelect} dates={dates} />
 
-              <Section title="Próximos compromissos" subtitle="Agenda filtrada pelo dia selecionado.">
-                {appointments.length > 0 ? (
-                  appointments.map((appointment) => (
-                    <AppointmentCard
-                      key={appointment.id}
-                      time={appointment.time}
-                      title={appointment.title}
-                      location={appointment.location}
-                      type={appointment.type}
-                      onPress={() => router.push(`/edit-appointment?id=${encodeURIComponent(String(appointment.id))}`)}
-                      onSyncPress={() => handleGoogleCalendarSync(appointment)}
-                    />
-                  ))
-                ) : (
-                  <EmptyState
-                    icon="calendar-outline"
-                    title="Nenhum compromisso neste dia"
-                    description="Escolha outra data ou cadastre um novo atendimento."
+              <Text className="mb-3 mt-4 text-[18px] font-semibold text-app-text dark:text-app-dark-text">
+                {selectedDayLabel}
+              </Text>
+
+              {appointments.length > 0 ? (
+                appointments.map((appointment) => (
+                  <AppointmentCard
+                    key={appointment.id}
+                    time={appointment.time}
+                    title={appointment.title}
+                    location={appointment.location}
+                    type={appointment.type}
+                    onPress={() => router.push(`/edit-appointment?id=${encodeURIComponent(String(appointment.id))}`)}
+                    onSyncPress={() => handleGoogleCalendarSync(appointment)}
                   />
-                )}
-              </Section>
+                ))
+              ) : (
+                <EmptyState
+                  actionLabel="Agendar consulta"
+                  description="Escolha outra data ou cadastre um novo atendimento."
+                  icon="calendar-outline"
+                  onActionPress={() => router.push('/add-appointment')}
+                  title="Nenhum compromisso neste dia"
+                />
+              )}
             </>
           )}
         </ScrollView>

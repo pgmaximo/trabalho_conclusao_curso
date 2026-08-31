@@ -10,17 +10,21 @@
 //
 // Funcionalidades:
 // - Carregamento assíncrono de todas as consultas
-// - Seleção de dia específico
-// - Filtragem automática de consultas por dia
+// - Seleção de dia dentro de uma janela fixa de 7 dias (hoje + 6 seguintes)
+// - Filtragem de consultas pelo dia selecionado
 // - Estados de loading, error e success
 // - Funcionalidade de retry para falhas
-// - Lista de datas disponíveis
 //
 // Retorno:
-// - dates: Array de datas disponíveis
-// - selectedDate: Dia selecionado atualmente
-// - setSelectedDate: Função para selecionar dia
-// - appointments: Consultas filtradas pelo dia selecionado
+// - dates: janela fixa de 7 dias (sempre selecionáveis, com indicador real de
+//   "tem compromisso")
+// - selectedDate: dia do mês selecionado atualmente
+// - setSelectedDate: função para selecionar dia
+// - selectedDayLabel: rótulo formatado do dia selecionado (ex. "Hoje, 20 de agosto")
+// - appointments: TODAS as consultas do usuário (sem filtro de dia) — usado por
+//   telas que precisam da lista completa (ex. Home/2b, "próximos compromissos")
+// - appointmentsForSelectedDate: consultas filtradas pelo dia selecionado no
+//   seletor de 7 dias — usado pela Agenda (2c)
 // - isLoading: Estado de carregamento
 // - errorMessage: Mensagem de erro (se houver)
 // - retry: Função para tentar novamente
@@ -33,32 +37,73 @@ import { listAppointmentsForUser, type AppointmentRecord } from '@/services/appo
 import { loadCachedAppointments, registerAppointmentsRefetchCallback, saveAppointmentsCache } from '@/hooks/appointmentsCache';
 import type { AppointmentEntry, CalendarDateItem } from '@/types/models';
 
+const WEEKDAY_LONG_FORMATTER = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' });
+const MONTH_LONG_FORMATTER = new Intl.DateTimeFormat('pt-BR', { month: 'long' });
+const MONTH_SHORT_FORMATTER = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
+
 function mapAppointmentToEntry(appointment: AppointmentRecord): AppointmentEntry {
-  const [datePart, timePart] = appointment.scheduledAt.split('T');
-  const displayDate = datePart ? datePart.split('-').reverse().join('/') : appointment.scheduledAt;
+  const [, timePart] = appointment.scheduledAt.split('T');
   const displayTime = timePart ? timePart.slice(0, 5) : '00:00';
 
   return {
     id: appointment.id,
-    time: `${displayDate} • ${displayTime}`,
+    // Canvas 2c mostra so a hora no card — a data completa fica no rotulo do dia
+    // selecionado (ver selectedDayLabel abaixo), nao duplicada aqui.
+    time: displayTime,
     title: appointment.appointmentName,
-    location: appointment.address,
+    location: appointment.address ?? '',
     type: appointment.appointmentType.toLowerCase() as AppointmentEntry['type'],
+    scheduledAt: appointment.scheduledAt,
   };
 }
 
-function buildCalendarDates(appointments: AppointmentEntry[]): CalendarDateItem[] {
-  const daySet = new Set<number>();
+function isSameDate(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
 
-  appointments.forEach((appointment) => {
-    const [datePart] = appointment.time.split(' • ');
-    const [day] = datePart.split('/').map((value) => Number(value));
-    if (day) {
-      daySet.add(day);
-    }
+function isSameCalendarDay(isoDate: string, reference: Date): boolean {
+  return isSameDate(new Date(isoDate), reference);
+}
+
+// DECISION (specs/02-perfil-home-agenda/agenda/plan.md item 1, regra 8): janela
+// rolante a partir de hoje (hoje + 6 dias seguintes), nao uma semana-calendario
+// fixa — mais util (sempre mostra os proximos compromissos relevantes) e simples
+// de testar independente do dia da semana em que o app e aberto.
+function buildDateWindow(now: Date): Date[] {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + index);
+    return date;
   });
+}
 
-  return Array.from(daySet).sort((a, b) => a - b).map((day) => ({ day, month: 'ago', hasAppointments: true }));
+function formatMonthAbbrev(date: Date): string {
+  return MONTH_SHORT_FORMATTER.format(date).replace('.', '').toLowerCase();
+}
+
+function buildCalendarDates(appointments: AppointmentEntry[], window: Date[]): CalendarDateItem[] {
+  return window.map((date) => ({
+    day: date.getDate(),
+    month: formatMonthAbbrev(date),
+    hasAppointments: appointments.some((appointment) => isSameCalendarDay(appointment.scheduledAt, date)),
+  }));
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatSelectedDayLabel(selected: Date, today: Date): string {
+  const dayMonth = `${selected.getDate()} de ${MONTH_LONG_FORMATTER.format(selected)}`;
+
+  if (isSameDate(selected, today)) {
+    return `Hoje, ${dayMonth}`;
+  }
+
+  return capitalize(`${WEEKDAY_LONG_FORMATTER.format(selected)}, ${dayMonth}`);
 }
 
 async function fetchAppointments(): Promise<AppointmentRecord[]> {
@@ -90,13 +135,38 @@ export function useAppointmentsData() {
     return records.map(mapAppointmentToEntry);
   }, [data]);
 
-  const dates = useMemo(() => buildCalendarDates(appointments), [appointments]);
+  // Janela de 7 dias calculada uma vez por montagem do hook (nao recalculada a
+  // cada render) — evita que a lista de dias "escorregue" enquanto a tela esta
+  // aberta perto da meia-noite.
+  const dateWindow = useMemo(() => buildDateWindow(new Date()), []);
+
+  const dates = useMemo(
+    () => buildCalendarDates(appointments, dateWindow),
+    [appointments, dateWindow],
+  );
+
+  const selectedWindowDate = useMemo(
+    () => dateWindow.find((date) => date.getDate() === selectedDate) ?? dateWindow[0],
+    [dateWindow, selectedDate],
+  );
+
+  const appointmentsForSelectedDate = useMemo(
+    () => appointments.filter((appointment) => isSameCalendarDay(appointment.scheduledAt, selectedWindowDate)),
+    [appointments, selectedWindowDate],
+  );
+
+  const selectedDayLabel = useMemo(
+    () => formatSelectedDayLabel(selectedWindowDate, dateWindow[0]),
+    [selectedWindowDate, dateWindow],
+  );
 
   return {
     dates,
     selectedDate,
     setSelectedDate,
+    selectedDayLabel,
     appointments,
+    appointmentsForSelectedDate,
     isLoading: status === 'loading',
     errorMessage,
     retry,

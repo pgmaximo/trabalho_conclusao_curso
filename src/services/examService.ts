@@ -64,65 +64,69 @@ export interface ExamValidationError {
 }
 
 /**
- * Gera um nome único para o arquivo no S3 combinando UUID com timestamp
- * Garante que não há conflitos mesmo se arquivos forem enviados simultaneamente
+ * Tamanho máximo de arquivo aceito para upload (10 MB).
+ * Proposta documentada em specs/03-exames-receitas/adicionar-documento/plan.md §3 —
+ * nenhum limite existia antes; valor não confirmado formalmente com o
+ * time/orientador (ambiguidade registrada, regra 8 da constituição).
  */
-export function generateS3FileName(originalFileName: string): string {
-  const fileId = uuidv4();
-  const timestamp = Date.now();
-  const extension = originalFileName.split('.').pop() || 'bin';
-  return `exams/${fileId}-${timestamp}.${extension}`;
+export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Extensões de arquivo aceitas (allowlist), espelhando o filtro do
+ * `DocumentPicker` (`application/pdf`, `image/*`) da tela 3a, mas restrito a
+ * um conjunto explícito de imagens em vez do `image/*` genérico.
+ * Ver specs/03-exames-receitas/adicionar-documento/plan.md §2 e §5.
+ */
+const ALLOWED_FILE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
+
+/**
+ * Revalida o tipo de arquivo pela extensão do nome, como segunda camada de
+ * defesa além do filtro do seletor nativo (que pode ser contornável
+ * dependendo da plataforma/picker usado).
+ */
+export function validateFileType(fileName: string): boolean {
+  const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
+  return ALLOWED_FILE_EXTENSIONS.includes(extension);
 }
 
 /**
- * Cria um ID único para o documento
+ * Valida se o tamanho do arquivo está dentro do limite máximo permitido.
  */
-export function generateFileId(): string {
-  return uuidv4();
+export function validateFileSize(fileSize: number): boolean {
+  return fileSize <= MAX_FILE_SIZE_BYTES;
 }
 
 /**
- * Retorna a data de hoje no formato YYYY-MM-DD
+ * Formata um tamanho em bytes para exibição amigável (KB abaixo de 1024 KB,
+ * MB acima, com vírgula decimal em pt-BR), batendo com o exemplo do Canvas 3b
+ * ("1,2 MB").
  */
-export function getTodayDate(): string {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * Formata uma data de YYYY-MM-DD para DD/MM/YYYY para exibição
- */
-export function formatDateForDisplay(dateString: string): string {
-  if (!dateString) return 'DD/MM/YYYY';
-  try {
-    const [year, month, day] = dateString.split('-');
-    return `${day}/${month}/${year}`;
-  } catch {
-    return 'DD/MM/YYYY';
+export function formatFileSize(bytes: number): string {
+  if (!bytes || bytes <= 0) {
+    return '0 KB';
   }
-}
 
-/**
- * Converte uma data de DD/MM/YYYY para YYYY-MM-DD para armazenamento
- */
-export function formatDateForStorage(displayDate: string): string {
-  try {
-    const [day, month, year] = displayDate.split('/');
-    return `${year}-${month}-${day}`;
-  } catch {
-    return '';
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(1).replace('.', ',')} KB`;
   }
+
+  const mb = kb / 1024;
+  return `${mb.toFixed(1).replace('.', ',')} MB`;
 }
 
+type ExamDocumentCoreInput = Pick<CreateExamDocumentInput, 'documentName' | 'documentDate' | 'expirationDate'> & {
+  documentType: DocumentType | null;
+};
+
 /**
- * Valida os dados do documento antes de salvar
+ * Fonte única de verdade das checagens "documento completo" (tipo, nome,
+ * data, validade se receita) — em ordem de prioridade. Reaproveitada por
+ * `isExamDocumentComplete`/`getExamDocumentIncompleteReason` (estado visual
+ * preventivo do botão) e por `validateExamDocument` (validação de negócio no
+ * submit), para as duas nunca divergirem.
  */
-export function validateExamDocument(
-  input: CreateExamDocumentInput,
-): ExamValidationError[] {
+function getCoreValidationErrors(input: ExamDocumentCoreInput): ExamValidationError[] {
   const errors: ExamValidationError[] = [];
 
   if (!input.documentType) {
@@ -150,6 +154,82 @@ export function validateExamDocument(
     errors.push({
       field: 'expirationDate',
       message: 'Por favor, insira a data de validade para a receita',
+    });
+  }
+
+  // Uma receita não pode vencer antes de ter sido emitida — regra de negócio
+  // não especificada no Canvas, confirmada pelo usuário (2026-08-21, GAP_ANALYSIS.md #37).
+  if (
+    input.documentType === 'prescription' &&
+    input.expirationDate &&
+    input.documentDate &&
+    input.expirationDate < input.documentDate
+  ) {
+    errors.push({
+      field: 'expirationDate',
+      message: 'A data de validade não pode ser anterior à data de emissão da receita',
+    });
+  }
+
+  return errors;
+}
+
+export function isExamDocumentComplete(input: ExamDocumentCoreInput): boolean {
+  return getCoreValidationErrors(input).length === 0;
+}
+
+/**
+ * Motivo legível (primeiro campo obrigatório faltando, na mesma ordem de
+ * prioridade de `getCoreValidationErrors`) para exibir como `disabledReason`
+ * do botão "Salvar documento" — spec.md §6 "Botão desabilitado sempre com
+ * motivo" (mesmo padrão de `Button.tsx` já usado no Cadastro/1d).
+ */
+export function getExamDocumentIncompleteReason(input: ExamDocumentCoreInput): string | undefined {
+  return getCoreValidationErrors(input)[0]?.message;
+}
+
+/**
+ * Gera um nome único para o arquivo no S3 combinando UUID com timestamp
+ * Garante que não há conflitos mesmo se arquivos forem enviados simultaneamente
+ */
+export function generateS3FileName(originalFileName: string): string {
+  const fileId = uuidv4();
+  const timestamp = Date.now();
+  const extension = originalFileName.split('.').pop() || 'bin';
+  return `exams/${fileId}-${timestamp}.${extension}`;
+}
+
+/**
+ * Cria um ID único para o documento
+ */
+export function generateFileId(): string {
+  return uuidv4();
+}
+
+// Helpers de data movidos para `@/utils/date` (quebra do require cycle com
+// `useExamsData.ts`) — re-exportados aqui para não quebrar quem já importava
+// daqui (AddExamScreen, DocumentDetailScreen).
+export { getTodayDate, formatDateForDisplay, formatDateForStorage } from '@/utils/date';
+
+/**
+ * Valida os dados do documento antes de salvar
+ */
+export function validateExamDocument(
+  input: CreateExamDocumentInput,
+): ExamValidationError[] {
+  const errors: ExamValidationError[] = getCoreValidationErrors(input);
+
+  if (!validateFileType(input.fileName)) {
+    errors.push({
+      field: 'fileName',
+      message: 'Formato de arquivo não suportado. Envie um PDF ou imagem (JPG/PNG).',
+    });
+  }
+
+  if (!validateFileSize(input.fileSize)) {
+    errors.push({
+      field: 'fileSize',
+      message: `Arquivo muito grande. O tamanho máximo permitido é ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB.`,
     });
   }
 
@@ -187,9 +267,12 @@ async function uploadFileToS3(
       blobData = await response.blob();
     }
 
-    // Upload para S3 usando Amplify Storage
+    // Upload para S3 usando Amplify Storage. `{owner}` NÃO é um token substituído
+    // pelo Amplify Storage (só `{entity_id}` é) — usar a forma de função com
+    // `identityId` é o jeito correto de isolar o arquivo por usuário (ver
+    // amplify/storage/resource.ts, regra `medical-documents/{entity_id}/*`).
     const result = await uploadData({
-      path: `medical-documents/{owner}/${s3FileName}`,
+      path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
       data: blobData,
     }).result;
 
@@ -207,7 +290,7 @@ async function uploadFileToS3(
 export async function getDocumentDownloadUrl(s3FileName: string): Promise<string> {
   try {
     const result = await getUrl({
-      path: `medical-documents/{owner}/${s3FileName}`,
+      path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
     });
 
     return result.url.toString();
@@ -249,6 +332,7 @@ async function saveDocumentMetadata(metadata: FileMetadata): Promise<FileMetadat
     const { data, errors } = await client.models.MedicalDocument.create({
       documentType: metadata.documentType as Schema['MedicalDocument']['type']['documentType'],
       s3FileName: metadata.s3FileName,
+      originalFileName: metadata.originalFileName,
       documentName: metadata.documentName,
       documentDate: metadata.documentDate,
       expirationDate: metadata.expirationDate || null,
@@ -349,6 +433,11 @@ export async function updateExamDocument(input: UpdateExamDocumentInput) {
     }
 
     console.log('Documento atualizado:', data);
+
+    // Invalidate cache so next fetch gets fresh data — simétrico a
+    // createExamDocument/deleteExamDocument, que já fazem isso internamente.
+    await invalidateExamsCache();
+
     return data;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -364,7 +453,7 @@ export async function deleteExamDocument(documentId: string, s3FileName: string)
     // 1. Delete from S3
     console.log('Deleting from S3:', s3FileName);
     await remove({
-      path: `medical-documents/{owner}/${s3FileName}`,
+      path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
     });
     console.log('File deleted from S3');
 

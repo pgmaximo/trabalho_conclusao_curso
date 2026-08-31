@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { FONTS, SIZES, useThemeColors } from '@/constants/theme';
 
 interface CalendarPickerProps {
   selectedDate: number;
@@ -9,42 +9,45 @@ interface CalendarPickerProps {
 }
 
 export function CalendarPicker({ selectedDate, onDateSelect, dates }: CalendarPickerProps) {
+  const colors = useThemeColors();
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
     >
-      {dates.map((date, index) => (
-        <Pressable
-          key={`${date.day}-${date.month}`}
-          style={[
-            styles.dateButton,
-            selectedDate === date.day && styles.dateButtonSelected,
-          ]}
-          onPress={() => onDateSelect(date.day)}
-        >
-          <Text
+      {dates.map((date) => {
+        const isSelected = selectedDate === date.day;
+        return (
+          <Pressable
+            key={`${date.day}-${date.month}`}
             style={[
-              styles.dayText,
-              selectedDate === date.day && styles.dayTextSelected,
+              styles.dateButton,
+              {
+                borderColor: isSelected ? colors.primary : colors.border,
+                backgroundColor: isSelected ? colors.primary : colors.surface,
+              },
             ]}
+            onPress={() => onDateSelect(date.day)}
           >
-            {date.day}
-          </Text>
-          <Text
-            style={[
-              styles.monthText,
-              selectedDate === date.day && styles.monthTextSelected,
-            ]}
-          >
-            {date.month}
-          </Text>
-          {date.hasAppointments && selectedDate !== date.day && (
-            <View style={styles.dot} />
-          )}
-        </Pressable>
-      ))}
+            <Text style={[styles.dayText, { color: isSelected ? colors.onPrimary : colors.text }]}>
+              {date.day}
+            </Text>
+            <Text
+              style={[
+                styles.monthText,
+                { color: isSelected ? colors.onPrimary : colors.textSecondary },
+              ]}
+            >
+              {date.month}
+            </Text>
+            {date.hasAppointments && !isSelected && (
+              <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+            )}
+          </Pressable>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -62,36 +65,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  dateButtonSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
   },
   dayText: {
     ...FONTS.heading,
     fontSize: 18,
-    color: COLORS.text,
     fontWeight: '600',
-  },
-  dayTextSelected: {
-    color: '#fff',
   },
   monthText: {
     ...FONTS.caption,
-    color: COLORS.textSecondary,
     fontSize: 11,
     marginTop: 2,
-  },
-  monthTextSelected: {
-    color: '#fff',
   },
   dot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.primary,
     marginTop: 4,
   },
 });

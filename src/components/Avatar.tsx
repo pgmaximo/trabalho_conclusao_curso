@@ -9,7 +9,7 @@ type AvatarSize = 'sm' | 'md' | 'lg';
 
 type AvatarProps = {
   name?: string;
-  gender?: 'male' | 'female' | undefined;
+  gender?: 'male' | 'female' | 'other' | undefined;
   photoUrl?: string;
   size?: AvatarSize;
   style?: StyleProp<ViewStyle>;
@@ -43,7 +43,7 @@ function getInitials(name?: string): string {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
-function getGenderSource(gender?: 'male' | 'female') {
+function getGenderSource(gender?: 'male' | 'female' | 'other') {
   if (gender === 'male') return boyImage;
   if (gender === 'female') return femImage;
   return null;

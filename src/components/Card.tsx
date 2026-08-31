@@ -11,10 +11,12 @@ type CardProps = ViewProps & {
   style?: StyleProp<ViewStyle>;
 };
 
+// Padding alinhado ao Canvas 1a (DESIGN_TOKENS.md §4 "Cards"): 14px item de
+// lista, 18px card de formulário, 22px bloco de referência.
 const PADDING_CLASS: Record<CardPadding, string> = {
-  compact: 'p-3',
-  regular: 'p-4',
-  spacious: 'p-6',
+  compact: 'p-[14px]',
+  regular: 'p-[18px]',
+  spacious: 'p-[22px]',
 };
 
 const VARIANT_CLASS: Record<CardVariant, string> = {

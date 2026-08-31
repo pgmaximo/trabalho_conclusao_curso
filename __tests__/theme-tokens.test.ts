@@ -5,8 +5,8 @@ const tailwindConfig = require('../tailwind.config.js');
 
 describe('centralized theme tokens', () => {
   it('uses the same light and dark tokens in React Native theme exports', () => {
-    expect(themeTokens.light.background).toBe('#F5F5F5');
-    expect(themeTokens.dark.background).toBe('#0A0A0A');
+    expect(themeTokens.light.background).toBe('#F7F8F7');
+    expect(themeTokens.dark.background).toBe('#0E1413');
 
     expect(LIGHT_THEME.colors.background).toBe(themeTokens.light.background);
     expect(DARK_THEME.colors.background).toBe(themeTokens.dark.background);
