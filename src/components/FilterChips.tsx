@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, StyleSheet } from 'react-native';
 
-import { FONTS, RADII, SPACING, useThemeColors } from '@/constants/theme';
+import { FONTS, RADII, SPACING, useThemeColors, type ThemeColors } from '@/constants/theme';
 
 type FilterChipsProps = {
   options: string[];
@@ -15,6 +15,51 @@ type FilterChipsProps = {
   disabledOptions?: string[];
 };
 
+type ChipProps = {
+  option: string;
+  isActive: boolean;
+  isDisabled: boolean;
+  colors: ThemeColors;
+  onPress: () => void;
+};
+
+// `style` de Pressable NÃO pode ser função aqui — sem `className`, o NativeWind
+// (jsxImportSource global) descarta o resultado da função e o chip renderiza sem
+// nenhum estilo (bug relatado: filtro sem o visual sólido de seleção).
+function Chip({ option, isActive, isDisabled, colors, onPress }: ChipProps) {
+  const [isPressed, setIsPressed] = useState(false);
+
+  return (
+    <Pressable
+      disabled={isDisabled}
+      accessibilityState={{ disabled: isDisabled, selected: isActive }}
+      style={[
+        styles.chip,
+        {
+          borderColor: isDisabled ? colors.border : isActive ? colors.primary : colors.border,
+          backgroundColor: isDisabled ? colors.surfaceMuted : isActive ? colors.primary : colors.surface,
+          opacity: isDisabled ? 0.6 : 1,
+        },
+        isPressed && !isDisabled && styles.chipPressed,
+      ]}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      onPress={onPress}
+    >
+      <Text
+        style={[
+          FONTS.rotulo,
+          { color: isDisabled ? colors.textMuted : isActive ? colors.onPrimary : colors.textSecondary },
+          isActive && !isDisabled ? { fontWeight: '600' } : null,
+        ]}
+      >
+        {option}
+        {isDisabled ? ' · Em breve' : ''}
+      </Text>
+    </Pressable>
+  );
+}
+
 // Padrão de chip selecionado/não-selecionado do Canvas 1a (DESIGN_TOKENS.md §4
 // "Segmented/chip selectors"), reutilizável para filtros de lista, sexo,
 // tabagismo, sim/não, tipo de consulta etc. Scroll horizontal conforme Canvas 3a §3.
@@ -27,38 +72,16 @@ export function FilterChips({ options, activeFilter, onFilterChange, disabledOpt
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
     >
-      {options.map((option) => {
-        const isActive = activeFilter === option;
-        const isDisabled = disabledOptions?.includes(option) ?? false;
-        return (
-          <Pressable
-            key={option}
-            disabled={isDisabled}
-            accessibilityState={{ disabled: isDisabled, selected: isActive }}
-            style={({ pressed }) => [
-              styles.chip,
-              {
-                borderColor: isDisabled ? colors.border : isActive ? colors.primary : colors.border,
-                backgroundColor: isDisabled ? colors.surfaceMuted : isActive ? colors.primary : colors.surface,
-                opacity: isDisabled ? 0.6 : 1,
-              },
-              pressed && !isDisabled && styles.chipPressed,
-            ]}
-            onPress={() => onFilterChange(option)}
-          >
-            <Text
-              style={[
-                FONTS.rotulo,
-                { color: isDisabled ? colors.textMuted : isActive ? colors.onPrimary : colors.textSecondary },
-                isActive && !isDisabled ? { fontWeight: '600' } : null,
-              ]}
-            >
-              {option}
-              {isDisabled ? ' · Em breve' : ''}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {options.map((option) => (
+        <Chip
+          key={option}
+          option={option}
+          isActive={activeFilter === option}
+          isDisabled={disabledOptions?.includes(option) ?? false}
+          colors={colors}
+          onPress={() => onFilterChange(option)}
+        />
+      ))}
     </ScrollView>
   );
 }

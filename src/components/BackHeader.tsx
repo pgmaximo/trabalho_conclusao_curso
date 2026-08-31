@@ -8,7 +8,7 @@
 // =============================================================================
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useThemeColors } from '@/constants/theme';
@@ -40,6 +40,7 @@ export function BackHeader({
   testID = 'back-header',
 }: BackHeaderProps) {
   const colors = useThemeColors();
+  const [isPressed, setIsPressed] = useState(false);
 
   return (
     <View className="mb-6 flex-row items-center gap-2" testID={testID}>
@@ -49,7 +50,11 @@ export function BackHeader({
         disabled={disabled}
         hitSlop={8}
         onPress={onBack}
-        style={({ pressed }) => [
+        onPressIn={() => setIsPressed(true)}
+        onPressOut={() => setIsPressed(false)}
+        // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+        // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+        style={[
           {
             height: 48,
             width: 48,
@@ -59,7 +64,7 @@ export function BackHeader({
             borderWidth: bordered ? 1.5 : 0,
             borderColor: bordered ? colors.border : 'transparent',
           },
-          pressed && { opacity: 0.7 },
+          isPressed && { opacity: 0.7 },
         ]}
       >
         <MaterialIcons color={colors.text} name="chevron-left" size={28} />

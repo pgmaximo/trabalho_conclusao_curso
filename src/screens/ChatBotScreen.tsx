@@ -4,7 +4,7 @@
  * Banner de disclaimer fixo, drawer de historico, indicador de digitacao,
  * sugestoes rapidas e anexo de exame.
  */
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -54,6 +54,7 @@ export function ChatBotScreen() {
 
   const hasUserMessage = messages.some((message) => message.role === 'user');
   const canSend = inputText.trim().length > 0 && !isTyping;
+  const [isAttachPressed, setIsAttachPressed] = useState(false);
 
   // ATTENTION: rola para a ultima mensagem sempre que o historico cresce ou a IA "digita"
   useEffect(() => {
@@ -177,7 +178,12 @@ export function ChatBotScreen() {
               accessibilityLabel="Anexar exame"
               accessibilityRole="button"
               onPress={handleAttach}
-              style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
+              onPressIn={() => setIsAttachPressed(true)}
+              onPressOut={() => setIsAttachPressed(false)}
+              // `style` NÃO pode ser função aqui — sem `className`, o NativeWind
+              // (jsxImportSource global) descarta o resultado da função e o Pressable
+              // renderiza sem nenhum estilo.
+              style={isAttachPressed ? { opacity: 0.85 } : undefined}
             >
               <Ionicons name="attach-outline" size={24} color={colors.iconMuted} />
             </Pressable>

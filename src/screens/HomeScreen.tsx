@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
@@ -213,6 +213,8 @@ export function HomeScreen({
 }
 
 function SectionLink({ label, onPress }: { label: string; onPress?: () => void }) {
+  const [isPressed, setIsPressed] = useState(false);
+
   if (!onPress) {
     return null;
   }
@@ -222,7 +224,11 @@ function SectionLink({ label, onPress }: { label: string; onPress?: () => void }
       accessibilityRole="button"
       hitSlop={8}
       onPress={onPress}
-      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+      // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+      style={[isPressed && { opacity: 0.7 }]}
     >
       <Text className="text-[15px] font-semibold text-app-secondary dark:text-app-dark-secondary">
         {label}

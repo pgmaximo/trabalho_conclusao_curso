@@ -55,6 +55,7 @@ export function LoginScreen({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isTogglePressed, setIsTogglePressed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginErrorMessage, setLoginErrorMessage] = useState<string | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -229,7 +230,12 @@ export function LoginScreen({
                   disabled={isLoading}
                   hitSlop={8}
                   onPress={togglePasswordVisibility}
-                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                  onPressIn={() => setIsTogglePressed(true)}
+                  onPressOut={() => setIsTogglePressed(false)}
+                  // `style` NÃO pode ser função aqui — sem `className`, o NativeWind
+                  // (jsxImportSource global) descarta o resultado da função e o Pressable
+                  // renderiza sem nenhum estilo.
+                  style={[isTogglePressed && { opacity: 0.7 }]}
                 >
                   <Text className="text-[16px] font-semibold text-app-secondary dark:text-app-dark-secondary">
                     {isPasswordVisible ? 'Ocultar' : 'Mostrar'}

@@ -790,6 +790,7 @@ function Footer({
   const isFirstStep = currentStep === 0;
   const shouldShowBackButton = currentStep > 0;
   const [isBackButtonMounted, setIsBackButtonMounted] = useState(shouldShowBackButton);
+  const [isContinuePressed, setIsContinuePressed] = useState(false);
   const backTranslateY = backButtonProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [34, 0],
@@ -854,9 +855,14 @@ function Footer({
             accessibilityRole="button"
             disabled={isSubmitting}
             onPress={onNext}
-            style={({ pressed }) => [
+            onPressIn={() => setIsContinuePressed(true)}
+            onPressOut={() => setIsContinuePressed(false)}
+            // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+            // global) descarta o resultado da função e o botão renderiza sem nenhum estilo
+            // (bug conhecido: botão "Continuar" sumindo na etapa pessoal do onboarding).
+            style={[
               styles.continueButton,
-              pressed || isSubmitting ? styles.buttonPressed : null,
+              isContinuePressed || isSubmitting ? styles.buttonPressed : null,
             ]}
           >
             <LinearGradient

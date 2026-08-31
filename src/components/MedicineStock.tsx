@@ -5,7 +5,7 @@
 // "Metformina 850mg").
 // =============================================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -28,12 +28,17 @@ export function MedicineStock({ name, quantity, unit, status, percentage = 100, 
   const alertColor = isCritical ? colors.danger : colors.warning;
   const alertBorderColor = isCritical ? colors.dangerBadgeBorder : colors.warningBadgeBorder;
   const alertMessage = isCritical ? 'Estoque esgotado — compre mais o quanto antes' : 'Estoque baixo — hora de comprar mais';
+  const [isPressed, setIsPressed] = useState(false);
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [pressed && onPress ? { opacity: 0.9 } : null]}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+      // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+      style={isPressed && onPress ? { opacity: 0.9 } : null}
     >
       <Card
         padding="compact"

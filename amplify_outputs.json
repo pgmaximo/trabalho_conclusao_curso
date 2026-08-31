@@ -891,16 +891,16 @@
         "bucket_name": "amplify-tcc-pedro-sandbox-medicaldocumentsbucketd9-yp5x61ik2giw",
         "aws_region": "us-east-1",
         "paths": {
-          "medical-documents/{owner}/*": {
-            "authenticated": [
+          "medical-documents/${cognito-identity.amazonaws.com:sub}/*": {
+            "entityidentity": [
               "get",
               "list",
               "write",
               "delete"
             ]
           },
-          "avatars/{owner}/*": {
-            "authenticated": [
+          "avatars/${cognito-identity.amazonaws.com:sub}/*": {
+            "entityidentity": [
               "get",
               "list",
               "write",

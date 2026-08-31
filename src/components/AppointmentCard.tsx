@@ -15,7 +15,7 @@
 //
 // =============================================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 
 import { useThemeColors, type ThemeColors } from '@/constants/theme';
@@ -45,14 +45,15 @@ function getTypeTone(colors: ThemeColors, type: AppointmentType) {
 export function AppointmentCard({ time, title, location, type, onPress }: AppointmentCardProps) {
   const colors = useThemeColors();
   const tone = getTypeTone(colors, type);
+  const [isPressed, setIsPressed] = useState(false);
 
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.container,
-        { backgroundColor: colors.surface },
-        pressed && styles.pressed,
-      ]}
+      // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+      // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+      style={[styles.container, { backgroundColor: colors.surface }, isPressed && styles.pressed]}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
       onPress={onPress}
     >
       <View style={[styles.leftBorder, { backgroundColor: tone.accent }]} />

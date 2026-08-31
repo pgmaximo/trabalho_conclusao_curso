@@ -21,7 +21,7 @@
 // =============================================================================
 
 // Importações necessárias
-import React, { useMemo } from 'react';        // Biblioteca principal React
+import React, { useMemo, useState } from 'react';        // Biblioteca principal React
 import { View, Text, Pressable, StyleSheet } from 'react-native';  // Componentes UI
 import Ionicons from '@expo/vector-icons/Ionicons';  // Ícones vetoriais do projeto
 
@@ -88,12 +88,18 @@ export function ExamItem({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const badge = validityStatus ? getValidityBadgeConfig(colors, validityStatus) : null;
   const iconColor = getIconAccentColor(colors, documentType);
+  const [isPressed, setIsPressed] = useState(false);
 
   // Renderiza o item de documento
   return (
     <Pressable
-      // Aplica estilos com feedback de pressed
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      // Aplica estilos com feedback de pressed. NÃO usar `style` como função aqui — sem
+      // `className`, o NativeWind (jsxImportSource global) descarta o resultado da função
+      // e o Pressable cai no layout padrão (coluna, largura esticada), quebrando o row
+      // ícone/conteúdo/chevron (bug relatado: seta empurrada para baixo do card).
+      style={[styles.container, isPressed && styles.pressed]}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
       onPress={onPress}                // Callback de pressão
     >
       {/* Container do ícone com fundo tonal do tipo */}

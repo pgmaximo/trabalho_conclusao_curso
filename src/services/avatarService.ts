@@ -7,7 +7,7 @@
 import { getUrl, uploadData } from 'aws-amplify/storage';
 import { Platform } from 'react-native';
 
-const AVATAR_PATH = 'avatars/{owner}/profile.jpg';
+const AVATAR_FILE_NAME = 'profile.jpg';
 
 /**
  * Envia a foto de perfil para o Storage e retorna a key persistida em
@@ -29,17 +29,19 @@ export async function uploadAvatarPhoto(localUri: string): Promise<string> {
   }
 
   try {
-    await uploadData({
-      path: AVATAR_PATH,
+    // `{owner}` NÃO é um token substituído pelo Amplify Storage (só `{entity_id}`
+    // é) — usar a forma de função com `identityId` isola a foto por usuário (ver
+    // amplify/storage/resource.ts, regra `avatars/{entity_id}/*`). Diferente da
+    // versão anterior (que persistia um template `{owner}` nunca resolvido, e por
+    // isso todo mundo sobrescrevia o mesmo arquivo), agora persistimos a key já
+    // resolvida (`result.path`), igual ao padrão de `examService.ts`.
+    const result = await uploadData({
+      path: ({ identityId }) => `avatars/${identityId}/${AVATAR_FILE_NAME}`,
       data: blobData,
       options: { contentType: 'image/jpeg' },
     }).result;
 
-    // DECISION: retorna o template com `{owner}` (nao o path resolvido de
-    // `result.path`), mesmo padrao de `examService.ts` — a key persistida e
-    // sempre re-resolvida para o usuario autenticado atual em leitura/remocao,
-    // nunca fixada a um identityId especifico.
-    return AVATAR_PATH;
+    return result.path;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro ao fazer upload da foto';
     throw new Error(`Falha no upload da foto de perfil: ${message}`);

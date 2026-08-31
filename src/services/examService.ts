@@ -267,9 +267,12 @@ async function uploadFileToS3(
       blobData = await response.blob();
     }
 
-    // Upload para S3 usando Amplify Storage
+    // Upload para S3 usando Amplify Storage. `{owner}` NÃO é um token substituído
+    // pelo Amplify Storage (só `{entity_id}` é) — usar a forma de função com
+    // `identityId` é o jeito correto de isolar o arquivo por usuário (ver
+    // amplify/storage/resource.ts, regra `medical-documents/{entity_id}/*`).
     const result = await uploadData({
-      path: `medical-documents/{owner}/${s3FileName}`,
+      path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
       data: blobData,
     }).result;
 
@@ -287,7 +290,7 @@ async function uploadFileToS3(
 export async function getDocumentDownloadUrl(s3FileName: string): Promise<string> {
   try {
     const result = await getUrl({
-      path: `medical-documents/{owner}/${s3FileName}`,
+      path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
     });
 
     return result.url.toString();
@@ -450,7 +453,7 @@ export async function deleteExamDocument(documentId: string, s3FileName: string)
     // 1. Delete from S3
     console.log('Deleting from S3:', s3FileName);
     await remove({
-      path: `medical-documents/{owner}/${s3FileName}`,
+      path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
     });
     console.log('File deleted from S3');
 

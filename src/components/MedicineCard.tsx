@@ -4,7 +4,7 @@
 // de toggle Tomado/Pendente e badge de status (Canvas 3d).
 // =============================================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -31,12 +31,17 @@ export function MedicineCard({ name, dosage, time, status, onPress, onToggle }: 
   const colors = useThemeColors();
   const config = STATUS_CONFIG[status];
   const toggleColor = status === 'taken' ? colors.success : status === 'missed' ? colors.danger : colors.textSecondary;
+  const [isPressed, setIsPressed] = useState(false);
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [pressed && onPress ? { opacity: 0.9 } : null]}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+      // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+      style={isPressed && onPress ? { opacity: 0.9 } : null}
     >
       <Card padding="compact" style={{ marginBottom: 10 }}>
         <View className="flex-row items-center gap-3">

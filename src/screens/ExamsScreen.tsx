@@ -53,6 +53,10 @@ export function ExamsScreen({
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
   const [isSheetVisible, setIsSheetVisible] = useState(false);
+  const [isFabPressed, setIsFabPressed] = useState(false);
+  const [isPickRowPressed, setIsPickRowPressed] = useState(false);
+  const [isCaptureRowPressed, setIsCaptureRowPressed] = useState(false);
+  const [isCancelPressed, setIsCancelPressed] = useState(false);
   const [isPickingFile, setIsPickingFile] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraPermissionError, setCameraPermissionError] = useState<string | null>(null);
@@ -233,16 +237,17 @@ export function ExamsScreen({
           )}
         </ScrollView>
 
-        {/* FAB único (Canvas 3a §3) — ponto de entrada exclusivo para o bottom sheet */}
+        {/* FAB único (Canvas 3a §3) — ponto de entrada exclusivo para o bottom sheet.
+            `style` NÃO pode ser função aqui — sem `className`, o NativeWind
+            (jsxImportSource global) descarta o resultado e o Pressable renderiza sem
+            nenhum estilo (bug relatado: faixa branca sem cor/dimensão no lugar do FAB). */}
         {!isLoading && !errorMessage ? (
           <Pressable
             accessibilityLabel="Adicionar documento"
             accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.fab,
-              { backgroundColor: colors.primary },
-              pressed && { opacity: 0.9 },
-            ]}
+            style={[styles.fab, { backgroundColor: colors.primary }, isFabPressed && { opacity: 0.9 }]}
+            onPressIn={() => setIsFabPressed(true)}
+            onPressOut={() => setIsFabPressed(false)}
             onPress={() => setIsSheetVisible(true)}
           >
             <Ionicons name="add" size={28} color={colors.onPrimary} />
@@ -256,12 +261,12 @@ export function ExamsScreen({
         onClose={() => setIsSheetVisible(false)}
       >
         <Pressable
-          style={({ pressed }) => [
-            styles.sheetRow,
-            { borderColor: colors.border },
-            pressed && { opacity: 0.85 },
-          ]}
+          // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+          // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+          style={[styles.sheetRow, { borderColor: colors.border }, isPickRowPressed && { opacity: 0.85 }]}
           disabled={isPickingFile}
+          onPressIn={() => setIsPickRowPressed(true)}
+          onPressOut={() => setIsPickRowPressed(false)}
           onPress={pickDocument}
         >
           <Ionicons name="document-outline" size={22} color={colors.primary} />
@@ -275,12 +280,12 @@ export function ExamsScreen({
         ) : null}
 
         <Pressable
-          style={({ pressed }) => [
-            styles.sheetRow,
-            { borderColor: colors.border },
-            pressed && { opacity: 0.85 },
-          ]}
+          // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+          // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+          style={[styles.sheetRow, { borderColor: colors.border }, isCaptureRowPressed && { opacity: 0.85 }]}
           disabled={isCapturing}
+          onPressIn={() => setIsCaptureRowPressed(true)}
+          onPressOut={() => setIsCaptureRowPressed(false)}
           onPress={captureWithCamera}
         >
           <Ionicons name="camera-outline" size={22} color={colors.info} />
@@ -300,11 +305,11 @@ export function ExamsScreen({
         ) : null}
 
         <Pressable
-          style={({ pressed }) => [
-            styles.cancelButton,
-            { backgroundColor: colors.background },
-            pressed && { opacity: 0.85 },
-          ]}
+          // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+          // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+          style={[styles.cancelButton, { backgroundColor: colors.background }, isCancelPressed && { opacity: 0.85 }]}
+          onPressIn={() => setIsCancelPressed(true)}
+          onPressOut={() => setIsCancelPressed(false)}
           onPress={() => setIsSheetVisible(false)}
         >
           <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancelar</Text>

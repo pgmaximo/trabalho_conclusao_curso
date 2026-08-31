@@ -101,6 +101,7 @@ export function EditProfileScreen({
   const [errors, setErrors] = useState<{ fullName?: string; birthDate?: string }>({});
   const [previewPhotoUri, setPreviewPhotoUri] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isChangePhotoPressed, setIsChangePhotoPressed] = useState(false);
 
   function update<K extends keyof EditProfileFormState>(key: K, value: EditProfileFormState[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -208,7 +209,12 @@ export function EditProfileScreen({
               accessibilityRole="button"
               disabled={isUploadingPhoto}
               onPress={handleChangePhoto}
-              style={({ pressed }) => [(pressed || isUploadingPhoto) && { opacity: 0.6 }]}
+              onPressIn={() => setIsChangePhotoPressed(true)}
+              onPressOut={() => setIsChangePhotoPressed(false)}
+              // `style` NÃO pode ser função aqui — sem `className`, o NativeWind
+              // (jsxImportSource global) descarta o resultado da função e o Pressable
+              // renderiza sem nenhum estilo.
+              style={[(isChangePhotoPressed || isUploadingPhoto) && { opacity: 0.6 }]}
             >
               <View className="mt-3 flex-row items-center gap-2">
                 {isUploadingPhoto ? <ActivityIndicator color="#10794E" size="small" /> : null}
