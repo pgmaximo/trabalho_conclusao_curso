@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -36,6 +36,37 @@ export function AgendaScreen({
 }: AgendaScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
+
+  const buildGoogleCalendarUrl = (appointment: AppointmentEntry) => {
+    const [datePart, timePart] = appointment.time.split(' • ');
+    const [day, month, year] = datePart.split('/').map(Number);
+    const [hour = 0, minute = 0] = (timePart ?? '00:00').split(':').map(Number);
+    const start = new Date(year, (month || 1) - 1, day || 1, hour, minute);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+    const formatGoogleDate = (date: Date) => {
+      const utcDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return utcDate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    };
+
+    const url = new URL('https://calendar.google.com/calendar/render');
+    url.searchParams.set('action', 'TEMPLATE');
+    url.searchParams.set('text', appointment.title);
+    url.searchParams.set('details', `${appointment.title}${appointment.location ? `\nLocal: ${appointment.location}` : ''}`);
+    url.searchParams.set('location', appointment.location || 'Agenda da aplicação');
+    url.searchParams.set('dates', `${formatGoogleDate(start)}/${formatGoogleDate(end)}`);
+
+    return url.toString();
+  };
+
+  const handleGoogleCalendarSync = async (appointment: AppointmentEntry) => {
+    try {
+      await Linking.openURL(buildGoogleCalendarUrl(appointment));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível abrir o Google Calendar.';
+      alert(message);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
@@ -81,6 +112,7 @@ export function AgendaScreen({
                       location={appointment.location}
                       type={appointment.type}
                       onPress={() => router.push(`/edit-appointment?id=${encodeURIComponent(String(appointment.id))}`)}
+                      onSyncPress={() => handleGoogleCalendarSync(appointment)}
                     />
                   ))
                 ) : (
@@ -91,22 +123,6 @@ export function AgendaScreen({
                   />
                 )}
               </Section>
-
-              <Pressable
-                className="flex-row items-center rounded-app border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
-                style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
-                onPress={() => {}}
-              >
-                <Ionicons className="mr-4" name="calendar-outline" size={24} color={colors.secondary} />
-                <View className="flex-1">
-                  <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">
-                    Sincronizar com Google Calendar
-                  </Text>
-                  <Text className="mt-0.5 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                    Exporte seus compromissos automaticamente
-                  </Text>
-                </View>
-              </Pressable>
             </>
           )}
         </ScrollView>

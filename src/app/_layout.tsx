@@ -3,11 +3,22 @@ import '@/services/amplify/configureAmplify';
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
 import { DocumentProvider } from '@/contexts/DocumentContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { useFonts } from 'expo-font';
-import { Text, TextInput } from 'react-native';
+import { Platform, Text, TextInput } from 'react-native';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 // ----------------------------------------------------------------------
 // INJEÇÃO GLOBAL DEFINITIVA (O "Monkey Patch" do Render)
@@ -44,6 +55,20 @@ export default function RootLayout() {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    void (async () => {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('appointments-reminders', {
+          name: 'Agenda',
+          importance: Notifications.AndroidImportance.HIGH,
+          sound: 'default',
+          vibrationPattern: [0, 250, 250, 250],
+          enableVibrate: true,
+        });
+      }
+    })();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;
