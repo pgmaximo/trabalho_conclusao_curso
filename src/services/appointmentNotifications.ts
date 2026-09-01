@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 
 const APPOINTMENT_NOTIFICATION_IDS_KEY = '@SuaSaude:appointmentNotificationIds';
 
@@ -36,14 +37,22 @@ export async function removeAppointmentNotificationId(appointmentId: string): Pr
 }
 
 export async function requestAppointmentNotificationPermission(): Promise<boolean> {
-  const settings = await Notifications.getPermissionsAsync();
-
-  if (settings.granted || settings.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
-    return true;
+  if (Platform.OS === 'web') {
+    return false;
   }
 
-  const result = await Notifications.requestPermissionsAsync();
-  return result.granted || result.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+  try {
+    const settings = await Notifications.getPermissionsAsync();
+
+    if (settings.granted || settings.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
+      return true;
+    }
+
+    const result = await Notifications.requestPermissionsAsync();
+    return result.granted || result.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+  } catch {
+    return false;
+  }
 }
 
 export async function scheduleAppointmentReminder(
@@ -51,59 +60,79 @@ export async function scheduleAppointmentReminder(
   title: string,
   scheduledAt: string,
 ): Promise<string | undefined> {
-  const permissionGranted = await requestAppointmentNotificationPermission();
-  if (!permissionGranted) {
+  if (Platform.OS === 'web') {
     return undefined;
   }
 
-  const reminderDate = getReminderDateFromScheduledAt(scheduledAt);
-  const now = new Date();
+  try {
+    const permissionGranted = await requestAppointmentNotificationPermission();
+    if (!permissionGranted) {
+      return undefined;
+    }
 
-  if (reminderDate <= now) {
+    const reminderDate = getReminderDateFromScheduledAt(scheduledAt);
+    const now = new Date();
+
+    if (reminderDate <= now) {
+      return undefined;
+    }
+
+    const existingNotificationId = await getStoredAppointmentNotificationId(appointmentId);
+    if (existingNotificationId) {
+      await Notifications.cancelScheduledNotificationAsync(existingNotificationId);
+    }
+
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Lembrete de compromisso',
+        body: `${title} começa em 2 horas.`,
+        sound: true,
+      },
+      trigger: {
+        date: reminderDate,
+        channelId: 'appointments-reminders',
+      },
+    });
+
+    await saveAppointmentNotificationId(appointmentId, notificationId);
+    return notificationId;
+  } catch {
     return undefined;
   }
-
-  const existingNotificationId = await getStoredAppointmentNotificationId(appointmentId);
-  if (existingNotificationId) {
-    await Notifications.cancelScheduledNotificationAsync(existingNotificationId);
-  }
-
-  const notificationId = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Lembrete de compromisso',
-      body: `${title} começa em 2 horas.`,
-      sound: true,
-    },
-    trigger: {
-      date: reminderDate,
-      channelId: 'appointments-reminders',
-    },
-  });
-
-  await saveAppointmentNotificationId(appointmentId, notificationId);
-  return notificationId;
 }
 
 export async function cancelAppointmentReminder(notificationId?: string): Promise<void> {
-  if (!notificationId) {
+  if (Platform.OS === 'web' || !notificationId) {
     return;
   }
 
-  await Notifications.cancelScheduledNotificationAsync(notificationId);
+  try {
+    await Notifications.cancelScheduledNotificationAsync(notificationId);
+  } catch {
+    // no-op on unsupported native platforms
+  }
 }
 
 export async function restoreAppointmentReminders(
   appointments: Array<{ id: string; appointmentName: string; scheduledAt: string }>,
 ): Promise<void> {
-  for (const appointment of appointments) {
-    const existingNotificationId = await getStoredAppointmentNotificationId(appointment.id);
-    if (existingNotificationId) {
-      await Notifications.cancelScheduledNotificationAsync(existingNotificationId);
-    }
+  if (Platform.OS === 'web') {
+    return;
+  }
 
-    const notificationId = await scheduleAppointmentReminder(appointment.id, appointment.appointmentName, appointment.scheduledAt);
-    if (notificationId) {
-      await saveAppointmentNotificationId(appointment.id, notificationId);
+  for (const appointment of appointments) {
+    try {
+      const existingNotificationId = await getStoredAppointmentNotificationId(appointment.id);
+      if (existingNotificationId) {
+        await Notifications.cancelScheduledNotificationAsync(existingNotificationId);
+      }
+
+      const notificationId = await scheduleAppointmentReminder(appointment.id, appointment.appointmentName, appointment.scheduledAt);
+      if (notificationId) {
+        await saveAppointmentNotificationId(appointment.id, notificationId);
+      }
+    } catch {
+      // ignore unsupported web/native scheduling
     }
   }
 }

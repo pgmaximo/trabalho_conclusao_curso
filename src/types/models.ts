@@ -222,6 +222,7 @@ export interface AppointmentEntry {
   scheduledAt: string;   // ISO original (AppointmentRecord.scheduledAt) — usado para
                           // ordenar/filtrar por proximidade (ex.: Home 2b), já que
                           // `time` é uma string formatada sem ano.
+  observations?: string; // Observações/notas da consulta
 }
 
 // Interface completa para snapshot de consultas

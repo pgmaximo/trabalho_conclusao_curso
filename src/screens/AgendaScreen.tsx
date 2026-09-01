@@ -39,10 +39,13 @@ export function AgendaScreen({
   const { colorScheme } = useColorScheme();
 
   const buildGoogleCalendarUrl = (appointment: AppointmentEntry) => {
-    const [datePart, timePart] = appointment.time.split(' • ');
-    const [day, month, year] = datePart.split('/').map(Number);
-    const [hour = 0, minute = 0] = (timePart ?? '00:00').split(':').map(Number);
-    const start = new Date(year, (month || 1) - 1, day || 1, hour, minute);
+    const scheduledAt = appointment.scheduledAt ? new Date(appointment.scheduledAt) : null;
+
+    if (!scheduledAt || Number.isNaN(scheduledAt.getTime())) {
+      throw new Error('Data inválida para sincronização com o Google Calendar.');
+    }
+
+    const start = new Date(scheduledAt.getTime());
     const end = new Date(start.getTime() + 60 * 60 * 1000);
 
     const formatGoogleDate = (date: Date) => {
@@ -53,7 +56,14 @@ export function AgendaScreen({
     const url = new URL('https://calendar.google.com/calendar/render');
     url.searchParams.set('action', 'TEMPLATE');
     url.searchParams.set('text', appointment.title);
-    url.searchParams.set('details', `${appointment.title}${appointment.location ? `\nLocal: ${appointment.location}` : ''}`);
+    const details = [
+      appointment.title,
+      appointment.location ? `Local: ${appointment.location}` : null,
+      appointment.observations ? `Observações: ${appointment.observations}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    url.searchParams.set('details', details);
     url.searchParams.set('location', appointment.location || 'Agenda da aplicação');
     url.searchParams.set('dates', `${formatGoogleDate(start)}/${formatGoogleDate(end)}`);
 
