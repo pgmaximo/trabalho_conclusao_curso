@@ -42,7 +42,7 @@ export type VacinaCatalogo = {
   reforcoIntervaloAnos?: number;
   // Dose única anual, independente de série (ex. Influenza) — não usa `doses`.
   anual?: boolean;
-  grupos?: Array<'gestante' | 'idoso' | 'adolescente' | 'crianca' | 'adulto' | 'indigena' | 'profissional_saude'>;
+  grupos?: ('gestante' | 'idoso' | 'adolescente' | 'crianca' | 'adulto' | 'indigena' | 'profissional_saude')[];
   fonteUrl: string;
 };
 

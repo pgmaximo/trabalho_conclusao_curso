@@ -50,3 +50,10 @@
 - [x] Confirmado que nenhum dado exibido nesta tela é mockado, exceto o banner institucional (explicitamente documentado como conteúdo estático/admin-configurado).
 - [ ] Comparação visual manual (dispositivo/simulador) contra o Canvas 4e — não executada nesta sessão (sem acesso a simulador/dispositivo).
 - [ ] `CODE_INVENTORY.md` — atualizar linha de vacinação (pendente, ver nota da sessão).
+
+## Atualização (branch `feat_vacina`)
+
+- Item da linha 13 acima ("integração com fonte pública não implementada nesta EPIC") **foi resolvido** em EPIC própria: `specs/04-ia-perfil-vacinacao/campanhas-vacinacao/spec.md`. `src/config/vaccinationCampaigns.ts` (linhas 11–12 acima) foi removido e substituído por `src/services/vaccinationCampaignSummary.ts` + `amplify/functions/get-vaccination-campaigns/`.
+- `AddVaccineSheet.tsx` (linhas 32–33 acima) foi removido e substituído por `src/screens/AddVaccineScreen.tsx` (tela cheia) — o formulário cresceu (seleção de vacina do catálogo, número da dose, lote, fabricante) além do que cabia num bottom sheet curto.
+- `VaccinationScreen.tsx`/`useVaccinationData.ts` (linhas 17–19, 24) foram reestruturados: a "Carteira" agora agrupa doses por vacina com progresso ("Hepatite B · 2 de 3 doses"), além de manter "Próximas recomendadas". Ver `campanhas-vacinacao/spec.md` §6.
+- A geração automática de próxima recomendação (linha 20, adiada) **foi implementada** — `src/services/vaccineScheduleService.ts#derivePendingSeries`, acionada ao registrar uma dose aplicada de uma vacina com série.

@@ -291,11 +291,52 @@ export interface VaccineDoseItem {
   appliedDate?: string;         // preenchido só quando status === 'aplicada'
   location?: string;            // idem
   dueDate?: string;             // preenchido só quando pendente/atrasada
+  catalogId?: string;           // id em src/data/calendarioNacionalVacinacao.ts — ausente = registro legado de texto livre
+  lot?: string;
+  manufacturer?: string;
+}
+
+// Uma vacina do catálogo com todas as doses do usuário agrupadas — a
+// carteira (feat_vacina) mostra progresso por vacina ("Hepatite B · 2 de 3
+// doses"), não uma lista plana de doses soltas.
+export interface VaccineGroupView {
+  catalogId: string;
+  nome: string;
+  seriesTotal: number | null; // null = vacina sem série numerada (anual/dose única)
+  dosesAplicadas: VaccineDoseItem[]; // ordenado por doseNumber asc
+  proximaDose: VaccineDoseItem | null; // pendente/atrasada mais próxima desta vacina, se houver
+}
+
+// Campanha de vacinação com contagem REAL de doses do PNI/RNDS (amostral —
+// ver amplify/functions/get-vaccination-campaigns). `dosesNoPeriodo: null`
+// significa "amostra não alcançou o período", nunca interpretar como zero.
+export interface VaccinationCampaignView {
+  catalogId: string;
+  nome: string;
+  janelaInicio: string | null;
+  janelaFim: string | null;
+  dosesNoPeriodo: number | null;
+  ufReferencia: string | null;
+  dataAsOf: string | null; // data mais recente vista na amostra — exibir sempre, nunca esconder
+  fonteUrl: string;
+}
+
+// Unidade de saúde (UBS) real do CNES, para "Onde se vacinar".
+export interface VaccinationSiteView {
+  cnes: string;
+  nome: string;
+  bairro: string | null;
+  logradouro: string | null;
+  distanciaKm: number | null;
 }
 
 // Snapshot completo da Carteira de Vacinação (tela 4e).
 export interface VaccinationSnapshot {
   upcoming: VaccineDoseItem[];        // status pendente/atrasada
   history: VaccineDoseItem[];         // status aplicada, ordenado do mais recente
-  activeCampaignMessage: string | null; // conteúdo institucional, não dado do usuário
+  groups: VaccineGroupView[];         // carteira agrupada por vacina
+  campaigns: VaccinationCampaignView[]; // campanhas ativas com dado real do PNI
+  campaignSamplingNotice: string | null; // aviso de que a contagem é amostral
+  sites: VaccinationSiteView[];       // UBS próximas (vazio quando sem localização)
+  hasLocation: boolean;               // true quando há UF/código de município resolvidos
 }

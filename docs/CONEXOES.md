@@ -56,8 +56,9 @@
 | 4 | Perfil — dispositivos conectados | idem | ❌ Ausente | `healthAppConnectService.ts` sempre `'unavailable'` — sem HealthKit/Health Connect/Google Fit instalado |
 | 4 | Perfil — exportar meus dados | idem | ❌ Ausente | `dataExportService.ts` sempre `'unavailable'` — sem mecanismo de geração/entrega |
 | 4 | Editar Perfil — avatar | `src/app/edit-profile.tsx` | ✅ Real | Amplify Storage (S3) real, path `avatars/{owner}/profile.jpg` — `avatarService.ts:17-57` |
-| 4 | Vacinação — doses | `src/app/(app)/vaccination.tsx` | ✅ Real | `VaccineDose.create/list` — `vaccinationService.ts:1-62` |
-| 4 | Vacinação — banner de campanha | idem | ❌ Estático | Mesma config estática de Prevenção (`vaccinationCampaigns.ts`) |
+| 4 | Vacinação — doses | `src/app/(app)/vaccination.tsx` | ✅ Real | `VaccineDose.create/list` — `vaccinationService.ts` |
+| 4 | Vacinação — banner de campanha | idem | ✅ Real | PNI/RNDS via `get-vaccination-campaigns` (amostral, com `dataAsOf` exibido — ver `GAP_ANALYSIS.md` item 3.a) |
+| 4 | Vacinação — onde se vacinar | idem | ✅ Real | CNES via `get-vaccination-sites` — só quando o usuário concede localização |
 | 4 | Hub "Mais" | `src/app/(app)/more.tsx` | — N/A | Navegação estática por design, sem dado remoto (comentário explícito no código) |
 
 ## Assistente de IA — achado crítico (única tela sem nenhuma conexão de IA)
@@ -99,6 +100,6 @@ Estes pontos aparecem como "não conectado" na tabela acima, mas o código já c
 
 - Sync com Google Agenda (`googleCalendarSync.ts`) — modal "em breve".
 - Dispositivos conectados / Exportar dados (Perfil) — estado "Indisponível"/"Em breve" explícito na UI.
-- Banners de campanha de vacinação (Prevenção e Vacinação) — dado real institucional, só a fonte é config estática em vez de API pública.
+- A carteira de vacinação exibida no app é declarada como registro pessoal, não o documento oficial — a carteira oficial (RNDS/Meu SUS Digital) exige certificado ICP-Brasil e CNES credenciado, inacessível a este app (ver `GAP_ANALYSIS.md` item 3.a).
 
 Ver `docs/DADOS_MOCKADOS.md` para o detalhamento completo desses casos (arquivo, decisão pendente, o que precisa ser decidido antes de implementar).

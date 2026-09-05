@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { getActiveVaccinationCampaign } from '@/config/vaccinationCampaigns';
+import { getActiveVaccinationCampaignMessage } from '@/services/vaccinationCampaignSummary';
 import { useAsyncResource } from '@/hooks/useAsyncResource';
 import { getPreventionRecommendations } from '@/services/preventionService';
 import {
@@ -16,6 +16,21 @@ export function usePreventionData() {
   const { data, status, errorMessage, retry } = useAsyncResource(getPreventionRecommendations);
   const [recommendations, setRecommendations] = useState<RecommendationView[]>([]);
   const [pendingReminderIds, setPendingReminderIds] = useState<Set<number>>(new Set());
+  const [activeCampaignMessage, setActiveCampaignMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getActiveVaccinationCampaignMessage().then((message) => {
+      if (isMounted) {
+        setActiveCampaignMessage(message);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!data) {
@@ -157,6 +172,6 @@ export function usePreventionData() {
     onToggleReminder,
     onEnableRemindersForIds,
     pendingReminderIds,
-    activeCampaignMessage: getActiveVaccinationCampaign()?.message ?? null,
+    activeCampaignMessage,
   };
 }

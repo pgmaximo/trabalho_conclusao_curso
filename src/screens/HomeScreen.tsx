@@ -21,11 +21,21 @@ type PreventionAlert = {
   subtitle: string;
 };
 
+// Alerta de vacinação — diferente de PreventionAlert acima, este TEM fonte
+// real: doses "atrasada" do usuário ou uma campanha nacional ativa com dado
+// do PNI (ver src/hooks/useVaccinationAlert.ts). Prop própria, não reaproveita
+// preventionAlert, para as duas fontes não ficarem coladas por acidente.
+type VaccinationAlert = {
+  title: string;
+  subtitle: string;
+};
+
 type HomeScreenProps = {
   greeting: string;
   todayLabel: string;
   todaySummaryText: string;
   preventionAlert?: PreventionAlert | null;
+  vaccinationAlert?: VaccinationAlert | null;
   recentExams: MedicalDocument[];
   examsLoading: boolean;
   examsError: string | null;
@@ -40,6 +50,7 @@ type HomeScreenProps = {
   onNavigateToAi?: () => void;
   onNavigateToMedicines?: () => void;
   onNavigateToPrevention?: () => void;
+  onNavigateToVaccination?: () => void;
   onNotificationPress?: () => void;
 };
 
@@ -54,6 +65,7 @@ export function HomeScreen({
   todayLabel,
   todaySummaryText,
   preventionAlert,
+  vaccinationAlert,
   recentExams,
   examsLoading,
   examsError,
@@ -68,6 +80,7 @@ export function HomeScreen({
   onNavigateToAi,
   onNavigateToMedicines,
   onNavigateToPrevention,
+  onNavigateToVaccination,
   onNotificationPress,
 }: HomeScreenProps) {
   const colors = useThemeColors();
@@ -101,6 +114,10 @@ export function HomeScreen({
 
         {preventionAlert ? (
           <PreventionAlertCard alert={preventionAlert} onPress={onNavigateToAppointments} />
+        ) : null}
+
+        {vaccinationAlert ? (
+          <VaccinationAlertCard alert={vaccinationAlert} onPress={onNavigateToVaccination} />
         ) : null}
 
         <Section
@@ -286,6 +303,42 @@ function PreventionAlertCard({
           style={({ pressed }) => [pressed && { opacity: 0.85 }]}
         >
           <Text className="text-[15px] font-semibold text-white">Agendar agora</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function VaccinationAlertCard({
+  alert,
+  onPress,
+}: {
+  alert: VaccinationAlert;
+  onPress?: () => void;
+}) {
+  const colors = useThemeColors();
+
+  return (
+    <View className="mb-4 gap-3 rounded-2xl border border-app-successBadgeBorder bg-app-successSoft p-4 dark:border-app-dark-successBadgeBorder dark:bg-app-dark-successSoft">
+      <View className="flex-row items-start gap-3">
+        <Ionicons color={colors.success} name="medical" size={26} />
+        <View className="flex-1">
+          <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+            {alert.title}
+          </Text>
+          <Text className="mt-1 text-[15px] leading-[20px] text-app-primaryDark dark:text-app-dark-primaryDark">
+            {alert.subtitle}
+          </Text>
+        </View>
+      </View>
+      {onPress ? (
+        <Pressable
+          accessibilityRole="button"
+          className="h-12 items-center justify-center rounded-app bg-app-success dark:bg-app-dark-success"
+          onPress={onPress}
+          style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+        >
+          <Text className="text-[15px] font-semibold text-white">Ver carteira de vacinação</Text>
         </Pressable>
       ) : null}
     </View>

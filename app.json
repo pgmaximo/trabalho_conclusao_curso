@@ -36,6 +36,12 @@
         {
           "cameraPermission": "O SuaSaúde usa a câmera para capturar fotos de exames e receitas."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O SuaSaúde usa sua localização para mostrar campanhas de vacinação da sua região e unidades de saúde próximas."
+        }
       ]
     ]
   }

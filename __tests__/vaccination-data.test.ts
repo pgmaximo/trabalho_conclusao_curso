@@ -1,12 +1,15 @@
-import { deriveVaccinationLists } from '@/hooks/useVaccinationData';
+import { deriveVaccinationLists, groupByVaccine } from '@/hooks/useVaccinationData';
 import type { VaccineDoseRecord } from '@/services/vaccinationService';
 
 jest.mock('@/services/vaccinationService', () => ({
   listVaccineDosesForUser: jest.fn(),
+  fetchVaccinationCampaigns: jest.fn(async () => ({ campanhas: [], amostragem: null })),
+  fetchVaccinationSites: jest.fn(async () => []),
 }));
 
-jest.mock('@/config/vaccinationCampaigns', () => ({
-  getActiveVaccinationCampaign: jest.fn(() => null),
+jest.mock('@/services/locationService', () => ({
+  loadCachedLocation: jest.fn(async () => null),
+  requestAndResolveLocation: jest.fn(async () => null),
 }));
 
 const TODAY = '2026-08-21';
@@ -78,5 +81,32 @@ describe('deriveVaccinationLists', () => {
 
     expect(upcoming.map((item) => item.id)).toEqual(['sooner', 'later']);
     expect(history.map((item) => item.id)).toEqual(['newer-dose', 'older-dose']);
+  });
+});
+
+describe('groupByVaccine', () => {
+  it('groups doses of the same catalogId and reports applied/total progress', () => {
+    const records: VaccineDoseRecord[] = [
+      { id: 'a1', name: 'Hepatite B', doseNumber: 1, appliedDate: '2026-01-01', catalogId: 'hepatite-b', seriesTotal: 3 },
+      { id: 'a2', name: 'Hepatite B', doseNumber: 2, dueDate: '2026-01-31', catalogId: 'hepatite-b', seriesTotal: 3 },
+    ];
+
+    const groups = groupByVaccine(records, TODAY);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].seriesTotal).toBe(3);
+    expect(groups[0].dosesAplicadas).toHaveLength(1);
+    expect(groups[0].proximaDose?.doseNumber).toBe(2);
+  });
+
+  it('keeps legacy free-text records (no catalogId) as their own group by name', () => {
+    const records: VaccineDoseRecord[] = [
+      { id: 'legacy-1', name: 'Vacina antiga', appliedDate: '2020-01-01' },
+    ];
+
+    const groups = groupByVaccine(records, TODAY);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].nome).toBe('Vacina antiga');
   });
 });

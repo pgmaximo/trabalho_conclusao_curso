@@ -1,17 +1,35 @@
 /**
  * Resumo do arquivo:
- * Hook que busca as doses de vacina reais do usuário (VaccineDose) e deriva as
- * seções "Próximas recomendadas" (pendente/atrasada) e "Histórico de doses"
- * (aplicada), além da campanha institucional ativa. Status nunca é lido de um
- * campo persistido — sempre calculado a partir de appliedDate/dueDate (ver
- * specs/04-ia-perfil-vacinacao/carteira-vacinacao/plan.md §3).
+ * Hook que busca as doses de vacina reais do usuário (VaccineDose), agrupa
+ * por vacina do catálogo ("Hepatite B · 2 de 3 doses"), e cruza com dados
+ * reais do governo: campanhas ativas (PNI/RNDS, via
+ * amplify/functions/get-vaccination-campaigns) e unidades de saúde próximas
+ * (CNES, via get-vaccination-sites) — ambas filtradas pela localização do
+ * usuário quando disponível (src/services/locationService.ts).
+ *
+ * Status nunca é lido de um campo persistido — sempre calculado a partir de
+ * appliedDate/dueDate (ver specs/04-ia-perfil-vacinacao/carteira-vacinacao/plan.md
+ * §3), agora usando o motor de src/services/vaccineScheduleService.ts.
  */
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useAsyncResource } from '@/hooks/useAsyncResource';
-import { getActiveVaccinationCampaign } from '@/config/vaccinationCampaigns';
-import { listVaccineDosesForUser, type VaccineDoseRecord } from '@/services/vaccinationService';
-import type { VaccinationSnapshot, VaccineDoseItem } from '@/types/models';
+import { registerVaccinationRefetchCallback } from '@/hooks/vaccinationCache';
+import { requestAndResolveLocation, loadCachedLocation, type UserLocation } from '@/services/locationService';
+import {
+  fetchVaccinationCampaigns,
+  fetchVaccinationSites,
+  listVaccineDosesForUser,
+  type VaccineDoseRecord,
+} from '@/services/vaccinationService';
+import { findVacinaCatalogo } from '@/data/calendarioNacionalVacinacao';
+import type {
+  VaccinationCampaignView,
+  VaccinationSiteView,
+  VaccinationSnapshot,
+  VaccineDoseItem,
+  VaccineGroupView,
+} from '@/types/models';
 
 function getTodayDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -52,6 +70,9 @@ export function mapToItem(record: VaccineDoseRecord, today: string = getTodayDat
     appliedDate: record.appliedDate ?? undefined,
     location: record.location ?? undefined,
     dueDate: record.dueDate ?? undefined,
+    catalogId: record.catalogId ?? undefined,
+    lot: record.lot ?? undefined,
+    manufacturer: record.manufacturer ?? undefined,
   };
 }
 
@@ -77,33 +98,146 @@ export function deriveVaccinationLists(
   return { upcoming, history };
 }
 
-async function fetchVaccination(): Promise<VaccinationSnapshot> {
+/**
+ * Agrupa as doses por vacina do catálogo (catalogId) — registros legados sem
+ * catalogId (cadastrados antes desta feature, com nome livre) formam cada um
+ * seu próprio grupo, chaveado pelo nome, para não desaparecer da carteira.
+ */
+export function groupByVaccine(records: VaccineDoseRecord[], today: string = getTodayDate()): VaccineGroupView[] {
+  const groups = new Map<string, { catalogId: string; nome: string; seriesTotal: number | null; records: VaccineDoseRecord[] }>();
+
+  for (const record of records) {
+    const key = record.catalogId ?? `legado:${record.name}`;
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.records.push(record);
+    } else {
+      const catalogo = record.catalogId ? findVacinaCatalogo(record.catalogId) : undefined;
+      groups.set(key, {
+        catalogId: key,
+        nome: catalogo?.nome ?? record.name,
+        seriesTotal: record.seriesTotal ?? (catalogo?.doses.length || null),
+        records: [record],
+      });
+    }
+  }
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const items = group.records.map((record) => mapToItem(record, today));
+      const dosesAplicadas = items
+        .filter((item) => item.status === 'aplicada')
+        .sort((a, b) => (a.doseNumber ?? 0) - (b.doseNumber ?? 0));
+      const pendentes = items
+        .filter((item) => item.status !== 'aplicada')
+        .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''));
+
+      return {
+        catalogId: group.catalogId,
+        nome: group.nome,
+        seriesTotal: group.seriesTotal,
+        dosesAplicadas,
+        proximaDose: pendentes[0] ?? null,
+      };
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+async function fetchVaccinationSnapshot(): Promise<VaccinationSnapshot> {
   const records = await listVaccineDosesForUser();
   const { upcoming, history } = deriveVaccinationLists(records);
-  const activeCampaign = getActiveVaccinationCampaign();
+  const groups = groupByVaccine(records);
+
+  const location = await loadCachedLocation();
+
+  const [campaignsResult, sites] = await Promise.all([
+    fetchVaccinationCampaigns({ uf: location?.uf ?? null, codigoMunicipio: location?.codigoMunicipio ?? null }).catch(
+      () => ({ campanhas: [] as VaccinationCampaignView[], amostragem: null }),
+    ),
+    location?.codigoMunicipio
+      ? fetchVaccinationSites({
+          codigoMunicipio: location.codigoMunicipio,
+          latitude: location.latitude || null,
+          longitude: location.longitude || null,
+        }).catch(() => [] as VaccinationSiteView[])
+      : Promise.resolve([] as VaccinationSiteView[]),
+  ]);
+
+  const campaigns: VaccinationCampaignView[] = campaignsResult.campanhas.map((c) => ({
+    catalogId: c.catalogId,
+    nome: c.nome,
+    janelaInicio: c.janelaInicio ?? null,
+    janelaFim: c.janelaFim ?? null,
+    dosesNoPeriodo: c.dosesNoPeriodo ?? null,
+    ufReferencia: c.ufReferencia ?? null,
+    dataAsOf: c.dataAsOf ?? null,
+    fonteUrl: c.fonteUrl,
+  }));
+
+  const sitesView: VaccinationSiteView[] = (sites as VaccinationSiteView[]).map((site) => ({
+    cnes: site.cnes,
+    nome: site.nome,
+    bairro: site.bairro ?? null,
+    logradouro: site.logradouro ?? null,
+    distanciaKm: site.distanciaKm ?? null,
+  }));
 
   return {
     upcoming,
     history,
-    activeCampaignMessage: activeCampaign?.message ?? null,
+    groups,
+    campaigns,
+    campaignSamplingNotice: campaignsResult.amostragem ?? null,
+    sites: sitesView,
+    hasLocation: Boolean(location?.codigoMunicipio),
   };
 }
 
 export function useVaccinationData() {
-  const { data, status, errorMessage, retry } = useAsyncResource(fetchVaccination);
+  const { data, status, errorMessage, retry } = useAsyncResource(fetchVaccinationSnapshot);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+
+  useEffect(() => registerVaccinationRefetchCallback(retry), [retry]);
+
+  const requestLocation = useCallback(async (): Promise<UserLocation | null> => {
+    setIsRequestingLocation(true);
+    try {
+      const location = await requestAndResolveLocation();
+      retry();
+      return location;
+    } finally {
+      setIsRequestingLocation(false);
+    }
+  }, [retry]);
 
   const snapshot = useMemo<VaccinationSnapshot>(
-    () => data ?? { upcoming: [], history: [], activeCampaignMessage: null },
+    () =>
+      data ?? {
+        upcoming: [],
+        history: [],
+        groups: [],
+        campaigns: [],
+        campaignSamplingNotice: null,
+        sites: [],
+        hasLocation: false,
+      },
     [data],
   );
 
   return {
     upcoming: snapshot.upcoming,
     history: snapshot.history,
-    activeCampaignMessage: snapshot.activeCampaignMessage,
+    groups: snapshot.groups,
+    campaigns: snapshot.campaigns,
+    campaignSamplingNotice: snapshot.campaignSamplingNotice,
+    sites: snapshot.sites,
+    hasLocation: snapshot.hasLocation,
     isEmpty: snapshot.upcoming.length === 0 && snapshot.history.length === 0,
     isLoading: status === 'loading',
+    isRequestingLocation,
     errorMessage,
     retry,
+    requestLocation,
   };
 }

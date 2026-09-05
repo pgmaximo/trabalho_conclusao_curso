@@ -39,7 +39,7 @@
 - [x] **4.5** Atualizar `GAP_ANALYSIS.md` (linha 3e, pendência #2) refletindo a integração real.
 
 ## Fase 5 — Follow-up (fora de escopo desta implementação, decisão explícita)
-- [ ] **5.1** Banner de campanha de vacinação em `PreventionScreen.tsx`, consultando `getActiveVaccinationCampaign()` (`src/config/vaccinationCampaigns.ts`) e/ou `client.models.VaccineDose.list()` — já desbloqueado tecnicamente pela EPIC 4e concluída, mas adiado por decisão do usuário nesta rodada.
+- [x] **5.1 `RESOLVIDO`** (branch `feat_vacina`) — Banner de campanha de vacinação em `PreventionScreen.tsx`, agora consultando `src/services/vaccinationCampaignSummary.ts` (dado real do PNI/RNDS, não mais a config estática `vaccinationCampaigns.ts`, removida). Ver `specs/04-ia-perfil-vacinacao/campanhas-vacinacao/spec.md` §5.
 - [ ] **5.2** Cache do dataset USPSTF na Lambda (evitar chamada HTTP síncrona a cada abertura da tela) — ver `plan.md` §4.
 - [ ] **5.3** Migrar `ScanCommand`→`QueryCommand` no handler (GSI por `owner`) — ver `plan.md` §4.
 - [ ] **5.4** Estender `uspstfFilter.ts` para usar `pregnant`/`isSmoker`/`sexuallyActive` do perfil, se a API expuser esses parâmetros de filtragem — ver `plan.md` §4.

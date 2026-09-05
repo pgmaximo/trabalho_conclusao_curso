@@ -5,6 +5,7 @@ import { HomeScreen } from '@/screens/HomeScreen';
 import { useUserContext } from '@/contexts/UserContext';
 import { useExamsData } from '@/hooks/useExamsData';
 import { useAppointmentsData } from '@/hooks/useAppointmentsData';
+import { useVaccinationAlert } from '@/hooks/useVaccinationAlert';
 
 function getDashboardTodayLabel(date = new Date()): string {
   return date.toLocaleDateString('pt-BR', {
@@ -65,6 +66,7 @@ export default function DashboardRoute() {
     errorMessage: appointmentsError,
     retry: retryAppointments,
   } = useAppointmentsData();
+  const vaccinationAlert = useVaccinationAlert();
 
   const greeting = getGreeting(user?.name ?? 'você');
   const todayLabel = getDashboardTodayLabel();
@@ -95,9 +97,11 @@ export default function DashboardRoute() {
       onNavigateToExams={() => router.push('/exams')}
       onNavigateToMedicines={() => router.push('/medicines')}
       onNavigateToPrevention={() => router.push('/prevention')}
+      onNavigateToVaccination={() => router.push('/vaccination')}
       onRetryAppointments={retryAppointments}
       onRetryExams={retryExams}
       preventionAlert={null}
+      vaccinationAlert={vaccinationAlert}
       recentExams={recentExams}
       todayLabel={todayLabel}
       todaySummaryText={todaySummaryText}

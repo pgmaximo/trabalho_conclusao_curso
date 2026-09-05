@@ -1,58 +1,47 @@
 /**
  * Resumo do arquivo:
- * Rota da Carteira de vacinação (4e). Rota fina — busca dados reais via
- * useVaccinationData e persiste novas doses via vaccinationService.
+ * Rota da Carteira de vacinação (4e, expandida na feat_vacina). Rota fina —
+ * busca dados reais via useVaccinationData (doses do usuário + campanhas do
+ * PNI/RNDS + unidades do CNES) e navega para a tela cheia de cadastro
+ * (/add-vaccine, ver src/screens/AddVaccineScreen.tsx).
  */
-import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import React from 'react';
+import { router } from 'expo-router';
 
-import { AddVaccineSheet } from '@/components/AddVaccineSheet';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
 import { useVaccinationData } from '@/hooks/useVaccinationData';
-import { createVaccineDose, type CreateVaccineDoseInput } from '@/services/vaccinationService';
 
 export default function VaccinationRoute() {
-  const { upcoming, history, activeCampaignMessage, isEmpty, isLoading, errorMessage, retry } =
-    useVaccinationData();
-  const [isSheetVisible, setIsSheetVisible] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  async function handleSubmit(input: CreateVaccineDoseInput) {
-    setIsSaving(true);
-    try {
-      await createVaccineDose(input);
-      setIsSheetVisible(false);
-      retry();
-    } catch (error) {
-      console.log('Erro ao salvar vacina:', error);
-      Alert.alert(
-        'Erro ao salvar',
-        'Não foi possível salvar a vacina agora. Verifique sua conexão e tente novamente.',
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  }
+  const {
+    upcoming,
+    groups,
+    campaigns,
+    campaignSamplingNotice,
+    sites,
+    hasLocation,
+    isEmpty,
+    isLoading,
+    isRequestingLocation,
+    errorMessage,
+    retry,
+    requestLocation,
+  } = useVaccinationData();
 
   return (
-    <>
-      <VaccinationScreen
-        activeCampaignMessage={activeCampaignMessage}
-        errorMessage={errorMessage}
-        history={history}
-        isEmpty={isEmpty}
-        isLoading={isLoading}
-        onAddVaccine={() => setIsSheetVisible(true)}
-        onRetry={retry}
-        upcoming={upcoming}
-      />
-
-      <AddVaccineSheet
-        isSaving={isSaving}
-        onClose={() => setIsSheetVisible(false)}
-        onSubmit={handleSubmit}
-        visible={isSheetVisible}
-      />
-    </>
+    <VaccinationScreen
+      upcoming={upcoming}
+      groups={groups}
+      campaigns={campaigns}
+      campaignSamplingNotice={campaignSamplingNotice}
+      sites={sites}
+      hasLocation={hasLocation}
+      errorMessage={errorMessage}
+      isEmpty={isEmpty}
+      isLoading={isLoading}
+      isRequestingLocation={isRequestingLocation}
+      onAddVaccine={() => router.push('/add-vaccine')}
+      onRetry={retry}
+      onRequestLocation={requestLocation}
+    />
   );
 }

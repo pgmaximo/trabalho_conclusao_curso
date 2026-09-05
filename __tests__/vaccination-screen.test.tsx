@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
-import type { VaccineDoseItem } from '@/types/models';
+import type { VaccinationCampaignView, VaccineDoseItem, VaccineGroupView } from '@/types/models';
 
 jest.mock('@expo/vector-icons/Ionicons', () => {
   const React = require('react');
@@ -27,13 +27,18 @@ function renderScreen(props?: Partial<React.ComponentProps<typeof VaccinationScr
       }}
     >
       <VaccinationScreen
-        activeCampaignMessage={null}
+        campaignSamplingNotice={null}
+        campaigns={[]}
         errorMessage={null}
-        history={[]}
+        groups={[]}
+        hasLocation={false}
         isEmpty
         isLoading={false}
+        isRequestingLocation={false}
         onAddVaccine={jest.fn()}
+        onRequestLocation={jest.fn()}
         onRetry={jest.fn()}
+        sites={[]}
         upcoming={[]}
         {...props}
       />
@@ -57,14 +62,33 @@ const LATE_ITEM: VaccineDoseItem = {
   dueDate: '2020-01-01',
 };
 
-const HISTORY_ITEM: VaccineDoseItem = {
-  id: '3',
-  name: 'Hepatite B',
-  doseNumber: 3,
-  status: 'aplicada',
-  description: 'Hepatite B · 3ª dose',
-  appliedDate: '2025-03-14',
-  location: 'UBS Jardim América',
+const HEPATITE_B_GROUP: VaccineGroupView = {
+  catalogId: 'hepatite-b',
+  nome: 'Hepatite B',
+  seriesTotal: 3,
+  dosesAplicadas: [
+    {
+      id: '3',
+      name: 'Hepatite B',
+      doseNumber: 3,
+      status: 'aplicada',
+      description: 'Hepatite B · 3ª dose',
+      appliedDate: '2025-03-14',
+      location: 'UBS Jardim América',
+    },
+  ],
+  proximaDose: null,
+};
+
+const ACTIVE_CAMPAIGN: VaccinationCampaignView = {
+  catalogId: 'multivacinacao-2026',
+  nome: 'Campanha Nacional de Multivacinação',
+  janelaInicio: '2026-08-03',
+  janelaFim: '2026-09-01',
+  dosesNoPeriodo: 812345,
+  ufReferencia: 'SP',
+  dataAsOf: '2026-08-30',
+  fonteUrl: 'https://exemplo.gov.br/campanha',
 };
 
 describe('VaccinationScreen', () => {
@@ -88,13 +112,18 @@ describe('VaccinationScreen', () => {
         }}
       >
         <VaccinationScreen
-          activeCampaignMessage={null}
+          campaignSamplingNotice={null}
+          campaigns={[]}
           errorMessage="Falha de rede."
-          history={[]}
+          groups={[]}
+          hasLocation={false}
           isEmpty={false}
           isLoading={false}
+          isRequestingLocation={false}
           onAddVaccine={jest.fn()}
+          onRequestLocation={jest.fn()}
           onRetry={jest.fn()}
+          sites={[]}
           upcoming={[]}
         />
       </SafeAreaProvider>,
@@ -113,21 +142,31 @@ describe('VaccinationScreen', () => {
     expect(screen.getByText('Atrasada')).toBeTruthy();
   });
 
-  it('shows applied doses in the history section with date and location', () => {
-    renderScreen({ isEmpty: false, history: [HISTORY_ITEM] });
+  it('shows applied doses grouped by vaccine with dose progress', () => {
+    renderScreen({ isEmpty: false, groups: [HEPATITE_B_GROUP] });
 
     expect(screen.getByText('Hepatite B')).toBeTruthy();
-    expect(screen.getByText('Aplicada')).toBeTruthy();
-    expect(screen.getByText('Aplicada em 14/03/2025 · UBS Jardim América')).toBeTruthy();
+    expect(screen.getByText('1 de 3 doses')).toBeTruthy();
+    expect(screen.getByText(/UBS Jardim América/)).toBeTruthy();
   });
 
-  it('shows the campaign banner as institutional content, distinct from user records', () => {
-    renderScreen({
-      activeCampaignMessage: 'Campanha de vacinação contra a gripe até 30/09 nas unidades de saúde.',
-    });
+  it('shows the campaign banner with real PNI data and its official source link, distinct from user records', () => {
+    renderScreen({ campaigns: [ACTIVE_CAMPAIGN] });
 
+    expect(screen.getByText('Campanha Nacional de Multivacinação')).toBeTruthy();
+    expect(screen.getByText(/812\.345 doses registradas/)).toBeTruthy();
+    expect(screen.getByText('Ver fonte oficial')).toBeTruthy();
+  });
+
+  it('never claims a campaign is active without a real source citation', () => {
+    renderScreen({ campaigns: [ACTIVE_CAMPAIGN] });
+    expect(screen.getByText('Ver fonte oficial')).toBeTruthy();
+  });
+
+  it('prompts for location instead of silently omitting nearby health units', () => {
+    renderScreen({ hasLocation: false });
     expect(
-      screen.getByText('Campanha de vacinação contra a gripe até 30/09 nas unidades de saúde.'),
+      screen.getByText(/Ative a localização para ver campanhas da sua região/),
     ).toBeTruthy();
   });
 });

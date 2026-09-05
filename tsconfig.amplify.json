@@ -3,7 +3,8 @@
   "compilerOptions": {
     "moduleResolution": "bundler",
     "types": [
-      "node"
+      "node",
+      "jest"
     ]
   },
   "include": [
