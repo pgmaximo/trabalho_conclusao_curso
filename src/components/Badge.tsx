@@ -12,28 +12,30 @@
 // - Texto label descritivo
 // - Múltiplas variantes de cores temáticas
 // - Design em formato de pílula (borda arredondada completa)
-// - Totalmente customizável via props
-// - Cores de fundo e texto otimizadas para legibilidade
+// - Ícone-circle colorido para as 5 famílias semânticas canônicas do Canvas 1a
+//   (nunca cor sozinha — regra explícita de acessibilidade da Tela 1a)
+// - Cores lidas via useThemeColors() — reativo a dark mode
 //
-// Variantes Disponíveis:
-// - primary: Verde claro com texto verde
-// - secondary: Azul claro com texto azul
-// - accent: Laranja claro com texto laranja
-// - success: Verde claro com texto verde
-// - danger: Vermelho claro com texto vermelho
-// - neutral: Cinza claro com texto cinza
+// Variantes canônicas (Canvas 1a — specs/design/DESIGN_TOKENS.md §1/§4):
+// - success: Normal/Em dia/Válida (verde) — ícone check
+// - warning: Atenção/Estoque baixo (âmbar) — ícone alerta
+// - danger: Alterado/Vencida (vermelho) — ícone triângulo
+// - info: Agendado (azul) — ícone reticências
+// - neutral: Pendente (cinza) — ícone relógio
+//
+// Variantes legadas mantidas como extensão local (fora do Canvas):
+// - primary, secondary, accent
 //
 // =============================================================================
 
-// Importações necessárias
-import React from 'react';                    // Biblioteca principal React
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';  // Componentes UI
+import React from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { StyleProp, Text, View, ViewStyle } from 'react-native';
 
-// Importações de tema
-import { COLORS, FONTS, RADII, SPACING } from '@/constants/theme';  // Configurações
+import { FONTS, RADII, SPACING, useThemeColors } from '@/constants/theme';
 
-// Tipos de variantes suportadas
-type BadgeVariant = 'primary' | 'secondary' | 'accent' | 'success' | 'danger' | 'neutral';
+// Tipos de variantes suportadas — 5 canônicas do Canvas + 3 legadas (extensão local)
+type BadgeVariant = 'primary' | 'secondary' | 'accent' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 // Props do componente Badge
 type BadgeProps = {
@@ -42,73 +44,69 @@ type BadgeProps = {
   style?: StyleProp<ViewStyle>;    // Estilo customizado adicional
 };
 
-// Configuração de estilos para cada variante
-const BADGE_STYLES: Record<BadgeVariant, { backgroundColor: string; color: string }> = {
-  primary: { 
-    backgroundColor: COLORS.primarySoft,  // Fundo verde suave
-    color: COLORS.primary                 // Texto verde
-  },
-  secondary: { 
-    backgroundColor: COLORS.secondarySoft, // Fundo azul suave
-    color: COLORS.secondary               // Texto azul
-  },
-  accent: { 
-    backgroundColor: COLORS.accentSoft,    // Fundo laranja suave
-    color: COLORS.accent                  // Texto laranja
-  },
-  success: { 
-    backgroundColor: COLORS.successSoft,   // Fundo verde suave
-    color: COLORS.success                 // Texto verde
-  },
-  danger: { 
-    backgroundColor: COLORS.dangerSoft,    // Fundo vermelho suave
-    color: COLORS.danger                  // Texto vermelho
-  },
-  neutral: { 
-    backgroundColor: COLORS.surfaceMuted, // Fundo cinza suave
-    color: COLORS.textSecondary           // Texto cinza
-  },
+// Ícones canônicos por variante semântica (glifo branco no círculo — Canvas 1a)
+const SEMANTIC_ICON: Partial<Record<BadgeVariant, keyof typeof Ionicons.glyphMap>> = {
+  success: 'checkmark',
+  warning: 'alert',
+  danger: 'warning',
+  info: 'ellipsis-horizontal',
+  neutral: 'time-outline',
 };
 
 // Componente Badge principal
-export function Badge({ 
+export function Badge({
   label,                 // Texto do badge
   variant = 'primary',   // Variante padrão
-  style                 // Estilo customizado
+  style,                 // Estilo customizado
 }: BadgeProps) {
-  // Obtém configuração de cores baseada na variante
-  const variantStyle = BADGE_STYLES[variant];
+  const colors = useThemeColors();
 
-  // Renderiza o badge
+  // Configuração de estilos por variante — construída a partir do tema reativo
+  const badgeStyleByVariant: Record<BadgeVariant, { backgroundColor: string; color: string; iconBg?: string }> = {
+    primary: { backgroundColor: colors.primarySoft, color: colors.primary },
+    secondary: { backgroundColor: colors.secondarySoft, color: colors.secondary },
+    accent: { backgroundColor: colors.accentSoft, color: colors.accent },
+    success: { backgroundColor: colors.successSoft, color: colors.success, iconBg: colors.successIconBg },
+    warning: { backgroundColor: colors.warningSoft, color: colors.warning, iconBg: colors.warningIconBg },
+    danger: { backgroundColor: colors.dangerSoft, color: colors.danger, iconBg: colors.dangerIconBg },
+    info: { backgroundColor: colors.infoSoft, color: colors.info, iconBg: colors.infoIconBg },
+    neutral: { backgroundColor: colors.neutralSoft, color: colors.neutral, iconBg: colors.neutralIconBg },
+  };
+
+  const variantStyle = badgeStyleByVariant[variant];
+  const iconName = SEMANTIC_ICON[variant];
+
   return (
-    <View style={[
-      styles.badge,                                    // Estilo base do badge
-      { backgroundColor: variantStyle.backgroundColor }, // Cor de fundo da variante
-      style                                          // Estilo customizado adicional
-    ]}>
-      <Text style={[
-        styles.label,                    // Estilo base do texto
-        { color: variantStyle.color }   // Cor do texto da variante
-      ]}>
-        {label}
-      </Text>
+    <View
+      style={[
+        {
+          alignSelf: 'flex-start',
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderRadius: RADII.pill,
+          paddingHorizontal: SPACING.md,
+          paddingVertical: SPACING.xs,
+          gap: SPACING.xs,
+          backgroundColor: variantStyle.backgroundColor,
+        },
+        style,
+      ]}
+    >
+      {iconName && variantStyle.iconBg ? (
+        <View
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: RADII.pill,
+            backgroundColor: variantStyle.iconBg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons color="#FFFFFF" name={iconName} size={10} />
+        </View>
+      ) : null}
+      <Text style={[FONTS.caption, { fontWeight: '700', color: variantStyle.color }]}>{label}</Text>
     </View>
   );
 }
-
-// Estilos do componente Badge
-const styles = StyleSheet.create({
-  // Container principal do badge
-  badge: {
-    alignSelf: 'flex-start',         // Alinha ao início (não estica)
-    borderRadius: RADII.pill,       // Borda arredondada completa (pílula)
-    paddingHorizontal: SPACING.md,   // Padding horizontal
-    paddingVertical: SPACING.xs,    // Padding vertical
-  },
-  
-  // Estilo do texto do badge
-  label: {
-    ...FONTS.caption,               // Usa fonte caption do tema
-    fontWeight: '700',              // Peso negrito para destaque
-  },
-});

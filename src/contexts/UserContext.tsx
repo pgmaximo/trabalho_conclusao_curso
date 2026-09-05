@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getUserSession } from '@/services/auth/userSessionService';
+import { getAvatarDisplayUrl } from '@/services/avatarService';
 
 const client = generateClient<Schema>();
 
@@ -12,8 +13,8 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  // DECISION: gender mapeado de sex ('Masculino'/'Feminino') para convenção interna em inglês
-  gender: 'male' | 'female' | undefined;
+  // DECISION: gender mapeado de sex ('Masculino'/'Feminino'/'Outro') para convenção interna em inglês
+  gender: 'male' | 'female' | 'other' | undefined;
   birthDate?: string;
   weightKg?: number;
   heightCm?: number;
@@ -24,7 +25,8 @@ export interface UserProfile {
   pregnancy?: boolean;
   // DECISION: existência do registro no DynamoDB = onboarding completo (sem campo booleano separado)
   onboardingCompleted: boolean;
-  // ATTENTION: photoUrl reservado para upload futuro de foto — não implementado
+  // photoUrl é derivado (URL assinada, temporária) a partir de photoKey via
+  // getAvatarDisplayUrl — nunca persistido, sempre resolvido no fetch.
   photoUrl?: string;
 }
 
@@ -42,9 +44,10 @@ const UserContext = createContext<UserContextValue>({
   clearUser: () => {},
 });
 
-function mapGender(sex?: string | null): 'male' | 'female' | undefined {
+function mapGender(sex?: string | null): 'male' | 'female' | 'other' | undefined {
   if (sex === 'Masculino') return 'male';
   if (sex === 'Feminino') return 'female';
+  if (sex === 'Outro') return 'other';
   return undefined;
 }
 
@@ -60,6 +63,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const { data: profiles } = await client.models.UserProfile.list({});
       const profile = profiles?.[0];
 
+      // Resolve a URL assinada da foto sob demanda a partir da key persistida.
+      // Falha de leitura (ex.: rede) nunca deve travar o carregamento do resto
+      // do perfil — o avatar cai no fallback de iniciais/gênero nesse caso.
+      let photoUrl: string | undefined;
+      if (profile?.photoKey) {
+        try {
+          photoUrl = await getAvatarDisplayUrl(profile.photoKey);
+        } catch {
+          photoUrl = undefined;
+        }
+      }
+
       const userProfile: UserProfile = {
         id: session.userId,
         email: session.email,
@@ -74,6 +89,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         alcoholConsumption: profile?.alcoholConsumption ?? undefined,
         pregnancy: profile?.pregnancy ?? undefined,
         onboardingCompleted: !!profile,
+        photoUrl,
       };
 
       setUser(userProfile);

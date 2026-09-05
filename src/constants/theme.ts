@@ -14,11 +14,11 @@
 // - Espaçamento, bordas e sombras
 // - Funções de construção de temas
 //
-// Cores Principais:
-// - Primary: Verde (#1D9E75) - Cor principal do app
-// - Secondary: Azul (#185FA5) - Cor secundária
-// - Accent: Laranja (#D85A30) - Cor de destaque
-// - Neutral: Cinza (#F1EFE8) - Cor neutra
+// Cores Principais (fonte: Canvas Claude Design, Tela 1a — specs/design/DESIGN_TOKENS.md):
+// - Primary: Verde (#10794E) - Cor principal do app
+// - Secondary: Azul (#1B63C4) - Cor secundária
+// - Accent: Laranja (#FF6F00) - Cor de destaque
+// - Neutral: Cinza (#363D3B / #55605C) - Cor neutra
 //
 // =============================================================================
 
@@ -36,33 +36,39 @@ export type ThemeColors = {
   background: string;      // Fundo principal
   surface: string;         // Superfície de cards
   surfaceMuted: string;    // Superfície suave
-  
+
   // Cores primárias
   primary: string;         // Primária principal
   primaryDark: string;     // Primária escura
   primarySoft: string;     // Primária suave
-  
+
   // Cores secundárias
   secondary: string;       // Secundária principal
   secondarySoft: string;   // Secundária suave
-  
+
   // Cores de destaque
   accent: string;          // Destaque principal
   accentSoft: string;      // Destaque suave
-  
+
   // Cores de status
-  success: string;         // Sucesso (verde)
-  successSoft: string;     // Sucesso suave
-  warning: string;         // Alerta (laranja)
-  warningSoft: string;     // Alerta suave
-  danger: string;          // Perigo (vermelho)
-  dangerSoft: string;      // Perigo suave
-  
+  success: string;         // Sucesso (verde) — cor de texto/ícone
+  successSoft: string;     // Sucesso suave — fundo de badge
+  successIconBg: string;   // Sucesso — fundo do círculo de ícone
+  successBadgeBorder: string; // Sucesso — borda de badge/pill
+  warning: string;         // Alerta (âmbar) — cor de texto/ícone
+  warningSoft: string;     // Alerta suave — fundo de badge
+  warningIconBg: string;   // Alerta — fundo do círculo de ícone
+  warningBadgeBorder: string; // Alerta — borda de badge/pill
+  danger: string;          // Perigo (vermelho) — cor de texto/ícone
+  dangerSoft: string;      // Perigo suave — fundo de badge
+  dangerIconBg: string;    // Perigo — fundo do círculo de ícone
+  dangerBadgeBorder: string; // Perigo — borda de badge/pill
+
   // Cores de texto
   text: string;            // Texto principal
   textSecondary: string;   // Texto secundário
   textMuted: string;       // Texto mutado
-  
+
   // Cores de interface
   placeholder: string;     // Placeholder de inputs
   border: string;          // Borda padrão
@@ -74,13 +80,17 @@ export type ThemeColors = {
   surfaceTranslucent: string; // Superficie translucida
   iconMuted: string;       // Icones secundarios
   borderLight: string;     // Borda sutil
-  info: string;            // Informacao/azul
-  infoSoft: string;        // Fundo informativo suave
+  info: string;            // Informacao/azul — cor de texto/ícone
+  infoSoft: string;        // Fundo informativo suave — fundo de badge
+  infoIconBg: string;      // Informação — fundo do círculo de ícone
+  infoBadgeBorder: string; // Informação — borda de badge/pill
   female: string;          // Destaque feminino quando necessario
   femaleSoft: string;      // Fundo feminino suave
-  neutral: string;         // Neutro forte
-  neutralSoft: string;     // Fundo neutro suave
+  neutral: string;         // Neutro forte — cor de texto/ícone (badge "Pendente")
+  neutralSoft: string;     // Fundo neutro suave — fundo de badge
   neutralBorder: string;   // Borda neutra
+  neutralIconBg: string;   // Neutro — fundo do círculo de ícone
+  neutralBadgeBorder: string; // Neutro — borda de badge/pill (alias de neutralBorder)
   noticeSoft: string;      // Fundo de avisos informativos
   noticeBorder: string;    // Borda de avisos informativos
   footer: string;          // Fundo de rodape flutuante
@@ -107,10 +117,12 @@ export const SPACING = {
 
 // Sistema de bordas arredondadas (em pixels)
 export const RADII = {
-  sm: 12,    // Borda pequena
+  sm: 12,    // Borda pequena (chip/badge pequeno)
   md: 18,    // Borda média
   lg: 24,    // Borda grande
-  xl: 28,    // Borda extra grande
+  xl: 28,    // Borda extra grande (uso legado)
+  field: 14, // Botão/campo (Canvas 1a — DESIGN_TOKENS.md §3)
+  card: 20,  // Card padrão (Canvas 1a — DESIGN_TOKENS.md §3)
   pill: 999, // Borda completa (pílula)
 };
 
@@ -130,7 +142,6 @@ export const SHADOWS = {
 
 /**
  * Função para construir o sistema completo de cores baseado na paleta e modo
- * @param palette - Paleta de cores base (LIGHT_PALETTE ou DARK_PALETTE)
  * @param mode - Modo do tema ('light' ou 'dark')
  * @returns Objeto completo com todas as cores do tema
  */
@@ -140,81 +151,69 @@ function buildThemeColors(mode: PaletteMode): ThemeColors {
 
 /**
  * Função para construir o sistema de tipografia baseado nas cores do tema
+ * Escala nomeada de 7 estilos do Canvas 1a (specs/design/DESIGN_TOKENS.md §2):
+ * Título 28/600, Subtítulo 22/600, Seção 20/600, Corpo 17/400 (piso mínimo),
+ * Corpo forte 17/600, Apoio 16/400 (piso absoluto), Rótulo 14/600 + letter-spacing.
  * @param colors - Objeto de cores do tema
  * @returns Objeto com estilos de tipografia para diferentes usos
  */
 function buildTypography(colors: ThemeColors) {
   return {
-    // Display - Títulos maiores e impactantes
-    display: {
-      fontSize: 34,                   // Tamanho extra grande
-      lineHeight: 40,                 // Altura da linha proporcional
-      fontWeight: '700',              // Peso negrito extra
-      color: colors.text,             // Cor principal do texto
+    // Título — títulos de tela ("Seus exames")
+    titulo: {
+      fontSize: 28,
+      lineHeight: 35, // 28 * 1.25
+      fontWeight: '600',
+      color: colors.text,
     } satisfies TextStyle,
-    
-    // Title - Títulos de seções
-    title: {
-      fontSize: 30,                   // Tamanho grande
-      lineHeight: 36,                 // Altura da linha
-      fontWeight: '700',              // Peso negrito extra
-      color: colors.text,             // Cor principal do texto
+
+    // Subtítulo — títulos de card ("Entre na sua conta")
+    subtitulo: {
+      fontSize: 22,
+      lineHeight: 29, // 22 * 1.3
+      fontWeight: '600',
+      color: colors.text,
     } satisfies TextStyle,
-    
-    // Heading - Títulos de conteúdo
-    heading: {
-      fontSize: 20,                   // Tamanho médio-grande
-      lineHeight: 26,                 // Altura da linha
-      fontWeight: '700',              // Peso negrito extra
-      color: colors.text,             // Cor principal do texto
+
+    // Seção — cabeçalhos de seção ("Próximas consultas")
+    secao: {
+      fontSize: 20,
+      lineHeight: 26, // 20 * 1.3
+      fontWeight: '600',
+      color: colors.text,
     } satisfies TextStyle,
-    
-    // Subheading - Subtítulos
-    subheading: {
-      fontSize: 16,                   // Tamanho médio
-      lineHeight: 22,                 // Altura da linha
-      fontWeight: '600',              // Peso semi-negrito
-      color: colors.text,             // Cor principal do texto
+
+    // Corpo — texto corporal padrão. Piso mínimo: nunca abaixo de 17px.
+    corpo: {
+      fontSize: 17,
+      lineHeight: 26, // 17 * 1.5
+      fontWeight: '400',
+      color: colors.textSecondary,
     } satisfies TextStyle,
-    
-    // Body - Texto corporal padrão
-    body: {
-      fontSize: 15,                   // Tamanho de texto padrão
-      lineHeight: 22,                 // Altura da linha
-      color: colors.textSecondary,    // Cor secundária para menos destaque
+
+    // Corpo forte — texto corporal com destaque ("Colesterol total: 186 mg/dL")
+    corpoForte: {
+      fontSize: 17,
+      lineHeight: 26, // 17 * 1.5
+      fontWeight: '600',
+      color: colors.text,
     } satisfies TextStyle,
-    
-    // BodyStrong - Texto corporal com destaque
-    bodyStrong: {
-      fontSize: 15,                   // Tamanho de texto padrão
-      lineHeight: 22,                 // Altura da linha
-      fontWeight: '600',              // Peso semi-negrito
-      color: colors.text,             // Cor principal para destaque
+
+    // Apoio — texto secundário, datas, legendas. Piso absoluto: nunca abaixo de 16px.
+    apoio: {
+      fontSize: 16,
+      lineHeight: 24, // 16 * 1.5
+      fontWeight: '400',
+      color: colors.textSecondary,
     } satisfies TextStyle,
-    
-    // Button - Texto de botões
-    button: {
-      fontSize: 16,                   // Tamanho médio para botões
-      lineHeight: 20,                 // Altura da linha compacta
-      fontWeight: '600',              // Peso semi-negrito
-      color: colors.text,             // Cor principal
-    } satisfies TextStyle,
-    
-    // Caption - Legendas e textos pequenos
-    caption: {
-      fontSize: 13,                   // Tamanho pequeno
-      lineHeight: 18,                 // Altura da linha
-      color: colors.textMuted,        // Cor mutada para menos destaque
-    } satisfies TextStyle,
-    
-    // Overline - Texto sobreposto (badges, labels)
-    overline: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '700',
-      letterSpacing: 0.3,
-      color: colors.textMuted,
-      textTransform: 'uppercase',
+
+    // Rótulo — SOMENTE labels de aba e tags
+    rotulo: {
+      fontSize: 14,
+      lineHeight: 20, // 14 * 1.4
+      fontWeight: '600',
+      letterSpacing: 1.12, // 0.08em @ 14px
+      color: colors.textSecondary,
     } satisfies TextStyle,
   };
 }
@@ -262,18 +261,31 @@ export const SIZES = {
   small: SPACING.sm,     // Tamanho pequeno (12px)
   medium: 18,            // Tamanho médio (18px)
   large: SPACING.lg,     // Tamanho grande (24px)
-  radius: 20,            // Raio de borda padrão
-  cardRadius: RADII.xl,  // Raio para cards
+  radius: 20,            // Raio de borda padrão (uso legado — telas não migradas nesta EPIC)
+  cardRadius: RADII.card, // Raio para cards (20px, Canvas 1a)
   iconSize: 20,          // Tamanho padrão de ícones
 };
 
 // Exportação de estilos de fonte para uso direto com StyleSheet.create
-// Fornece acesso rápido aos estilos de tipografia mais comuns
+// Fornece acesso rápido aos estilos de tipografia mais comuns.
+// Inclui os 7 nomes canônicos do Canvas 1a + aliases legados (migração aditiva —
+// mantidos para não quebrar telas que ainda não foram migradas para os nomes novos).
 export const FONTS = StyleSheet.create({
-  title: LIGHT_THEME.typography.title,     // Títulos grandes (30px)
-  subtitle: LIGHT_THEME.typography.body,   // Subtítulos (15px)
-  heading: LIGHT_THEME.typography.heading, // Títulos de conteúdo (20px)
-  body: LIGHT_THEME.typography.body,       // Texto corporal padrão (15px)
-  button: LIGHT_THEME.typography.button,   // Texto de botões (16px)
-  caption: LIGHT_THEME.typography.caption, // Legendas (13px)
+  // Nomes canônicos (Canvas 1a — specs/design/DESIGN_TOKENS.md §2)
+  titulo: LIGHT_THEME.typography.titulo,
+  subtitulo: LIGHT_THEME.typography.subtitulo,
+  secao: LIGHT_THEME.typography.secao,
+  corpo: LIGHT_THEME.typography.corpo,
+  corpoForte: LIGHT_THEME.typography.corpoForte,
+  apoio: LIGHT_THEME.typography.apoio,
+  rotulo: LIGHT_THEME.typography.rotulo,
+
+  // Aliases legados (não remover — consumidos por telas fora do escopo desta EPIC)
+  title: LIGHT_THEME.typography.titulo,     // Títulos grandes (28px/600)
+  subtitle: LIGHT_THEME.typography.apoio,   // Subtítulos (16px/400)
+  heading: LIGHT_THEME.typography.secao,    // Títulos de conteúdo (20px/600)
+  body: LIGHT_THEME.typography.corpo,       // Texto corporal padrão (17px/400)
+  bodyStrong: LIGHT_THEME.typography.corpoForte, // Texto corporal com destaque (17px/600)
+  button: LIGHT_THEME.typography.corpoForte, // Texto de botões (17px/600)
+  caption: LIGHT_THEME.typography.apoio,    // Legendas (16px/400 — piso absoluto)
 });

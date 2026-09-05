@@ -65,17 +65,21 @@ export interface DashboardSnapshot {
 // TIPOS DE DOCUMENTOS MÉDICOS
 // =============================================================================
 
-// Tipo para filtro de documentos médicos
-export type MedicalDocumentFilter = 'Todos' | 'Exames' | 'Receitas' | 'Laudos';
+// Tipo para filtro de documentos médicos (Canvas 3a: Todos/Exames/Receitas/Alterados —
+// "Alterados" substitui o antigo "Laudos", que não correspondia a nenhum documentType real)
+export type MedicalDocumentFilter = 'Todos' | 'Exames' | 'Receitas' | 'Alterados';
+
+// Status de validade de receita, calculado localmente (expirationDate vs. hoje) — nunca persistido.
+// Não existe equivalente para exames (nenhuma fonte real de resultado clínico no schema —
+// ver specs/03-exames-receitas/lista/plan.md §2, Opção A).
+export type DocumentValidityStatus = 'valida' | 'vencida';
 
 // Interface para documentos médicos
 export interface MedicalDocument {
   id: string;                                      // Database ID for updates/deletes
   icon: string;                                    // Ícone representativo
   title: string;                                  // Título do documento
-  subtitle: string;                               // Subtítulo com informações
-  statusLabel: string;                            // Label do status
-  statusColor: string;                            // Cor do status
+  subtitle: string;                               // Linha de meta já composta: "{Tipo} · {data}" (exame) ou "{Tipo} · emitida {data}" (receita)
   category: Exclude<MedicalDocumentFilter, 'Todos'>; // Categoria (excluindo "Todos")
   // Full document data for editing
   documentType: 'exam' | 'prescription';           // Tipo de documento
@@ -84,6 +88,8 @@ export interface MedicalDocument {
   expirationDate: string | null;                  // Data de validade (nullable)
   s3FileName: string;                             // Nome do arquivo no S3
   originalFileName: string;                       // Nome original do arquivo
+  // Badge de validade (Válida/Vencida), presente só para receitas — ver DocumentValidityStatus acima
+  validityStatus?: DocumentValidityStatus | null;
 }
 
 // =============================================================================
@@ -154,21 +160,25 @@ export type MedicineStatus = 'pending' | 'taken' | 'missed';
 // Tipo para status de estoque de medicamento
 export type MedicineStockStatus = 'ok' | 'low' | 'critical';
 
-// Interface para dose de medicamento
+// Interface para dose de medicamento — representação de apresentação de uma instância
+// diária de uma dose de `Medicine` (ver src/services/medicineService.ts), derivada em
+// src/hooks/useMedicinesData.ts. `id` é composto (`${medicineId}__${time}`) porque cada
+// `Medicine` pode gerar várias doses/dia (um horário em `times`).
 export interface MedicineDose {
-  id: number;            // ID único da dose
+  id: string;             // ID composto único da dose (`${medicineId}__${time}`)
+  medicineId: string;     // ID do `Medicine` de origem
+  time: string;           // Horário da dose (hh:mm)
   name: string;          // Nome do medicamento
   dosage: string;        // Dosagem e frequência
-  time: string;          // Horário da dose
   status: MedicineStatus; // Status da dose
 }
 
-// Interface para item do inventário de medicamentos
+// Interface para item do inventário de medicamentos — apresentação derivada de `Medicine`.
 export interface MedicineInventoryItem {
-  id: number;                    // ID único do item
+  id: string;                    // ID do `Medicine` de origem
   name: string;                  // Nome do medicamento
-  quantity: number;              // Quantidade em estoque
-  unit: string;                  // Unidade de medida
+  quantity: number;              // Quantidade em estoque (currentStock)
+  unit: string;                  // Unidade de medida (rótulo já traduzido)
   status: MedicineStockStatus;   // Status do estoque
   percentage: number;
 }
@@ -197,16 +207,22 @@ export interface CalendarDateItem {
   hasAppointments?: boolean;       // Se há consultas no dia
 }
 
-// Tipo para tipo de consulta
-export type AppointmentType = 'consulta' | 'exame' | 'retorno';
+// Tipo para tipo de consulta — alinhado ao enum real do schema Amplify
+// (`CONSULTA'|'EXAME'|'CIRURGIA'`, ver appointmentService.ts) apos toLowerCase().
+// 'retorno' nunca existiu no backend e foi removido (specs/02-perfil-home-agenda/agenda).
+export type AppointmentType = 'consulta' | 'exame' | 'cirurgia';
 
 // Interface para entrada de consulta
 export interface AppointmentEntry {
-  id: number;            // ID único da consulta
+  id: string | number;   // ID único da consulta
   time: string;          // Data e hora formatada
   title: string;         // Título da consulta
   location: string;      // Local da consulta
   type: AppointmentType; // Tipo da consulta
+  scheduledAt: string;   // ISO original (AppointmentRecord.scheduledAt) — usado para
+                          // ordenar/filtrar por proximidade (ex.: Home 2b), já que
+                          // `time` é uma string formatada sem ano.
+  observations?: string; // Observações/notas da consulta
 }
 
 // Interface completa para snapshot de consultas
@@ -219,34 +235,67 @@ export interface AppointmentsSnapshot {
 // TIPOS DE PREVENÇÃO E CHECK-UPS
 // =============================================================================
 
-// Tipo para status de check-up preventivo
-export type PreventiveCheckStatus = 'em_dia' | 'vencido' | 'pendente';
+// Grau de recomendacao USPSTF (A/B = recomendado, C = sem recomendacao de rotina,
+// D = recomendado contra, I = evidencia insuficiente)
+export type UspstfGrade = 'A' | 'B' | 'C' | 'D' | 'I';
 
-// Interface para alerta preventivo
-export interface PreventiveAlert {
-  title: string;         // Título do alerta
-  description: string;  // Descrição detalhada
-  actionLabel: string;  // Label do botão de ação
+// Uma recomendacao de prevencao retornada pela funcao getPreventionRecommendations,
+// ja filtrada para o perfil do usuario. title/text/rationale vem verbatim da USPSTF
+// (em ingles, nunca alterar) por exigencia de direitos autorais da AHRQ; os campos
+// *Pt sao uma adaptacao nao-oficial em portugues, permitida pelo aviso de copyright
+// da AHRQ desde que rotulada como adaptacao e acompanhada do texto original.
+// Podem vir nulos quando a traducao falha — nesse caso exibimos so o ingles.
+export interface PreventionRecommendation {
+  id: number;
+  grade: UspstfGrade;
+  gradeText: string;
+  gradeTextPt: string | null;
+  title: string;
+  titlePt: string | null;
+  text: string;
+  textPt: string | null;
+  rationale: string | null;
+  rationalePt: string | null;
+  topic: string | null;
+  citationYear: string | null;
+  ageMin: number | null;
+  ageMax: number | null;
+  sex: string | null;
+  bmi: string | null;
 }
 
-// Interface para snapshot do score de saúde preventivo
-export interface PreventiveScoreSnapshot {
-  score: number;         // Score atual do usuário
-  maxScore: number;      // Score máximo possível
-  status: string;        // Status do score
-}
-
-// Interface para check-up preventivo
-export interface PreventiveCheck {
-  id: number;                           // ID único do check-up
-  title: string;                        // Título do check-up
-  date: string;                         // Data do check-up
-  status: PreventiveCheckStatus;         // Status do check-up
+// Recomendacao com o estado local (nao persistido no backend) de lembrete ativado
+export interface RecommendationView extends PreventionRecommendation {
+  isReminderOn: boolean;
 }
 
 // Interface completa para snapshot de prevenção
 export interface PreventionSnapshot {
-  alert: PreventiveAlert;                    // Alerta preventivo principal
-  score: PreventiveScoreSnapshot;            // Score de saúde preventivo
-  checks: PreventiveCheck[];                 // Array de check-ups preventivos
+  recommendations: PreventionRecommendation[];
+  lastUpdated: string;
+  // false quando o usuario ainda nao completou o cadastro de perfil de saude
+  profileComplete: boolean;
+}
+
+// Status derivado de uma dose de vacina — nunca persistido, sempre calculado a
+// partir de appliedDate/dueDate (ver useVaccinationData.ts).
+export type VaccineDoseStatus = 'pendente' | 'atrasada' | 'aplicada';
+
+// Item de apresentação de uma dose de vacina (recomendação futura ou histórico).
+export interface VaccineDoseItem {
+  id: string;
+  name: string;
+  doseNumber?: number;
+  status: VaccineDoseStatus;
+  description: string;          // ex.: "Dose anual · campanha até 30/09" / "Reforço a cada 10 anos"
+  appliedDate?: string;         // preenchido só quando status === 'aplicada'
+  location?: string;            // idem
+  dueDate?: string;             // preenchido só quando pendente/atrasada
+}
+
+// Snapshot completo da Carteira de Vacinação (tela 4e).
+export interface VaccinationSnapshot {
+  upcoming: VaccineDoseItem[];        // status pendente/atrasada
+  history: VaccineDoseItem[];         // status aplicada, ordenado do mais recente
+  activeCampaignMessage: string | null; // conteúdo institucional, não dado do usuário
 }

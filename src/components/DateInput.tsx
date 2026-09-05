@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -7,7 +7,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
 
 interface DateInputProps {
   label: string;
@@ -17,6 +18,8 @@ interface DateInputProps {
 }
 
 export function DateInput({ label, value, onChange, placeholder }: DateInputProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isVisible, setIsVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(value ? new Date(value) : new Date());
 
@@ -61,11 +64,7 @@ export function DateInput({ label, value, onChange, placeholder }: DateInputProp
     return weeks.map((week, weekIndex) => (
       <View key={weekIndex} style={styles.weekRow}>
         {week.map((day, dayIndex) => {
-          const isSelected =
-            day &&
-            day === selectedDate.getDate() &&
-            selectedDate.getMonth() === new Date().getMonth() &&
-            selectedDate.getFullYear() === new Date().getFullYear();
+          const isSelected = day === selectedDate.getDate();
 
           return (
             <Pressable
@@ -110,7 +109,7 @@ export function DateInput({ label, value, onChange, placeholder }: DateInputProp
         onPress={() => setIsVisible(true)}
       >
         <Text style={styles.inputText}>{formatDisplayDate(value)}</Text>
-        <Text style={styles.calendarIcon}>📅</Text>
+        <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
       </Pressable>
 
       <Modal visible={isVisible} transparent animationType="fade">
@@ -128,7 +127,7 @@ export function DateInput({ label, value, onChange, placeholder }: DateInputProp
                 }}
                 style={styles.navButton}
               >
-                <Text style={styles.navButtonText}>←</Text>
+                <Ionicons name="chevron-back" size={18} color={colors.text} />
               </Pressable>
               <Text style={styles.monthYear}>{monthName}</Text>
               <Pressable
@@ -139,13 +138,13 @@ export function DateInput({ label, value, onChange, placeholder }: DateInputProp
                 }}
                 style={styles.navButton}
               >
-                <Text style={styles.navButtonText}>→</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.text} />
               </Pressable>
             </View>
 
             <View style={styles.weekDays}>
-              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day) => (
-                <Text key={day} style={styles.weekDayText}>
+              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, index) => (
+                <Text key={index} style={styles.weekDayText}>
                   {day}
                 </Text>
               ))}
@@ -168,13 +167,13 @@ export function DateInput({ label, value, onChange, placeholder }: DateInputProp
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     marginTop: SIZES.large,
   },
   label: {
     ...FONTS.body,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '600',
     marginBottom: SIZES.small,
   },
@@ -182,30 +181,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.inputBackground,
+    backgroundColor: colors.inputBackground,
     borderRadius: SIZES.radius,
+    borderCurve: 'continuous',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     paddingHorizontal: SIZES.base,
-    paddingVertical: 12,
-    minHeight: 44,
+    // 56px fixo — mesma altura do wrapper `h-14` de FormField, para que o
+    // par "Data"/"Hora" (DateInput + FormField lado a lado) fique alinhado.
+    height: 56,
   },
   inputText: {
     ...FONTS.body,
-    color: COLORS.text,
-  },
-  calendarIcon: {
-    fontSize: 18,
+    color: colors.text,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
     borderRadius: SIZES.radius,
+    borderCurve: 'continuous',
     padding: SIZES.large,
     width: '85%',
     maxWidth: 350,
@@ -220,18 +219,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.inputBackground,
+    backgroundColor: colors.inputBackground,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navButtonText: {
-    fontSize: 18,
-    color: COLORS.text,
-    fontWeight: '600',
-  },
   monthYear: {
     ...FONTS.subtitle,
-    color: COLORS.text,
+    color: colors.text,
     textTransform: 'capitalize',
   },
   weekDays: {
@@ -242,7 +236,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     ...FONTS.caption,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   daysContainer: {
@@ -260,25 +254,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dayButtonSelected: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
   },
   dayText: {
     ...FONTS.body,
-    color: COLORS.text,
+    color: colors.text,
   },
   dayTextSelected: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   confirmButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     borderRadius: SIZES.radius,
+    borderCurve: 'continuous',
     paddingVertical: SIZES.base,
     alignItems: 'center',
   },
   confirmButtonText: {
     ...FONTS.body,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
 });

@@ -15,10 +15,10 @@
 // - Layout horizontal otimizado
 // - Design acessível e legível
 //
-// Tipos de Alerta:
-// - warning: Amarelo (#FEF3C7/#FCD34D/#92400E) - Alertas de atenção
-// - success: Azul claro (#DBEAFE/#60A5FA/#1E40AF) - Sucesso e confirmação
-// - info: Azul (#E0E7FF/#818CF8/#3730A3) - Informações gerais
+// Tipos de Alerta (cores via useThemeColors(), reativas a dark mode):
+// - warning: Âmbar - Alertas de atenção
+// - success: Verde - Sucesso e confirmação
+// - info: Azul - Informações gerais
 //
 // =============================================================================
 
@@ -27,7 +27,7 @@ import React from 'react';                    // Biblioteca principal React
 import { View, Text, StyleSheet } from 'react-native';  // Componentes UI
 
 // Importações de tema
-import { FONTS, SIZES } from '@/constants/theme';  // Configurações
+import { FONTS, SIZES, useThemeColors } from '@/constants/theme';  // Configurações
 
 // Props do componente AlertBanner
 type AlertBannerProps = {
@@ -38,27 +38,30 @@ type AlertBannerProps = {
 };
 
 // Componente AlertBanner principal
-export function AlertBanner({ 
+export function AlertBanner({
   icon,                    // Ícone do alerta
   title,                   // Título
   message,                 // Mensagem
   type = 'info'            // Tipo de alerta (padrão: info)
 }: AlertBannerProps) {
-  // Define cores baseadas no tipo de alerta
+  const colors = useThemeColors();
+
+  // Define cores baseadas no tipo de alerta — tokens reativos a dark mode
+  // (mesmas 3 famílias semânticas de Badge.tsx: success/warning/info)
   const backgroundColor =
-    type === 'warning' ? '#FEF3C7' :    // Amarelo claro para warning
-    type === 'success' ? '#DBEAFE' :    // Azul claro para success
-    '#E0E7FF';                         // Azul para info (padrão)
-    
+    type === 'warning' ? colors.warningSoft :
+    type === 'success' ? colors.successSoft :
+    colors.infoSoft;
+
   const borderColor =
-    type === 'warning' ? '#FCD34D' :    // Amarelo para warning
-    type === 'success' ? '#60A5FA' :    // Azul para success
-    '#818CF8';                         // Azul mais escuro para info
-    
+    type === 'warning' ? colors.warningBadgeBorder :
+    type === 'success' ? colors.successBadgeBorder :
+    colors.infoBadgeBorder;
+
   const textColor =
-    type === 'warning' ? '#92400E' :    // Marrom escuro para warning
-    type === 'success' ? '#1E40AF' :    // Azul escuro para success
-    '#3730A3';                         // Azul muito escuro para info
+    type === 'warning' ? colors.warning :
+    type === 'success' ? colors.success :
+    colors.info;
 
   // Renderiza o banner de alerta
   return (

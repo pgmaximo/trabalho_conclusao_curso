@@ -1,40 +1,76 @@
-import React from 'react';
-import { ScrollView, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
+import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
-import { HealthCheckItem } from '@/components/HealthCheckItem';
-import { PreventiveScore } from '@/components/PreventiveScore';
+import { FilterChips } from '@/components/FilterChips';
+import { RecommendationCard } from '@/components/RecommendationCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
-import { UrgentAlert } from '@/components/UrgentAlert';
-import type {
-  PreventiveAlert,
-  PreventiveCheck,
-  PreventiveScoreSnapshot,
-} from '@/types/models';
+import { useThemeColors } from '@/constants/theme';
+import type { RecommendationView, UspstfGrade } from '@/types/models';
 
 type PreventionScreenProps = {
-  alert: PreventiveAlert;
-  score: PreventiveScoreSnapshot;
-  checks: PreventiveCheck[];
+  recommendations: RecommendationView[];
+  lastUpdated: string;
+  profileComplete: boolean;
   isLoading: boolean;
   errorMessage: string | null;
   onRetry: () => void;
+  onToggleReminder: (recommendationId: number) => void;
+  onEnableRemindersForIds: (recommendationIds: number[]) => void;
+  onCompleteProfile: () => void;
+  pendingReminderIds: Set<number>;
+  activeCampaignMessage: string | null;
 };
 
+const ALL_FILTER = 'Todos';
+const GRADE_ORDER: UspstfGrade[] = ['A', 'B', 'C', 'D', 'I'];
+
 export function PreventionScreen({
-  alert,
-  score,
-  checks,
+  recommendations,
+  lastUpdated,
+  profileComplete,
   isLoading,
   errorMessage,
   onRetry,
+  onToggleReminder,
+  onEnableRemindersForIds,
+  onCompleteProfile,
+  pendingReminderIds,
+  activeCampaignMessage,
 }: PreventionScreenProps) {
   const { colorScheme } = useColorScheme();
+  const colors = useThemeColors();
+  const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>(ALL_FILTER);
+
+  const availableGrades = useMemo(() => {
+    const present = new Set(recommendations.map((rec) => rec.grade));
+    return GRADE_ORDER.filter((grade) => present.has(grade));
+  }, [recommendations]);
+
+  const filterOptions = useMemo(() => [ALL_FILTER, ...availableGrades], [availableGrades]);
+
+  const filteredRecommendations = useMemo(
+    () =>
+      selectedGradeFilter === ALL_FILTER
+        ? recommendations
+        : recommendations.filter((rec) => rec.grade === selectedGradeFilter),
+    [recommendations, selectedGradeFilter],
+  );
+
+  const filteredIdsWithReminderOff = filteredRecommendations.flatMap((rec) =>
+    rec.isReminderOn ? [] : [rec.id],
+  );
+
+  // lastUpdated e exibido no rodape do banner de contexto quando disponivel —
+  // a API do USPSTF pode retornar vazio, entao a linha e omitida nesse caso.
+  const lastUpdatedLabel = lastUpdated ? `Dataset atualizado em ${lastUpdated}.` : null;
 
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
@@ -46,46 +82,100 @@ export function PreventionScreen({
           ) : errorMessage ? (
             <EmptyState
               icon="alert-circle-outline"
-              title="Não foi possível carregar os alertas"
+              title="Não foi possível carregar as recomendações"
               description={errorMessage}
               tone="error"
               actionLabel="Tentar novamente"
               onActionPress={onRetry}
             />
+          ) : !profileComplete ? (
+            <EmptyState
+              icon="person-outline"
+              title="Complete seu perfil de saúde"
+              description="Precisamos de algumas informações do seu perfil para calcular as recomendações preventivas certas para você."
+              actionLabel="Completar perfil"
+              onActionPress={onCompleteProfile}
+            />
           ) : (
             <>
               <ScreenHeader
                 title="Prevenção & Alertas"
-                subtitle="Itens que podem ser acompanhados antes de virarem urgência."
+                badgeLabel={`${recommendations.length} recomendaç${recommendations.length === 1 ? 'ão' : 'ões'}`}
+                badgeVariant={recommendations.length > 0 ? 'primary' : 'neutral'}
               />
 
-              <UrgentAlert
-                title={alert.title}
-                description={alert.description}
-                actionLabel={alert.actionLabel}
-                onActionPress={() => {}}
-              />
+              {activeCampaignMessage ? (
+                <View className="mb-6 flex-row items-start gap-3 rounded-app border border-app-successBadgeBorder bg-app-successSoft px-4 py-3 dark:border-app-dark-successBadgeBorder dark:bg-app-dark-successSoft">
+                  <View className="size-6 items-center justify-center rounded-full bg-app-successIconBg dark:bg-app-dark-successIconBg">
+                    <Ionicons color="#FFFFFF" name="medical" size={14} />
+                  </View>
+                  <Text className="flex-1 text-[15px] leading-[20px] text-app-primaryDark dark:text-app-dark-primaryDark">
+                    {activeCampaignMessage}
+                  </Text>
+                </View>
+              ) : null}
 
-              <Section title="Pontuação preventiva" subtitle="Leitura sintética do momento atual.">
-                <PreventiveScore score={score.score} maxScore={score.maxScore} status={score.status} />
-              </Section>
+              {recommendations.length > 0 ? (
+                <Card variant="soft" padding="compact" style={{ marginBottom: 16 }}>
+                  <Text className="text-[13px] leading-5 text-app-textSecondary dark:text-app-dark-textSecondary">
+                    As recomendações vêm do USPSTF (agência de saúde dos EUA). O texto em português
+                    é uma adaptação não-oficial feita pelo app — a USPSTF não a revisou nem a
+                    endossa. O texto oficial em inglês continua disponível em cada card, em
+                    “Ver texto original”.
+                    {lastUpdatedLabel ? ` ${lastUpdatedLabel}` : ''}
+                  </Text>
+                </Card>
+              ) : null}
 
-              <Section title="Exames e verificações" subtitle="Checklist priorizado para acompanhamento.">
-                {checks.length > 0 ? (
-                  checks.map((check) => (
-                    <HealthCheckItem
-                      key={check.id}
-                      title={check.title}
-                      date={check.date}
-                      status={check.status}
-                      onPress={() => {}}
+              {filterOptions.length > 1 ? (
+                <FilterChips
+                  options={filterOptions}
+                  activeFilter={selectedGradeFilter}
+                  onFilterChange={setSelectedGradeFilter}
+                />
+              ) : null}
+
+              <Section
+                title="Recomendações preventivas"
+                subtitle="Toque no sino para ser lembrado de agendar cada exame."
+                action={
+                  filteredIdsWithReminderOff.length > 0 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Ativar lembretes para todos os exames filtrados"
+                      onPress={() => onEnableRemindersForIds(filteredIdsWithReminderOff)}
+                      className="flex-row items-center gap-1 rounded-full border border-app-primary px-3 py-1.5 dark:border-app-dark-primary"
+                    >
+                      <Ionicons name="notifications-outline" size={14} color={colors.primary} />
+                      <Text className="text-[12px] font-bold text-app-primary dark:text-app-dark-primary">
+                        Ativar todos ({filteredIdsWithReminderOff.length})
+                      </Text>
+                    </Pressable>
+                  ) : undefined
+                }
+              >
+                {filteredRecommendations.length > 0 ? (
+                  filteredRecommendations.map((recommendation) => (
+                    <RecommendationCard
+                      key={recommendation.id}
+                      grade={recommendation.grade}
+                      gradeText={recommendation.gradeText}
+                      gradeTextPt={recommendation.gradeTextPt}
+                      title={recommendation.title}
+                      titlePt={recommendation.titlePt}
+                      text={recommendation.text}
+                      textPt={recommendation.textPt}
+                      citation={recommendation.citationYear ?? recommendation.topic ?? 'USPSTF'}
+                      isReminderOn={recommendation.isReminderOn}
+                      onToggleReminder={() => onToggleReminder(recommendation.id)}
+                      reminderDisabled={pendingReminderIds.has(recommendation.id)}
                     />
                   ))
                 ) : (
                   <EmptyState
-                    icon="document-text-outline"
-                    title="Nenhum item preventivo pendente"
-                    description="Nenhum exame analisado ainda. Faça o upload de um exame."
+                    icon="shield-checkmark-outline"
+                    title="Nenhuma recomendação pendente"
+                    description="Não encontramos recomendações preventivas específicas para o seu perfil no momento."
                   />
                 )}
               </Section>

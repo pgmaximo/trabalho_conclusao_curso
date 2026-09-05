@@ -6,6 +6,7 @@ import { FormField } from '@/components/FormField';
 type AuthInputProps = TextInputProps & {
   label: string;
   icon?: React.ReactNode;
+  trailingAction?: React.ReactNode;
   hasError?: boolean;
   errorMessage?: string;
   containerStyle?: StyleProp<ViewStyle>;
@@ -17,6 +18,7 @@ type AuthInputProps = TextInputProps & {
 export function AuthInput({
   label,
   icon,
+  trailingAction,
   hasError,
   errorMessage,
   containerStyle,
@@ -30,6 +32,7 @@ export function AuthInput({
     <FormField
       label={label}
       icon={icon}
+      trailingAction={trailingAction}
       hasError={hasError}
       errorMessage={errorMessage}
       containerStyle={containerStyle}

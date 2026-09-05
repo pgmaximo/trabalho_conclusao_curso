@@ -35,6 +35,7 @@ describe('auth visual layout', () => {
         onNavigateToForgotPassword={jest.fn()}
         onNavigateToRegister={jest.fn()}
       />,
+      'auth-app-header',
     ],
     [
       'register',
@@ -43,8 +44,9 @@ describe('auth visual layout', () => {
         onNavigateToLogin={jest.fn()}
         onRegisterSuccess={jest.fn()}
       />,
+      'register-header',
     ],
-    ['forgot-password', <ForgotPasswordScreen onBackToLogin={jest.fn()} />],
+    ['forgot-password', <ForgotPasswordScreen onBackToLogin={jest.fn()} />, 'forgot-password-header'],
     [
       'confirm',
       <ConfirmScreen
@@ -52,13 +54,15 @@ describe('auth visual layout', () => {
         onBackToLogin={jest.fn()}
         onConfirmSuccess={jest.fn()}
       />,
+      'confirm-header',
     ],
-  ])('uses the connected centered illustration card on %s', (_name, element) => {
+  ])('renders the Canvas-accurate header on %s', (_name, element, headerTestId) => {
     render(element);
 
-    expect(screen.getByTestId('auth-illustration-card-root')).toBeTruthy();
-    expect(screen.getByTestId('auth-illustration-card-image')).toBeTruthy();
-    expect(screen.getByTestId('auth-illustration-card-content')).toBeTruthy();
+    // Bloco 1 substituiu o AuthIllustrationCard centralizado por cabeçalhos
+    // dedicados por tela: AuthAppHeader (ícone + tagline) no Login e
+    // BackHeader (chevron + título) nas telas internas de fluxo.
+    expect(screen.getByTestId(headerTestId)).toBeTruthy();
   });
 
   it('keeps the Google logo balanced inside the social button', () => {

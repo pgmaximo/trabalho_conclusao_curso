@@ -30,7 +30,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "O SuaSaúde usa a câmera para capturar fotos de exames e receitas."
+        }
+      ]
     ]
   }
 }

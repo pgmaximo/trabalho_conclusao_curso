@@ -117,6 +117,34 @@
               "isRequired": false,
               "attributes": []
             },
+            "chronicConditions": {
+              "name": "chronicConditions",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "medications": {
+              "name": "medications",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "allergies": {
+              "name": "allergies",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "photoKey": {
+              "name": "photoKey",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "createdAt": {
               "name": "createdAt",
               "isArray": false,
@@ -193,6 +221,13 @@
               "isRequired": true,
               "attributes": []
             },
+            "originalFileName": {
+              "name": "originalFileName",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "documentName": {
               "name": "documentName",
               "isArray": false,
@@ -263,6 +298,406 @@
             "primaryKeyFieldName": "id",
             "sortKeyFieldNames": []
           }
+        },
+        "Appointment": {
+          "name": "Appointment",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true,
+              "attributes": []
+            },
+            "appointmentType": {
+              "name": "appointmentType",
+              "isArray": false,
+              "type": {
+                "enum": "AppointmentAppointmentType"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "appointmentName": {
+              "name": "appointmentName",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "professionalName": {
+              "name": "professionalName",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "scheduledAt": {
+              "name": "scheduledAt",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "address": {
+              "name": "address",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "observations": {
+              "name": "observations",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "Appointments",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "provider": "userPools",
+                    "ownerField": "owner",
+                    "allow": "owner",
+                    "identityClaim": "cognito:username",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": false,
+            "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
+        },
+        "VaccineDose": {
+          "name": "VaccineDose",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true,
+              "attributes": []
+            },
+            "name": {
+              "name": "name",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "doseNumber": {
+              "name": "doseNumber",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "appliedDate": {
+              "name": "appliedDate",
+              "isArray": false,
+              "type": "AWSDate",
+              "isRequired": false,
+              "attributes": []
+            },
+            "location": {
+              "name": "location",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "dueDate": {
+              "name": "dueDate",
+              "isArray": false,
+              "type": "AWSDate",
+              "isRequired": false,
+              "attributes": []
+            },
+            "recommendedIntervalYears": {
+              "name": "recommendedIntervalYears",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "isCampaign": {
+              "name": "isCampaign",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": false,
+              "attributes": []
+            },
+            "notes": {
+              "name": "notes",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "VaccineDoses",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "provider": "userPools",
+                    "ownerField": "owner",
+                    "allow": "owner",
+                    "identityClaim": "cognito:username",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": false,
+            "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
+        },
+        "Medicine": {
+          "name": "Medicine",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true,
+              "attributes": []
+            },
+            "name": {
+              "name": "name",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "dosage": {
+              "name": "dosage",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "form": {
+              "name": "form",
+              "isArray": false,
+              "type": {
+                "enum": "MedicineForm"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "times": {
+              "name": "times",
+              "isArray": true,
+              "type": "String",
+              "isRequired": true,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "frequencyType": {
+              "name": "frequencyType",
+              "isArray": false,
+              "type": {
+                "enum": "MedicineFrequencyType"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "weekDays": {
+              "name": "weekDays",
+              "isArray": true,
+              "type": "String",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "intervalHours": {
+              "name": "intervalHours",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "startDate": {
+              "name": "startDate",
+              "isArray": false,
+              "type": "AWSDate",
+              "isRequired": true,
+              "attributes": []
+            },
+            "endDate": {
+              "name": "endDate",
+              "isArray": false,
+              "type": "AWSDate",
+              "isRequired": false,
+              "attributes": []
+            },
+            "currentStock": {
+              "name": "currentStock",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "initialStock": {
+              "name": "initialStock",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "unit": {
+              "name": "unit",
+              "isArray": false,
+              "type": {
+                "enum": "MedicineUnit"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "lowStockThreshold": {
+              "name": "lowStockThreshold",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "notes": {
+              "name": "notes",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "active": {
+              "name": "active",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "takenToday": {
+              "name": "takenToday",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "Medicines",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "provider": "userPools",
+                    "ownerField": "owner",
+                    "allow": "owner",
+                    "identityClaim": "cognito:username",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": false,
+            "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
         }
       },
       "enums": {
@@ -270,7 +705,8 @@
           "name": "UserProfileSex",
           "values": [
             "Masculino",
-            "Feminino"
+            "Feminino",
+            "Outro"
           ]
         },
         "MedicalDocumentDocumentType": {
@@ -279,9 +715,171 @@
             "exam",
             "prescription"
           ]
+        },
+        "AppointmentAppointmentType": {
+          "name": "AppointmentAppointmentType",
+          "values": [
+            "CONSULTA",
+            "EXAME",
+            "CIRURGIA"
+          ]
+        },
+        "MedicineForm": {
+          "name": "MedicineForm",
+          "values": [
+            "PILL",
+            "DROPS",
+            "INJECTION",
+            "OTHER"
+          ]
+        },
+        "MedicineFrequencyType": {
+          "name": "MedicineFrequencyType",
+          "values": [
+            "DAILY",
+            "SPECIFIC_DAYS",
+            "EVERY_X_HOURS"
+          ]
+        },
+        "MedicineUnit": {
+          "name": "MedicineUnit",
+          "values": [
+            "COMP",
+            "ML",
+            "CAPS"
+          ]
         }
       },
-      "nonModels": {}
+      "nonModels": {
+        "PreventionRecommendation": {
+          "name": "PreventionRecommendation",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "grade": {
+              "name": "grade",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "gradeText": {
+              "name": "gradeText",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "title": {
+              "name": "title",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "text": {
+              "name": "text",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "rationale": {
+              "name": "rationale",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "topic": {
+              "name": "topic",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "citationYear": {
+              "name": "citationYear",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "ageMin": {
+              "name": "ageMin",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "ageMax": {
+              "name": "ageMax",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "sex": {
+              "name": "sex",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "bmi": {
+              "name": "bmi",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
+        "GetPreventionRecommendationsReturnType": {
+          "name": "GetPreventionRecommendationsReturnType",
+          "fields": {
+            "recommendations": {
+              "name": "recommendations",
+              "isArray": true,
+              "type": {
+                "nonModel": "PreventionRecommendation"
+              },
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "lastUpdated": {
+              "name": "lastUpdated",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "profileComplete": {
+              "name": "profileComplete",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            }
+          }
+        }
+      },
+      "queries": {
+        "getPreventionRecommendations": {
+          "name": "getPreventionRecommendations",
+          "isArray": false,
+          "type": {
+            "nonModel": "GetPreventionRecommendationsReturnType"
+          },
+          "isRequired": false
+        }
+      }
     }
   },
   "storage": {
@@ -293,8 +891,16 @@
         "bucket_name": "amplify-tcc-pedro-sandbox-medicaldocumentsbucketd9-yp5x61ik2giw",
         "aws_region": "us-east-1",
         "paths": {
-          "medical-documents/{owner}/*": {
-            "authenticated": [
+          "medical-documents/${cognito-identity.amazonaws.com:sub}/*": {
+            "entityidentity": [
+              "get",
+              "list",
+              "write",
+              "delete"
+            ]
+          },
+          "avatars/${cognito-identity.amazonaws.com:sub}/*": {
+            "entityidentity": [
               "get",
               "list",
               "write",

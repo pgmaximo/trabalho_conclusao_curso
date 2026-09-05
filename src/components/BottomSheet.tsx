@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 
-import { COLORS, FONTS, RADII, SPACING } from '@/constants/theme';
+import { FONTS, RADII, SPACING, useThemeColors } from '@/constants/theme';
 
 type BottomSheetProps = {
   visible: boolean;
@@ -24,14 +24,20 @@ export function BottomSheet({
   onClose,
   children,
 }: BottomSheetProps) {
+  const colors = useThemeColors();
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
-          <Text style={styles.title}>{title}</Text>
-          {description ? <Text style={styles.description}>{description}</Text> : null}
+        <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+          <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
+          <Text style={[FONTS.secao, { color: colors.text, marginBottom: SPACING.xs }]}>{title}</Text>
+          {description ? (
+            <Text style={[FONTS.corpo, { color: colors.textSecondary, marginBottom: SPACING.md }]}>
+              {description}
+            </Text>
+          ) : null}
           <View style={styles.content}>{children}</View>
         </View>
       </View>
@@ -43,12 +49,10 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: COLORS.overlay,
   },
   sheet: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: RADII.xl,
-    borderTopRightRadius: RADII.xl,
+    borderTopLeftRadius: RADII.card,
+    borderTopRightRadius: RADII.card,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.xl,
@@ -58,15 +62,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 5,
     borderRadius: RADII.pill,
-    backgroundColor: COLORS.borderStrong,
-    marginBottom: SPACING.md,
-  },
-  title: {
-    ...FONTS.heading,
-    marginBottom: SPACING.xs,
-  },
-  description: {
-    ...FONTS.body,
     marginBottom: SPACING.md,
   },
   content: {

@@ -1,484 +1,363 @@
+// =============================================================================
+// Arquivo: DocumentDetailScreen.tsx
+// Descrição: Tela 3c do Canvas — "Detalhe do documento (ver/editar/excluir)".
+// Modos: visualização (card somente-leitura Tipo/Nome/Data[/Data de validade] +
+// "Baixar documento"), edição (Nome/Data/[Data de validade] editáveis) e exclusão
+// (painel de confirmação inline vermelho — nunca `Alert.alert`/`confirm()` nativo,
+// ver specs/design/GAP_ANALYSIS.md item 18 e
+// specs/03-exames-receitas/detalhe-documento/spec.md).
+// =============================================================================
+
 import React, { useState } from 'react';
-import {
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
+import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
+import { DetailHeader } from '@/components/DetailHeader';
 import { FormField } from '@/components/FormField';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
-import { getDocumentDownloadUrl, updateExamDocument, deleteExamDocument, type DocumentType, type MedicalDocumentMetadata } from '@/services/examService';
-import { invalidateExamsCache } from '@/hooks/useExamsData';
+import { HachuraPlaceholder } from '@/components/HachuraPlaceholder';
+import { InlineError } from '@/components/InlineError';
+import { SuccessSnackbar } from '@/components/SuccessSnackbar';
+import { useThemeColors } from '@/constants/theme';
+import {
+  formatDateForDisplay,
+  getDocumentDownloadUrl,
+  getExamDocumentIncompleteReason,
+  isExamDocumentComplete,
+  updateExamDocument,
+  deleteExamDocument,
+  type MedicalDocumentMetadata,
+} from '@/services/examService';
 
 export interface DocumentDetailScreenProps {
   document: MedicalDocumentMetadata;
 }
 
 export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
+
   const [isEditMode, setIsEditMode] = useState(false);
-  const [documentType, setDocumentType] = useState<DocumentType>(document.documentType);
-  const [documentName, setDocumentName] = useState(document.documentName);
-  const [documentDate, setDocumentDate] = useState(document.documentDate);
-  const [expirationDate, setExpirationDate] = useState(document.expirationDate || '');
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+  // Tipo do documento não é editável no Canvas 3c (modo edição só expõe Nome/Data/Data de
+  // validade) — mantido só como valor de leitura para a linha "Tipo" e para a condição da
+  // Data de validade, ver specs/03-exames-receitas/detalhe-documento/spec.md §3.
+  const documentType = document.documentType;
+
+  // "Baseline" dos campos editáveis: começa nos valores originais do documento e é
+  // atualizada para os valores recém-salvos após um `handleSave` bem-sucedido. Sem isso,
+  // `handleCancelEdit` sempre restauraria o dado original (A), mesmo depois de um save
+  // que já persistiu um valor novo (B) — sequência editar A→B, Salvar, Editar de novo,
+  // Cancelar voltaria a mostrar A com o banco já em B (achado #3 da revisão final).
+  const [baseline, setBaseline] = useState({
+    documentName: document.documentName,
+    documentDate: document.documentDate,
+    expirationDate: document.expirationDate || '',
+  });
+
+  const [documentName, setDocumentName] = useState(baseline.documentName);
+  const [documentDate, setDocumentDate] = useState(baseline.documentDate);
+  const [expirationDate, setExpirationDate] = useState(baseline.expirationDate);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  console.log('=== DocumentDetailScreen Mounted ===');
-  console.log('Document prop:', document);
-  console.log('State values:', { documentType, documentName, documentDate, expirationDate });
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const isPrescription = documentType === 'prescription';
+  const typeLabel = documentType === 'exam' ? 'Exame' : 'Receita';
+
+  // Mesma fonte única de verdade de validação usada em `AddExamScreen.tsx` (3b) — nunca
+  // grava nome/data/validade vazios silenciosamente (achado #1 da revisão final). Tipo é
+  // sempre não-nulo aqui (documento já existe e é imutável em 3c).
+  const formFields = { documentType, documentName, documentDate, expirationDate };
+  const isFormValid = isExamDocumentComplete(formFields);
+  const disabledReason = isFormValid ? undefined : getExamDocumentIncompleteReason(formFields);
+  const isSaveDisabled = isSubmitting || !isFormValid;
 
   async function handleSave() {
+    if (!isFormValid) {
+      return;
+    }
+
     setIsSubmitting(true);
+    setSaveError(null);
 
     try {
       await updateExamDocument({
         id: document.id,
-        documentType,
         documentName,
         documentDate,
-        expirationDate,
+        expirationDate: isPrescription ? expirationDate : undefined,
       });
 
-      await invalidateExamsCache();
+      // updateExamDocument já invalida o cache internamente (achado #2 da revisão final).
+      setBaseline({ documentName, documentDate, expirationDate });
       setIsEditMode(false);
-      alert('Documento atualizado com sucesso!');
+      setSuccessMessage('Documento atualizado com sucesso!');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao atualizar documento';
-      alert(message);
+      // Campos editados permanecem preenchidos e a tela continua em modo edição —
+      // spec.md cenário "Salvar edição (erro)".
+      const message = error instanceof Error ? error.message : 'Erro ao atualizar documento.';
+      setSaveError(message);
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  async function handleDelete() {
-    console.log('=== handleDelete called ===');
-    console.log('Document ID:', document.id);
-    console.log('S3 FileName:', document.s3FileName);
-    
-    const confirmed = confirm(
-      'Tem certeza que deseja deletar este documento? Esta ação não pode ser desfeita.'
-    );
-    
-    if (!confirmed) {
-      console.log('Delete cancelled');
-      return;
-    }
+  function handleCancelEdit() {
+    setIsEditMode(false);
+    setSaveError(null);
+    setDocumentName(baseline.documentName);
+    setDocumentDate(baseline.documentDate);
+    setExpirationDate(baseline.expirationDate);
+  }
 
-    console.log('Delete confirmed, starting deletion...');
+  async function handleConfirmDelete() {
     setIsDeleting(true);
+    setDeleteError(null);
+
     try {
       await deleteExamDocument(document.id, document.s3FileName);
-      alert('Documento deletado com sucesso!');
-      router.back();
+      router.replace('/exams');
     } catch (error) {
-      console.error('Delete error:', error);
-      const message = error instanceof Error ? error.message : 'Erro ao deletar documento';
-      alert(message);
+      // Painel fecha e o usuário permanece na tela do documento para nova tentativa —
+      // spec.md cenário "Confirmar exclusão (erro)".
+      const message = error instanceof Error ? error.message : 'Erro ao excluir documento.';
+      setDeleteError(message);
+      setIsConfirmingDelete(false);
     } finally {
       setIsDeleting(false);
     }
   }
 
-  const isReadOnly = !isEditMode;
+  async function handleDownload() {
+    setDownloadError(null);
+
+    try {
+      const downloadUrl = await getDocumentDownloadUrl(document.s3FileName);
+      await Linking.openURL(downloadUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao baixar documento.';
+      setDownloadError(message);
+    }
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Text style={styles.backButtonText}>←</Text>
-            </Pressable>
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>
-                {isEditMode ? 'Editar documento' : 'Detalhes do documento'}
-              </Text>
-              {!isEditMode && (
-                <Text style={styles.subtitle}>{'Clique em "Editar" para fazer alterações'}</Text>
-              )}
-            </View>
-          </View>
-
-          {/* Document Preview */}
-          <Card variant="outlined" style={styles.fileCard}>
-            <View style={styles.filePreview}>
-              <Text style={styles.fileIcon}>📄</Text>
-              <View style={styles.fileInfo}>
-                <Text style={styles.fileName} numberOfLines={2}>
-                  {document.originalFileName}
-                </Text>
-                <Text style={styles.fileSize} numberOfLines={1}>
-                  {document.s3FileName}
-                </Text>
-              </View>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.downloadButton,
-                  pressed && styles.downloadButtonPressed,
-                ]}
-                onPress={async () => {
-                  try {
-                    const downloadUrl = await getDocumentDownloadUrl(document.s3FileName);
-                    await Linking.openURL(downloadUrl);
-                  } catch (error) {
-                    const message = error instanceof Error ? error.message : 'Erro ao baixar documento.';
-                    alert(message);
-                  }
-                }}
-              >
-                <Text style={styles.downloadButtonText}>⬇️</Text>
-              </Pressable>
-            </View>
-          </Card>
-
-          {/* Document Type Selection */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tipo de documento</Text>
-            {isReadOnly ? (
-              <View style={styles.readOnlyTypeDisplay}>
-                <Text style={styles.readOnlyTypeIcon}>
-                  {documentType === 'exam' ? '🩺' : '💊'}
-                </Text>
-                <Text style={styles.readOnlyTypeText}>
-                  {documentType === 'exam' ? 'Exame' : 'Receita'}
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.typeButtonContainer}>
+    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar backgroundColor={colors.background} style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <View className="flex-1">
+        <ScrollView contentContainerClassName="px-6 pt-6 pb-32" showsVerticalScrollIndicator={false}>
+          <DetailHeader
+            title={isEditMode ? 'Editar documento' : 'Detalhes do documento'}
+            onBack={() => router.back()}
+            action={
+              !isEditMode ? (
                 <Pressable
-                  style={[
-                    styles.typeButton,
-                    documentType === 'exam' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setDocumentType('exam')}
+                  accessibilityLabel="Editar documento"
+                  accessibilityRole="button"
+                  onPress={() => setIsEditMode(true)}
+                  style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+                  className="h-12 items-center justify-center rounded-field border-[1.5px] border-app-border px-4 dark:border-app-dark-border"
                 >
-                  <Text style={styles.typeButtonIcon}>🩺</Text>
-                  <Text
-                    style={[
-                      styles.typeButtonLabel,
-                      documentType === 'exam' && styles.typeButtonLabelActive,
-                    ]}
-                  >
-                    Exame
+                  <Text className="text-[17px] font-semibold text-app-secondary dark:text-app-dark-secondary">
+                    Editar
                   </Text>
                 </Pressable>
+              ) : undefined
+            }
+          />
 
-                <Pressable
-                  style={[
-                    styles.typeButton,
-                    documentType === 'prescription' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setDocumentType('prescription')}
-                >
-                  <Text style={styles.typeButtonIcon}>💊</Text>
-                  <Text
-                    style={[
-                      styles.typeButtonLabel,
-                      documentType === 'prescription' && styles.typeButtonLabelActive,
-                    ]}
-                  >
-                    Receita
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
+          {/* Pré-visualização do arquivo — placeholder decorativo, não é preview real do
+              conteúdo (spec.md §3: "fundo hachurado ... placeholder visual"). */}
+          <HachuraPlaceholder
+            bgColor={colors.background}
+            borderColor={colors.border}
+            borderRadius={16}
+            height={150}
+            stripeColor={colors.surfaceMuted}
+            style={{ marginBottom: 24 }}
+          >
+            <View
+              className="items-center justify-center rounded-2xl border-2 border-app-textMuted bg-app-surface dark:border-app-dark-textMuted dark:bg-app-dark-surface"
+              style={{ height: 80, width: 64 }}
+            >
+              <Ionicons color={colors.textMuted} name="document-text-outline" size={32} />
+            </View>
+          </HachuraPlaceholder>
 
-          {/* Form Fields */}
-          <View style={styles.section}>
-            {isReadOnly ? (
-              <>
-                <View style={styles.readOnlyField}>
-                  <Text style={styles.fieldLabel}>Nome do documento</Text>
-                  <Text style={styles.readOnlyValue}>{documentName}</Text>
-                </View>
-                <View style={styles.readOnlyField}>
-                  <Text style={styles.fieldLabel}>Data do documento</Text>
-                  <Text style={styles.readOnlyValue}>{documentDate}</Text>
-                </View>
-                {expirationDate && (
-                  <View style={styles.readOnlyField}>
-                    <Text style={styles.fieldLabel}>Data de validade</Text>
-                    <Text style={styles.readOnlyValue}>{expirationDate}</Text>
-                  </View>
-                )}
-              </>
-            ) : (
-              <>
-                <FormField
-                  label="Nome do documento"
-                  placeholder="ex: Hemograma, Tomografia, Receita de Amoxicilina"
-                  value={documentName}
-                  onChangeText={setDocumentName}
-                />
+          {isEditMode ? (
+            <>
+              {saveError ? <InlineError message={saveError} /> : null}
 
+              <FormField
+                label="Nome do documento"
+                placeholder="ex: Hemograma, Tomografia, Receita de Amoxicilina"
+                value={documentName}
+                onChangeText={setDocumentName}
+              />
+
+              <DateInput
+                label="Data do documento"
+                onChange={setDocumentDate}
+                placeholder="DD/MM/YYYY"
+                value={documentDate}
+              />
+
+              {isPrescription ? (
                 <DateInput
-                  label="Data do documento"
-                  value={documentDate}
-                  onChange={setDocumentDate}
+                  label="Data de validade"
+                  onChange={setExpirationDate}
                   placeholder="DD/MM/YYYY"
+                  value={expirationDate}
                 />
+              ) : null}
 
-                {documentType === 'prescription' && (
-                  <DateInput
-                    label="Data de validade"
-                    value={expirationDate}
-                    onChange={setExpirationDate}
-                    placeholder="DD/MM/YYYY"
-                  />
-                )}
-              </>
-            )}
-          </View>
+              {/* Botões lado a lado (spec.md §3) — Pressables dedicados em vez de <Button>
+                  porque este último força `w-full`, incompatível com um layout flex-1 de
+                  duas colunas. */}
+              <View className="mt-8 flex-row gap-[10px]">
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isSubmitting}
+                  onPress={handleCancelEdit}
+                  style={({ pressed }) => [pressed && !isSubmitting && { opacity: 0.85 }]}
+                  className="h-14 flex-1 items-center justify-center rounded-field border border-app-primary dark:border-app-dark-primary"
+                >
+                  <Text className="text-[17px] font-semibold text-app-primary dark:text-app-dark-primary">
+                    Cancelar
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ busy: isSubmitting, disabled: isSaveDisabled }}
+                  disabled={isSaveDisabled}
+                  onPress={handleSave}
+                  style={({ pressed }) => [pressed && !isSaveDisabled && { opacity: 0.88 }]}
+                  className={
+                    !isFormValid && !isSubmitting
+                      ? 'h-14 flex-1 items-center justify-center rounded-field border border-app-border bg-app-border dark:border-app-dark-border dark:bg-app-dark-border'
+                      : isSubmitting
+                        ? 'h-14 flex-1 items-center justify-center rounded-field bg-app-primaryDark dark:bg-app-dark-primaryDark'
+                        : 'h-14 flex-1 items-center justify-center rounded-field bg-app-primary dark:bg-app-dark-primary'
+                  }
+                >
+                  <Text
+                    className={
+                      !isFormValid && !isSubmitting
+                        ? 'text-[17px] font-semibold text-app-textMuted dark:text-app-dark-textMuted'
+                        : 'text-[17px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary'
+                    }
+                  >
+                    {isSubmitting ? 'Salvando…' : 'Salvar'}
+                  </Text>
+                </Pressable>
+              </View>
 
-          {/* Action Buttons */}
-          {!isEditMode ? (
-            <View style={styles.buttonGroup}>
-              <Button
-                title="Editar documento"
-                onPress={() => setIsEditMode(true)}
-                style={styles.editButton}
-              />
+              {disabledReason && !isSubmitting ? (
+                <Text className="mt-2 text-center text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                  {disabledReason}
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {/* Card somente-leitura: Tipo/Nome/Data(/Data de validade), linhas com divisor */}
+              <Card padding="regular" style={{ marginBottom: 20 }} variant="surface">
+                <View className="border-b border-app-border pb-3 dark:border-app-dark-border">
+                  <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                    Tipo
+                  </Text>
+                  <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+                    {typeLabel}
+                  </Text>
+                </View>
+
+                <View className="border-b border-app-border py-3 dark:border-app-dark-border">
+                  <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                    Nome
+                  </Text>
+                  <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+                    {documentName}
+                  </Text>
+                </View>
+
+                <View
+                  className={isPrescription && expirationDate ? 'border-b border-app-border py-3 dark:border-app-dark-border' : 'pt-3'}
+                >
+                  <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                    Data
+                  </Text>
+                  <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+                    {formatDateForDisplay(documentDate)}
+                  </Text>
+                </View>
+
+                {isPrescription && expirationDate ? (
+                  <View className="pt-3">
+                    <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                      Data de validade
+                    </Text>
+                    <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+                      {formatDateForDisplay(expirationDate)}
+                    </Text>
+                  </View>
+                ) : null}
+              </Card>
+
+              {downloadError ? <InlineError message={downloadError} /> : null}
+
               <Pressable
-                onPress={handleDelete}
-                disabled={isDeleting}
-                style={({ pressed }) => [
-                  styles.deleteButtonContainer,
-                  pressed && !isDeleting && styles.deleteButtonPressed,
-                  isDeleting && styles.deleteButtonDisabled,
-                ]}
+                accessibilityLabel="Baixar documento"
+                accessibilityRole="button"
+                onPress={handleDownload}
+                style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+                className="mb-6 h-14 flex-row items-center justify-center gap-2 rounded-field border-[1.5px] border-app-primary dark:border-app-dark-primary"
               >
-                <Text style={styles.deleteButtonText}>
-                  {isDeleting ? 'Deletando...' : 'Deletar documento'}
+                <Ionicons color={colors.primaryDark} name="arrow-down-outline" size={20} />
+                <Text className="text-[17px] font-semibold text-app-primaryDark dark:text-app-dark-primaryDark">
+                  Baixar documento
                 </Text>
               </Pressable>
-            </View>
-          ) : (
-            <View style={styles.buttonGroup}>
-              <Button
-                title="Salvar"
-                onPress={handleSave}
-                disabled={isSubmitting}
-                style={styles.saveButton}
-              />
-              <Button
-                title="Cancelar"
-                onPress={() => {
-                  setIsEditMode(false);
-                  // Reset to original values
-                  setDocumentType(document.documentType);
-                  setDocumentName(document.documentName);
-                  setDocumentDate(document.documentDate);
-                  setExpirationDate(document.expirationDate || '');
-                }}
-                variant="secondary"
-                style={styles.cancelButton}
-              />
-            </View>
+
+              {deleteError ? <InlineError message={deleteError} /> : null}
+
+              {isConfirmingDelete ? (
+                <DeleteConfirmPanel
+                  isDeleting={isDeleting}
+                  onCancel={() => setIsConfirmingDelete(false)}
+                  onConfirm={handleConfirmDelete}
+                />
+              ) : (
+                <Button
+                  onPress={() => setIsConfirmingDelete(true)}
+                  style={{ marginTop: 0 }}
+                  title="Excluir documento"
+                  variant="destructive"
+                />
+              )}
+            </>
           )}
         </ScrollView>
       </View>
+
+      <SuccessSnackbar
+        durationMs={4000}
+        message={successMessage ?? ''}
+        onHide={() => setSuccessMessage(null)}
+        visible={successMessage !== null}
+      />
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.base,
-    paddingBottom: SIZES.large * 2,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: SIZES.large,
-    gap: SIZES.base,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonText: {
-    fontSize: 20,
-    color: COLORS.text,
-    fontWeight: '600',
-  },
-  titleContainer: {
-    flex: 1,
-  },
-  title: {
-    ...FONTS.title,
-    color: COLORS.text,
-    marginBottom: SIZES.small,
-  },
-  subtitle: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-  },
-  fileCard: {
-    marginBottom: SIZES.large,
-  },
-  filePreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SIZES.base,
-  },
-  fileIcon: {
-    fontSize: 32,
-  },
-  fileInfo: {
-    flex: 1,
-  },
-  fileName: {
-    ...FONTS.body,
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  fileSize: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-  },
-  downloadButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  downloadButtonPressed: {
-    backgroundColor: `${COLORS.primary}cc`,
-  },
-  downloadButtonText: {
-    color: COLORS.onPrimary,
-    fontSize: 18,
-  },
-  section: {
-    marginBottom: SIZES.large,
-  },
-  sectionTitle: {
-    ...FONTS.subtitle,
-    color: COLORS.text,
-    marginBottom: SIZES.base,
-  },
-  readOnlyTypeDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SIZES.base,
-    paddingVertical: SIZES.base,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    gap: SIZES.base,
-  },
-  readOnlyTypeIcon: {
-    fontSize: 24,
-  },
-  readOnlyTypeText: {
-    ...FONTS.body,
-    color: COLORS.text,
-  },
-  typeButtonContainer: {
-    flexDirection: 'row',
-    gap: SIZES.base,
-  },
-  typeButton: {
-    flex: 1,
-    paddingVertical: SIZES.base,
-    paddingHorizontal: SIZES.small,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SIZES.small,
-  },
-  typeButtonActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}15`,
-  },
-  typeButtonIcon: {
-    fontSize: 28,
-  },
-  typeButtonLabel: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-  },
-  typeButtonLabelActive: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  readOnlyField: {
-    marginBottom: SIZES.base,
-  },
-  fieldLabel: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.small,
-  },
-  readOnlyValue: {
-    ...FONTS.body,
-    color: COLORS.text,
-    paddingVertical: SIZES.base,
-    paddingHorizontal: SIZES.base,
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-  },
-  editButton: {
-    marginBottom: SIZES.base,
-  },
-  deleteButton: {
-    marginBottom: SIZES.base,
-  },
-  deleteButtonContainer: {
-    marginBottom: SIZES.base,
-    paddingVertical: SIZES.base,
-    paddingHorizontal: SIZES.large,
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteButtonPressed: {
-    backgroundColor: '#DC2626',
-    opacity: 0.8,
-  },
-  deleteButtonDisabled: {
-    backgroundColor: '#FCA5A5',
-    opacity: 0.6,
-  },
-  deleteButtonText: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  buttonGroup: {
-    gap: SIZES.base,
-  },
-  saveButton: {
-    marginBottom: SIZES.small,
-  },
-  cancelButton: {
-    marginBottom: SIZES.small,
-  },
-});

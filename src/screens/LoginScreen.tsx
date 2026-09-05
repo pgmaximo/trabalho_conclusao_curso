@@ -2,8 +2,6 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
 import React, { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -16,20 +14,28 @@ import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn, signOut } from 'aws-amplify/auth';
 
+import { AuthAppHeader } from '@/components/AuthAppHeader';
 import { AuthInput } from '@/components/AuthInput';
-import { AuthBackgroundGlow } from '@/components/AuthBackgroundGlow';
-import { AuthIllustrationCard } from '@/components/AuthIllustrationCard';
 import { Button } from '@/components/Button';
 import { SectionDivider } from '@/components/SectionDivider';
 import { SocialButton } from '@/components/SocialButton';
+import { SuccessSnackbar } from '@/components/SuccessSnackbar';
 import { useThemeColors } from '@/constants/theme';
 import { serializeAuthError, signInWithGoogle } from '@/services/auth';
 import { initializeUserSession } from '@/services/auth/userSessionService';
 import { blurActiveWebElement } from '@/utils/webFocus';
 
-const loginImage = require('../../assets/images/login_image.png');
 const googleLogo = require('../../assets/images/google_Glogo.png');
 const invalidLoginMessage = 'E-mail ou senha incorretos. Verifique os dados e tente novamente.';
+const emptyFieldsMessage = 'Por favor, preencha e-mail e senha.';
+const genericLoginErrorMessage = 'Ocorreu um erro ao entrar. Tente novamente.';
+const genericGoogleErrorMessage = 'Não foi possível conectar com o Google.';
+const unconfirmedAccountMessage = 'Confirme seu cadastro pelo e-mail antes de entrar.';
+// Copy genérica — o nome real do usuário nem sempre está disponível
+// imediatamente após o signIn (decisão documentada em plan.md §4).
+const successToastMessage = 'Bem-vindo(a) de volta!';
+// Tempo para o usuário ver o snackbar de sucesso antes de navegar embora.
+const SUCCESS_NAVIGATION_DELAY_MS = 900;
 
 type LoginScreenProps = {
   onNavigateToRegister: () => void;
@@ -48,8 +54,11 @@ export function LoginScreen({
   const { colorScheme } = useColorScheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isTogglePressed, setIsTogglePressed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginErrorMessage, setLoginErrorMessage] = useState<string | null>(null);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const shakeAnimation = useRef(new Animated.Value(0)).current;
 
   const hasLoginError = Boolean(loginErrorMessage);
@@ -70,6 +79,10 @@ export function LoginScreen({
     setPassword(value);
   }
 
+  function togglePasswordVisibility() {
+    setIsPasswordVisible((current) => !current);
+  }
+
   function triggerLoginErrorFeedback() {
     shakeAnimation.setValue(0);
 
@@ -82,11 +95,18 @@ export function LoginScreen({
     ]).start();
   }
 
+  function celebrateSuccessAndNavigate(navigate: () => void) {
+    setShowSuccessToast(true);
+    setTimeout(() => {
+      navigate();
+    }, SUCCESS_NAVIGATION_DELAY_MS);
+  }
+
   async function handleLogin() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !password) {
-      Alert.alert('Atenção', 'Por favor, preencha e-mail e senha.');
+      setLoginErrorMessage(emptyFieldsMessage);
       return;
     }
 
@@ -107,19 +127,28 @@ export function LoginScreen({
       if (isSignedIn) {
         // Initialize user session before routing
         await initializeUserSession();
-        onLogin();
-      } else if (nextStep.signInStep === 'CONFIRM_SIGN_UP') {
-        Alert.alert('Conta não confirmada', 'Verifique seu e-mail para confirmar seu cadastro.');
+        celebrateSuccessAndNavigate(onLogin);
+        return;
       }
+
+      if (nextStep.signInStep === 'CONFIRM_SIGN_UP') {
+        setLoginErrorMessage(unconfirmedAccountMessage);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(false);
     } catch (error: any) {
       console.log('Erro detalhado:', error);
-      let message = 'Ocorreu um erro ao entrar. Tente novamente.';
 
       if (error.name === 'UserNotFoundException' || error.name === 'NotAuthorizedException') {
         setLoginErrorMessage(invalidLoginMessage);
         triggerLoginErrorFeedback();
+        setIsLoading(false);
         return;
       }
+
+      let message = genericLoginErrorMessage;
 
       if (error.name === 'UserNotConfirmedException') message = 'Usuário ainda não confirmado.';
 
@@ -130,32 +159,31 @@ export function LoginScreen({
         message = 'Erro de configuração: Habilite ALLOW_USER_PASSWORD_AUTH no console da AWS.';
       }
 
-      Alert.alert('Erro no Login', message);
-    } finally {
+      setLoginErrorMessage(message);
       setIsLoading(false);
     }
   }
 
   async function handleGoogleLogin() {
     blurActiveWebElement();
+    setLoginErrorMessage(null);
     setIsLoading(true);
 
     try {
       await signInWithGoogle();
       // Initialize user session before routing
       await initializeUserSession();
-      onGoogleAuthSuccess();
+      celebrateSuccessAndNavigate(onGoogleAuthSuccess);
     } catch (error: any) {
       console.log('Erro no login com Google:', serializeAuthError(error));
+      setLoginErrorMessage(genericGoogleErrorMessage);
       setIsLoading(false);
-      Alert.alert('Erro', 'Não foi possível conectar com o Google.');
     }
   }
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <AuthBackgroundGlow corner="bottomRight" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -165,102 +193,124 @@ export function LoginScreen({
           contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
           keyboardShouldPersistTaps="handled"
         >
-          <AuthIllustrationCard imageSource={loginImage}>
-                <Text className="mb-6 text-xl font-bold leading-[26px] text-app-text dark:text-app-dark-text">
-                  Entre na sua conta
-                </Text>
+          <AuthAppHeader />
 
-                <AuthInput
-                  autoCapitalize="none"
-                  containerClassName="mt-0"
-                  editable={!isLoading}
-                  hasError={hasLoginError}
-                  icon={<MaterialIcons color={colors.placeholder} name="email" size={20} />}
-                  keyboardType="email-address"
-                  label="E-mail"
-                  onChangeText={handleEmailChange}
-                  placeholder="Digite seu e-mail"
-                  value={email}
-                />
+          <View
+            className="rounded-card border border-app-border bg-app-surface p-5 dark:border-app-dark-border dark:bg-app-dark-surface"
+            style={{ boxShadow: `0px 2px 10px ${colors.shadow}0D` }}
+          >
+            <Text className="mb-[18px] text-[22px] font-semibold leading-[29px] text-app-text dark:text-app-dark-text">
+              Entre na sua conta
+            </Text>
 
-                <AuthInput
-                  editable={!isLoading}
-                  hasError={hasLoginError}
-                  icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
-                  label="Senha"
-                  onChangeText={handlePasswordChange}
-                  placeholder="Digite sua senha"
-                  secureTextEntry
-                  value={password}
-                />
+            <AuthInput
+              autoCapitalize="none"
+              containerClassName="mt-0"
+              editable={!isLoading}
+              hasError={hasLoginError}
+              icon={<MaterialIcons color={colors.placeholder} name="email" size={20} />}
+              keyboardType="email-address"
+              label="E-mail"
+              onChangeText={handleEmailChange}
+              placeholder="seu@email.com"
+              value={email}
+            />
 
+            <AuthInput
+              editable={!isLoading}
+              hasError={hasLoginError}
+              icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
+              label="Senha"
+              onChangeText={handlePasswordChange}
+              placeholder="Digite sua senha"
+              secureTextEntry={!isPasswordVisible}
+              trailingAction={
                 <Pressable
-                  className="mb-[18px] mt-3 self-end"
+                  accessibilityRole="button"
                   disabled={isLoading}
-                  onPress={onNavigateToForgotPassword}
-                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                  hitSlop={8}
+                  onPress={togglePasswordVisibility}
+                  onPressIn={() => setIsTogglePressed(true)}
+                  onPressOut={() => setIsTogglePressed(false)}
+                  // `style` NÃO pode ser função aqui — sem `className`, o NativeWind
+                  // (jsxImportSource global) descarta o resultado da função e o Pressable
+                  // renderiza sem nenhum estilo.
+                  style={[isTogglePressed && { opacity: 0.7 }]}
                 >
-                  <Text className="text-[15px] leading-[22px] text-app-primary dark:text-app-dark-primary">
-                    Esqueceu a senha?
+                  <Text className="text-[16px] font-semibold text-app-secondary dark:text-app-dark-secondary">
+                    {isPasswordVisible ? 'Ocultar' : 'Mostrar'}
                   </Text>
                 </Pressable>
+              }
+              value={password}
+            />
 
-                {isLoading ? (
-                  <ActivityIndicator
-                    color={colors.primary}
-                    size="large"
-                    style={{ marginBottom: 24, marginTop: 12 }}
-                  />
-                ) : (
-                  <>
-                    {loginErrorMessage ? (
-                      <Text
-                        accessibilityRole="alert"
-                        className="mb-3 text-[13px] leading-[18px] text-app-danger dark:text-app-dark-danger"
-                      >
-                        {loginErrorMessage}
-                      </Text>
-                    ) : null}
+            <Pressable
+              className="mt-[10px] items-end"
+              disabled={isLoading}
+              onPress={onNavigateToForgotPassword}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            >
+              <Text className="p-1 text-[16px] font-semibold text-app-secondary dark:text-app-dark-secondary">
+                Esqueceu a senha?
+              </Text>
+            </Pressable>
 
-                    <Animated.View style={{ transform: [{ translateX: shakeAnimation }] }}>
-                      <Button
-                        onPress={handleLogin}
-                        style={
-                          hasLoginError
-                            ? {
-                                backgroundColor: colors.danger,
-                                boxShadow: `0px 8px 18px ${colors.danger}29`,
-                              }
-                            : undefined
-                        }
-                        title="Entrar"
-                      />
-                    </Animated.View>
-                  </>
-                )}
+            {loginErrorMessage ? (
+              <Text
+                accessibilityRole="alert"
+                className="mt-3 text-[16px] leading-[22px] text-app-danger dark:text-app-dark-danger"
+              >
+                {loginErrorMessage}
+              </Text>
+            ) : null}
 
-                <SectionDivider label="ou continue com" />
+            <Animated.View style={{ transform: [{ translateX: shakeAnimation }] }}>
+              <Button
+                loading={isLoading}
+                loadingTitle="Entrando..."
+                onPress={handleLogin}
+                title="Entrar"
+              />
+            </Animated.View>
 
-                <View className="flex-row justify-between">
-                  <SocialButton iconSource={googleLogo} onPress={handleGoogleLogin} title="Google" />
-                </View>
+            <SectionDivider label="ou continue com" />
 
-                <Pressable
-                  className="mt-6 self-center"
-                  disabled={isLoading}
-                  onPress={onNavigateToRegister}
-                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-                >
-                  <Text className="text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                    Não tem uma conta?{' '}
-                    <Text className="font-semibold text-app-primary dark:text-app-dark-primary">
-                      Criar conta
-                    </Text>
-                  </Text>
-                </Pressable>
-          </AuthIllustrationCard>
+            <View className="flex-row justify-between">
+              <SocialButton
+                disabled={isLoading}
+                iconSource={googleLogo}
+                onPress={handleGoogleLogin}
+                title="Continuar com Google"
+              />
+            </View>
+          </View>
+
+          <Pressable
+            className="mt-[18px] self-center"
+            disabled={isLoading}
+            onPress={onNavigateToRegister}
+            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+          >
+            <Text className="text-[17px] leading-[23px] text-app-textSecondary dark:text-app-dark-textSecondary">
+              Não tem conta?{' '}
+              <Text className="font-semibold text-app-secondary dark:text-app-dark-secondary">
+                Criar conta
+              </Text>
+            </Text>
+          </Pressable>
+
+          <Text className="mt-[6px] text-center text-base leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
+            Ao entrar você aceita os Termos de Uso e a Política de Privacidade (LGPD).
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <SuccessSnackbar
+        message={successToastMessage}
+        onHide={() => setShowSuccessToast(false)}
+        visible={showSuccessToast}
+      />
     </SafeAreaView>
   );
 }

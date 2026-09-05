@@ -46,9 +46,9 @@ describe('auth support screens', () => {
       expect(resetPassword).toHaveBeenCalledWith({ username: 'pessoa@email.com' });
     });
 
-    expect(await view.findByText('Defina uma nova senha')).toBeTruthy();
+    expect(await view.findByText('Crie uma nova senha')).toBeTruthy();
 
-    fireEvent.changeText(view.getByLabelText('Código'), '123456');
+    fireEvent.changeText(view.getByLabelText('Código de 6 dígitos'), '123456');
     fireEvent.changeText(view.getByLabelText('Nova senha'), 'Senha@123');
     fireEvent.changeText(view.getByLabelText('Confirmar nova senha'), 'Senha@123');
     fireEvent.press(view.getByText('Alterar senha'));
@@ -89,11 +89,17 @@ describe('auth support screens', () => {
       />,
     );
 
-    expect(screen.getByText('Verifique seu e-mail')).toBeTruthy();
-    expect(screen.getByText('Digite o código enviado para pessoa@email.com.')).toBeTruthy();
+    expect(screen.getByText('Verifique seu e-mail.')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Verifique seu e-mail. Enviamos um código de 6 dígitos para pessoa@email.com.',
+      ),
+    ).toBeTruthy();
 
-    fireEvent.changeText(screen.getByLabelText('Código de Confirmação'), '654321');
-    fireEvent.press(screen.getByText('Confirmar conta'));
+    '654321'.split('').forEach((digit, index) => {
+      fireEvent.changeText(screen.getByLabelText(`Dígito ${index + 1} de 6`), digit);
+    });
+    fireEvent.press(screen.getByText('Confirmar'));
 
     await waitFor(() => {
       expect(confirmSignUp).toHaveBeenCalledWith({
@@ -105,15 +111,16 @@ describe('auth support screens', () => {
     expect(onConfirmSuccess).toHaveBeenCalledTimes(1);
   });
 
-  it('validates empty confirmation code before calling Amplify', () => {
+  it('keeps the confirm button disabled and does not call Amplify while the code is incomplete', () => {
     render(<ConfirmScreen email="pessoa@email.com" onConfirmSuccess={jest.fn()} />);
 
-    fireEvent.press(screen.getByText('Confirmar conta'));
+    const confirmButton = screen.getByText('Confirmar');
+    expect(confirmButton.parent?.parent?.props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: true }),
+    );
+
+    fireEvent.press(confirmButton);
 
     expect(confirmSignUp).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Atenção',
-      'Por favor, digite o código de confirmação.',
-    );
   });
 });

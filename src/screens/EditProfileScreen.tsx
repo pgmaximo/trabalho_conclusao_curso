@@ -12,6 +12,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -20,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -35,7 +37,7 @@ export type EditProfileFormState = {
   fullName: string;
   birthDate: string; // DD/MM/AAAA
   biologicalSex: BiologicalSexValue;
-  heightCm: string; // metros com vírgula (ex.: 1,72)
+  heightCm: string; // centímetros inteiros (ex.: 165)
   weightKg: string; // kg
   tobaccoUse: OptionalAnswerValue;
   sexuallyActive: OptionalAnswerValue;
@@ -48,17 +50,19 @@ type EditProfileScreenProps = {
   initialValues: EditProfileFormState;
   displayName?: string;
   email?: string;
-  gender?: 'male' | 'female' | undefined;
+  gender?: 'male' | 'female' | 'other' | undefined;
   photoUrl?: string;
   isSaving: boolean;
   onCancel: () => void;
   onSubmit: (values: EditProfileFormState) => void | Promise<void>;
+  /** Faz upload real da foto (URI local) e persiste a key no UserProfile. */
+  onUploadPhoto: (localUri: string) => Promise<void>;
 };
 
 const SEX_OPTIONS: { label: string; value: Exclude<BiologicalSexValue, ''> }[] = [
-  { label: 'Feminino', value: 'female' },
   { label: 'Masculino', value: 'male' },
-  { label: 'Prefiro não informar', value: 'prefer_not_to_say' },
+  { label: 'Feminino', value: 'female' },
+  { label: 'Outro', value: 'prefer_not_to_say' },
 ];
 
 const ANSWER_OPTIONS: { label: string; value: OptionalAnswerValue }[] = [
@@ -74,9 +78,7 @@ function formatBirthDateInput(value: string) {
 }
 
 function formatHeightInput(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 3);
-  if (digits.length <= 1) return digits;
-  return `${digits.slice(0, 1)},${digits.slice(1)}`;
+  return value.replace(/\D/g, '').slice(0, 3);
 }
 
 function formatWeightInput(value: string) {
@@ -92,10 +94,14 @@ export function EditProfileScreen({
   isSaving,
   onCancel,
   onSubmit,
+  onUploadPhoto,
 }: EditProfileScreenProps) {
   const { colorScheme } = useColorScheme();
   const [values, setValues] = useState<EditProfileFormState>(initialValues);
   const [errors, setErrors] = useState<{ fullName?: string; birthDate?: string }>({});
+  const [previewPhotoUri, setPreviewPhotoUri] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isChangePhotoPressed, setIsChangePhotoPressed] = useState(false);
 
   function update<K extends keyof EditProfileFormState>(key: K, value: EditProfileFormState[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -121,6 +127,44 @@ export function EditProfileScreen({
     onSubmit(values);
   }
 
+  async function handleChangePhoto() {
+    if (isUploadingPhoto) return;
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Permissão necessária',
+          'Habilite o acesso às fotos nas configurações do dispositivo para trocar sua foto de perfil.',
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const localUri = result.assets[0].uri;
+      // Preview otimista: some se o upload falhar (nunca finge sucesso — regra 2).
+      setPreviewPhotoUri(localUri);
+      setIsUploadingPhoto(true);
+
+      await onUploadPhoto(localUri);
+    } catch (error) {
+      setPreviewPhotoUri(null);
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível enviar sua foto agora.';
+      Alert.alert('Erro ao trocar foto', message);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
+
   const showPregnancy = values.biologicalSex === 'female';
 
   return (
@@ -133,7 +177,7 @@ export function EditProfileScreen({
           accessibilityLabel="Voltar"
           accessibilityRole="button"
           onPress={onCancel}
-          className="h-11 w-11 items-center justify-center rounded-full"
+          className="size-11 items-center justify-center rounded-full"
           style={({ pressed }) => [pressed && { opacity: 0.6 }]}
         >
           <Ionicons color={colorScheme === 'dark' ? '#F8FAFC' : '#0F172A'} name="chevron-back" size={26} />
@@ -141,7 +185,7 @@ export function EditProfileScreen({
         <Text className="text-[17px] font-bold text-app-text dark:text-app-dark-text">
           Editar perfil
         </Text>
-        <View className="h-11 w-11" />
+        <View className="size-11" />
       </View>
 
       <KeyboardAvoidingView
@@ -154,7 +198,31 @@ export function EditProfileScreen({
           showsVerticalScrollIndicator={false}
         >
           <View className="mb-8 items-center">
-            <Avatar name={displayName} gender={gender} photoUrl={photoUrl} size="lg" />
+            <Avatar
+              name={displayName}
+              gender={gender}
+              photoUrl={previewPhotoUri ?? photoUrl}
+              size="lg"
+            />
+            <Pressable
+              accessibilityLabel="Alterar foto"
+              accessibilityRole="button"
+              disabled={isUploadingPhoto}
+              onPress={handleChangePhoto}
+              onPressIn={() => setIsChangePhotoPressed(true)}
+              onPressOut={() => setIsChangePhotoPressed(false)}
+              // `style` NÃO pode ser função aqui — sem `className`, o NativeWind
+              // (jsxImportSource global) descarta o resultado da função e o Pressable
+              // renderiza sem nenhum estilo.
+              style={[(isChangePhotoPressed || isUploadingPhoto) && { opacity: 0.6 }]}
+            >
+              <View className="mt-3 flex-row items-center gap-2">
+                {isUploadingPhoto ? <ActivityIndicator color="#10794E" size="small" /> : null}
+                <Text className="text-[16px] font-semibold text-app-primary dark:text-app-dark-primary">
+                  {isUploadingPhoto ? 'Enviando foto...' : 'Alterar foto'}
+                </Text>
+              </View>
+            </Pressable>
             {email ? (
               <Text className="mt-3 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
                 {email}
@@ -203,9 +271,10 @@ export function EditProfileScreen({
             <View className="flex-row gap-3">
               <FormField
                 label="Altura"
-                inputMode="decimal"
-                placeholder="1,72"
-                helperText="Em metros"
+                inputMode="numeric"
+                maxLength={3}
+                placeholder="165"
+                helperText="Em cm"
                 value={values.heightCm}
                 onChangeText={(text) => update('heightCm', formatHeightInput(text))}
                 containerClassName="mt-0 flex-1"
@@ -248,7 +317,7 @@ export function EditProfileScreen({
 
             <View className="mt-6">
               <Text className="mb-3 text-sm font-semibold text-app-text dark:text-app-dark-text">
-                Pratica atividade física?
+                Atividade física
               </Text>
               <PillGroup
                 options={ANSWER_OPTIONS}

@@ -45,3 +45,32 @@ export async function saveUserProfile(values: ProfileSetupFormValues) {
 
   return data;
 }
+
+/**
+ * Persiste apenas a key da foto de perfil (upload de avatar, Tela 4c) sem
+ * tocar em nenhum outro campo do UserProfile.
+ */
+export async function updateUserPhotoKey(photoKey: string) {
+  const { data: existing } = await client.models.UserProfile.list({});
+  const existingProfile = existing?.[0];
+
+  if (!existingProfile?.id) {
+    throw new Error('Perfil nao encontrado para salvar a foto.');
+  }
+
+  const { data, errors } = await client.models.UserProfile.update({
+    id: existingProfile.id,
+    photoKey,
+  });
+
+  if (errors?.length) {
+    const message = errors
+      .map((error) => error.message)
+      .filter(Boolean)
+      .join('; ');
+
+    throw new Error(message || 'Nao foi possivel salvar a foto de perfil.');
+  }
+
+  return data;
+}

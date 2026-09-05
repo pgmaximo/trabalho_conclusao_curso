@@ -1,29 +1,36 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useColorScheme } from 'nativewind';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 
 import { BottomSheet } from '@/components/BottomSheet';
-import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { ExamItem } from '@/components/ExamItem';
 import { FilterChips } from '@/components/FilterChips';
+import { InlineError } from '@/components/InlineError';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
-import { useThemeColors } from '@/constants/theme';
+import { RADII, useThemeColors } from '@/constants/theme';
 import type { MedicalDocument, MedicalDocumentFilter } from '@/types/models';
 import { useSelectedDocument } from '@/contexts/DocumentContext';
+
+// Filtro sem dado real de status de resultado clínico — ver
+// specs/03-exames-receitas/lista/plan.md §2 (Opção A). Desabilitado na UI em vez de
+// aparentar funcionar e nunca retornar resultado.
+const DISABLED_FILTERS: MedicalDocumentFilter[] = ['Alterados'];
 
 type ExamsScreenProps = {
   filterOptions: MedicalDocumentFilter[];
   searchQuery: string;
   activeFilter: MedicalDocumentFilter;
   documents: MedicalDocument[];
+  hasAnyDocuments: boolean;
   isLoading: boolean;
   errorMessage: string | null;
   onRetry: () => void;
@@ -36,6 +43,7 @@ export function ExamsScreen({
   searchQuery,
   activeFilter,
   documents,
+  hasAnyDocuments,
   isLoading,
   errorMessage,
   onRetry,
@@ -45,12 +53,32 @@ export function ExamsScreen({
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
   const [isSheetVisible, setIsSheetVisible] = useState(false);
+  const [isFabPressed, setIsFabPressed] = useState(false);
+  const [isPickRowPressed, setIsPickRowPressed] = useState(false);
+  const [isCaptureRowPressed, setIsCaptureRowPressed] = useState(false);
+  const [isCancelPressed, setIsCancelPressed] = useState(false);
   const [isPickingFile, setIsPickingFile] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [cameraPermissionError, setCameraPermissionError] = useState<string | null>(null);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const { setSelectedDocument } = useSelectedDocument();
+
+  // Distingue "vazio real" (nenhum documento ainda) de "busca sem resultado" — spec.md
+  // cenário "Busca sem resultados" e critério de aceite correspondente. Usa o total
+  // bruto (`hasAnyDocuments`), não o estado do filtro/busca, para não confundir o
+  // edge case de conta vazia + busca digitada com "busca sem resultado" (#33).
+  const isEmptySearchResult = documents.length === 0 && hasAnyDocuments;
+
+  function clearFilters() {
+    onSearchChange('');
+    onFilterChange('Todos');
+  }
 
   async function pickDocument() {
     try {
       setIsPickingFile(true);
+      setPickerError(null);
 
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
@@ -60,10 +88,8 @@ export function ExamsScreen({
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
 
-        // Close the bottom sheet
         setIsSheetVisible(false);
 
-        // Navigate to AddExamScreen with file details
         router.push({
           pathname: '/add-exam',
           params: {
@@ -75,17 +101,77 @@ export function ExamsScreen({
       }
     } catch (error) {
       console.error('Error picking document:', error);
-      alert('Erro ao selecionar o documento. Tente novamente.');
+      setPickerError('Erro ao selecionar o documento. Tente novamente.');
     } finally {
       setIsPickingFile(false);
     }
   }
 
+  async function captureWithCamera() {
+    try {
+      setIsCapturing(true);
+      setCameraPermissionError(null);
+      setCameraError(null);
+
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setCameraPermissionError(
+          'Permissão de câmera negada. Habilite o acesso à câmera nas configurações do dispositivo para capturar documentos.',
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const fileName = asset.fileName || `captura-${Date.now()}.jpg`;
+
+        setIsSheetVisible(false);
+
+        router.push({
+          pathname: '/add-exam',
+          params: {
+            fileName,
+            filePath: asset.uri,
+            fileSize: asset.fileSize || 0,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+      setCameraError('Erro ao capturar a foto. Tente novamente.');
+    } finally {
+      setIsCapturing(false);
+    }
+  }
+
+  const emptyState = isEmptySearchResult ? (
+    <EmptyState
+      icon="search-outline"
+      title="Nenhum documento encontrado"
+      description="Ajuste os filtros ou a busca para encontrar outro item."
+      actionLabel="Limpar filtros"
+      onActionPress={clearFilters}
+    />
+  ) : (
+    <EmptyState
+      icon="folder-open-outline"
+      title="Você ainda não tem documentos"
+      description="Adicione seu primeiro exame ou receita para começar a organizar seu histórico."
+      actionLabel="Adicionar documento"
+      onActionPress={() => setIsSheetVisible(true)}
+    />
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View className="flex-1">
-        <ScrollView contentContainerClassName="px-6 pt-6 pb-12" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerClassName="px-6 pt-6 pb-32" showsVerticalScrollIndicator={false}>
           {isLoading ? (
             <ScreenSkeleton blocks={3} />
           ) : errorMessage ? (
@@ -99,25 +185,18 @@ export function ExamsScreen({
             />
           ) : (
             <>
-              <ScreenHeader
-                title="Exames & Receitas"
-                subtitle="Seus documentos ficam organizados aqui para acesso rápido e seguro."
-                action={
-                  <Pressable
-                    className="h-10 w-10 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
-                    style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
-                    onPress={() => setIsSheetVisible(true)}
-                  >
-                    <Ionicons name="add" size={24} color={colors.onPrimary} />
-                  </Pressable>
-                }
-              />
+              <ScreenHeader title="Exames e receitas" />
 
-              <View className="mb-6 flex-row items-center rounded-app border border-app-border bg-app-inputBackground px-4 dark:border-app-dark-border dark:bg-app-dark-inputBackground">
-                <Ionicons className="mr-3" name="search-outline" size={18} color={colors.iconMuted} />
+              <View
+                style={[
+                  styles.searchField,
+                  { borderColor: colors.border, backgroundColor: colors.surface },
+                ]}
+              >
+                <Ionicons name="search-outline" size={18} color={colors.iconMuted} style={{ marginRight: 10 }} />
                 <TextInput
-                  className="flex-1 py-3 text-[15px] text-app-text dark:text-app-dark-text"
-                  placeholder="Buscar exames, receitas..."
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder="Buscar por nome do exame..."
                   placeholderTextColor={colors.placeholder}
                   value={searchQuery}
                   onChangeText={onSearchChange}
@@ -128,65 +207,169 @@ export function ExamsScreen({
                 options={filterOptions}
                 activeFilter={activeFilter}
                 onFilterChange={(value) => onFilterChange(value as MedicalDocumentFilter)}
+                disabledOptions={DISABLED_FILTERS}
               />
 
-              <Section
-                title="Documentos disponíveis"
-                subtitle="A lista já responde aos filtros e ao campo de busca."
-              >
+              <Section title="Documentos disponíveis">
                 <View className="mb-4">
-                  {documents.length > 0 ? (
-                    documents.map((document) => (
-                      <ExamItem
-                        key={`${document.title}-${document.subtitle}`}
-                        icon={document.icon}
-                        title={document.title}
-                        subtitle={document.subtitle}
-                        statusLabel={document.statusLabel}
-                        statusColor={document.statusColor}
-                        onPress={() => {
-                          setSelectedDocument(document);
-                          // Navigate to document detail screen
-                          router.push('/(app)/document-detail');
-                        }}
-                      />
-                    ))
-                  ) : (
-                    <EmptyState
-                      icon="folder-open-outline"
-                      title="Nenhum documento encontrado"
-                      description="Ajuste os filtros ou a busca para encontrar outro item."
-                    />
-                  )}
+                  {documents.length > 0
+                    ? documents.map((document) => (
+                        <ExamItem
+                          key={document.id}
+                          icon={document.icon}
+                          title={document.title}
+                          subtitle={document.subtitle}
+                          documentType={document.documentType}
+                          validityStatus={document.validityStatus}
+                          onPress={() => {
+                            setSelectedDocument(document);
+                            router.push({
+                              pathname: '/(app)/document-detail',
+                              params: { id: document.id },
+                            });
+                          }}
+                        />
+                      ))
+                    : emptyState}
                 </View>
               </Section>
-
-              <Button
-                title="+ Adicionar novo documento"
-                onPress={() => setIsSheetVisible(true)}
-              />
             </>
           )}
         </ScrollView>
+
+        {/* FAB único (Canvas 3a §3) — ponto de entrada exclusivo para o bottom sheet.
+            `style` NÃO pode ser função aqui — sem `className`, o NativeWind
+            (jsxImportSource global) descarta o resultado e o Pressable renderiza sem
+            nenhum estilo (bug relatado: faixa branca sem cor/dimensão no lugar do FAB). */}
+        {!isLoading && !errorMessage ? (
+          <Pressable
+            accessibilityLabel="Adicionar documento"
+            accessibilityRole="button"
+            style={[styles.fab, { backgroundColor: colors.primary }, isFabPressed && { opacity: 0.9 }]}
+            onPressIn={() => setIsFabPressed(true)}
+            onPressOut={() => setIsFabPressed(false)}
+            onPress={() => setIsSheetVisible(true)}
+          >
+            <Ionicons name="add" size={28} color={colors.onPrimary} />
+          </Pressable>
+        ) : null}
       </View>
 
       <BottomSheet
         visible={isSheetVisible}
         title="Adicionar documento"
-        description="Selecione o tipo de documento para adicionar."
         onClose={() => setIsSheetVisible(false)}
       >
-        <Button
-          title="Enviar PDF ou imagem"
-          onPress={pickDocument}
+        <Pressable
+          // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+          // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+          style={[styles.sheetRow, { borderColor: colors.border }, isPickRowPressed && { opacity: 0.85 }]}
           disabled={isPickingFile}
-        />
-        <Button
-          title="Capturar com a câmera"
-          variant="secondary"
+          onPressIn={() => setIsPickRowPressed(true)}
+          onPressOut={() => setIsPickRowPressed(false)}
+          onPress={pickDocument}
+        >
+          <Ionicons name="document-outline" size={22} color={colors.primary} />
+          <Text style={[styles.sheetRowText, { color: colors.text }]}>Enviar PDF ou imagem</Text>
+        </Pressable>
+
+        {pickerError ? (
+          <View style={{ marginTop: 8 }}>
+            <InlineError message={pickerError} />
+          </View>
+        ) : null}
+
+        <Pressable
+          // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+          // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+          style={[styles.sheetRow, { borderColor: colors.border }, isCaptureRowPressed && { opacity: 0.85 }]}
+          disabled={isCapturing}
+          onPressIn={() => setIsCaptureRowPressed(true)}
+          onPressOut={() => setIsCaptureRowPressed(false)}
+          onPress={captureWithCamera}
+        >
+          <Ionicons name="camera-outline" size={22} color={colors.info} />
+          <Text style={[styles.sheetRowText, { color: colors.text }]}>Capturar com câmera</Text>
+        </Pressable>
+
+        {cameraPermissionError ? (
+          <Text style={[styles.permissionError, { color: colors.danger }]}>
+            {cameraPermissionError}
+          </Text>
+        ) : null}
+
+        {cameraError ? (
+          <View style={{ marginTop: 8 }}>
+            <InlineError message={cameraError} />
+          </View>
+        ) : null}
+
+        <Pressable
+          // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+          // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+          style={[styles.cancelButton, { backgroundColor: colors.background }, isCancelPressed && { opacity: 0.85 }]}
+          onPressIn={() => setIsCancelPressed(true)}
+          onPressOut={() => setIsCancelPressed(false)}
           onPress={() => setIsSheetVisible(false)}
-        />
+        >
+          <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancelar</Text>
+        </Pressable>
       </BottomSheet>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 52,
+    borderRadius: RADII.field,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 17,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 100,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0px 6px 16px rgba(16,121,78,0.35)',
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    height: 56,
+    borderRadius: RADII.field,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+  },
+  sheetRowText: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  permissionError: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: -4,
+  },
+  cancelButton: {
+    height: 52,
+    borderRadius: RADII.field,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
+});
