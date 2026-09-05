@@ -20,9 +20,13 @@ type RawRecommendation = {
   id: number;
   grade: string;
   gradeText: string;
+  gradeTextPt?: string | null;
   title: string;
+  titlePt?: string | null;
   text: string;
+  textPt?: string | null;
   rationale?: string | null;
+  rationalePt?: string | null;
   topic?: string | null;
   citationYear?: string | null;
   ageMin?: number | null;
@@ -50,9 +54,13 @@ export async function getPreventionRecommendations(): Promise<PreventionSnapshot
       id: rec.id,
       grade: rec.grade as UspstfGrade,
       gradeText: rec.gradeText,
+      gradeTextPt: rec.gradeTextPt ?? null,
       title: rec.title,
+      titlePt: rec.titlePt ?? null,
       text: rec.text,
+      textPt: rec.textPt ?? null,
       rationale: rec.rationale ?? null,
+      rationalePt: rec.rationalePt ?? null,
       topic: rec.topic ?? null,
       citationYear: rec.citationYear ?? null,
       ageMin: rec.ageMin ?? null,

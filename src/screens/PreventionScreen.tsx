@@ -118,9 +118,10 @@ export function PreventionScreen({
               {recommendations.length > 0 ? (
                 <Card variant="soft" padding="compact" style={{ marginBottom: 16 }}>
                   <Text className="text-[13px] leading-5 text-app-textSecondary dark:text-app-dark-textSecondary">
-                    O texto oficial de cada recomendação vem do USPSTF (agência de saúde dos EUA) e
-                    precisa continuar em inglês, sem alterações, por exigência de direitos autorais.
-                    Adicionamos uma explicação do grau em português para ajudar na leitura.
+                    As recomendações vêm do USPSTF (agência de saúde dos EUA). O texto em português
+                    é uma adaptação não-oficial feita pelo app — a USPSTF não a revisou nem a
+                    endossa. O texto oficial em inglês continua disponível em cada card, em
+                    “Ver texto original”.
                     {lastUpdatedLabel ? ` ${lastUpdatedLabel}` : ''}
                   </Text>
                 </Card>
@@ -159,8 +160,11 @@ export function PreventionScreen({
                       key={recommendation.id}
                       grade={recommendation.grade}
                       gradeText={recommendation.gradeText}
+                      gradeTextPt={recommendation.gradeTextPt}
                       title={recommendation.title}
+                      titlePt={recommendation.titlePt}
                       text={recommendation.text}
+                      textPt={recommendation.textPt}
                       citation={recommendation.citationYear ?? recommendation.topic ?? 'USPSTF'}
                       isReminderOn={recommendation.isReminderOn}
                       onToggleReminder={() => onToggleReminder(recommendation.id)}

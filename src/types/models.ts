@@ -241,14 +241,21 @@ export type UspstfGrade = 'A' | 'B' | 'C' | 'D' | 'I';
 
 // Uma recomendacao de prevencao retornada pela funcao getPreventionRecommendations,
 // ja filtrada para o perfil do usuario. title/text/rationale vem verbatim da USPSTF
-// (em ingles, nao traduzir) por exigencia de direitos autorais da AHRQ.
+// (em ingles, nunca alterar) por exigencia de direitos autorais da AHRQ; os campos
+// *Pt sao uma adaptacao nao-oficial em portugues, permitida pelo aviso de copyright
+// da AHRQ desde que rotulada como adaptacao e acompanhada do texto original.
+// Podem vir nulos quando a traducao falha — nesse caso exibimos so o ingles.
 export interface PreventionRecommendation {
   id: number;
   grade: UspstfGrade;
   gradeText: string;
+  gradeTextPt: string | null;
   title: string;
+  titlePt: string | null;
   text: string;
+  textPt: string | null;
   rationale: string | null;
+  rationalePt: string | null;
   topic: string | null;
   citationYear: string | null;
   ageMin: number | null;

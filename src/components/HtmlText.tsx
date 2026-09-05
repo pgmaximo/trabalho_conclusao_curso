@@ -49,9 +49,11 @@ function parseSegments(html: string): Segment[] {
 }
 
 /**
- * Renderiza HTML vindo verbatim da API do USPSTF (title/text/rationale).
- * Nao traduzir nem alterar esse conteudo — exigencia de direitos autorais da AHRQ.
- * Apenas o estilo visual e adaptado ao tema do app.
+ * Renderiza o HTML das recomendacoes do USPSTF (title/text/rationale), tanto o
+ * original em ingles quanto a adaptacao em portugues — a traducao acontece no
+ * backend (ver amplify/functions/get-prevention-recommendations/translateClient.ts)
+ * e o texto oficial em ingles nunca e alterado nem deixa de ser exibido, como
+ * exigem os direitos autorais da AHRQ. Aqui so o estilo visual e adaptado ao tema.
  */
 export function HtmlText({ html }: HtmlTextProps) {
   const colors = useThemeColors();
