@@ -204,7 +204,15 @@ export function useVaccinationData() {
     setIsRequestingLocation(true);
     try {
       const location = await requestAndResolveLocation();
-      retry();
+      // Só recarrega o snapshot inteiro (campanhas/UBS) quando a localização
+      // de fato mudou — chamar retry() incondicionalmente aqui fazia a tela
+      // inteira voltar para o skeleton de carregamento a cada tentativa,
+      // inclusive quando falhava, o que na prática parecia "a página recarrega
+      // e nada acontece" (o bug reportado): a tela piscava para o estado de
+      // loading e depois voltava ao mesmo lugar, sem localização nenhuma.
+      if (location) {
+        retry();
+      }
       return location;
     } finally {
       setIsRequestingLocation(false);
