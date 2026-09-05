@@ -50,6 +50,7 @@ yarn-error.*
 # local agent and generated logs
 AGENTS.md
 CLAUDE.md
+.claude/
 .expo-codex.log
 graphify-out/
 
