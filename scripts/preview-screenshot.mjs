@@ -47,6 +47,28 @@ await page.goto(url, { waitUntil: 'load', timeout: 60_000 });
 // screenshot captura a tela em branco antes do primeiro render real.
 await page.waitForTimeout(4000);
 
+// React Native Web NÃO deixa o documento crescer com o conteúdo — a
+// ScrollView vira uma <div> com overflow-y próprio, do tamanho do viewport,
+// e o conteúdo rola DENTRO dela. Isso faz `page.screenshot({ fullPage: true
+// })` cortar silenciosamente tudo abaixo da dobra (sem erro, sem aviso) —
+// bug real encontrado usando este próprio script. Solução: medir o maior
+// scrollHeight entre os elementos com overflow, redimensionar o viewport
+// para caber tudo, e só então tirar o screenshot.
+const contentHeight = await page.evaluate(() => {
+  let max = document.documentElement.scrollHeight;
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.scrollHeight > el.clientHeight && el.scrollHeight > max) {
+      max = el.scrollHeight;
+    }
+  }
+  return max;
+});
+
+if (contentHeight > viewport.height) {
+  await page.setViewportSize({ width: viewport.width, height: contentHeight });
+  await page.waitForTimeout(300); // deixa o re-layout do RN Web assentar
+}
+
 await page.screenshot({ path: outPath, fullPage: true });
 
 console.log('screenshot salvo em:', outPath);

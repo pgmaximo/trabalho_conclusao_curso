@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddVaccineScreen } from '@/screens/AddVaccineScreen';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
+import { MarkDoseAppliedSheet } from '@/components/MarkDoseAppliedSheet';
 import type {
   VaccinationCampaignView,
   VaccinationSiteView,
@@ -180,6 +181,9 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
     />
   ),
   'add-vaccine': () => <AddVaccineScreen />,
+  'mark-dose-applied-sheet': () => (
+    <MarkDoseAppliedSheet visible dose={PENDING_ITEM} isSaving={false} onClose={noop} onSubmit={noop} />
+  ),
 };
 
 export default function DevPreviewRoute() {

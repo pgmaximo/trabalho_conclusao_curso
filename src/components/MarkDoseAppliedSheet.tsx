@@ -7,7 +7,7 @@
  * antigo AddVaccineSheet.tsx (removido) para o subconjunto "já aplicada".
  */
 import React, { useState } from 'react';
-import { Alert, Text } from 'react-native';
+import { Alert } from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
@@ -74,13 +74,16 @@ export function MarkDoseAppliedSheet({ visible, dose, isSaving, onClose, onSubmi
     return null;
   }
 
-  return (
-    <BottomSheet visible={visible} title="Marcar como aplicada" onClose={handleClose}>
-      <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">
-        {dose.name}
-        {dose.doseNumber ? ` · ${dose.doseNumber}ª dose` : ''}
-      </Text>
+  const doseLabel = `${dose.name}${dose.doseNumber ? ` · ${dose.doseNumber}ª dose` : ''}`;
 
+  return (
+    <BottomSheet visible={visible} title="Marcar como aplicada" description={doseLabel} onClose={handleClose}>
+      {/* Usa o prop `description` do BottomSheet (não um <Text> solto) — ele
+          já resolve o espaçamento título/subtítulo corretamente (marginBottom:
+          SPACING.md); um <Text> como primeiro filho do `content` só herdava o
+          marginBottom: SPACING.xs do título, ficando visualmente colado nele
+          enquanto os campos abaixo tinham ~36px de respiro entre si (achado
+          visual via scripts/preview-screenshot.mjs). */}
       <DateInput label="Data de aplicação" value={form.date} onChange={(value) => update('date', value)} maxDate={getTodayDate()} />
 
       <FormField

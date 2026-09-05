@@ -313,6 +313,17 @@ export function VaccinationScreen({
           <CampaignCard key={campaign.catalogId} campaign={campaign} />
         ))}
 
+        {campaignSamplingNotice ? (
+          // Explica a contagem (ou a ausência de campanha) do bloco logo
+          // acima — mantido perto do que ele descreve; renderizar no fim da
+          // tela deixava a nota "órfã", sem relação visual com o dado que
+          // ela qualifica (achado ao revisar screenshots de
+          // scripts/preview-screenshot.mjs).
+          <Text className="mb-4 text-[11px] leading-[15px] text-app-textMuted dark:text-app-dark-textMuted">
+            {campaignSamplingNotice}
+          </Text>
+        ) : null}
+
         {!hasLocation ? (
           <Pressable
             accessibilityRole="button"
@@ -383,12 +394,6 @@ export function VaccinationScreen({
                   </Text>
                 )}
               </Section>
-            ) : null}
-
-            {campaignSamplingNotice ? (
-              <Text className="mt-2 text-[11px] leading-[15px] text-app-textMuted dark:text-app-dark-textMuted">
-                {campaignSamplingNotice}
-              </Text>
             ) : null}
           </>
         )}
