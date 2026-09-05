@@ -67,6 +67,12 @@ function matchesFilter(status: VaccineDoseItem['status'], filter: FilterOption):
   return status === 'atrasada';
 }
 
+const EMPTY_FILTER_MESSAGE: Record<FilterOption, string> = {
+  Todas: 'Nenhuma vacina pendente ou atrasada no momento.',
+  Pendentes: 'Nenhuma vacina pendente no momento.',
+  Atrasadas: 'Nenhuma vacina atrasada no momento.',
+};
+
 function formatDatePt(iso: string): string {
   const [year, month, day] = iso.split('-');
   if (!year || !month || !day) return iso;
@@ -90,7 +96,7 @@ function DoseCard({ item, onMarkApplied }: { item: VaccineDoseItem; onMarkApplie
 
   return (
     <Card padding="compact" style={{ marginBottom: 10 }}>
-      <View className="flex-row items-start justify-between gap-3">
+      <View className="flex-row items-center justify-between gap-3">
         <View className="flex-1">
           <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
             {item.name}
@@ -179,22 +185,32 @@ function VaccineGroupCard({
       ) : null}
 
       {group.proximaDose && matchesFilter(group.proximaDose.status, filter) ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Marcar como aplicada"
-          accessibilityHint="Toque para registrar a data em que esta dose foi tomada"
-          onPress={() => onMarkApplied(group.proximaDose as VaccineDoseItem)}
-          style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }, pressed && { opacity: 0.6 }]}
-        >
-          <Badge
-            label={group.proximaDose.status === 'atrasada' ? 'Atrasada' : 'Pendente'}
-            variant={group.proximaDose.status === 'atrasada' ? 'danger' : 'warning'}
-          />
-          <Text className="flex-1 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
-            {group.proximaDose.doseNumber ? `${group.proximaDose.doseNumber}ª dose` : 'Próxima dose'}
-            {group.proximaDose.dueDate ? ` · ${formatDatePt(group.proximaDose.dueDate)}` : ''}
+        // Borda + rótulo "Próxima dose" separam claramente esta linha do
+        // histórico de doses aplicadas logo acima — sem isso, o badge podia
+        // ser lido como se qualificasse a última dose aplicada em vez da
+        // dose futura que ele de fato descreve (achado relatado pelo
+        // usuário: "parece que a primeira dose está pendente, não a segunda").
+        <View className="mt-3 border-t border-app-border pt-3 dark:border-app-dark-border">
+          <Text className="mb-2 text-[12px] font-semibold uppercase text-app-textMuted dark:text-app-dark-textMuted">
+            Próxima dose
           </Text>
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Marcar como aplicada"
+            accessibilityHint="Toque para registrar a data em que esta dose foi tomada"
+            onPress={() => onMarkApplied(group.proximaDose as VaccineDoseItem)}
+            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8 }, pressed && { opacity: 0.6 }]}
+          >
+            <Badge
+              label={group.proximaDose.status === 'atrasada' ? 'Atrasada' : 'Pendente'}
+              variant={group.proximaDose.status === 'atrasada' ? 'danger' : 'warning'}
+            />
+            <Text className="flex-1 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+              {group.proximaDose.doseNumber ? `${group.proximaDose.doseNumber}ª dose` : 'Dose'}
+              {group.proximaDose.dueDate ? ` · ${formatDatePt(group.proximaDose.dueDate)}` : ''}
+            </Text>
+          </Pressable>
+        </View>
       ) : null}
     </Card>
   );
@@ -380,9 +396,15 @@ export function VaccinationScreen({
                   activeFilter={filter}
                   onFilterChange={(value) => setFilter(value as FilterOption)}
                 />
-                {filteredUpcoming.map((item) => (
-                  <DoseCard key={item.id} item={item} onMarkApplied={onMarkDoseApplied} />
-                ))}
+                {filteredUpcoming.length > 0 ? (
+                  filteredUpcoming.map((item) => (
+                    <DoseCard key={item.id} item={item} onMarkApplied={onMarkDoseApplied} />
+                  ))
+                ) : (
+                  <Text className="text-[14px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                    {EMPTY_FILTER_MESSAGE[filter]}
+                  </Text>
+                )}
               </Section>
             ) : null}
 

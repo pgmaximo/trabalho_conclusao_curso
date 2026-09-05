@@ -210,6 +210,17 @@ describe('VaccinationScreen', () => {
     expect(screen.queryByText('Atrasada')).toBeNull();
   });
 
+  it('explains an empty filter result instead of leaving a blank gap', () => {
+    renderScreen({ isEmpty: false, upcoming: [PENDING_ITEM] });
+
+    // Só há um item Pendente — selecionar "Atrasadas" não deve deixar a
+    // seção em branco sem explicação.
+    fireEvent.press(screen.getByText('Atrasadas'));
+
+    expect(screen.getByText('Nenhuma vacina atrasada no momento.')).toBeTruthy();
+    expect(screen.queryByText('Influenza (gripe)')).toBeNull();
+  });
+
   it('never shows a chevron/arrow affordance on dose cards', () => {
     renderScreen({
       isEmpty: false,
