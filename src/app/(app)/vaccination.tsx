@@ -62,9 +62,15 @@ export default function VaccinationRoute() {
   async function handleRequestLocation() {
     const location = await requestLocation();
     if (!location) {
+      // Não afirmamos que é falta de permissão/configuração — isso já
+      // aconteceu com permissão concedida e localização ativada (o GPS do
+      // Android às vezes simplesmente não responde a tempo; ver comentário
+      // em locationService.ts#resolvePosition). Culpar a configuração do
+      // usuário quando não sabemos a causa real só manda a pessoa checar
+      // algo que já está certo.
       Alert.alert(
-        'Não foi possível obter sua localização',
-        'Verifique se a localização do aparelho está ativada e se a permissão foi concedida ao SuaSaúde, e tente novamente.',
+        'Não foi possível obter sua localização agora',
+        'Isso pode acontecer mesmo com a localização ativada e a permissão concedida — o GPS às vezes demora para responder. Tente novamente em alguns segundos.',
       );
     }
   }

@@ -46,6 +46,35 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
   });
 }
 
+/**
+ * `getCurrentPositionAsync` pedindo um fix novo de GPS é conhecida por travar
+ * (nunca resolver nem rejeitar) em vários aparelhos Android mesmo com
+ * permissão concedida e localização ativada — bug antigo e recorrente do
+ * módulo nativo, não específico do Expo Go nem deste app (ver
+ * github.com/expo/expo issues #39851, #33981, #26825, #26790). O workaround
+ * documentado pela própria comunidade é tentar primeiro
+ * `getLastKnownPositionAsync` (fix já em cache do SO, retorna quase
+ * instantaneamente) e só cair para `getCurrentPositionAsync` — com o teto de
+ * `withTimeout` acima — quando não houver nenhum fix em cache ainda (ex.:
+ * primeiro uso do app no aparelho).
+ */
+async function resolvePosition(): Promise<Location.LocationObject | null> {
+  try {
+    const lastKnown = await Location.getLastKnownPositionAsync({});
+    if (lastKnown) {
+      return lastKnown;
+    }
+  } catch (error) {
+    console.warn('[locationService] getLastKnownPositionAsync falhou, tentando getCurrentPositionAsync:', error);
+  }
+
+  return withTimeout(
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+    LOCATION_TIMEOUT_MS,
+    null,
+  );
+}
+
 export type UserLocation = {
   uf: string; // sigla, ex. "SP"
   municipioNome: string | null;
@@ -118,19 +147,18 @@ export async function requestAndResolveLocation(): Promise<UserLocation | null> 
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
+      console.warn('[locationService] permissão de localização não concedida:', status);
       return null;
     }
 
-    // `withTimeout` cobre o cenário observado em dispositivo real: sinal de
-    // GPS fraco (ou uma falha silenciosa do módulo nativo) fazendo a promise
-    // nunca resolver — sem isso, a UI ficaria presa em "Buscando..." para
-    // sempre em vez de cair no fallback nacional.
-    const position = await withTimeout(
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-      LOCATION_TIMEOUT_MS,
-      null,
-    );
+    const position = await resolvePosition();
     if (!position) {
+      // Chega aqui com a permissão já confirmada como concedida — não é um
+      // problema de permissão/configuração do aparelho, é o GPS não ter
+      // respondido a tempo (ver comentário de resolvePosition). Mostrar isso
+      // no log evita reproduzir o mesmo diagnóstico errado ("verifique a
+      // permissão") quando a causa real é essa.
+      console.warn('[locationService] getLastKnownPositionAsync/getCurrentPositionAsync não retornaram posição a tempo.');
       return null;
     }
 
@@ -146,7 +174,9 @@ export async function requestAndResolveLocation(): Promise<UserLocation | null> 
 
     const uf = resolveUfSigla(place?.region);
     if (!uf) {
-      return null; // sem UF reconhecível, não há como filtrar campanhas/UBS com confiança
+      // sem UF reconhecível, não há como filtrar campanhas/UBS com confiança
+      console.warn('[locationService] geocodificação reversa não retornou uma UF reconhecível:', place);
+      return null;
     }
 
     const municipioNome = place?.city ?? place?.subregion ?? null;
@@ -162,7 +192,8 @@ export async function requestAndResolveLocation(): Promise<UserLocation | null> 
 
     await saveCachedLocation(location);
     return location;
-  } catch {
+  } catch (error) {
+    console.warn('[locationService] falha inesperada ao resolver localização:', error);
     return null;
   }
 }
