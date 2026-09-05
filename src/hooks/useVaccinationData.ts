@@ -190,7 +190,14 @@ async function fetchVaccinationSnapshot(): Promise<VaccinationSnapshot> {
     campaigns,
     campaignSamplingNotice: campaignsResult.amostragem ?? null,
     sites: sitesView,
-    hasLocation: Boolean(location?.codigoMunicipio),
+    // `hasLocation` só precisa da UF (suficiente para filtrar campanhas por
+    // região) — não do código IBGE do município, que é uma segunda consulta
+    // de rede independente (resolveCodigoMunicipio, em locationService.ts) e
+    // pode falhar mesmo com o GPS e a UF já resolvidos. Bug real observado:
+    // essa segunda etapa falhava sozinha e o prompt "Ative a localização"
+    // nunca sumia mesmo com a localização (UF) já obtida com sucesso.
+    hasLocation: Boolean(location?.uf),
+    hasMunicipio: Boolean(location?.codigoMunicipio),
   };
 }
 
@@ -229,6 +236,7 @@ export function useVaccinationData() {
         campaignSamplingNotice: null,
         sites: [],
         hasLocation: false,
+        hasMunicipio: false,
       },
     [data],
   );
@@ -241,6 +249,7 @@ export function useVaccinationData() {
     campaignSamplingNotice: snapshot.campaignSamplingNotice,
     sites: snapshot.sites,
     hasLocation: snapshot.hasLocation,
+    hasMunicipio: snapshot.hasMunicipio,
     isEmpty: snapshot.upcoming.length === 0 && snapshot.history.length === 0,
     isLoading: status === 'loading',
     isRequestingLocation,

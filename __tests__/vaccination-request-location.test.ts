@@ -69,4 +69,39 @@ describe('useVaccinationData - requestLocation', () => {
 
     await waitFor(() => expect(mockListVaccineDosesForUser).toHaveBeenCalledTimes(2));
   });
+
+  it('sets hasLocation from the UF alone, independent of the município lookup (which can fail on its own)', async () => {
+    // Bug real: a UF resolve com sucesso (GPS + geocodificação), mas a 2ª
+    // consulta de rede que resolve o código IBGE do município
+    // (resolveCodigoMunicipio, dentro de requestAndResolveLocation) falha
+    // sozinha. hasLocation não pode depender dela, senão o prompt "Ative a
+    // localização" nunca some mesmo com a localização já obtida.
+    const locationWithoutMunicipio = {
+      uf: 'SP',
+      municipioNome: null,
+      codigoMunicipio: null,
+      latitude: -23.55,
+      longitude: -46.63,
+    };
+    mockRequestAndResolveLocation.mockResolvedValue(locationWithoutMunicipio);
+    // fetchVaccinationSnapshot lê a localização via loadCachedLocation (não
+    // via o retorno de requestAndResolveLocation) — em produção,
+    // requestAndResolveLocation grava no cache antes de retornar; aqui
+    // simulamos isso apontando o mock de leitura para o mesmo valor.
+    mockLoadCachedLocation.mockResolvedValue(locationWithoutMunicipio);
+
+    const { result } = renderHook(() => useVaccinationData());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.requestLocation();
+    });
+    await waitFor(() => expect(mockListVaccineDosesForUser).toHaveBeenCalledTimes(2));
+
+    expect(result.current.hasLocation).toBe(true);
+    expect(result.current.hasMunicipio).toBe(false);
+    // Sem código de município, não há como consultar UBS por proximidade —
+    // não deve nem tentar a chamada.
+    expect(mockFetchVaccinationSites).not.toHaveBeenCalled();
+  });
 });

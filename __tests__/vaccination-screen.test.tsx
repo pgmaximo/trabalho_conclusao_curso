@@ -32,6 +32,7 @@ function renderScreen(props?: Partial<React.ComponentProps<typeof VaccinationScr
         errorMessage={null}
         groups={[]}
         hasLocation={false}
+        hasMunicipio={false}
         isEmpty
         isLoading={false}
         isRequestingLocation={false}
@@ -142,6 +143,7 @@ describe('VaccinationScreen', () => {
           errorMessage="Falha de rede."
           groups={[]}
           hasLocation={false}
+          hasMunicipio={false}
           isEmpty={false}
           isLoading={false}
           isRequestingLocation={false}
@@ -236,5 +238,20 @@ describe('VaccinationScreen', () => {
     expect(
       screen.getByText(/Ative a localização para ver campanhas da sua região/),
     ).toBeTruthy();
+  });
+
+  it('does not claim to have searched for nearby health units when only the state (not the município) was resolved', () => {
+    // Bug real: GPS + geocodificação resolvem a UF (hasLocation vira true,
+    // o prompt de "Ative a localização" some), mas a 2ª consulta de rede que
+    // resolve o código IBGE do município é independente e pode falhar
+    // sozinha. Antes, "Onde se vacinar" dizia "Nenhuma UBS encontrada" nesse
+    // caso — uma busca que nunca aconteceu.
+    renderScreen({ isEmpty: false, hasLocation: true, hasMunicipio: false });
+
+    expect(screen.queryByText(/Ative a localização/)).toBeNull();
+    expect(
+      screen.getByText('Não foi possível identificar seu município para buscar unidades de saúde próximas.'),
+    ).toBeTruthy();
+    expect(screen.queryByText('Nenhuma unidade básica de saúde encontrada para o seu município.')).toBeNull();
   });
 });

@@ -338,5 +338,8 @@ export interface VaccinationSnapshot {
   campaigns: VaccinationCampaignView[]; // campanhas ativas com dado real do PNI
   campaignSamplingNotice: string | null; // aviso de que a contagem é amostral
   sites: VaccinationSiteView[];       // UBS próximas (vazio quando sem localização)
-  hasLocation: boolean;               // true quando há UF/código de município resolvidos
+  hasLocation: boolean;               // true quando há ao menos a UF resolvida (GPS + geocodificação)
+  hasMunicipio: boolean;              // true quando o código IBGE do município também foi resolvido
+                                        // (2ª consulta de rede independente — pode falhar mesmo com
+                                        // hasLocation true; "Onde se vacinar" depende especificamente dele)
 }

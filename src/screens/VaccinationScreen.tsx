@@ -41,6 +41,7 @@ type VaccinationScreenProps = {
   campaignSamplingNotice: string | null;
   sites: VaccinationSiteView[];
   hasLocation: boolean;
+  hasMunicipio: boolean;
   isEmpty: boolean;
   isLoading: boolean;
   isRequestingLocation: boolean;
@@ -290,6 +291,7 @@ export function VaccinationScreen({
   campaignSamplingNotice,
   sites,
   hasLocation,
+  hasMunicipio,
   isEmpty,
   isLoading,
   isRequestingLocation,
@@ -423,7 +425,16 @@ export function VaccinationScreen({
 
             {hasLocation ? (
               <Section title="Onde se vacinar">
-                {sites.length > 0 ? (
+                {!hasMunicipio ? (
+                  // hasLocation só garante a UF (GPS + geocodificação) — o
+                  // código IBGE do município é uma segunda consulta de rede
+                  // independente que pode falhar sozinha. Dizer "nenhuma UBS
+                  // encontrada" aqui seria afirmar uma busca que nunca
+                  // aconteceu (regra de nunca fingir dado que não é real).
+                  <Text className="text-[14px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                    Não foi possível identificar seu município para buscar unidades de saúde próximas.
+                  </Text>
+                ) : sites.length > 0 ? (
                   sites.map((site) => <SiteRow key={site.cnes} site={site} />)
                 ) : (
                   <Text className="text-[14px] text-app-textSecondary dark:text-app-dark-textSecondary">

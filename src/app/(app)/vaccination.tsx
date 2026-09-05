@@ -24,6 +24,7 @@ export default function VaccinationRoute() {
     campaignSamplingNotice,
     sites,
     hasLocation,
+    hasMunicipio,
     isEmpty,
     isLoading,
     isRequestingLocation,
@@ -84,6 +85,7 @@ export default function VaccinationRoute() {
         campaignSamplingNotice={campaignSamplingNotice}
         sites={sites}
         hasLocation={hasLocation}
+        hasMunicipio={hasMunicipio}
         errorMessage={errorMessage}
         isEmpty={isEmpty}
         isLoading={isLoading}

@@ -98,6 +98,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       campaignSamplingNotice={null}
       sites={[]}
       hasLocation={false}
+      hasMunicipio={false}
       isEmpty
       isLoading={false}
       isRequestingLocation={false}
@@ -116,6 +117,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       campaignSamplingNotice={null}
       sites={[]}
       hasLocation={false}
+      hasMunicipio={false}
       isEmpty={false}
       isLoading
       isRequestingLocation={false}
@@ -134,6 +136,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       campaignSamplingNotice={null}
       sites={[]}
       hasLocation={false}
+      hasMunicipio={false}
       isEmpty={false}
       isLoading={false}
       isRequestingLocation={false}
@@ -152,6 +155,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       campaignSamplingNotice="Contagem baseada em uma amostra de 8000 registros do PNI/RNDS — não é um censo."
       sites={[NEARBY_SITE]}
       hasLocation
+      hasMunicipio
       isEmpty={false}
       isLoading={false}
       isRequestingLocation={false}
@@ -170,6 +174,30 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       campaignSamplingNotice={null}
       sites={[]}
       hasLocation={false}
+      hasMunicipio={false}
+      isEmpty={false}
+      isLoading={false}
+      isRequestingLocation={false}
+      errorMessage={null}
+      onRetry={noop}
+      onAddVaccine={noop}
+      onRequestLocation={noop}
+      onMarkDoseApplied={noop}
+    />
+  ),
+  'vaccination-location-sem-municipio': () => (
+    // Reproduz o bug relatado: GPS + geocodificação resolveram a UF (o botão
+    // "Ative a localização" some), mas a 2ª consulta de rede (código IBGE do
+    // município) falhou sozinha — "Onde se vacinar" precisa dizer isso, não
+    // fingir que buscou UBS e não achou nenhuma.
+    <VaccinationScreen
+      upcoming={[PENDING_ITEM]}
+      groups={[HEPATITE_B_GROUP]}
+      campaigns={[ACTIVE_CAMPAIGN]}
+      campaignSamplingNotice={null}
+      sites={[]}
+      hasLocation
+      hasMunicipio={false}
       isEmpty={false}
       isLoading={false}
       isRequestingLocation={false}
