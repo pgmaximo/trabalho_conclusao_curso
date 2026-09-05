@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
@@ -78,6 +78,31 @@ const HEPATITE_B_GROUP: VaccineGroupView = {
     },
   ],
   proximaDose: null,
+};
+
+const HEPATITE_B_GROUP_WITH_PENDING: VaccineGroupView = {
+  catalogId: 'hepatite-b',
+  nome: 'Hepatite B',
+  seriesTotal: 3,
+  dosesAplicadas: [
+    {
+      id: '3',
+      name: 'Hepatite B',
+      doseNumber: 1,
+      status: 'aplicada',
+      description: 'Hepatite B · 1ª dose',
+      appliedDate: '2025-03-14',
+      location: 'UBS Jardim América',
+    },
+  ],
+  proximaDose: {
+    id: '4',
+    name: 'Hepatite B',
+    doseNumber: 2,
+    status: 'pendente',
+    description: 'Recomendada até 13/04/2025',
+    dueDate: '2025-04-13',
+  },
 };
 
 const ACTIVE_CAMPAIGN: VaccinationCampaignView = {
@@ -161,6 +186,38 @@ describe('VaccinationScreen', () => {
   it('never claims a campaign is active without a real source citation', () => {
     renderScreen({ campaigns: [ACTIVE_CAMPAIGN] });
     expect(screen.getByText('Ver fonte oficial')).toBeTruthy();
+  });
+
+  it('applies the Todas/Pendentes/Atrasadas filter to the vaccine group cards too, not just the upcoming list', () => {
+    // Bug reproduzido e corrigido: a "próxima dose" de um card de "Carteira
+    // por vacina" (Hepatite B, Pendente) continuava visível mesmo com o
+    // filtro "Atrasadas" selecionado — só a lista "Próximas recomendadas"
+    // respeitava o filtro, não os cards agrupados.
+    renderScreen({ isEmpty: false, upcoming: [LATE_ITEM], groups: [HEPATITE_B_GROUP_WITH_PENDING] });
+
+    // Todas: ambos os badges "Pendente" (do grupo) e "Atrasada" aparecem.
+    expect(screen.getByText('Pendente')).toBeTruthy();
+    expect(screen.getByText('Atrasada')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Atrasadas'));
+
+    expect(screen.queryByText('Pendente')).toBeNull();
+    expect(screen.getByText('Atrasada')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Pendentes'));
+
+    expect(screen.getByText('Pendente')).toBeTruthy();
+    expect(screen.queryByText('Atrasada')).toBeNull();
+  });
+
+  it('never shows a chevron/arrow affordance on dose cards', () => {
+    renderScreen({
+      isEmpty: false,
+      upcoming: [PENDING_ITEM, LATE_ITEM],
+      groups: [HEPATITE_B_GROUP_WITH_PENDING],
+    });
+
+    expect(screen.queryByText('chevron-forward')).toBeNull();
   });
 
   it('prompts for location instead of silently omitting nearby health units', () => {

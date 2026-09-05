@@ -54,6 +54,19 @@ type VaccinationScreenProps = {
 const FILTER_OPTIONS = ['Todas', 'Pendentes', 'Atrasadas'] as const;
 type FilterOption = (typeof FILTER_OPTIONS)[number];
 
+/**
+ * Único ponto que decide se um status bate com o filtro selecionado — usado
+ * tanto por "Próximas recomendadas" quanto pela "próxima dose" de cada card
+ * de "Carteira por vacina". Antes, só a primeira lista respeitava o filtro;
+ * a segunda continuava mostrando doses Pendente mesmo com "Atrasadas"
+ * selecionado, o que parecia (e era, na prática) o filtro "não funcionar".
+ */
+function matchesFilter(status: VaccineDoseItem['status'], filter: FilterOption): boolean {
+  if (filter === 'Todas') return true;
+  if (filter === 'Pendentes') return status === 'pendente';
+  return status === 'atrasada';
+}
+
 function formatDatePt(iso: string): string {
   const [year, month, day] = iso.split('-');
   if (!year || !month || !day) return iso;
@@ -61,7 +74,6 @@ function formatDatePt(iso: string): string {
 }
 
 function DoseCard({ item, onMarkApplied }: { item: VaccineDoseItem; onMarkApplied: (item: VaccineDoseItem) => void }) {
-  const colors = useThemeColors();
   const isPending = item.status !== 'aplicada';
 
   const badge =
@@ -94,10 +106,9 @@ function DoseCard({ item, onMarkApplied }: { item: VaccineDoseItem; onMarkApplie
             accessibilityHint="Toque para registrar a data em que esta dose foi tomada"
             onPress={() => onMarkApplied(item)}
             hitSlop={8}
-            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 4 }, pressed && { opacity: 0.6 }]}
+            style={({ pressed }) => [pressed && { opacity: 0.6 }]}
           >
             <Badge label={badge.label} variant={badge.variant} />
-            <Ionicons color={colors.textMuted} name="chevron-forward" size={14} />
           </Pressable>
         ) : (
           <Badge label={badge.label} variant={badge.variant} />
@@ -119,12 +130,13 @@ function DosePip({ filled }: { filled: boolean }) {
 
 function VaccineGroupCard({
   group,
+  filter,
   onMarkApplied,
 }: {
   group: VaccineGroupView;
+  filter: FilterOption;
   onMarkApplied: (item: VaccineDoseItem) => void;
 }) {
-  const colors = useThemeColors();
   const total = group.seriesTotal;
   const applied = group.dosesAplicadas.length;
 
@@ -166,7 +178,7 @@ function VaccineGroupCard({
         </View>
       ) : null}
 
-      {group.proximaDose ? (
+      {group.proximaDose && matchesFilter(group.proximaDose.status, filter) ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Marcar como aplicada"
@@ -182,7 +194,6 @@ function VaccineGroupCard({
             {group.proximaDose.doseNumber ? `${group.proximaDose.doseNumber}ª dose` : 'Próxima dose'}
             {group.proximaDose.dueDate ? ` · ${formatDatePt(group.proximaDose.dueDate)}` : ''}
           </Text>
-          <Ionicons color={colors.textMuted} name="chevron-forward" size={14} />
         </Pressable>
       ) : null}
     </Card>
@@ -276,11 +287,10 @@ export function VaccinationScreen({
   const colors = useThemeColors();
   const [filter, setFilter] = useState<FilterOption>('Todas');
 
-  const filteredUpcoming = useMemo(() => {
-    if (filter === 'Todas') return upcoming;
-    if (filter === 'Pendentes') return upcoming.filter((item) => item.status === 'pendente');
-    return upcoming.filter((item) => item.status === 'atrasada');
-  }, [upcoming, filter]);
+  const filteredUpcoming = useMemo(
+    () => upcoming.filter((item) => matchesFilter(item.status, filter)),
+    [upcoming, filter],
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background" edges={['top']}>
@@ -379,7 +389,12 @@ export function VaccinationScreen({
             {groups.length > 0 ? (
               <Section title="Carteira por vacina">
                 {groups.map((group) => (
-                  <VaccineGroupCard key={group.catalogId} group={group} onMarkApplied={onMarkDoseApplied} />
+                  <VaccineGroupCard
+                    key={group.catalogId}
+                    group={group}
+                    filter={filter}
+                    onMarkApplied={onMarkDoseApplied}
+                  />
                 ))}
               </Section>
             ) : null}
