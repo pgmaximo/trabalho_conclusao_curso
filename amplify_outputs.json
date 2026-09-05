@@ -469,6 +469,34 @@
               "isRequired": false,
               "attributes": []
             },
+            "catalogId": {
+              "name": "catalogId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "seriesTotal": {
+              "name": "seriesTotal",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "lot": {
+              "name": "lot",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "manufacturer": {
+              "name": "manufacturer",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "createdAt": {
               "name": "createdAt",
               "isArray": false,
@@ -516,6 +544,158 @@
           "primaryKeyInfo": {
             "isCustomPrimaryKey": false,
             "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
+        },
+        "VaccinationCampaignCache": {
+          "name": "VaccinationCampaignCache",
+          "fields": {
+            "uf": {
+              "name": "uf",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "payload": {
+              "name": "payload",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": true,
+              "attributes": []
+            },
+            "expiresAt": {
+              "name": "expiresAt",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "VaccinationCampaignCaches",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "key",
+              "properties": {
+                "fields": [
+                  "uf"
+                ]
+              }
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "allow": "private",
+                    "operations": [
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": true,
+            "primaryKeyFieldName": "uf",
+            "sortKeyFieldNames": []
+          }
+        },
+        "VaccinationSiteCache": {
+          "name": "VaccinationSiteCache",
+          "fields": {
+            "codigoMunicipio": {
+              "name": "codigoMunicipio",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "payload": {
+              "name": "payload",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": true,
+              "attributes": []
+            },
+            "expiresAt": {
+              "name": "expiresAt",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "VaccinationSiteCaches",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "key",
+              "properties": {
+                "fields": [
+                  "codigoMunicipio"
+                ]
+              }
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "allow": "private",
+                    "operations": [
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": true,
+            "primaryKeyFieldName": "codigoMunicipio",
             "sortKeyFieldNames": []
           }
         },
@@ -751,6 +931,128 @@
         }
       },
       "nonModels": {
+        "VaccinationCampaignResult": {
+          "name": "VaccinationCampaignResult",
+          "fields": {
+            "catalogId": {
+              "name": "catalogId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "nome": {
+              "name": "nome",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "ativa": {
+              "name": "ativa",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "janelaInicio": {
+              "name": "janelaInicio",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "janelaFim": {
+              "name": "janelaFim",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "dosesNoPeriodo": {
+              "name": "dosesNoPeriodo",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "ufReferencia": {
+              "name": "ufReferencia",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "dataAsOf": {
+              "name": "dataAsOf",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "fonteUrl": {
+              "name": "fonteUrl",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            }
+          }
+        },
+        "VaccinationSiteResult": {
+          "name": "VaccinationSiteResult",
+          "fields": {
+            "cnes": {
+              "name": "cnes",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "nome": {
+              "name": "nome",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "bairro": {
+              "name": "bairro",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "logradouro": {
+              "name": "logradouro",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "latitude": {
+              "name": "latitude",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "longitude": {
+              "name": "longitude",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "distanciaKm": {
+              "name": "distanciaKm",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
         "PreventionRecommendation": {
           "name": "PreventionRecommendation",
           "fields": {
@@ -868,6 +1170,43 @@
             }
           }
         },
+        "GetVaccinationCampaignsReturnType": {
+          "name": "GetVaccinationCampaignsReturnType",
+          "fields": {
+            "campanhas": {
+              "name": "campanhas",
+              "isArray": true,
+              "type": {
+                "nonModel": "VaccinationCampaignResult"
+              },
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "amostragem": {
+              "name": "amostragem",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
+        "GetVaccinationSitesReturnType": {
+          "name": "GetVaccinationSitesReturnType",
+          "fields": {
+            "unidades": {
+              "name": "unidades",
+              "isArray": true,
+              "type": {
+                "nonModel": "VaccinationSiteResult"
+              },
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            }
+          }
+        },
         "GetPreventionRecommendationsReturnType": {
           "name": "GetPreventionRecommendationsReturnType",
           "fields": {
@@ -899,6 +1238,56 @@
         }
       },
       "queries": {
+        "getVaccinationCampaigns": {
+          "name": "getVaccinationCampaigns",
+          "isArray": false,
+          "type": {
+            "nonModel": "GetVaccinationCampaignsReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "uf": {
+              "name": "uf",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "codigoMunicipio": {
+              "name": "codigoMunicipio",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            }
+          }
+        },
+        "getVaccinationSites": {
+          "name": "getVaccinationSites",
+          "isArray": false,
+          "type": {
+            "nonModel": "GetVaccinationSitesReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "codigoMunicipio": {
+              "name": "codigoMunicipio",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "latitude": {
+              "name": "latitude",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false
+            },
+            "longitude": {
+              "name": "longitude",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false
+            }
+          }
+        },
         "getPreventionRecommendations": {
           "name": "getPreventionRecommendations",
           "isArray": false,
