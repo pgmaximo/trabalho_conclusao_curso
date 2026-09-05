@@ -15,9 +15,18 @@ interface DateInputProps {
   value: string; // YYYY-MM-DD format
   onChange: (value: string) => void;
   placeholder?: string;
+  /** Data máxima selecionável (YYYY-MM-DD, inclusive) — dias posteriores ficam desabilitados e não respondem a toque. Usado, por exemplo, para impedir uma data de aplicação de vacina no futuro. */
+  maxDate?: string;
 }
 
-export function DateInput({ label, value, onChange, placeholder }: DateInputProps) {
+function toIsoDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function DateInput({ label, value, onChange, placeholder, maxDate }: DateInputProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [isVisible, setIsVisible] = useState(false);
@@ -65,6 +74,8 @@ export function DateInput({ label, value, onChange, placeholder }: DateInputProp
       <View key={weekIndex} style={styles.weekRow}>
         {week.map((day, dayIndex) => {
           const isSelected = day === selectedDate.getDate();
+          const dayDate = day ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day) : null;
+          const isDisabled = Boolean(day) && Boolean(maxDate) && dayDate !== null && toIsoDateString(dayDate) > (maxDate as string);
 
           return (
             <Pressable
@@ -74,19 +85,20 @@ export function DateInput({ label, value, onChange, placeholder }: DateInputProp
                 ...(isSelected ? [styles.dayButtonSelected] : []),
               ]}
               onPress={() => {
-                if (day) {
+                if (day && !isDisabled) {
                   const newDate = new Date(selectedDate);
                   newDate.setDate(day);
                   handleDateSelect(newDate);
                 }
               }}
-              disabled={!day}
+              disabled={!day || isDisabled}
             >
               {day && (
                 <Text
                   style={[
                     styles.dayText,
                     ...(isSelected ? [styles.dayTextSelected] : []),
+                    ...(isDisabled ? [styles.dayTextDisabled] : []),
                   ]}
                 >
                   {day}
@@ -263,6 +275,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   dayTextSelected: {
     color: colors.onPrimary,
     fontWeight: '700',
+  },
+  dayTextDisabled: {
+    color: colors.textMuted,
+    opacity: 0.4,
   },
   confirmButton: {
     backgroundColor: colors.primary,

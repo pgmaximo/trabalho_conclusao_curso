@@ -34,6 +34,7 @@ import { useUserContext } from '@/contexts/UserContext';
 import { CALENDARIO_NACIONAL_VACINACAO, findVacinaCatalogo } from '@/data/calendarioNacionalVacinacao';
 import { createVaccineDose, registerAppliedDoseWithSeries } from '@/services/vaccinationService';
 import { syncVaccineReminder } from '@/services/vaccineReminderService';
+import { getTodayDate } from '@/utils/date';
 
 type FormState = {
   catalogId: string | null;
@@ -96,6 +97,17 @@ export function AddVaccineScreen() {
 
     if (form.wasApplied === null) {
       Alert.alert('Já foi aplicada?', 'Selecione "Sim" ou "Não" para continuar.');
+      return;
+    }
+
+    // Uma dose "já aplicada" não pode ter data no futuro — o seletor de data já
+    // bloqueia isso (maxDate abaixo), esta é uma segunda barreira caso o campo
+    // tenha sido preenchido antes de alternar "Já foi aplicada?" para "Sim".
+    if (form.wasApplied && form.date && form.date > getTodayDate()) {
+      Alert.alert(
+        'Data inválida',
+        'A data de aplicação não pode estar no futuro. Corrija a data ou selecione "Não" se ainda não foi aplicada.',
+      );
       return;
     }
 
@@ -232,7 +244,15 @@ export function AddVaccineScreen() {
                 <SelectableChip
                   label={option.label}
                   selected={form.wasApplied === option.value}
-                  onPress={() => update('wasApplied', option.value)}
+                  onPress={() => {
+                    update('wasApplied', option.value);
+                    // Alternar para "Sim" com uma data futura já preenchida (do
+                    // modo "recomendação futura") deixaria uma dose aplicada
+                    // com data no futuro — mais seguro limpar do que arriscar.
+                    if (option.value === true && form.date > getTodayDate()) {
+                      update('date', '');
+                    }
+                  }}
                 />
               </View>
             ))}
@@ -243,6 +263,7 @@ export function AddVaccineScreen() {
           label={form.wasApplied ? 'Data de aplicação' : 'Data recomendada (opcional)'}
           value={form.date}
           onChange={(value) => update('date', value)}
+          maxDate={form.wasApplied ? getTodayDate() : undefined}
         />
 
         {form.wasApplied ? (

@@ -80,6 +80,12 @@ export interface UpdateVaccineDoseInput extends Partial<CreateVaccineDoseInput> 
   id: string;
 }
 
+/**
+ * CRUD puro — não mexe em lembretes. Quem chama decide o que fazer com o
+ * lembrete da dose (removê-lo, se ela virou aplicada; reagendá-lo, se só a
+ * data devida mudou) — ver `markDoseApplied` abaixo, que é quem de fato
+ * orquestra os dois casos.
+ */
 export async function updateVaccineDose(input: UpdateVaccineDoseInput): Promise<VaccineDoseRecord> {
   const { id, ...rest } = input;
   const { data, errors } = await client.models.VaccineDose.update({ id, ...rest });
@@ -94,7 +100,6 @@ export async function updateVaccineDose(input: UpdateVaccineDoseInput): Promise<
   }
 
   await invalidateVaccinationCache();
-  await removeVaccineReminder(id); // dose atualizada (ex. marcada como aplicada) não precisa mais de lembrete
   return data;
 }
 
@@ -172,6 +177,74 @@ export async function registerAppliedDoseWithSeries(input: {
   }
 
   return created;
+}
+
+/**
+ * Marca uma dose PENDENTE/ATRASADA já existente (criada manualmente ou pela
+ * cascata de `registerAppliedDoseWithSeries`) como aplicada — usado quando o
+ * usuário toca o badge "Pendente"/"Atrasada" na carteira em vez de cadastrar
+ * uma vacina do zero. `appliedDate` nunca pode ser futura — validado também
+ * na UI (AddVaccineScreen/MarkDoseAppliedSheet + `DateInput maxDate`), mas
+ * repetido aqui como segunda barreira (regra de integridade de dado, não só
+ * de UX).
+ *
+ * Se a dose pertence a uma série do catálogo, as próximas doses ainda
+ * pendentes da mesma série têm sua `dueDate` recalculada a partir da data
+ * real de aplicação (não da data estimada quando a série foi criada) e seus
+ * lembretes reagendados — mantém a carteira precisa mesmo quando o usuário
+ * aplica a dose numa data diferente da inicialmente prevista.
+ */
+export async function markDoseApplied(input: {
+  id: string;
+  catalogId?: string | null;
+  ordem?: number | null;
+  appliedDate: string;
+  location?: string;
+  lot?: string;
+  manufacturer?: string;
+}): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  if (input.appliedDate > today) {
+    throw new Error('A data de aplicação não pode estar no futuro.');
+  }
+
+  await updateVaccineDose({
+    id: input.id,
+    appliedDate: input.appliedDate,
+    location: input.location,
+    lot: input.lot,
+    manufacturer: input.manufacturer,
+  });
+  await removeVaccineReminder(input.id);
+
+  if (!input.catalogId || !input.ordem) {
+    return;
+  }
+
+  const catalogo = findVacinaCatalogo(input.catalogId);
+  if (!catalogo || catalogo.doses.length === 0) {
+    return;
+  }
+
+  const recalculated = derivePendingSeries(catalogo, { ordem: input.ordem, appliedDate: input.appliedDate });
+  if (recalculated.length === 0) {
+    return;
+  }
+
+  const allRecords = await listVaccineDosesForUser();
+  const stillPendingByOrdem = new Map(
+    allRecords
+      .filter((record) => record.catalogId === input.catalogId && !record.appliedDate && record.doseNumber)
+      .map((record) => [record.doseNumber as number, record]),
+  );
+
+  for (const dose of recalculated) {
+    const existing = stillPendingByOrdem.get(dose.ordem);
+    if (!existing) continue; // dose já aplicada fora de ordem, ou nunca foi criada — não recriar aqui
+
+    await updateVaccineDose({ id: existing.id, dueDate: dose.dueDate });
+    await syncVaccineReminder({ id: existing.id, name: catalogo.nome, dueDate: dose.dueDate });
+  }
 }
 
 // ---------------------------------------------------------------------------

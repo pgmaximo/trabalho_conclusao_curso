@@ -21,6 +21,31 @@ import { resolveUfSigla } from '@/data/estadosBrasileiros';
 const LOCATION_CACHE_KEY = '@SuaSaude:userLocation';
 const MUNICIPIO_API_URL = 'https://apidadosabertos.saude.gov.br/macrorregiao-e-regiao-de-saude/municipio';
 
+// Teto de espera pela posição do GPS. Em ambientes com sinal fraco (indoor,
+// prédios altos) `getCurrentPositionAsync` pode demorar muito ou, em alguns
+// aparelhos Android, nunca resolver nem rejeitar — sem este teto, o botão
+// "Buscando sua localização..." fica preso indefinidamente (bug relatado em
+// teste real de dispositivo: a permissão foi concedida, mas a UI nunca saiu
+// do estado de carregamento). `withTimeout` garante que a função sempre
+// resolve, mesmo que a chamada nativa trave.
+const LOCATION_TIMEOUT_MS = 15000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
 export type UserLocation = {
   uf: string; // sigla, ex. "SP"
   municipioNome: string | null;
@@ -96,11 +121,28 @@ export async function requestAndResolveLocation(): Promise<UserLocation | null> 
       return null;
     }
 
-    const position = await Location.getCurrentPositionAsync({});
-    const [place] = await Location.reverseGeocodeAsync({
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-    });
+    // `withTimeout` cobre o cenário observado em dispositivo real: sinal de
+    // GPS fraco (ou uma falha silenciosa do módulo nativo) fazendo a promise
+    // nunca resolver — sem isso, a UI ficaria presa em "Buscando..." para
+    // sempre em vez de cair no fallback nacional.
+    const position = await withTimeout(
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      LOCATION_TIMEOUT_MS,
+      null,
+    );
+    if (!position) {
+      return null;
+    }
+
+    const geocodeResult = await withTimeout(
+      Location.reverseGeocodeAsync({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      }),
+      LOCATION_TIMEOUT_MS,
+      [] as Location.LocationGeocodedAddress[],
+    );
+    const [place] = geocodeResult;
 
     const uf = resolveUfSigla(place?.region);
     if (!uf) {

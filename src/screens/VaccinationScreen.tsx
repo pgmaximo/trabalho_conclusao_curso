@@ -48,6 +48,7 @@ type VaccinationScreenProps = {
   onRetry: () => void;
   onAddVaccine: () => void;
   onRequestLocation: () => void;
+  onMarkDoseApplied: (item: VaccineDoseItem) => void;
 };
 
 const FILTER_OPTIONS = ['Todas', 'Pendentes', 'Atrasadas'] as const;
@@ -59,7 +60,10 @@ function formatDatePt(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
-function DoseCard({ item }: { item: VaccineDoseItem }) {
+function DoseCard({ item, onMarkApplied }: { item: VaccineDoseItem; onMarkApplied: (item: VaccineDoseItem) => void }) {
+  const colors = useThemeColors();
+  const isPending = item.status !== 'aplicada';
+
   const badge =
     item.status === 'aplicada'
       ? { label: 'Aplicada', variant: 'success' as const }
@@ -83,7 +87,21 @@ function DoseCard({ item }: { item: VaccineDoseItem }) {
             {supportLine}
           </Text>
         </View>
-        <Badge label={badge.label} variant={badge.variant} />
+        {isPending ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Marcar como aplicada"
+            accessibilityHint="Toque para registrar a data em que esta dose foi tomada"
+            onPress={() => onMarkApplied(item)}
+            hitSlop={8}
+            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 4 }, pressed && { opacity: 0.6 }]}
+          >
+            <Badge label={badge.label} variant={badge.variant} />
+            <Ionicons color={colors.textMuted} name="chevron-forward" size={14} />
+          </Pressable>
+        ) : (
+          <Badge label={badge.label} variant={badge.variant} />
+        )}
       </View>
     </Card>
   );
@@ -99,7 +117,14 @@ function DosePip({ filled }: { filled: boolean }) {
   );
 }
 
-function VaccineGroupCard({ group }: { group: VaccineGroupView }) {
+function VaccineGroupCard({
+  group,
+  onMarkApplied,
+}: {
+  group: VaccineGroupView;
+  onMarkApplied: (item: VaccineDoseItem) => void;
+}) {
+  const colors = useThemeColors();
   const total = group.seriesTotal;
   const applied = group.dosesAplicadas.length;
 
@@ -142,7 +167,13 @@ function VaccineGroupCard({ group }: { group: VaccineGroupView }) {
       ) : null}
 
       {group.proximaDose ? (
-        <View className="mt-3 flex-row items-center gap-2">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Marcar como aplicada"
+          accessibilityHint="Toque para registrar a data em que esta dose foi tomada"
+          onPress={() => onMarkApplied(group.proximaDose as VaccineDoseItem)}
+          style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }, pressed && { opacity: 0.6 }]}
+        >
           <Badge
             label={group.proximaDose.status === 'atrasada' ? 'Atrasada' : 'Pendente'}
             variant={group.proximaDose.status === 'atrasada' ? 'danger' : 'warning'}
@@ -151,7 +182,8 @@ function VaccineGroupCard({ group }: { group: VaccineGroupView }) {
             {group.proximaDose.doseNumber ? `${group.proximaDose.doseNumber}ª dose` : 'Próxima dose'}
             {group.proximaDose.dueDate ? ` · ${formatDatePt(group.proximaDose.dueDate)}` : ''}
           </Text>
-        </View>
+          <Ionicons color={colors.textMuted} name="chevron-forward" size={14} />
+        </Pressable>
       ) : null}
     </Card>
   );
@@ -238,6 +270,7 @@ export function VaccinationScreen({
   onRetry,
   onAddVaccine,
   onRequestLocation,
+  onMarkDoseApplied,
 }: VaccinationScreenProps) {
   const { colorScheme } = useColorScheme();
   const colors = useThemeColors();
@@ -327,7 +360,7 @@ export function VaccinationScreen({
                   onFilterChange={(value) => setFilter(value as FilterOption)}
                 />
                 {filteredUpcoming.map((item) => (
-                  <DoseCard key={item.id} item={item} />
+                  <DoseCard key={item.id} item={item} onMarkApplied={onMarkDoseApplied} />
                 ))}
               </Section>
             ) : null}
@@ -335,7 +368,7 @@ export function VaccinationScreen({
             {groups.length > 0 ? (
               <Section title="Carteira por vacina">
                 {groups.map((group) => (
-                  <VaccineGroupCard key={group.catalogId} group={group} />
+                  <VaccineGroupCard key={group.catalogId} group={group} onMarkApplied={onMarkDoseApplied} />
                 ))}
               </Section>
             ) : null}
