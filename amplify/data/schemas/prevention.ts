@@ -6,9 +6,16 @@ export const preventionSchema = {
     id: a.integer().required(),
     grade: a.string().required(),
     gradeText: a.string().required(),
+    // Adaptacao em portugues (Amazon Translate) — sempre exibida junto do texto
+    // oficial verbatim em ingles acima, nunca no lugar dele. Pode ser null se a
+    // traducao falhar (o app cai de volta para o texto em ingles nesse caso).
+    gradeTextPt: a.string(),
     title: a.string().required(),
+    titlePt: a.string(),
     text: a.string().required(),
+    textPt: a.string(),
     rationale: a.string(),
+    rationalePt: a.string(),
     topic: a.string(),
     citationYear: a.string(),
     ageMin: a.integer(),

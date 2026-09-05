@@ -306,11 +306,25 @@
               "isRequired": true,
               "attributes": []
             },
+            "gradeTextPt": {
+              "name": "gradeTextPt",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "title": {
               "name": "title",
               "isArray": false,
               "type": "String",
               "isRequired": true,
+              "attributes": []
+            },
+            "titlePt": {
+              "name": "titlePt",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
               "attributes": []
             },
             "text": {
@@ -320,8 +334,22 @@
               "isRequired": true,
               "attributes": []
             },
+            "textPt": {
+              "name": "textPt",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "rationale": {
               "name": "rationale",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "rationalePt": {
+              "name": "rationalePt",
               "isArray": false,
               "type": "String",
               "isRequired": false,

@@ -28,3 +28,9 @@ backend.getPreventionRecommendations.addEnvironment(
   'USER_PROFILE_TABLE_NAME',
   userProfileTable.tableName,
 );
+
+// Nota: a traducao do conteudo da USPSTF para portugues usa a API gratuita do
+// MyMemory (chamada HTTP direta em translateClient.ts) em vez do Amazon
+// Translate — essa conta AWS esta no "Free Plan" do novo cadastro da AWS, que
+// nao inclui Amazon Translate (exigiria upgrade de plano). Por isso nao ha
+// nenhuma permissao de IAM adicional a conceder aqui para a traducao.

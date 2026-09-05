@@ -224,15 +224,21 @@ export interface AppointmentsSnapshot {
 export type UspstfGrade = 'A' | 'B' | 'C' | 'D' | 'I';
 
 // Uma recomendacao de prevencao retornada pela funcao getPreventionRecommendations,
-// ja filtrada para o perfil do usuario. title/text/rationale vem verbatim da USPSTF
-// (em ingles, nao traduzir) por exigencia de direitos autorais da AHRQ.
+// ja filtrada para o perfil do usuario. title/text/rationale/gradeText vem
+// verbatim da USPSTF (em ingles) por exigencia de direitos autorais da AHRQ —
+// os campos *Pt sao uma adaptacao traduzida (Amazon Translate), exibida junto
+// do texto original, nunca no lugar dele. Podem ser null se a traducao falhar.
 export interface PreventionRecommendation {
   id: number;
   grade: UspstfGrade;
   gradeText: string;
+  gradeTextPt: string | null;
   title: string;
+  titlePt: string | null;
   text: string;
+  textPt: string | null;
   rationale: string | null;
+  rationalePt: string | null;
   topic: string | null;
   citationYear: string | null;
   ageMin: number | null;

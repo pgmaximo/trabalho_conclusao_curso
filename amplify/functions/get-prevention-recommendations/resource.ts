@@ -6,7 +6,10 @@ export const getPreventionRecommendations = defineFunction({
   environment: {
     USPSTF_API_KEY: secret('USPSTF_API_KEY'),
   },
-  timeoutSeconds: 15,
+  // 30s (era 15s) para dar folga as chamadas ao Amazon Translate — title/text/
+  // rationale de cada recomendacao sao traduzidos em paralelo, mas o numero de
+  // recomendacoes por usuario pode ser grande (dezenas).
+  timeoutSeconds: 30,
   // Evita dependencia circular entre as stacks aninhadas data/function: esta
   // funcao e o resolver da query customizada (referenciada pela stack "data")
   // e tambem recebe grantReadData da tabela UserProfile (que referenciaria de
