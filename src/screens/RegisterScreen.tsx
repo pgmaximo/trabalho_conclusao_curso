@@ -15,7 +15,7 @@ import { signUp } from 'aws-amplify/auth';
 import { useColorScheme } from 'nativewind';
 
 import { AuthInput } from '@/components/AuthInput';
-import { BackHeader } from '@/components/BackHeader';
+import { AuthAppHeader } from '@/components/AuthAppHeader';
 import { Button } from '@/components/Button';
 import { SectionDivider } from '@/components/SectionDivider';
 import { SocialButton } from '@/components/SocialButton';
@@ -147,12 +147,7 @@ export function RegisterScreen({
           contentContainerClassName="flex-grow justify-center px-6 pb-3 pt-5"
           keyboardShouldPersistTaps="handled"
         >
-          <BackHeader
-            disabled={isLoading}
-            onBack={onNavigateToLogin}
-            testID="register-header"
-            title="Criar conta"
-          />
+          <AuthAppHeader />
 
           <View
             className="rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"

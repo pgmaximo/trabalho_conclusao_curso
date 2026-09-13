@@ -4,7 +4,7 @@
 
 - [x] Estender `Button` (`src/components/Button.tsx`) com prop `loading?: boolean` (e `loadingTitle?: string`, default "Entrando..." pode ser passado por chamador) que troca o fundo para o tom "pressed" (`#0C6341` claro / equivalente dark), renderiza spinner branco 2.5px + label, e bloqueia `onPress` — sem quebrar o uso atual (`variant`, `disabled`) em outras telas. `loading`/spinner já existiam da Fundação; adicionada apenas `loadingTitle` (opcional, default `${title}…`).
 - [x] Estender `FormField`/`AuthInput` para aceitar um `trailingAction?: ReactNode` (slot à direita do valor, dentro do input) — usado para o link "Mostrar/Ocultar"; manter `icon` (slot à esquerda) como está.
-- [x] Criar `AuthAppHeader` (novo componente pequeno em `src/components/`) para o cabeçalho ícone-quadrado(44px)+título "SuaSaúde"+tagline "Sua saúde organizada em um lugar", reaproveitável em Login/Cadastro/Confirmação/Recuperar senha.
+- [x] Criar `AuthAppHeader` (novo componente pequeno em `src/components/`) para o cabeçalho ícone-quadrado(44px)+título "SuaSaúde"+tagline "Sua saúde organizada em um só lugar.", reaproveitável em Login/Cadastro/Confirmação/Recuperar senha.
 - [x] Criar `SuccessSnackbar` (ou reaproveitar um componente de toast existente, se houver) seguindo o padrão "Sucesso" de `DESIGN_TOKENS.md` §4: fundo `#0C6341`/dark equivalente, ✓ em círculo branco, texto branco, ancorado no rodapé. Nenhum componente de toast existente foi encontrado; `#0C6341` é fixo (mesmo hex nos dois temas no Canvas), não vem de `useThemeColors()`.
 
 ## `src/screens/LoginScreen.tsx`

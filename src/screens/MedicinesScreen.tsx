@@ -4,7 +4,7 @@
 // lembretes ativos (contagem real), lista de doses de hoje e estoques.
 // =============================================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
@@ -17,6 +17,7 @@ import { MedicineCard } from '@/components/MedicineCard';
 import { MedicineStock } from '@/components/MedicineStock';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
+import { InlineError } from '@/components/InlineError';
 import { useThemeColors } from '@/constants/theme';
 import type { MedicineDose, MedicineInventoryItem } from '@/types/models';
 
@@ -28,7 +29,7 @@ type MedicinesScreenProps = {
   isLoading: boolean;
   errorMessage: string | null;
   onRetry: () => void;
-  onToggleMedicineStatus: (doseId: string) => void;
+  onToggleMedicineStatus: (doseId: string) => Promise<void>;
 };
 
 export function MedicinesScreen({
@@ -43,6 +44,8 @@ export function MedicinesScreen({
 }: MedicinesScreenProps) {
   const { colorScheme } = useColorScheme();
   const colors = useThemeColors();
+  const [togglingDoseId, setTogglingDoseId] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   function goToAddMedicine() {
     router.push('/add-medicine');
@@ -50,6 +53,19 @@ export function MedicinesScreen({
 
   function goToEditMedicine(id: string) {
     router.push({ pathname: '/edit-medicine', params: { id } });
+  }
+
+  async function toggleDose(doseId: string) {
+    if (togglingDoseId) return;
+    setTogglingDoseId(doseId);
+    setToggleError(null);
+    try {
+      await onToggleMedicineStatus(doseId);
+    } catch (error) {
+      setToggleError(error instanceof Error ? error.message : 'Nao foi possivel atualizar a dose.');
+    } finally {
+      setTogglingDoseId(null);
+    }
   }
 
   return (
@@ -92,6 +108,7 @@ export function MedicinesScreen({
           />
         ) : (
           <>
+            {toggleError ? <InlineError message={toggleError} /> : null}
             <View className="mb-6 flex-row items-center gap-3 rounded-app border border-app-infoBadgeBorder bg-app-infoSoft px-4 py-3 dark:border-app-dark-infoBadgeBorder dark:bg-app-dark-infoSoft">
               <View className="size-8 items-center justify-center rounded-full bg-app-infoIconBg dark:bg-app-dark-infoIconBg">
                 <Ionicons color="#FFFFFF" name="notifications" size={16} />
@@ -111,7 +128,8 @@ export function MedicinesScreen({
                     time={medicine.time}
                     status={medicine.status}
                     onPress={() => goToEditMedicine(medicine.medicineId)}
-                    onToggle={() => onToggleMedicineStatus(medicine.id)}
+                    onToggle={() => void toggleDose(medicine.id)}
+                    toggleDisabled={togglingDoseId === medicine.id}
                   />
                 ))
               ) : (

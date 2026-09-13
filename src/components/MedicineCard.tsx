@@ -19,6 +19,7 @@ interface MedicineCardProps {
   status: 'pending' | 'taken' | 'missed';
   onPress?: () => void;
   onToggle?: () => void;
+  toggleDisabled?: boolean;
 }
 
 const STATUS_CONFIG = {
@@ -27,7 +28,7 @@ const STATUS_CONFIG = {
   missed: { badgeVariant: 'danger' as const, label: 'Perdido', icon: 'alert' as const },
 };
 
-export function MedicineCard({ name, dosage, time, status, onPress, onToggle }: MedicineCardProps) {
+export function MedicineCard({ name, dosage, time, status, onPress, onToggle, toggleDisabled = false }: MedicineCardProps) {
   const colors = useThemeColors();
   const config = STATUS_CONFIG[status];
   const toggleColor = status === 'taken' ? colors.success : status === 'missed' ? colors.danger : colors.textSecondary;
@@ -62,6 +63,7 @@ export function MedicineCard({ name, dosage, time, status, onPress, onToggle }: 
             accessibilityRole="button"
             hitSlop={8}
             onPress={onToggle}
+            disabled={toggleDisabled}
             style={{
               width: 48,
               height: 48,
@@ -70,6 +72,7 @@ export function MedicineCard({ name, dosage, time, status, onPress, onToggle }: 
               borderColor: toggleColor,
               alignItems: 'center',
               justifyContent: 'center',
+              opacity: toggleDisabled ? 0.45 : 1,
             }}
           >
             <Ionicons color={toggleColor} name={config.icon} size={20} />

@@ -31,6 +31,7 @@
     "plugins": [
       "expo-router",
       "expo-web-browser",
+      "expo-notifications",
       [
         "expo-image-picker",
         {
@@ -43,6 +44,11 @@
           "locationWhenInUsePermission": "O SuaSaúde usa sua localização para mostrar campanhas de vacinação da sua região e unidades de saúde próximas."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "medicineReminders": {
+        "serverEnabled": false
+      }
+    }
   }
 }

@@ -23,4 +23,37 @@ export const medicinesSchema = {
       takenToday: a.string(),
     })
     .authorization((allow) => [allow.owner()]),
+  // Historico persistente de cada dose. O id e deterministico no cliente
+  // (medicamento#data#horario), o que impede que dois toques criem duas doses
+  // tomadas para o mesmo horario.
+  MedicineDoseLog: a
+    .model({
+      medicineId: a.string().required(),
+      scheduledDate: a.date().required(),
+      scheduledTime: a.string().required(),
+      takenAt: a.datetime().required(),
+      stockAdjusted: a.boolean().required().default(false),
+    })
+    .secondaryIndexes((index) => [index('medicineId').sortKeys(['scheduledDate'])])
+    .authorization((allow) => [allow.owner()]),
+  // Um registro por aparelho apto a receber push. O token pertence ao dono do
+  // registro e nunca e retornado para outros usuarios pelo Data API.
+  MedicinePushDevice: a
+    .model({
+      expoPushToken: a.string().required(),
+      platform: a.string().required(),
+      timeZone: a.string().required(),
+      active: a.boolean().required().default(true),
+    })
+    .authorization((allow) => [allow.owner()]),
+  // Registro tecnico de entrega usado pela Lambda para deduplicar o push de
+  // uma dose, inclusive quando a execucao agendada e repetida pela AWS.
+  MedicineNotificationDelivery: a
+    .model({
+      medicineId: a.string().required(),
+      deviceId: a.string().required(),
+      scheduledAt: a.datetime().required(),
+      owner: a.string().required(),
+    })
+    .authorization((allow) => [allow.owner()]),
 };

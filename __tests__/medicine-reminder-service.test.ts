@@ -163,4 +163,9 @@ describe('syncMedicineReminders', () => {
     await syncMedicineReminders(baseMedicine({ endDate: todayISO }));
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
   });
+
+  it('does not schedule a local reminder before a future treatment start date', async () => {
+    await syncMedicineReminders(baseMedicine({ startDate: '2099-01-01' }));
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
 });

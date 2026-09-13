@@ -185,7 +185,7 @@ export function EditMedicineScreen({ id }: EditMedicineScreenProps) {
             <>
               {saveError ? <InlineError message={saveError} /> : null}
 
-              <MedicineFormFields form={form} onChange={update} />
+              <MedicineFormFields fieldErrors={fieldErrors} form={form} onChange={update} />
 
               <View className="mt-8">
                 <Button

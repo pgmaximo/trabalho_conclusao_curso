@@ -128,6 +128,13 @@ export default function RootLayout() {
           vibrationPattern: [0, 250, 250, 250],
           enableVibrate: true,
         });
+        await Notifications.setNotificationChannelAsync('medicine-reminders', {
+          name: 'Medicamentos',
+          importance: Notifications.AndroidImportance.HIGH,
+          sound: 'default',
+          vibrationPattern: [0, 250, 250, 250],
+          enableVibrate: true,
+        });
       }
     })();
   }, []);

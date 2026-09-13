@@ -11,9 +11,11 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 
 import { ensureNotificationPermission } from '@/services/reminderService';
 import type { MedicineRecord } from '@/services/medicineService';
+import { isServerMedicineRemindersEnabled } from '@/services/medicineReminderConfig';
 
 const MEDICINE_REMINDER_MAP_KEY = '@SuaSaude:medicineReminders';
 
@@ -127,6 +129,7 @@ async function scheduleMedicineReminders(medicine: MedicineRecord): Promise<stri
         title: 'Hora do medicamento',
         body: `${medicine.name} · ${medicine.dosage}`,
         data: { medicineId: medicine.id },
+        ...(Platform.OS === 'android' ? { channelId: 'medicine-reminders' } : {}),
       },
       trigger: toExpoTrigger(plan),
     });
@@ -183,6 +186,12 @@ function isEndDateInThePast(endDate: string | null | undefined): boolean {
   return endDate.slice(0, 10) < todayISO;
 }
 
+function isStartDateInTheFuture(startDate: string): boolean {
+  const now = new Date();
+  const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+  return /^\d{4}-\d{2}-\d{2}$/.test(startDate) && startDate > today;
+}
+
 export async function syncMedicineReminders(medicine: MedicineRecord): Promise<void> {
   const map = await loadMedicineReminderMap();
   const existingIds = map[medicine.id] ?? [];
@@ -195,7 +204,14 @@ export async function syncMedicineReminders(medicine: MedicineRecord): Promise<v
   // Curso de tratamento ja encerrado (endDate no passado): trata como inativo,
   // nao agenda nada novo. Nao implementa janela parcial/agendamento futuro —
   // apenas o corte quando a data final ja passou. Ver GAP_ANALYSIS.md item 22.
-  if (medicine.active !== false && !isEndDateInThePast(medicine.endDate)) {
+  if (isServerMedicineRemindersEnabled()) {
+    // O backend passa a ser a fonte de entrega: o token e sincronizado, e os
+    // agendamentos locais antigos são removidos para não duplicar alertas.
+    if (medicine.active !== false && !isEndDateInThePast(medicine.endDate) && !isStartDateInTheFuture(medicine.startDate)) {
+      const { registerMedicinePushDevice } = await import('@/services/medicinePushService');
+      await registerMedicinePushDevice();
+    }
+  } else if (medicine.active !== false && !isEndDateInThePast(medicine.endDate) && !isStartDateInTheFuture(medicine.startDate)) {
     const granted = await ensureNotificationPermission();
     if (granted) {
       const newIds = await scheduleMedicineReminders(medicine);
@@ -219,4 +235,11 @@ export async function removeMedicineReminders(medicineId: string): Promise<void>
 
   delete map[medicineId];
   await saveMedicineReminderMap(map);
+}
+
+/** Limpa lembretes locais da conta anterior no logout. */
+export async function removeAllMedicineReminders(): Promise<void> {
+  const map = await loadMedicineReminderMap();
+  await cancelMedicineReminders(Object.values(map).flat());
+  await saveMedicineReminderMap({});
 }

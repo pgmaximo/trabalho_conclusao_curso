@@ -87,7 +87,7 @@ export function AddMedicineScreen() {
 
           {submitError ? <InlineError message={submitError} /> : null}
 
-          <MedicineFormFields form={form} onChange={update} />
+          <MedicineFormFields fieldErrors={fieldErrors} form={form} onChange={update} />
 
           <View className="mt-8">
             <Button

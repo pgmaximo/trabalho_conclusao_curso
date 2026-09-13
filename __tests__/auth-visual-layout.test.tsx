@@ -44,7 +44,7 @@ describe('auth visual layout', () => {
         onNavigateToLogin={jest.fn()}
         onRegisterSuccess={jest.fn()}
       />,
-      'register-header',
+      'auth-app-header',
     ],
     ['forgot-password', <ForgotPasswordScreen onBackToLogin={jest.fn()} />, 'forgot-password-header'],
     [
@@ -63,6 +63,23 @@ describe('auth visual layout', () => {
     // dedicados por tela: AuthAppHeader (ícone + tagline) no Login e
     // BackHeader (chevron + título) nas telas internas de fluxo.
     expect(screen.getByTestId(headerTestId)).toBeTruthy();
+  });
+
+  it('renders the branded login logo and slogan', () => {
+    render(
+      <LoginScreen
+        onGoogleAuthSuccess={jest.fn()}
+        onLogin={jest.fn()}
+        onNavigateToForgotPassword={jest.fn()}
+        onNavigateToRegister={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('auth-app-header-logo')).toBeTruthy();
+    expect(screen.queryByText('Entre na sua conta')).toBeNull();
+    expect(screen.getByTestId('auth-app-header-tagline')).toHaveTextContent(
+      "Sua saúde organizada em um só lugar."
+    );
   });
 
   it('keeps the Google logo balanced inside the social button', () => {

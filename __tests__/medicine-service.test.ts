@@ -2,7 +2,11 @@ jest.mock('aws-amplify/data', () => ({
   generateClient: jest.fn(() => ({})),
 }));
 
-import { validateMedicineReminder, type MedicineInput } from '@/services/medicineService';
+import {
+  isDoseHistoryBackendUnavailable,
+  validateMedicineReminder,
+  type MedicineInput,
+} from '@/services/medicineService';
 
 function baseInput(overrides: Partial<MedicineInput> = {}): MedicineInput {
   return {
@@ -47,5 +51,11 @@ describe('validateMedicineReminder', () => {
       field: 'times',
       message: 'Informe os horários de dose no formato hh:mm.',
     });
+  });
+});
+
+describe('dose-history rollout compatibility', () => {
+  it('recognizes the Amplify client error produced before the new model is deployed', () => {
+    expect(isDoseHistoryBackendUnavailable(new TypeError("Cannot read properties of undefined (reading 'list')"))).toBe(true);
   });
 });

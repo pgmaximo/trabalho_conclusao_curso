@@ -7,40 +7,23 @@ import {
   saveMedicinesCache,
 } from '@/hooks/medicinesCache';
 import {
+  listMedicineDoseLogsForDate,
+  isDoseHistoryBackendUnavailable,
   listMedicinesForUser,
+  toggleMedicineDose,
   updateMedicine,
+  type MedicineDoseLog,
   type MedicineRecord,
 } from '@/services/medicineService';
 import type { MedicineDose, MedicineInventoryItem, MedicineStockStatus } from '@/types/models';
+import { getLocalIsoDate, getMedicineDoseTimesForDate } from '@/utils/medicineSchedule';
+import { syncMedicineReminders } from '@/services/medicineReminderService';
 
 const UNIT_LABELS: Record<string, string> = {
   COMP: 'comp.',
   ML: 'ml',
   CAPS: 'caps.',
 };
-
-const WEEKDAY_CODES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-
-function getTodayIsoDate(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function isMedicineActiveToday(medicine: MedicineRecord, today: string): boolean {
-  if (!medicine.active) return false;
-  if (medicine.startDate && medicine.startDate > today) return false;
-  if (medicine.endDate && medicine.endDate < today) return false;
-
-  if (medicine.frequencyType === 'SPECIFIC_DAYS') {
-    const todayCode = WEEKDAY_CODES[new Date().getDay()];
-    return (medicine.weekDays ?? []).includes(todayCode);
-  }
-
-  return true;
-}
 
 function parseTakenToday(takenToday: string | null | undefined, today: string): Set<string> {
   if (!takenToday) return new Set();
@@ -53,22 +36,23 @@ function parseTakenToday(takenToday: string | null | undefined, today: string): 
   }
 }
 
-function deriveDosesForToday(medicines: MedicineRecord[]): MedicineDose[] {
-  const today = getTodayIsoDate();
+function deriveDosesForToday(medicines: MedicineRecord[], logs: MedicineDoseLog[], today: string): MedicineDose[] {
   const doses: MedicineDose[] = [];
 
   medicines.forEach((medicine) => {
-    if (!isMedicineActiveToday(medicine, today)) return;
+    const scheduledTimes = getMedicineDoseTimesForDate(medicine, today);
+    if (scheduledTimes.length === 0) return;
     const takenTimes = parseTakenToday(medicine.takenToday, today);
 
-    medicine.times.forEach((time) => {
+    scheduledTimes.forEach((time) => {
+      const hasLog = logs.some((log) => log.medicineId === medicine.id && log.scheduledTime === time);
       doses.push({
         id: `${medicine.id}__${time}`,
         medicineId: medicine.id,
         time,
         name: medicine.name,
         dosage: medicine.dosage,
-        status: takenTimes.has(time) ? 'taken' : 'pending',
+        status: hasLog || takenTimes.has(time) ? 'taken' : 'pending',
       });
     });
   });
@@ -96,15 +80,19 @@ function deriveStocks(medicines: MedicineRecord[]): MedicineInventoryItem[] {
   }));
 }
 
-async function fetchMedicines(): Promise<MedicineRecord[]> {
-  const cached = await loadCachedMedicines<MedicineRecord[]>();
-  if (cached) {
+type MedicinesDataPayload = { date: string; records: MedicineRecord[]; logs: MedicineDoseLog[] };
+
+async function fetchMedicines(): Promise<MedicinesDataPayload> {
+  const today = getLocalIsoDate();
+  const cached = await loadCachedMedicines<MedicinesDataPayload>();
+  if (cached && cached.date === today) {
     return cached;
   }
 
-  const records = await listMedicinesForUser();
-  await saveMedicinesCache(records);
-  return records;
+  const [records, logs] = await Promise.all([listMedicinesForUser(), listMedicineDoseLogsForDate(today)]);
+  const payload = { date: today, records, logs };
+  await saveMedicinesCache(payload);
+  return payload;
 }
 
 export function useMedicinesData() {
@@ -117,9 +105,20 @@ export function useMedicinesData() {
     return unregister;
   }, [retry]);
 
-  const records = useMemo(() => data ?? [], [data]);
+  const records = useMemo(() => data?.records ?? [], [data]);
+  const logs = useMemo(() => data?.logs ?? [], [data]);
+  const today = data?.date ?? getLocalIsoDate();
 
-  const medicines = useMemo(() => deriveDosesForToday(records), [records]);
+  // Reconciliacao no retorno a tela: cobre permissao de notificacao concedida
+  // depois do cadastro, reinstalacao e mudancas feitas em outro aparelho.
+  useEffect(() => {
+    if (status !== 'success' || records.length === 0) return;
+    void Promise.all(records.map((record) => syncMedicineReminders(record))).catch((error) => {
+      console.warn('Nao foi possivel reconciliar os lembretes de medicamento:', error);
+    });
+  }, [records, status]);
+
+  const medicines = useMemo(() => deriveDosesForToday(records, logs, today), [logs, records, today]);
   const stocks = useMemo(() => deriveStocks(records), [records]);
   const pendingCount = useMemo(
     () => medicines.filter((dose) => dose.status === 'pending').length,
@@ -133,18 +132,33 @@ export function useMedicinesData() {
     const medicine = records.find((m) => m.id === dose.medicineId);
     if (!medicine) return;
 
-    const today = getTodayIsoDate();
+    const existingLog = logs.find((log) => log.medicineId === medicine.id && log.scheduledDate === today && log.scheduledTime === dose.time);
     const takenTimes = parseTakenToday(medicine.takenToday, today);
 
-    if (takenTimes.has(dose.time)) {
+    // Registros antigos usavam apenas `takenToday`. Mantemos a possibilidade de
+    // desmarcá-los sem alterar retrospectivamente o estoque e passamos a usar o
+    // histórico persistente em todas as novas marcações.
+    if (!existingLog && takenTimes.has(dose.time)) {
       takenTimes.delete(dose.time);
-    } else {
-      takenTimes.add(dose.time);
+      await updateMedicine(medicine.id, {
+        takenToday: JSON.stringify({ date: today, times: Array.from(takenTimes) }),
+      });
+      return;
     }
 
-    await updateMedicine(medicine.id, {
-      takenToday: JSON.stringify({ date: today, times: Array.from(takenTimes) }),
-    });
+    try {
+      await toggleMedicineDose(medicine, today, dose.time, existingLog);
+    } catch (error) {
+      // Durante o rollout, clientes que ainda apontam para o schema anterior
+      // continuam funcionando com o campo legado em vez de quebrar a tela.
+      if (!isDoseHistoryBackendUnavailable(error)) throw error;
+      const nextTimes = takenTimes.has(dose.time)
+        ? Array.from(takenTimes).filter((time) => time !== dose.time)
+        : [...Array.from(takenTimes), dose.time];
+      await updateMedicine(medicine.id, {
+        takenToday: JSON.stringify({ date: today, times: nextTimes }),
+      });
+    }
   }
 
   return {

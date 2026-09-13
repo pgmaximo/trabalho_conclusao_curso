@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import { BrandLogo } from '@/components/BrandLogo';
 import { MORE_MENU_ITEMS } from '@/constants/navigation';
 import { FONTS, RADII, SPACING, useThemeColors, type ThemeColors } from '@/constants/theme';
 
@@ -91,7 +92,9 @@ export function MoreScreen() {
         contentContainerStyle={{ paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, paddingBottom: SPACING.xxl }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[FONTS.titulo, { color: colors.text, marginBottom: SPACING.lg }]}>Mais</Text>
+        <View style={{ alignItems: 'center', marginBottom: SPACING.lg }}>
+          <BrandLogo accessibilityLabel="SuaSaúde" size="screen" testID="more-screen-logo" variant="symbol" />
+        </View>
 
         <View style={{ gap: SPACING.sm }}>
           {MORE_MENU_ITEMS.map((item) => (

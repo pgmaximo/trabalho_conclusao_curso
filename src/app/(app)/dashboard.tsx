@@ -6,6 +6,7 @@ import { useUserContext } from '@/contexts/UserContext';
 import { useExamsData } from '@/hooks/useExamsData';
 import { useAppointmentsData } from '@/hooks/useAppointmentsData';
 import { useVaccinationAlert } from '@/hooks/useVaccinationAlert';
+import { useMedicinesData } from '@/hooks/useMedicinesData';
 
 function getDashboardTodayLabel(date = new Date()): string {
   return date.toLocaleDateString('pt-BR', {
@@ -52,6 +53,16 @@ function buildTodaySummaryText(appointments: { scheduledAt: string; time: string
   return `${todayAppointments.length} ${label} às ${next.time}`;
 }
 
+function buildDashboardTodaySummary(appointments: { scheduledAt: string; time: string }[], pendingMedicines: number): string {
+  const appointmentText = buildTodaySummaryText(appointments);
+  const hasAppointments = appointments.some((appointment) => isSameCalendarDay(appointment.scheduledAt, new Date()));
+  const medicineText = pendingMedicines > 0
+    ? `${pendingMedicines} medicamento${pendingMedicines === 1 ? '' : 's'} pendente${pendingMedicines === 1 ? '' : 's'}`
+    : '';
+  if (!hasAppointments) return medicineText || appointmentText;
+  return medicineText ? `${appointmentText} · ${medicineText}` : appointmentText;
+}
+
 export default function DashboardRoute() {
   const { user } = useUserContext();
   const {
@@ -66,6 +77,7 @@ export default function DashboardRoute() {
     errorMessage: appointmentsError,
     retry: retryAppointments,
   } = useAppointmentsData();
+  const { pendingCount: pendingMedicines } = useMedicinesData();
   const vaccinationAlert = useVaccinationAlert();
 
   const greeting = getGreeting(user?.name ?? 'você');
@@ -82,7 +94,7 @@ export default function DashboardRoute() {
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
     .slice(0, 2);
 
-  const todaySummaryText = buildTodaySummaryText(appointments);
+  const todaySummaryText = buildDashboardTodaySummary(appointments, pendingMedicines);
 
   return (
     <HomeScreen

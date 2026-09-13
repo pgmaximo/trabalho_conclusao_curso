@@ -39,6 +39,24 @@ export interface MedicineValidationError {
   message: string;
 }
 
+export interface MedicineDoseLog {
+  id: string;
+  medicineId: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  takenAt: string;
+  stockAdjusted: boolean;
+}
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidIsoDate(value: string): boolean {
+  if (!ISO_DATE_PATTERN.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 export function validateMedicineReminder(input: MedicineInput): MedicineValidationError[] {
   const errors: MedicineValidationError[] = [];
 
@@ -66,6 +84,16 @@ export function validateMedicineReminder(input: MedicineInput): MedicineValidati
   }
 
   if (!input.startDate) errors.push({ field: 'startDate', message: 'Informe a data de início.' });
+
+  if (input.startDate && !isValidIsoDate(input.startDate)) {
+    errors.push({ field: 'startDate', message: 'Informe uma data de inicio valida.' });
+  }
+  if (input.endDate && !isValidIsoDate(input.endDate)) {
+    errors.push({ field: 'endDate', message: 'Informe uma data de termino valida.' });
+  }
+  if (input.endDate && isValidIsoDate(input.startDate) && isValidIsoDate(input.endDate) && input.endDate < input.startDate) {
+    errors.push({ field: 'endDate', message: 'A data de termino nao pode ser anterior a data de inicio.' });
+  }
 
   if (input.currentStock === undefined || input.currentStock === null || input.currentStock < 0) {
     errors.push({ field: 'currentStock', message: 'Informe o estoque atual.' });
@@ -191,6 +219,86 @@ export async function deleteMedicine(id: string): Promise<void> {
   if (errors?.length) {
     const message = errors.map((e) => e.message).filter(Boolean).join('; ');
     throw new Error(message || 'Não foi possível deletar o medicamento.');
+  }
+
+  await invalidateMedicinesCache();
+}
+
+function mapDoseLog(data: NonNullable<Awaited<ReturnType<typeof client.models.MedicineDoseLog.get>>['data']>): MedicineDoseLog {
+  return {
+    id: data.id,
+    medicineId: data.medicineId,
+    scheduledDate: data.scheduledDate,
+    scheduledTime: data.scheduledTime,
+    takenAt: data.takenAt,
+    stockAdjusted: data.stockAdjusted,
+  };
+}
+
+/** Carrega o historico persistente das doses do dia. */
+export async function listMedicineDoseLogsForDate(date: string): Promise<MedicineDoseLog[]> {
+  try {
+    const { data, errors } = await client.models.MedicineDoseLog.list();
+    if (errors?.length) {
+      const error = new Error(errors.map((item) => item.message).filter(Boolean).join('; ') || 'Nao foi possivel carregar o historico de doses.');
+      if (isDoseHistoryBackendUnavailable(error)) return [];
+      throw error;
+    }
+    return (data ?? []).map(mapDoseLog).filter((log) => log.scheduledDate === date);
+  } catch (error) {
+    if (isDoseHistoryBackendUnavailable(error)) return [];
+    throw error;
+  }
+}
+
+function doseLogId(medicineId: string, date: string, time: string): string {
+  return `${medicineId}#${date}#${time}`;
+}
+
+export function isDoseHistoryBackendUnavailable(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /MedicineDoseLog|Cannot query field|Unknown type|not configured|Cannot read properties of undefined \(reading 'list'\)/i.test(message);
+}
+
+/** Registra ou desfaz uma dose e ajusta o estoque uma unica vez. */
+export async function toggleMedicineDose(
+  medicine: MedicineRecord,
+  date: string,
+  time: string,
+  existingLog?: MedicineDoseLog,
+): Promise<void> {
+  const id = doseLogId(medicine.id, date, time);
+
+  if (existingLog) {
+    if (existingLog.stockAdjusted) {
+      await updateMedicine(medicine.id, { currentStock: medicine.currentStock + 1 });
+    }
+    const { errors } = await client.models.MedicineDoseLog.delete({ id: existingLog.id });
+    if (errors?.length) {
+      if (existingLog.stockAdjusted) await updateMedicine(medicine.id, { currentStock: medicine.currentStock });
+      throw new Error(errors.map((error) => error.message).filter(Boolean).join('; ') || 'Nao foi possivel desfazer a dose.');
+    }
+  } else {
+    const stockAdjusted = medicine.currentStock > 0;
+    const { errors } = await client.models.MedicineDoseLog.create({
+      id,
+      medicineId: medicine.id,
+      scheduledDate: date,
+      scheduledTime: time,
+      takenAt: new Date().toISOString(),
+      stockAdjusted,
+    });
+    if (errors?.length) {
+      throw new Error(errors.map((error) => error.message).filter(Boolean).join('; ') || 'Nao foi possivel registrar a dose.');
+    }
+    if (stockAdjusted) {
+      try {
+        await updateMedicine(medicine.id, { currentStock: medicine.currentStock - 1 });
+      } catch (error) {
+        await client.models.MedicineDoseLog.delete({ id });
+        throw error;
+      }
+    }
   }
 
   await invalidateMedicinesCache();

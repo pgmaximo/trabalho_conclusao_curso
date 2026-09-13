@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { Avatar } from '@/components/Avatar';
+import { BrandLogo } from '@/components/BrandLogo';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
@@ -130,7 +130,12 @@ export function ProfileScreen({
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
         <View className="items-center">
-          <Avatar name={user?.name} gender={user?.gender} photoUrl={user?.photoUrl} size="lg" />
+          <BrandLogo
+            accessible
+            accessibilityLabel="SuaSaude"
+            size="screen"
+            variant="symbol"
+          />
           <Text className="mt-4 text-xl font-bold text-app-text dark:text-app-dark-text">
             {user?.name ?? '—'}
           </Text>

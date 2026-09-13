@@ -287,6 +287,11 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
           placeholder="DD/MM/YYYY"
         />
       ) : null}
+      {fieldErrors.endDate ? (
+        <Text className="mt-2 text-[13px] text-app-danger dark:text-app-dark-danger">
+          {fieldErrors.endDate}
+        </Text>
+      ) : null}
 
       <View className="mt-4 flex-row items-center gap-2">
         <SelectableChip

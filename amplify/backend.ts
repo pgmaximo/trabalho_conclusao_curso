@@ -5,6 +5,7 @@ import { storage } from './storage/resource.js';
 import { getPreventionRecommendations } from './functions/get-prevention-recommendations/resource.js';
 import { getVaccinationCampaigns } from './functions/get-vaccination-campaigns/resource.js';
 import { getVaccinationSites } from './functions/get-vaccination-sites/resource.js';
+import { sendMedicineReminders } from './functions/send-medicine-reminders/resource.js';
 
 const backend = defineBackend({
   auth,
@@ -13,6 +14,7 @@ const backend = defineBackend({
   getPreventionRecommendations,
   getVaccinationCampaigns,
   getVaccinationSites,
+  sendMedicineReminders,
 });
 
 backend.auth.resources.cfnResources.cfnUserPoolClient.addPropertyOverride('ExplicitAuthFlows', [
@@ -48,3 +50,15 @@ const getVaccinationSitesLambda = backend.getVaccinationSites.resources.lambda;
 
 siteCacheTable.grantReadWriteData(getVaccinationSitesLambda);
 backend.getVaccinationSites.addEnvironment('SITE_CACHE_TABLE_NAME', siteCacheTable.tableName);
+
+const medicineTable = backend.data.resources.tables['Medicine'];
+const medicinePushDeviceTable = backend.data.resources.tables['MedicinePushDevice'];
+const medicineDeliveryTable = backend.data.resources.tables['MedicineNotificationDelivery'];
+const medicineReminderLambda = backend.sendMedicineReminders.resources.lambda;
+
+medicineTable.grantReadData(medicineReminderLambda);
+medicinePushDeviceTable.grantReadData(medicineReminderLambda);
+medicineDeliveryTable.grantReadWriteData(medicineReminderLambda);
+backend.sendMedicineReminders.addEnvironment('MEDICINE_TABLE_NAME', medicineTable.tableName);
+backend.sendMedicineReminders.addEnvironment('PUSH_DEVICE_TABLE_NAME', medicinePushDeviceTable.tableName);
+backend.sendMedicineReminders.addEnvironment('DELIVERY_TABLE_NAME', medicineDeliveryTable.tableName);

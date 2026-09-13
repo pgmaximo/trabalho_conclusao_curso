@@ -199,10 +199,6 @@ export function LoginScreen({
             className="rounded-card border border-app-border bg-app-surface p-5 dark:border-app-dark-border dark:bg-app-dark-surface"
             style={{ boxShadow: `0px 2px 10px ${colors.shadow}0D` }}
           >
-            <Text className="mb-[18px] text-[22px] font-semibold leading-[29px] text-app-text dark:text-app-dark-text">
-              Entre na sua conta
-            </Text>
-
             <AuthInput
               autoCapitalize="none"
               containerClassName="mt-0"
