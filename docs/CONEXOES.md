@@ -25,8 +25,9 @@
 
 - **Autenticação (Bloco 1) e Perfil de Saúde/Home/Agenda (Bloco 2): 100% conectados** a AWS real (Cognito para auth, Amplify Data/DynamoDB para dados). Nenhum mock residual — o diretório `src/mocks/api/` nem existe mais no repositório.
 - **Exames & Receitas, Medicamentos, Prevenção (Bloco 3): 100% conectados.** Upload real para S3, CRUD real em DynamoDB, e a Prevenção chama de fato uma API pública (USPSTF/AHRQ) via função Lambda — sem fallback mockado escondido.
-- **Assistente de IA (Bloco 4): 0% conectado.** Nenhuma chamada de rede a um provedor de LLM existe — é uma simulação com respostas fixas sorteadas e delay artificial. Este é o único ponto do app sem nenhuma integração de IA real, apesar da tela existir e estar com UI completa.
-- **Perfil (Bloco 4): majoritariamente real**, exceto duas features que sempre reportam "indisponível" por não terem nenhuma integração nativa/externa por trás (dispositivos de saúde, exportação de dados).
+- **Assistente de IA (Bloco 4): 0% conectado.** Nenhuma chamada de rede a um provedor de LLM existe — é uma simulação com respostas fixas sorteadas e delay artificial. Continua sendo o único chat de IA do app sem integração real, apesar da tela existir e estar com UI completa.
+- **Dados do smartwatch (novo, Bloco 4): 100% conectado.** O usuário importa o export do Samsung Health (CSV/JSON/ZIP) ou de um exportador do Apple Health; o backend (`amplify/functions/analyze-health-import/`) faz o parsing defensivo, consolida em séries diárias e chama de fato o **Amazon Bedrock** (Claude Sonnet 4.6, saída forçada por tool + Guardrails de entrada/saída) para gerar a análise. Substitui o antigo stub "Dispositivos conectados" do Perfil — ver seção dedicada abaixo.
+- **Perfil (Bloco 4): majoritariamente real**, exceto "Exportar meus dados", que segue reportando "indisponível" por não ter nenhum mecanismo de geração/entrega por trás.
 - **Achados de robustez** (não são "não conectado", mas fragilizam conexões reais): um `catch` silencioso em `UserContext`, cache local sem TTL em Exames/Medicamentos, e falta de rollback se o upload S3 suceder mas o registro em DynamoDB falhar.
 
 ## Tabela por tela
@@ -53,8 +54,10 @@
 | 3 | Prevenção — banner de campanha | idem | ❌ Estático | `vaccinationCampaigns.ts` — config hardcoded, sem API pública (PNI/MS) por trás |
 | 4 | Assistente de IA | `src/app/(app)/ai.tsx` | ❌ **Mock total** | `aiAssistantService.ts:27-42` — ver seção dedicada abaixo |
 | 4 | Perfil — dados | `src/app/(app)/profile.tsx` | ✅ Real | `UserContext`/`profileSetupRepository` sobre `UserProfile` |
-| 4 | Perfil — dispositivos conectados | idem | ❌ Ausente | `healthAppConnectService.ts` sempre `'unavailable'` — sem HealthKit/Health Connect/Google Fit instalado |
-| 4 | Perfil — exportar meus dados | idem | ❌ Ausente | `dataExportService.ts` sempre `'unavailable'` — sem mecanismo de geração/entrega |
+| 4 | Perfil — dados do smartwatch | idem (botão) → `src/app/import-health-data.tsx` | ✅ Real | Substitui o antigo `healthAppConnectService.ts` (removido) — ver seção dedicada abaixo |
+| 4 | Importar dados de saúde | `src/app/import-health-data.tsx` | ✅ Real | Upload real para S3 (`health-imports/{identityId}/{importId}/...`) + `HealthImport.create` + mutation `startHealthAnalysis` — `healthImportService.ts` |
+| 4 | Dashboard de insights de saúde | `src/app/(app)/health-data.tsx` | ✅ Real | Polling de `HealthImport` (nunca subscription — ver seção dedicada) + parsing real via Lambda + análise real via Amazon Bedrock |
+| 4 | Perfil — exportar meus dados | `src/app/(app)/profile.tsx` | ❌ Ausente | `dataExportService.ts` sempre `'unavailable'` — sem mecanismo de geração/entrega |
 | 4 | Editar Perfil — avatar | `src/app/edit-profile.tsx` | ✅ Real | Amplify Storage (S3) real, path `avatars/{owner}/profile.jpg` — `avatarService.ts:17-57` |
 | 4 | Vacinação — doses | `src/app/(app)/vaccination.tsx` | ✅ Real | `VaccineDose.create/list` — `vaccinationService.ts` |
 | 4 | Vacinação — banner de campanha | idem | ✅ Real | PNI/RNDS via `get-vaccination-campaigns` (amostral, com `dataAsOf` exibido — ver `GAP_ANALYSIS.md` item 3.a) |
@@ -85,6 +88,21 @@ Existe um bloco de pseudocódigo **comentado** (linhas 44-55) esboçando o swap 
 
 A interface `AiAssistantService` já isola essa fronteira de propósito — o swap para IA real é, tecnicamente, trocar só o corpo de `sendMessage`, sem tocar UI/hook. A decisão de fazer esse swap está bloqueada por escolha de provedor, custo por token e política de retenção de dados de saúde enviados a terceiro (LGPD) — ver `docs/DADOS_MOCKADOS.md` item 1 e `specs/design/GAP_ANALYSIS.md` pendência #4.a.
 
+## Dados do smartwatch — primeira integração real de IA do app (2026-09-15)
+
+Ao contrário do Assistente de IA, esta feature faz uma chamada de rede real a um provedor de LLM. Fluxo completo:
+
+1. `ImportHealthDataScreen` (`src/app/import-health-data.tsx`) — consentimento LGPD, seleção de arquivos (CSV/JSON/ZIP), upload sequencial para `health-imports/{identityId}/{importId}/...`, `client.models.HealthImport.create()` e `client.mutations.startHealthAnalysis({ importId })`.
+2. Lambda `start-health-analysis` (resolver da mutation) valida o dono e o formato das chaves S3, marca `PROCESSING` e invoca `analyze-health-import` de forma assíncrona (fire-and-forget — o resolver do AppSync tem teto de 30s, a análise leva mais que isso).
+3. Lambda `analyze-health-import` descompacta o ZIP com allowlist (`fflate`), identifica o tipo de cada CSV pela **linha 1** (nunca pelo nome do arquivo — ambiguidade real encontrada no export do Samsung Health), normaliza unidades/fusos, deduplica por dispositivo, agrega por dia, valida sanidade, monta o resumo estatístico (com correlações de Pearson defasadas) e chama o **Amazon Bedrock** (`us.anthropic.claude-sonnet-4-6`, saída forçada por tool + Guardrail de entrada e saída) — grava o resultado direto no DynamoDB via `UpdateCommand`.
+4. `HealthDashboardScreen` (`src/app/(app)/health-data.tsx`) acompanha o status via **polling** (nunca subscription do Amplify Data — a Lambda escreve direto no DynamoDB, contornando o AppSync, então uma subscription nunca dispararia) e mostra o dashboard com gráficos (`react-native-svg`, sem biblioteca nova) e o texto gerado pela IA.
+
+O Guardrail (`aws-cdk-lib/aws-bedrock`, criado via IaC) bloqueia diagnóstico médico definitivo e prescrição de medicamento, filtra ataque de prompt, e anonimiza PII — reforça a regra 4 da constituição de forma estrutural (o próprio schema da resposta da IA não tem vocabulário para soar como diagnóstico), não só por instrução no prompt.
+
+Catálogo de métricas e todos os quirks de parsing (linha de metadado, delimitador, timestamps, dedupe por dispositivo, códigos de estágio de sono) foram derivados do export real do Samsung Health de um usuário, não de suposição — ver `docs/superpowers/plans/2026-09-09-importacao-wearables-bedrock.md` seção 0.2 para o detalhamento.
+
+**Pendência conhecida**: a conta AWS deste projeto está aguardando a aprovação do formulário de uso de modelos Anthropic (bloqueio da própria AWS, não do código) — o pipeline foi validado ponta a ponta com um usuário Cognito de teste até a chamada ao Bedrock; a chamada com Guardrail em produção real ainda não pôde ser confirmada nesta sessão.
+
 ## Achados de robustez em conexões que são reais
 
 Estes não são "desconectados" — a chamada de backend existe e funciona — mas são pontos frágeis encontrados durante a auditoria, não documentados anteriormente como decisão deliberada:
@@ -99,7 +117,7 @@ Estes não são "desconectados" — a chamada de backend existe e funciona — m
 Estes pontos aparecem como "não conectado" na tabela acima, mas o código já comunica honestamente o estado ao usuário (nenhum finge sucesso) — consistente com a regra 2 da constituição do projeto (`specs/constitution.md`):
 
 - Sync com Google Agenda (`googleCalendarSync.ts`) — modal "em breve".
-- Dispositivos conectados / Exportar dados (Perfil) — estado "Indisponível"/"Em breve" explícito na UI.
+- Exportar dados (Perfil) — estado "Indisponível"/"Em breve" explícito na UI. (Dispositivos conectados deixou de ser um stub — ver seção dedicada acima.)
 - A carteira de vacinação exibida no app é declarada como registro pessoal, não o documento oficial — a carteira oficial (RNDS/Meu SUS Digital) exige certificado ICP-Brasil e CNES credenciado, inacessível a este app (ver `GAP_ANALYSIS.md` item 3.a).
 
 Ver `docs/DADOS_MOCKADOS.md` para o detalhamento completo desses casos (arquivo, decisão pendente, o que precisa ser decidido antes de implementar).
