@@ -172,4 +172,15 @@ describe('HealthDashboardScreen', () => {
     renderScreen({ healthImport: baseHealthImport({ summary: null, insights: null }) });
     expect(screen.getByText('Resultado indisponível')).toBeTruthy();
   });
+
+  it('clarifies that the metric card number is a daily average, not the latest reading (regra: usuário não deve confundir com "hoje")', () => {
+    renderScreen({ healthImport: baseHealthImport() });
+    expect(screen.getByText('Números = média diária do período · gráfico = tendência mensal')).toBeTruthy();
+    expect(screen.getByText('média diária')).toBeTruthy();
+  });
+
+  it('clarifies that coverage is measured in days, not a generic percentage', () => {
+    renderScreen({ healthImport: baseHealthImport() });
+    expect(screen.getByText('cobertura de 89% dos dias')).toBeTruthy();
+  });
 });

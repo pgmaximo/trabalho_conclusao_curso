@@ -8,10 +8,11 @@ type SparklineProps = {
   color: string;
   width: number;
   height: number;
+  accessibilityLabel?: string;
 };
 
 /** Linha minimalista sem eixos/rótulos — usada dentro de `MetricCard`. */
-export function Sparkline({ points, color, width, height }: SparklineProps) {
+export function Sparkline({ points, color, width, height, accessibilityLabel }: SparklineProps) {
   const hasData = points.some((point) => point.value !== null);
   if (!hasData || width <= 0) return null;
 
@@ -19,7 +20,12 @@ export function Sparkline({ points, color, width, height }: SparklineProps) {
   const path = buildLinePath(points, width, height, domain, { top: 2, bottom: 2, left: 1, right: 1 });
 
   return (
-    <Svg height={height} width={width}>
+    <Svg
+      accessibilityLabel={accessibilityLabel}
+      accessible={!!accessibilityLabel}
+      height={height}
+      width={width}
+    >
       <Path d={path} fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} />
     </Svg>
   );

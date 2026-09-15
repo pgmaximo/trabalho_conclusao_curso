@@ -191,7 +191,7 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
         </View>
       </Section>
 
-      <Section title="Métricas">
+      <Section subtitle="Números = média diária do período · gráfico = tendência mensal" title="Métricas">
         <View className="flex-row flex-wrap gap-2">
           {summary.metrics.map((metric) => (
             <View className="min-w-[47%] flex-1" key={metric.metric}>
@@ -202,14 +202,18 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
                 <Text className="mb-1 mt-1 text-[18px] font-bold text-app-text dark:text-app-dark-text">
                   {formatMetricValue(metric)}
                 </Text>
+                <Text className="mb-1.5 text-[10px] text-app-textMuted dark:text-app-dark-textMuted">
+                  média diária
+                </Text>
                 <Sparkline
+                  accessibilityLabel={`Tendência mensal de ${metric.label}, de ${metric.firstSeen} a ${metric.lastSeen}`}
                   color={colors.primary}
                   height={28}
                   points={metric.monthly.map((p) => ({ dateKey: `${p.month}-01`, value: p.mean }))}
                   width={110}
                 />
                 <Text className="mt-1 text-[11px] text-app-textMuted dark:text-app-dark-textMuted">
-                  cobertura {metric.coveragePct}%
+                  cobertura de {metric.coveragePct}% dos dias
                 </Text>
               </View>
             </View>
