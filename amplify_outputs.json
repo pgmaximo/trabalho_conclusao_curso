@@ -878,6 +878,192 @@
             "primaryKeyFieldName": "id",
             "sortKeyFieldNames": []
           }
+        },
+        "HealthImport": {
+          "name": "HealthImport",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true,
+              "attributes": []
+            },
+            "status": {
+              "name": "status",
+              "isArray": false,
+              "type": {
+                "enum": "HealthImportStatus"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "sourceHint": {
+              "name": "sourceHint",
+              "isArray": false,
+              "type": {
+                "enum": "HealthImportSourceHint"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "fileKeys": {
+              "name": "fileKeys",
+              "isArray": true,
+              "type": "String",
+              "isRequired": true,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "fileNames": {
+              "name": "fileNames",
+              "isArray": true,
+              "type": "String",
+              "isRequired": true,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "periodStart": {
+              "name": "periodStart",
+              "isArray": false,
+              "type": "AWSDate",
+              "isRequired": false,
+              "attributes": []
+            },
+            "periodEnd": {
+              "name": "periodEnd",
+              "isArray": false,
+              "type": "AWSDate",
+              "isRequired": false,
+              "attributes": []
+            },
+            "dayCount": {
+              "name": "dayCount",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "metricsJson": {
+              "name": "metricsJson",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "insightsJson": {
+              "name": "insightsJson",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "resultArtifactKey": {
+              "name": "resultArtifactKey",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "warnings": {
+              "name": "warnings",
+              "isArray": true,
+              "type": "String",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "errorMessage": {
+              "name": "errorMessage",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "startedAt": {
+              "name": "startedAt",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "analyzedAt": {
+              "name": "analyzedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": []
+            },
+            "modelId": {
+              "name": "modelId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "inputTokens": {
+              "name": "inputTokens",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "outputTokens": {
+              "name": "outputTokens",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "HealthImports",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "provider": "userPools",
+                    "ownerField": "owner",
+                    "allow": "owner",
+                    "identityClaim": "cognito:username",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": false,
+            "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
         }
       },
       "enums": {
@@ -927,6 +1113,24 @@
             "COMP",
             "ML",
             "CAPS"
+          ]
+        },
+        "HealthImportStatus": {
+          "name": "HealthImportStatus",
+          "values": [
+            "PENDING",
+            "PROCESSING",
+            "READY",
+            "FAILED"
+          ]
+        },
+        "HealthImportSourceHint": {
+          "name": "HealthImportSourceHint",
+          "values": [
+            "SAMSUNG_HEALTH",
+            "APPLE_HEALTH",
+            "OUTRO",
+            "DESCONHECIDO"
           ]
         }
       },
@@ -1170,6 +1374,25 @@
             }
           }
         },
+        "StartHealthAnalysisResult": {
+          "name": "StartHealthAnalysisResult",
+          "fields": {
+            "importId": {
+              "name": "importId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "status": {
+              "name": "status",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            }
+          }
+        },
         "GetVaccinationCampaignsReturnType": {
           "name": "GetVaccinationCampaignsReturnType",
           "fields": {
@@ -1296,6 +1519,24 @@
           },
           "isRequired": false
         }
+      },
+      "mutations": {
+        "startHealthAnalysis": {
+          "name": "startHealthAnalysis",
+          "isArray": false,
+          "type": {
+            "nonModel": "StartHealthAnalysisResult"
+          },
+          "isRequired": false,
+          "arguments": {
+            "importId": {
+              "name": "importId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            }
+          }
+        }
       }
     }
   },
@@ -1317,6 +1558,14 @@
             ]
           },
           "avatars/${cognito-identity.amazonaws.com:sub}/*": {
+            "entityidentity": [
+              "get",
+              "list",
+              "write",
+              "delete"
+            ]
+          },
+          "health-imports/${cognito-identity.amazonaws.com:sub}/*": {
             "entityidentity": [
               "get",
               "list",

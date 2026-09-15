@@ -15,5 +15,12 @@ export const storage = defineStorage({
     'avatars/{entity_id}/*': [
       allow.entity('identity').to(['read', 'write', 'delete']),
     ],
+    // Arquivos brutos exportados de apps de saude (CSV/JSON/ZIP) enviados
+    // pelo usuario para a feature de importacao de wearables. So a
+    // analyze-health-import (via grantReadWrite no backend.ts) le esses
+    // arquivos; o app so escreve.
+    'health-imports/{entity_id}/*': [
+      allow.entity('identity').to(['read', 'write', 'delete']),
+    ],
   }),
 });
