@@ -27,12 +27,18 @@ export const FIELD_LIMITS = {
   acao: 300,
   porque: 300,
   resumo: 600,
-  pergunta: 200,
+  // 200 se provou baixo demais na pratica: perguntas clinicas genuinamente
+  // uteis ("minha media de X, considerando Y, e motivo de preocupacao dado
+  // Z?") passam facilmente disso -- 2 das 3 perguntas de uma analise real
+  // vieram cortadas com "…" no meio da frase.
+  pergunta: 350,
   // O campo que de fato estourou com o export real do usuario (7,7 anos de
-  // historico, cobertura bem desigual entre metricas): 500 caracteres nao
-  // davam espaco para listar as ressalvas de um periodo tao longo e
-  // heterogeneo mesmo apos a tentativa de reparo em bedrockClient.ts.
-  limitacoes: 900,
+  // historico, cobertura bem desigual entre metricas): mesmo depois de subir
+  // de 500 para 900, uma analise real ainda veio com 893 caracteres (na
+  // borda) e outra estourou os 900 e foi cortada com "…" -- 900 ainda nao
+  // dava espaco de sobra para listar as ressalvas de um periodo tao longo e
+  // heterogeneo.
+  limitacoes: 1400,
 } as const;
 
 const destaqueSchema = z.object({

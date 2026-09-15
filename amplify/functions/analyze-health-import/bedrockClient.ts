@@ -17,16 +17,18 @@ const client = new BedrockRuntimeClient({ maxAttempts: 5, retryMode: 'adaptive' 
 // 3000 tokens (estimativa original) se provou baixo demais na pratica: com
 // os limites de caracteres de insightSchema.ts no maximo (4 pontosDeAtencao
 // com descricao de 700 chars, 3 padroes, 4 sugestoes, etc.) o JSON de saida
-// pode passar de ~15 mil caracteres so de conteudo, sem contar a sobrecarga
+// pode passar de ~16 mil caracteres so de conteudo, sem contar a sobrecarga
 // de sintaxe do JSON e os nomes de campo repetidos por item -- perto de
-// 4000-5000 tokens so de texto, antes da tool call terminar. Descoberto ao
+// 4500-5000 tokens so de texto, antes da tool call terminar. Descoberto ao
 // analisar o export real do usuario (7,7 anos de historico): o Converse
 // cortava a resposta ANTES do ultimo campo ("limitacoes") ser emitido,
 // stopReason "max_tokens", e a resposta parcial falhava a validacao com
 // "limitacoes: Invalid input: expected string, received undefined" -- nao um
-// problema de formato, e sim de espaco. Custo de dobrar a cota e desprezivel
-// (~+US$ 0,03/analise no pior caso, ver plan.md secao 12).
-const MAX_OUTPUT_TOKENS = 6000;
+// problema de formato, e sim de espaco. 7000 da uma folga confortavel sobre
+// o pior caso mesmo depois de FIELD_LIMITS.pergunta e .limitacoes terem
+// subido de novo (ver insightSchema.ts). Custo de subir a cota e desprezivel
+// (poucos centavos de dolar por analise no pior caso, ver plan.md secao 12).
+const MAX_OUTPUT_TOKENS = 7000;
 
 // temperature baixa: a tarefa e sumarizar estatisticas ja pre-computadas de
 // forma consistente, nao criar texto criativo.

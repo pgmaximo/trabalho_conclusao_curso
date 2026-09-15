@@ -196,7 +196,7 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
           {summary.metrics.map((metric) => (
             <View className="min-w-[47%] flex-1" key={metric.metric}>
               <View className="rounded-app border border-app-border bg-app-surface p-3 dark:border-app-dark-border dark:bg-app-dark-surface">
-                <Text className="text-[12px] uppercase tracking-wide text-app-textSecondary dark:text-app-dark-textSecondary" numberOfLines={1}>
+                <Text className="text-[12px] uppercase tracking-wide text-app-textSecondary dark:text-app-dark-textSecondary">
                   {metric.label}
                 </Text>
                 <Text className="mb-1 mt-1 text-[18px] font-bold text-app-text dark:text-app-dark-text">
