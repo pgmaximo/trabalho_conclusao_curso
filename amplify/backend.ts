@@ -98,7 +98,14 @@ backend.analyzeHealthImport.addEnvironment('HEALTH_BUCKET_NAME', backend.storage
 // (erro 400), e o Opus 5 liga thinking por padrao. O Sonnet 4.6 nao liga, e a
 // tarefa (sumarizar estatisticas ja pre-computadas) nao exige raciocinio
 // profundo — ver plan.md secao 4.
-const BEDROCK_MODEL_ID = 'anthropic.claude-sonnet-4-6';
+// BEDROCK_BASE_MODEL_ID e o id "nu" do modelo (usado so para montar a ARN de
+// foundation-model abaixo); BEDROCK_INFERENCE_PROFILE_ID (com o prefixo
+// "us.") e o valor que de fato precisa ir em `modelId` no ConverseCommand —
+// este modelo NAO aceita invocacao on-demand pelo id base ("Invocation of
+// model ID ... with on-demand throughput isn't supported"), confirmado
+// invocando a Lambda de producao diretamente (2026-09-15).
+const BEDROCK_BASE_MODEL_ID = 'anthropic.claude-sonnet-4-6';
+const BEDROCK_INFERENCE_PROFILE_ID = `us.${BEDROCK_BASE_MODEL_ID}`;
 const bedrockRegion = Stack.of(analyzeHealthImportLambda).region;
 const bedrockAccount = Stack.of(analyzeHealthImportLambda).account;
 
@@ -186,7 +193,7 @@ const healthInsightsGuardrailVersion = new bedrock.CfnGuardrailVersion(
   { guardrailIdentifier: healthInsightsGuardrail.attrGuardrailId },
 );
 
-backend.analyzeHealthImport.addEnvironment('BEDROCK_MODEL_ID', BEDROCK_MODEL_ID);
+backend.analyzeHealthImport.addEnvironment('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID);
 backend.analyzeHealthImport.addEnvironment('BEDROCK_GUARDRAIL_ID', healthInsightsGuardrail.attrGuardrailId);
 backend.analyzeHealthImport.addEnvironment('BEDROCK_GUARDRAIL_VERSION', healthInsightsGuardrailVersion.attrVersion);
 
@@ -199,8 +206,8 @@ analyzeHealthImportLambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['bedrock:InvokeModel'],
     resources: [
-      `arn:aws:bedrock:${bedrockRegion}:${bedrockAccount}:inference-profile/us.${BEDROCK_MODEL_ID}`,
-      `arn:aws:bedrock:*::foundation-model/${BEDROCK_MODEL_ID}`,
+      `arn:aws:bedrock:${bedrockRegion}:${bedrockAccount}:inference-profile/${BEDROCK_INFERENCE_PROFILE_ID}`,
+      `arn:aws:bedrock:*::foundation-model/${BEDROCK_BASE_MODEL_ID}`,
     ],
   }),
 );
