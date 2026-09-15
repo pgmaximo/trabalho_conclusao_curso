@@ -13,7 +13,20 @@ const client = new BedrockRuntimeClient({ maxAttempts: 5, retryMode: 'adaptive' 
 // maxTokens SEMPRE explicito -- deixar em branco reserva a cota maxima do
 // modelo e e a causa numero 1 de ThrottlingException "do nada" (ver skill
 // amazon-bedrock, referencia model-invocation.md).
-const MAX_OUTPUT_TOKENS = 3000;
+//
+// 3000 tokens (estimativa original) se provou baixo demais na pratica: com
+// os limites de caracteres de insightSchema.ts no maximo (4 pontosDeAtencao
+// com descricao de 700 chars, 3 padroes, 4 sugestoes, etc.) o JSON de saida
+// pode passar de ~15 mil caracteres so de conteudo, sem contar a sobrecarga
+// de sintaxe do JSON e os nomes de campo repetidos por item -- perto de
+// 4000-5000 tokens so de texto, antes da tool call terminar. Descoberto ao
+// analisar o export real do usuario (7,7 anos de historico): o Converse
+// cortava a resposta ANTES do ultimo campo ("limitacoes") ser emitido,
+// stopReason "max_tokens", e a resposta parcial falhava a validacao com
+// "limitacoes: Invalid input: expected string, received undefined" -- nao um
+// problema de formato, e sim de espaco. Custo de dobrar a cota e desprezivel
+// (~+US$ 0,03/analise no pior caso, ver plan.md secao 12).
+const MAX_OUTPUT_TOKENS = 6000;
 
 // temperature baixa: a tarefa e sumarizar estatisticas ja pre-computadas de
 // forma consistente, nao criar texto criativo.
@@ -96,7 +109,15 @@ export async function requestInsights(
   let parsed = parseInsights(extractToolInput(response));
 
   if (!parsed.ok) {
-    const repairText = `${userText}\n\nSua resposta anterior teve um problema de formato (${parsed.message}). Chame a tool "${ANALYSIS_TOOL_NAME}" novamente, com TODOS os campos corretamente preenchidos conforme o schema.`;
+    // stopReason "max_tokens" nao e um problema de FORMATO (a mensagem do
+    // zod, tipo "limitacoes: Invalid input: expected string, received
+    // undefined", so descreve o sintoma) -- e a resposta ter sido cortada no
+    // meio. Pedir para "preencher todos os campos" de novo tende a repetir o
+    // mesmo estouro; pedir objetividade e o que realmente ataca a causa.
+    const repairText =
+      response.stopReason === 'max_tokens'
+        ? `${userText}\n\nSua resposta anterior foi cortada por ultrapassar o limite de tamanho antes de terminar. Chame a tool "${ANALYSIS_TOOL_NAME}" de novo, sendo bem mais direto em cada campo de texto (principalmente "descricao", "evidencia", "acao" e "porque"), mas SEM pular nenhum campo obrigatorio -- garanta que "limitacoes" seja preenchido por ultimo, mesmo que curto.`
+        : `${userText}\n\nSua resposta anterior teve um problema de formato (${parsed.message}). Chame a tool "${ANALYSIS_TOOL_NAME}" novamente, com TODOS os campos corretamente preenchidos conforme o schema.`;
 
     let repairResponse: ConverseCommandOutput;
     try {
@@ -108,6 +129,13 @@ export async function requestInsights(
     inputTokens += repairResponse.usage?.inputTokens ?? 0;
     outputTokens += repairResponse.usage?.outputTokens ?? 0;
     parsed = parseInsights(extractToolInput(repairResponse));
+
+    if (!parsed.ok && repairResponse.stopReason === 'max_tokens') {
+      return {
+        ok: false,
+        message: 'A análise gerada ficou grande demais para ser concluída, mesmo após uma nova tentativa mais objetiva.',
+      };
+    }
   }
 
   if (!parsed.ok) {
