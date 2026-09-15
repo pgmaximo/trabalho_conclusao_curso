@@ -54,7 +54,7 @@ Nota: o Canvas de 3b **não** desenha um texto de apoio abaixo do botão desabil
 | `documentName` | Input local (state React) | Vai para `MedicalDocument.documentName` (obrigatório no schema Amplify) |
 | `documentDate` | State local, default `getTodayDate()` (`YYYY-MM-DD`) | Vai para `MedicalDocument.documentDate` (`a.date().required()`) |
 | `expirationDate` | State local, exibido apenas quando `documentType === 'prescription'` | Vai para `MedicalDocument.expirationDate` (`a.date()`, opcional no schema, mas obrigatório na regra de negócio para receitas via `validateExamDocument`) |
-| Arquivo binário | Lido de `filePath` (blob no web, base64 no nativo via `expo-file-system`) | Enviado ao S3 via `uploadData` em `medical-documents/{owner}/${s3FileName}` (`examService.ts`) — fonte real, sem mock |
+| Arquivo binário | Lido de `filePath` (blob no web via `fetch`, `Uint8Array` no nativo via `File.bytes()` do `expo-file-system`) | Enviado ao S3 via `uploadData` em `medical-documents/{owner}/${s3FileName}` (`src/services/upload.ts`, extraído de `examService.ts`) — fonte real, sem mock. Corrigido de uma leitura em base64 (que dobrava o uso de memória em string UTF-16 e causava `OutOfMemoryError` no Android em arquivos grandes, descoberto ao importar dados de wearables) para leitura direta em bytes |
 | `MedicalDocument` (linha DynamoDB) | `client.models.MedicalDocument.create(...)` (Amplify Data, `amplify/data/schemas/medical-documents.ts`) | Owner-based (`allow.owner()`) — cada usuário só vê/edita seus próprios documentos |
 | Cache local de exames | `AsyncStorage` (`@SuaSaude:examsCache`), invalidado via `invalidateExamsCache()` após criar | Garante que a tela 3a mostre o documento novo sem refetch manual do usuário |
 

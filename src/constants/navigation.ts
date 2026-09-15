@@ -65,6 +65,13 @@ export const MORE_MENU_ITEMS = [
     href: '/vaccination',
   },
   {
+    id: 'health-data',
+    icon: 'watch',
+    label: 'Dados do smartwatch',
+    description: 'Insights do seu sono, passos e batimentos',
+    href: '/health-data',
+  },
+  {
     id: 'profile',
     icon: 'person',
     label: 'Perfil',
@@ -75,7 +82,15 @@ export const MORE_MENU_ITEMS = [
 
 // Prefixos de pathname que ficam "atrás" da aba Mais — qualquer rota que
 // comece com um destes prefixos marca a aba 'more' como ativa.
-export const MORE_ROUTE_PREFIXES = ['/more', '/ai', '/prevention', '/profile', '/vaccination'] as const;
+export const MORE_ROUTE_PREFIXES = [
+  '/more',
+  '/ai',
+  '/prevention',
+  '/profile',
+  '/vaccination',
+  '/health-data',
+  '/import-health-data',
+] as const;
 
 /**
  * Função para determinar qual tab está ativa baseada no pathname atual

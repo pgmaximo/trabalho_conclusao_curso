@@ -37,9 +37,9 @@ O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e pro
 - 🤖 **Análise por IA** — interpretação preliminar de exames, identificando padrões e oferecendo orientações informativas, **sem emitir diagnósticos definitivos nem substituir a avaliação profissional**
 - 🧪 **Recomendação de exames** — sugestão proativa de exames com base nas características clínicas do usuário e em bases de dados públicas e confiáveis
 - 💉 **Gestão de vacinação** — controle de vacinas tomadas e pretendidas, com integração ao sistema de saúde pública brasileiro para alertar sobre campanhas de vacinação
-- ⌚ **Integração com wearables** — coleta de dados como frequência cardíaca, padrões de sono e níveis de atividade
-- 📊 **Dashboard interativo** — visualização clara das métricas de saúde coletadas pelos wearables
-- 🔗 **Análise contextualizada** — correlação dos dados fisiológicos com registros manuais, exames e a rotina do usuário
+- ⌚ **Integração com wearables** *(implementado)* — importação do export do Samsung Health (ou de um exportador do Apple Health), com parsing defensivo de CSV/JSON/ZIP e consolidação de frequência cardíaca, sono, passos e outras métricas
+- 📊 **Dashboard interativo** *(implementado)* — visualização em gráficos das métricas de saúde importadas
+- 🔗 **Análise contextualizada** *(implementado)* — correlações estatísticas entre métricas (ex.: sono e frequência cardíaca de repouso), narradas em linguagem natural por Amazon Bedrock (Claude), com pontos de atenção e sugestões — sempre um apoio informativo, nunca um diagnóstico
 - 🔒 **Segurança e privacidade** — desenvolvimento em conformidade com a **LGPD** (Lei Geral de Proteção de Dados), incluindo termo de uso sobre a finalidade da coleta de dados sensíveis de saúde
 
 ---
@@ -53,7 +53,10 @@ O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e pro
 | [AWS DynamoDB](https://aws.amazon.com/dynamodb/) | Banco de dados para os metadados e registros de saúde |
 | [AWS Amplify](https://aws.amazon.com/amplify/) | Integração do código JavaScript ao ambiente AWS (backend-as-code, Gen 2) |
 | [AWS Cognito](https://aws.amazon.com/cognito/) | Gerenciamento e autenticação de usuários |
-| Inteligência Artificial | Apoio à análise preliminar de exames — recurso informativo, não diagnóstico |
+| [Amazon Bedrock](https://aws.amazon.com/bedrock/) | Análise dos dados de wearables (Claude, via Converse API + Guardrails) — apoio informativo, nunca diagnóstico |
+| [AWS Lambda](https://aws.amazon.com/lambda/) | Parsing defensivo dos exports de wearables, integrações com APIs públicas de saúde (USPSTF, PNI/RNDS, CNES) |
+
+O dado de saúde do usuário é processado **dentro da própria conta AWS do projeto** (Bedrock, na região `us-east-1`) — não é enviado a nenhum provedor de IA de terceiros.
 
 ---
 

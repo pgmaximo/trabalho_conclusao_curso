@@ -7,14 +7,13 @@
 
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
-import { uploadData, remove, getUrl } from 'aws-amplify/storage';
-import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
-import { Platform } from 'react-native';
+import { remove, getUrl } from 'aws-amplify/storage';
 
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { getUserId } from '@/services/auth';
 import { invalidateExamsCache } from '@/hooks/useExamsData';
+import { uploadFileToS3 } from '@/services/upload';
 
 const client = generateClient<Schema>();
 
@@ -237,54 +236,6 @@ export function validateExamDocument(
 }
 
 /**
- * Carrega um arquivo para o S3 usando Amplify Storage
- */
-async function uploadFileToS3(
-  filePath: string,
-  s3FileName: string,
-): Promise<string> {
-  try {
-    let blobData: Blob;
-
-    // Handle web vs native platforms
-    if (Platform.OS === 'web') {
-      // On web, filePath is a blob URI or file URI from the document picker
-      // Fetch it as a blob
-      const response = await fetch(filePath);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.statusText}`);
-      }
-      blobData = await response.blob();
-    } else {
-      // On native, filePath is a file system path
-      // Read the file from the path as base64
-      const base64Data = await readAsStringAsync(filePath, {
-        encoding: EncodingType.Base64,
-      });
-
-      // Convert base64 to blob
-      const response = await fetch(`data:application/octet-stream;base64,${base64Data}`);
-      blobData = await response.blob();
-    }
-
-    // Upload para S3 usando Amplify Storage. `{owner}` NÃO é um token substituído
-    // pelo Amplify Storage (só `{entity_id}` é) — usar a forma de função com
-    // `identityId` é o jeito correto de isolar o arquivo por usuário (ver
-    // amplify/storage/resource.ts, regra `medical-documents/{entity_id}/*`).
-    const result = await uploadData({
-      path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
-      data: blobData,
-    }).result;
-
-    console.log(`Arquivo enviado para S3: ${result.path}`);
-    return result.path;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erro ao fazer upload do arquivo';
-    throw new Error(`Falha no upload para S3: ${message}`);
-  }
-}
-
-/**
  * Retorna URL assinada para download do documento no S3
  */
 export async function getDocumentDownloadUrl(s3FileName: string): Promise<string> {
@@ -374,7 +325,10 @@ export async function createExamDocument(input: CreateExamDocumentInput) {
     console.log('Metadados construídos:', metadata);
 
     // 2. Fazer upload do arquivo para S3
-    const s3Path = await uploadFileToS3(input.filePath, metadata.s3FileName);
+    const s3Path = await uploadFileToS3(
+      input.filePath,
+      ({ identityId }) => `medical-documents/${identityId}/${metadata.s3FileName}`,
+    );
     console.log('Arquivo enviado para S3:', s3Path);
 
     // 3. Salvar metadados no DynamoDB

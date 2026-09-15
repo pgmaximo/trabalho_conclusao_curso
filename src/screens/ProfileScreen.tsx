@@ -11,7 +11,6 @@ import { useThemeColors } from '@/constants/theme';
 import { useThemeContext, type ThemeMode } from '@/contexts/ThemeContext';
 import type { UserProfile } from '@/contexts/UserContext';
 import { requestDataExport } from '@/services/export/dataExportService';
-import { getHealthConnectStatus } from '@/services/health/healthAppConnectService';
 import {
   REMINDER_INTERVAL_OPTIONS,
   type ReminderIntervalsByGrade,
@@ -26,6 +25,8 @@ type ProfileScreenProps = {
   onSetReminderInterval: (grade: UspstfGrade, days: number) => void;
   onLogout: () => void;
   onEditProfile: () => void;
+  /** Navega para o fluxo de importação de dados de wearables (Samsung Health / Apple Health). */
+  onImportHealthData: () => void;
 };
 
 const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
@@ -80,12 +81,12 @@ export function ProfileScreen({
   onSetReminderInterval,
   onLogout,
   onEditProfile,
+  onImportHealthData,
 }: ProfileScreenProps) {
   const { colorScheme } = useThemeContext();
   const colors = useThemeColors();
   const bmi = calculateBMI(user?.weightKg, user?.heightCm);
   const age = user?.birthDate ? calculateAge(user.birthDate) : null;
-  const healthConnectStatus = getHealthConnectStatus();
   const [activeIntervalGrade, setActiveIntervalGrade] = useState<UspstfGrade | null>(null);
 
   const handleExportData = async () => {
@@ -93,13 +94,6 @@ export function ProfileScreen({
     Alert.alert(
       'Exportar meus dados',
       'Em breve. Para solicitar seus dados agora, contate o suporte.',
-    );
-  };
-
-  const handleHealthConnectPress = () => {
-    Alert.alert(
-      'App de Saúde do celular',
-      'Em breve você poderá conectar o Apple Health ou Google Fit por aqui.',
     );
   };
 
@@ -294,29 +288,24 @@ export function ProfileScreen({
           <Section title="Configurações" subtitle="Gerencie seus dados e sessão.">
             <View className="mb-3 rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface">
               <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                Dispositivos conectados
+                Dados do smartwatch
               </Text>
               <Text className="mt-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                Conecte o app de Saúde do seu celular (Apple Health ou Google Fit) para o
-                Assistente de IA usar esses dados nas respostas. Eles não são exibidos em
-                nenhuma outra tela do app.
+                Importe os dados exportados do Samsung Health (ou de um app como Health Auto
+                Export, no iPhone) para receber insights sobre sono, passos e batimentos.
               </Text>
 
               <Pressable
-                accessibilityLabel="App de Saúde do celular"
+                accessibilityLabel="Importar dados do smartwatch"
                 accessibilityRole="button"
                 className="mt-3 flex-row items-center justify-between rounded-app border border-app-border p-3 dark:border-app-dark-border"
-                onPress={handleHealthConnectPress}
+                onPress={onImportHealthData}
                 style={({ pressed }) => [pressed && { opacity: 0.7 }]}
               >
                 <Text className="text-[15px] text-app-text dark:text-app-dark-text">
-                  App de Saúde do celular
+                  Importar dados
                 </Text>
-                <View className="rounded-full bg-app-border px-3 py-1 dark:bg-app-dark-border">
-                  <Text className="text-[13px] font-semibold text-app-textSecondary dark:text-app-dark-textSecondary">
-                    {healthConnectStatus === 'unavailable' ? 'Indisponível' : 'Conectado'}
-                  </Text>
-                </View>
+                <Ionicons color={colors.iconMuted} name="chevron-forward" size={18} />
               </Pressable>
             </View>
 

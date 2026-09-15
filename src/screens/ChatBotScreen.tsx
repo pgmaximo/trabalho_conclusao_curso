@@ -21,6 +21,7 @@ import { useColorScheme } from 'nativewind';
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
 
+import { AiDisclaimerBanner } from '@/components/AiDisclaimerBanner';
 import { HistoryDrawer } from '@/components/HistoryDrawer';
 import { MessageBubble } from '@/components/MessageBubble';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -121,14 +122,7 @@ export function ChatBotScreen() {
         </View>
 
         <View className="px-6">
-          <View className="mb-4 flex-row items-start gap-3 rounded-app border border-app-infoBadgeBorder bg-app-infoSoft px-4 py-3 dark:border-app-dark-infoBadgeBorder dark:bg-app-dark-infoSoft">
-            <View className="size-6 items-center justify-center rounded-full bg-app-infoIconBg dark:bg-app-dark-infoIconBg">
-              <Text className="text-[13px] font-bold text-white">i</Text>
-            </View>
-            <Text className="flex-1 text-[15px] leading-[20px] text-app-info dark:text-app-dark-info">
-              Apoio informativo — não substitui avaliação médica.
-            </Text>
-          </View>
+          <AiDisclaimerBanner />
         </View>
 
         <FlatList
