@@ -55,11 +55,12 @@ export const vacinasTool: ChatTool = {
     if (!saida?.aplicadas?.length) return null;
     return {
       titulo: 'Doses registradas',
-      linhas: saida.aplicadas.map((d) => ({
-        texto: [d.nome, d.numeroDaDose ? `${d.numeroDaDose}a dose` : null, d.aplicadaEm]
+      linhas: saida.aplicadas.map((d) =>
+        [d.nome, d.numeroDaDose ? `${d.numeroDaDose}a dose` : null, d.aplicadaEm]
           .filter((parte): parte is string => Boolean(parte))
           .join(' · '),
-      })),
+      ),
+      citacoes: [],
     };
   },
 };

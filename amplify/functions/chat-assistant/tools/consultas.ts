@@ -59,11 +59,12 @@ export const consultasTool: ChatTool = {
     if (!saida?.futuras?.length) return null;
     return {
       titulo: 'Próximos agendamentos',
-      linhas: saida.futuras.map((c) => ({
-        texto: [c.nome, c.quando, c.profissional]
+      linhas: saida.futuras.map((c) =>
+        [c.nome, c.quando, c.profissional]
           .filter((parte): parte is string => Boolean(parte))
           .join(' · '),
-      })),
+      ),
+      citacoes: [],
     };
   },
 };

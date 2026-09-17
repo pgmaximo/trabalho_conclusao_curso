@@ -4,6 +4,7 @@
  * funcao e o aplicativo. Fica num arquivo proprio para que o handler nao
  * precise importar o laco so para conhecer o formato da resposta.
  */
+import type { AnswerCitation } from './chatSchema';
 import type { ChatIdentity } from './auth';
 
 /**
@@ -54,9 +55,10 @@ export type ChatContext = {
  */
 export type DegradedBlock = {
   titulo: string;
-  linhas: {
-    texto: string;
-    /** Quando a linha vem de um documento, ela leva ate ele. */
-    documentId?: string;
-  }[];
+  /** Uma linha de dado por coleta, ja formatada em pt-BR. */
+  linhas: string[];
+  /** A origem de cada numero da secao -- e o que mantem a bolha clicavel
+   *  mesmo quando nao houve prosa gerada. Vazio quando a secao nao traz
+   *  numero de exame. */
+  citacoes: AnswerCitation[];
 };

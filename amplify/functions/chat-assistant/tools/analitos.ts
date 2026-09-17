@@ -21,6 +21,7 @@ import { z } from 'zod';
 import type { ChatIdentity } from '../auth';
 import { ANALYTE_CATALOG, findAnalyteByCode } from '../../extract-document-data/analyteCatalog';
 import type { DegradedBlock } from '../types';
+import { formatarData, formatarDecimal } from '../formatoPtBr';
 import { lerDoDono, texto } from './ownerScopedRead';
 import type { ChatTool } from './tipos';
 
@@ -257,27 +258,42 @@ export const analitosTool: ChatTool = {
       nome?: string;
       series?: {
         momento: string | null;
-        coletas: { dataDaColeta: string | null; valor: number | null; unidade: string | null; documentoId: string }[];
+        unidade: string;
+        coletas: {
+          id: string;
+          valor: number | null;
+          unidade: string | null;
+          dataDaColeta: string | null;
+          documentoId: string;
+        }[];
       }[];
     };
     if (!saida?.disponivel || !saida.series?.length) return null;
 
-    const linhas = saida.series.flatMap((s) =>
-      s.coletas.map((c) => ({
-        // Data, valor, unidade e origem. Nenhuma palavra sobre o que o numero
-        // significa: e o texto de modelo fixo do modo degradado, e ele passa
-        // as regras por construcao porque nao tem onde uma opiniao caberia.
-        texto: [
-          c.dataDaColeta ?? 'sem data',
-          `${c.valor ?? '—'} ${c.unidade ?? ''}`.trim(),
-          s.momento ? `(${s.momento})` : null,
+    const coletas = saida.series.flatMap((s) =>
+      s.coletas.map((c) => ({ ...c, momento: s.momento })),
+    );
+    if (coletas.length === 0) return null;
+
+    return {
+      titulo: saida.nome ?? 'Seus resultados',
+      // Data, valor, unidade e momento. NENHUMA comparacao com a faixa: dizer
+      // "dentro" ou "acima" seria leitura clinica, e e justamente por nao
+      // interpretar que este texto e seguro sem passar por verificacao.
+      linhas: coletas.map((c) =>
+        [
+          formatarData(c.dataDaColeta),
+          `${formatarDecimal(c.valor)} ${c.unidade ?? ''}`.trim(),
+          c.momento ? `(${c.momento})` : null,
         ]
           .filter((parte): parte is string => Boolean(parte))
-          .join(' · '),
+          .join(' — '),
+      ),
+      citacoes: coletas.map((c) => ({
+        resultId: c.id,
         documentId: c.documentoId,
+        collectedAt: c.dataDaColeta ?? '',
       })),
-    );
-
-    return linhas.length > 0 ? { titulo: saida.nome ?? 'Seus resultados', linhas } : null;
+    };
   },
 };

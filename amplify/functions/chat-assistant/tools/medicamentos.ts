@@ -56,13 +56,17 @@ export const medicamentosTool: ChatTool = {
     if (!saida?.emUso?.length) return null;
     return {
       titulo: 'Medicamentos que você cadastrou',
-      linhas: saida.emUso.map((m) => ({
-        // Repete o que a PESSOA digitou, sem recomendar nada -- e a diferenca
-        // entre mostrar o cadastro e indicar posologia.
-        texto: [m.nome, m.doseRegistrada, m.horarios.join(', ')]
-          .filter((parte): parte is string => Boolean(parte))
-          .join(' · '),
-      })),
+      // A dose cadastrada fica de FORA do modo degradado, e isto e a
+      // diferenca entre as duas superficies: a tool pode devolve-la ao
+      // modelo, porque e o dado da pessoa, mas o texto de modelo fixo precisa
+      // passar as regras POR CONSTRUCAO -- e "500 mg" numa linha de texto e
+      // exatamente o que a R3 reprova, sem ter como saber que ali e um
+      // cadastro e nao uma indicacao. Quem quer ver a dose abre a tela de
+      // medicamentos, que e a tela dela.
+      linhas: saida.emUso
+        .map((m) => [m.nome, m.horarios.join(', ')].filter((p): p is string => Boolean(p)).join(' · '))
+        .filter((l) => l !== ''),
+      citacoes: [],
     };
   },
 };

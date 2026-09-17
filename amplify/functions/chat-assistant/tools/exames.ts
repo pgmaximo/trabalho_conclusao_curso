@@ -59,12 +59,14 @@ export const examesTool: ChatTool = {
     if (!saida?.documentos?.length) return null;
     return {
       titulo: 'Documentos guardados',
-      linhas: saida.documentos.map((d) => ({
-        texto: [d.titulo ?? 'Documento sem título', d.dataDoDocumento, d.laboratorio]
+      linhas: saida.documentos.map((d) =>
+        [d.titulo ?? 'Documento sem título', d.dataDoDocumento, d.laboratorio]
           .filter((parte): parte is string => Boolean(parte))
           .join(' · '),
-        documentId: d.documentId,
-      })),
+      ),
+      // Sem citacao: um documento na lista nao e um numero citado, e citacao
+      // aponta para a LINHA de onde um valor saiu.
+      citacoes: [],
     };
   },
 };

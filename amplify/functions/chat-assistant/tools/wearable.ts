@@ -67,7 +67,8 @@ export const wearableTool: ChatTool = {
     const fim = saida.periodo.fim ?? 'data não informada';
     return {
       titulo: 'Sua última importação de wearable',
-      linhas: [{ texto: `Período de ${inicio} a ${fim}` }],
+      linhas: [`Período de ${inicio} a ${fim}`],
+      citacoes: [],
     };
   },
 };
