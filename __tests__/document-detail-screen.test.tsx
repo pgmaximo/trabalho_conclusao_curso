@@ -18,7 +18,7 @@ jest.mock('@expo/vector-icons/Ionicons', () => {
 });
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { checkLanguageRules } from '../amplify/functions/ai-language-rules/languageRules';
@@ -172,6 +172,18 @@ describe('DocumentDetailScreen — o que a tela pode e nao pode dizer', () => {
     // aparece na frase que pede para conferir no documento.
     expect(screen.getByLabelText(/confirmar a leitura de hemoglobina/i)).toBeTruthy();
     expect(screen.getByLabelText(/corrigir a leitura de hemoglobina/i)).toBeTruthy();
+  });
+
+  it('o botao corrigir abre o painel de correcao naquela linha', () => {
+    const pendente = { ...hemoglobina, reviewStatus: 'PENDENTE_DE_REVISAO' as const };
+    renderScreen(extracao({ status: 'SUCCEEDED', results: [pendente] }));
+
+    fireEvent.press(screen.getByLabelText(/corrigir a leitura de hemoglobina/i));
+
+    expect(screen.getByText(/salvar correção/i)).toBeTruthy();
+    // Os botoes da linha somem enquanto o painel esta aberto: duas maneiras de
+    // resolver a mesma linha na tela ao mesmo tempo confundem.
+    expect(screen.queryByLabelText(/confirmar a leitura de hemoglobina/i)).toBeNull();
   });
 });
 

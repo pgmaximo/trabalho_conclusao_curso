@@ -18,6 +18,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { CorrectResultPanel } from '@/components/CorrectResultPanel';
 import { DateInput } from '@/components/DateInput';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { DetailHeader } from '@/components/DetailHeader';
@@ -336,6 +337,19 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
                 extraction={extraction}
                 linhaEmCorrecaoId={linhaEmCorrecao?.id ?? null}
                 onCorrect={setLinhaEmCorrecao}
+                renderPainelDeCorrecao={(linha) => (
+                  <CorrectResultPanel
+                    onCancel={() => setLinhaEmCorrecao(null)}
+                    onDone={() => {
+                      setLinhaEmCorrecao(null);
+                      // Rele o banco em vez de remendar o estado local: o que a
+                      // tela mostra passa a ser o que ficou gravado.
+                      extraction.refresh();
+                      setSuccessMessage('Correção salva!');
+                    }}
+                    result={linha}
+                  />
+                )}
                 onOpenSeries={(analyteCode) => router.push(`/analyte-series?code=${analyteCode}`)}
               />
 
