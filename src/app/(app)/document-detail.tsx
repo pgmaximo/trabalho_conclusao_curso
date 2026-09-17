@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/EmptyState';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { useSelectedDocument } from '@/contexts/DocumentContext';
+import { useDocumentExtraction } from '@/hooks/useDocumentExtraction';
 import { getDocumentById } from '@/hooks/useExamsData';
 import { DocumentDetailScreen } from '@/screens/DocumentDetailScreen';
 
@@ -26,6 +27,12 @@ export default function DocumentDetailPage() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { selectedDocument, setSelectedDocument } = useSelectedDocument();
   const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'error'>('idle');
+
+  // A consulta por repeticao vive aqui, e nao na tela: a tela continua
+  // apresentacional, como HealthDashboardScreen. O hook aceita null, entao ele
+  // pode ser chamado antes de o documento ser resolvido -- as regras dos hooks
+  // proibem chama-lo depois dos returns condicionais abaixo.
+  const extraction = useDocumentExtraction(selectedDocument?.id ?? id ?? null);
 
   // Contexto existe mas não corresponde ao `id` da URL atual (ex.: usuário viu o
   // documento A, voltou, e abriu um link para `?id=documentB` com o app ainda em
@@ -82,7 +89,7 @@ export default function DocumentDetailPage() {
       createdAt: '',
     };
 
-    return <DocumentDetailScreen document={document} />;
+    return <DocumentDetailScreen document={document} extraction={extraction} />;
   }
 
   if (!id) {

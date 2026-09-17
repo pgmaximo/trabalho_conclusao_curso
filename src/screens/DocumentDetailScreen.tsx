@@ -21,11 +21,14 @@ import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { DetailHeader } from '@/components/DetailHeader';
+import { ExtractedResultsSection } from '@/components/ExtractedResultsSection';
 import { FormField } from '@/components/FormField';
 import { HachuraPlaceholder } from '@/components/HachuraPlaceholder';
 import { InlineError } from '@/components/InlineError';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
 import { useThemeColors } from '@/constants/theme';
+import type { UseDocumentExtractionResult } from '@/hooks/useDocumentExtraction';
+import type { LabResultView } from '@/services/extractionService';
 import {
   formatDateForDisplay,
   getDocumentDownloadUrl,
@@ -38,14 +41,24 @@ import {
 
 export interface DocumentDetailScreenProps {
   document: MedicalDocumentMetadata;
+  /**
+   * Estado da leitura automatica, injetado pela rota. A tela continua
+   * apresentacional -- quem consulta o backend e o hook, na rota, como em
+   * health-data.tsx. E tambem o que permite testar os cinco estados sem
+   * cronometro nem rede.
+   */
+  extraction: UseDocumentExtractionResult;
 }
 
-export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
+export function DocumentDetailScreen({ document, extraction }: DocumentDetailScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  // Uma linha por vez em correcao, do mesmo jeito que isConfirmingDelete ja
+  // faz com o painel de exclusao.
+  const [linhaEmCorrecao, setLinhaEmCorrecao] = useState<LabResultView | null>(null);
 
   // Tipo do documento não é editável no Canvas 3c (modo edição só expõe Nome/Data/Data de
   // validade) — mantido só como valor de leitura para a linha "Tipo" e para a condição da
@@ -315,6 +328,16 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
                   </View>
                 ) : null}
               </Card>
+
+              {/* Leitura automatica do documento (EPIC 06). Entra ABAIXO do
+                  que ja existia: os tres modos desta tela -- visualizacao,
+                  edicao e exclusao -- nao mudaram (regra 5). */}
+              <ExtractedResultsSection
+                extraction={extraction}
+                linhaEmCorrecaoId={linhaEmCorrecao?.id ?? null}
+                onCorrect={setLinhaEmCorrecao}
+                onOpenSeries={(analyteCode) => router.push(`/analyte-series?code=${analyteCode}`)}
+              />
 
               {downloadError ? <InlineError message={downloadError} /> : null}
 
