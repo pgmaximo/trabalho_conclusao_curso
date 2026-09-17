@@ -714,3 +714,110 @@ ferramentas**. Ela reaproveita as mensagens já acumuladas, inclusive os
 resultados das ferramentas, e pede apenas uma redação nova — o que a faz custar
 cerca de 55% de um turno, com uma ida ao modelo em vez de duas, e a faz enxergar
 exatamente as mesmas evidências que a primeira.
+
+---
+
+## D19 — A saída é estruturada pelo servidor, e o PDF digital vai direto ao modelo
+**Data:** 2026-09-17 · **Estado:** decidida · **Encerra a Tarefa 1**
+
+Doze invocações medidas contra o Bedrock real, três modelos × quatro cenários,
+mais quatro invocações de verificação. Todas as doze devolveram `ok`. Laudo de
+origem: Delboni/DASA, 04/10/2025, 19 exames, 836 KB, PDF digital.
+
+### O que foi medido
+
+| Cenário | Resultado | Consequência |
+|---|---|---|
+| `tool-forcada` | funciona nos três, `stopReason: tool_use`, sem texto parasita | **derruba a contradição** |
+| `tool-estrita` | "aceito" — mas ver abaixo, é falso positivo | descartado |
+| `saida-estruturada` | funciona nos três, imposta pelo servidor | **é o caminho** |
+| `pdf-nativo` | funciona nos três, transcreveu o laudo real | tira o Textract do caminho crítico |
+
+### A contradição do `backend.ts:110` não se reproduziu
+
+O comentário afirma que `toolChoice` forçado é incompatível com raciocínio
+estendido nos modelos Anthropic (erro 400), e que o Opus liga raciocínio por
+padrão. Medido: **`tool-forcada` funcionou no Opus 4.6**, com
+`stopReason: tool_use`, bloco `toolUse` presente e nenhum texto visível
+parasita. Nenhum 400.
+
+Conforme o plano manda, **o comentário dele não foi editado**. Ele descreve o
+que foi medido em outra época e possivelmente em outro modelo; esta nota
+registra a divergência. Avisar o Arturo.
+
+### `strict` na tool é um falso positivo, e quase virou decisão
+
+`tool-estrita` "passou" nos três modelos. A verificação mostrou por quê: o
+Converse **aceita qualquer campo desconhecido dentro do `toolSpec` sem
+reclamar**. Um campo inventado, `campoQueNaoExiste: true`, passou exatamente
+igual. Os contadores de token são idênticos aos de `tool-forcada` (681 de
+entrada, 33 de saída, nos dois).
+
+Ou seja: a medição não distingue "o Bedrock honrou `strict`" de "o Bedrock
+jogou `strict` fora em silêncio". Tratar isso como recurso disponível teria
+apoiado a garantia de schema numa coisa que provavelmente não existe — o exato
+modo de falha silenciosa que a Tarefa 1 foi escrita para evitar.
+
+**Recusado:** a regra de decisão 2 do plano, que usaria `tool-estrita` se ela
+funcionasse. Ela não funciona; ela só não reclama.
+
+### A saída estruturada é imposta pelo servidor, e isso foi provado
+
+Duas verificações, e as duas passaram:
+
+1. **Sob pressão.** Pedido explícito de "um poema de quatro versos sobre o mar,
+   não use JSON", com `output_config` ativo. A resposta voltou **dentro do
+   schema**: `{"teste": "O mar balança em ondas de cristal..."}`. O servidor
+   impôs a forma contra a instrução do usuário.
+2. **Com schema inválido.** `{ tipo: 'invalido' }` foi **recusado** com
+   `ValidationException: output_config.format.schema: Invalid schema: Schema
+   type is missing`. O servidor lê e valida o schema — não o repassa cego.
+
+Isso é o oposto do caso do `strict`, e é o que separa recurso de silêncio.
+
+**Pela regra de decisão 1 do plano, a saída estruturada é o caminho.** Ela não
+depende de tool forçada e portanto não esbarra na questão do raciocínio.
+
+**Consequência que o plano mandou propagar, e que vale registrar:** a saída
+volta como **bloco de texto**, não como bloco de tool. O `guardrailConfig` do
+Converse avalia bloco de texto. A afirmação da spec de que não há guardrail de
+saída **deixa de valer** neste caminho: passa a ser recurso de graça, não
+ausência justificada.
+
+### O PDF digital vai direto ao modelo
+
+Cenário `pdf-nativo` com o laudo real: os três modelos leram e responderam
+`"Hemograma com Contagem de Plaquetas"`, que é de fato o primeiro exame do
+documento. 49.482 tokens de entrada para o PDF inteiro.
+
+Uma quinta invocação combinou **PDF + saída estruturada**, que é a forma real
+da pipeline, com um schema de transcrição de analito. Resultado: **41 analitos
+transcritos em 35 segundos**, 50.027 tokens de entrada e 3.143 de saída.
+Conferidos contra a tela do próprio laboratório: Eritrócitos 5,19 · Hemoglobina
+16,1 g/dL · Hematócrito 47,0 % · Ferritina 81,3 ng/mL. **A vírgula decimal e o
+ponto de milhar vieram preservados** (`"5,19"`, `"5.500"`), que é exatamente o
+que a D23 pede do modelo: transcrever, não converter.
+
+**Pela regra de decisão 5, a Tarefa 8 passa a ter dois caminhos:** PDF digital
+vai direto ao modelo; foto e documento escaneado vão pelo Textract. O Textract
+deixa de ser caminho crítico — por decisão medida, não por desconhecimento.
+
+### O modelo escolhido
+
+`us.anthropic.claude-sonnet-4-6`, pelo identificador de perfil de inferência.
+
+**Por quê:** Opus 4.6 e Sonnet 4.6 tiveram comportamento **idêntico** nos quatro
+cenários — mesmo `stopReason`, mesmos blocos, mesma contagem de token, mesma
+transcrição do laudo. Sem diferença medida, o desempate é custo, e ele é o
+modelo que esta base já invoca em produção na feature de wearable.
+
+**Recusado por indisponibilidade, não por mérito:** Opus 5 e Sonnet 5, os dois
+primeiros candidatos do plano. Os dois estão listados em
+`list-foundation-models` e têm perfil de inferência `ACTIVE`, mas a invocação
+devolve `AccessDeniedException: not available for this account`. O mesmo vale
+para Opus 4.8, Opus 4.7 e Fable 5.1. **É liberação de modelo na conta, não
+permissão de IAM** — a chamada chegou ao Bedrock. Liberar depende de ação do
+dono da conta no console do Bedrock, em Model access.
+
+Se forem liberados depois, a medição se repete rodando o mesmo roteiro; a
+escolha é uma constante num lugar só.

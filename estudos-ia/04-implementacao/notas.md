@@ -127,3 +127,39 @@ não para estes. Sugere que chegam; não prova. Viraram cenários da Tarefa 1, q
 passou de uma medição para quatro.
 
 **LangChain e LangGraph** avaliados e recusados nas duas frentes. → D20.
+
+## Da prova de vida do Bedrock (Tarefa 1, 2026-09-17)
+
+Medição real, conta `370586504317`, região `us-east-1`. Decisão em D19.
+
+- **`list-foundation-models` mente sobre acesso.** Opus 5 e Sonnet 5 aparecem
+  na listagem e têm perfil de inferência `ACTIVE`, e mesmo assim a invocação
+  devolve `AccessDeniedException: not available for this account`. Listagem é
+  catálogo, não direito de uso. O jeito de saber é invocar.
+- **O prefixo `global.` não contorna** a falta de liberação — mesmo erro do
+  `us.`. Liberados hoje: Opus 4.6, Sonnet 4.6, Opus 4.5, Sonnet 4.5, Haiku 4.5.
+- **O `toolSpec` do Converse engole campo desconhecido sem reclamar.** Provado
+  mandando `campoQueNaoExiste: true` junto — passou igual a `strict: true`.
+  Consequência prática: **nunca concluir que um recurso existe porque a API não
+  reclamou dele.** Se não há como distinguir aceitação de silêncio, é silêncio.
+- **`output_config` é o contrário disso**, e por isso é confiável: com schema
+  inválido o servidor recusa nomeando o campo, e sob instrução contrária
+  ("escreva um poema, não use JSON") a saída volta dentro do schema.
+- **PDF nativo custa entrada, não trabalho.** O laudo de 836 KB e 19 exames
+  entrou como 49.482 tokens. Com a extração estruturada junto, 50.027 de
+  entrada e 3.143 de saída, 35 segundos, 41 analitos. Comparar com o custo do
+  Textract mais o texto extraído antes de decidir que é caro.
+- **O modelo transcreveu com vírgula decimal e ponto de milhar intactos**
+  (`"5,19"`, `"16,1"`, `"5.500"`), que é o comportamento que a D23 pede. A
+  instrução de sistema pedia transcrição, não conversão.
+
+### Dois achados que viram trabalho, e não estavam no plano
+
+1. **`collectedAt` volta como `04/10/2025`, não em ISO.** O schema da Tarefa 4
+   exige `^\d{4}-\d{2}-\d{2}$`, então a linha inteira seria recusada. O prompt
+   da Tarefa 9 precisa pedir ISO explicitamente, e o teste precisa cobrir isso.
+2. **`10^6/µL` não está na tabela de unidades.** O laudo do Delboni escreve
+   assim para eritrócitos; o conversor conhece `10*6/uL`, que é a grafia UCUM.
+   Sem alias, **a primeira linha de todo hemograma vai para revisão** — o
+   mesmo modo de falha que a D28 descreve, encontrado agora contra papel de
+   verdade em vez de hipótese. O mesmo vale para `10^3/µL`.
