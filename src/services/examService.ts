@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getUserId } from '@/services/auth';
 import { invalidateExamsCache } from '@/hooks/useExamsData';
 import { uploadFileToS3 } from '@/services/upload';
+import { startExtraction } from '@/services/extractionService';
 
 const client = generateClient<Schema>();
 
@@ -277,8 +278,16 @@ async function buildDocumentMetadata(
 
 /**
  * Salva os metadados do documento no DynamoDB via Amplify Data
+ *
+ * O `id` da linha criada volta junto porque a extracao precisa dele: ate a
+ * EPIC de leitura de documentos, esta funcao devolvia so os metadados locais e
+ * o id do resolver era descartado. Ele e opcional no tipo porque a resposta do
+ * AppSync pode vir sem `data` -- e nesse caso o documento esta salvo do mesmo
+ * jeito, so nao da para pedir a leitura dele.
  */
-async function saveDocumentMetadata(metadata: FileMetadata): Promise<FileMetadata> {
+async function saveDocumentMetadata(
+  metadata: FileMetadata,
+): Promise<FileMetadata & { id?: string }> {
   try {
     const { data, errors } = await client.models.MedicalDocument.create({
       documentType: metadata.documentType as Schema['MedicalDocument']['type']['documentType'],
@@ -298,7 +307,7 @@ async function saveDocumentMetadata(metadata: FileMetadata): Promise<FileMetadat
     }
 
     console.log('Documento salvo no banco de dados:', data);
-    return metadata;
+    return { ...metadata, id: data?.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro ao salvar metadados';
     throw new Error(message);
@@ -337,6 +346,19 @@ export async function createExamDocument(input: CreateExamDocumentInput) {
 
     // 4. Invalidate cache so next fetch gets fresh data
     await invalidateExamsCache();
+
+    // 5. Disparar a extracao. ISOLADO DE PROPOSITO: salvar o documento e o
+    //    contrato desta funcao, e extrair e um acrescimo. Se o disparo falhar,
+    //    o documento continua salvo, acessivel e listado exatamente como antes
+    //    desta EPIC -- e a tela de detalhe o mostra como nunca extraido, com
+    //    a opcao de tentar de novo.
+    if (savedMetadata.id) {
+      try {
+        await startExtraction(savedMetadata.id);
+      } catch (error) {
+        console.warn('Nao foi possivel disparar a extracao deste documento:', error);
+      }
+    }
 
     return savedMetadata;
   } catch (error) {
