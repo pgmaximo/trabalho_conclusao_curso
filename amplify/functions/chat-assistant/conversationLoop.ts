@@ -18,7 +18,6 @@ import { toStructuredOutputSchema } from '../extract-document-data/extractionSch
 import { SYSTEM_PROMPT, buildUserMessage } from './chatPrompt';
 import { chatAnswerSchema, extrairResposta, type ChatAnswer } from './chatSchema';
 import { CHAT_TOOLS, runTool } from './tools';
-import type { ChatContext, ChatTurnRequest, ChatTurnResult } from './types';
 import type { ChatIdentity } from './auth';
 
 const client = new BedrockRuntimeClient({ maxAttempts: 3, retryMode: 'adaptive' });
@@ -80,7 +79,15 @@ export type TurnOutcome =
       outputTokens: number;
       modelId: string;
     }
-  | { ok: false; message: string; transcript: TurnTranscript };
+  | {
+      ok: false;
+      message: string;
+      transcript: TurnTranscript;
+      /** Distingue "o filtro barrou a pergunta" de "nao consegui responder".
+       *  Sem essa marca, quem chama trocaria a mensagem honesta do filtro pela
+       *  copy generica -- e a pessoa nao saberia que houve um bloqueio. */
+      bloqueadoPeloFiltro?: true;
+    };
 
 const BLOQUEADO_PELO_FILTRO =
   'Não consigo responder a essa mensagem. Se for sobre um sintoma ou um resultado, vale levar a pergunta a um profissional de saúde.';
@@ -181,7 +188,7 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
       // Guardrail nao e falha tecnica: e o sistema funcionando. A mensagem ao
       // usuario nao pode soar como erro.
       if (resposta.stopReason === 'guardrail_intervened') {
-        return { ok: false, transcript, message: BLOQUEADO_PELO_FILTRO };
+        return { ok: false, transcript, message: BLOQUEADO_PELO_FILTRO, bloqueadoPeloFiltro: true };
       }
 
       const blocos = resposta.output?.message?.content ?? [];
@@ -272,7 +279,7 @@ export async function regenerateAnswer(
     const resposta = await chamar(input, messages, TEMPERATURE_RETRY);
 
     if (resposta.stopReason === 'guardrail_intervened') {
-      return { ok: false, transcript, message: BLOQUEADO_PELO_FILTRO };
+      return { ok: false, transcript, message: BLOQUEADO_PELO_FILTRO, bloqueadoPeloFiltro: true };
     }
 
     const blocos = resposta.output?.message?.content ?? [];
@@ -296,30 +303,4 @@ export async function regenerateAnswer(
     console.error('Falha na segunda geracao:', erro);
     return { ok: false, transcript, message: NAO_MONTEI };
   }
-}
-
-/**
- * O ponto de entrada que o handler conhece. As cinco camadas de linguagem
- * entram aqui na tarefa C5; por enquanto ele e o laco e nada mais.
- */
-export async function responder(
-  request: ChatTurnRequest,
-  context: ChatContext,
-): Promise<ChatTurnResult> {
-  const entrada: TurnInput = {
-    message: request.message,
-    history: request.history,
-    attachmentText: request.attachmentText,
-    identity: context.identity,
-    modelId: process.env.BEDROCK_MODEL_ID ?? '',
-    guardrailId: process.env.BEDROCK_GUARDRAIL_ID ?? '',
-    guardrailVersion: process.env.BEDROCK_GUARDRAIL_VERSION ?? '',
-  };
-
-  const resultado = await runConversationTurn(entrada);
-  if (!resultado.ok) {
-    return { answer: resultado.message, citations: [], ruleCheckStatus: 'INDISPONIVEL' };
-  }
-
-  return { answer: resultado.answer.texto, citations: [], ruleCheckStatus: 'APROVADA' };
 }

@@ -8,7 +8,7 @@ jest.mock('../auth', () => ({
 }));
 
 const mockResponder = jest.fn();
-jest.mock('../conversationLoop', () => ({
+jest.mock('../verificacao', () => ({
   responder: (...a: unknown[]) => mockResponder(...a),
 }));
 

@@ -14,8 +14,8 @@
  * URL com um corpo que nao controlamos.
  */
 import { resolveIdentity } from './auth';
-import { responder } from './conversationLoop';
 import { checkRateLimit } from './rateLimit';
+import { responder } from './verificacao';
 import type { ChatTurnRequest } from './types';
 
 type FunctionUrlEvent = {
