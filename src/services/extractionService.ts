@@ -41,6 +41,10 @@ export type ExtractionState = {
 
 export type LabResultView = {
   id: string;
+  /** De qual documento esta linha saiu. A EPIC de serie exige que cada ponto
+   *  abra o seu documento de origem, e sem este campo o ponto no grafico nao
+   *  tem para onde levar. */
+  documentId: string;
   /** Codigo LOINC do catalogo, ou codigo local `X-` quando o analito esta
    *  fora dele (D32). O prefixo e o que a tela usa para nao prometer
    *  comparacao entre laboratorios que nao existe. */
