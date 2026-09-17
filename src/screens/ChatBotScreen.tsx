@@ -19,9 +19,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useColorScheme } from 'nativewind';
 import * as DocumentPicker from 'expo-document-picker';
-import { router } from 'expo-router';
 
 import { AiDisclaimerBanner } from '@/components/AiDisclaimerBanner';
+import { ChatAttachmentRow } from '@/components/ChatAttachmentRow';
 import { HistoryDrawer } from '@/components/HistoryDrawer';
 import { MessageBubble } from '@/components/MessageBubble';
 import { MessageSources } from '@/components/MessageSources';
@@ -29,6 +29,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { TypingIndicator } from '@/components/TypingIndicator';
 import { useThemeColors } from '@/constants/theme';
 import { useChatBot, type ChatMessageComOrigem } from '@/hooks/useChatBot';
+import { uploadAnexoDoChat } from '@/services/chatAttachmentService';
 
 /**
  * As sugestoes precisam ser perguntas que o assistente CONSEGUE responder com
@@ -60,6 +61,8 @@ export function ChatBotScreen() {
     sendMessage,
     historyOpen,
     historyGroups,
+    anexo,
+    setAnexo,
     openHistory,
     closeHistory,
     newChat,
@@ -68,6 +71,8 @@ export function ChatBotScreen() {
   const hasUserMessage = messages.some((message) => message.role === 'user');
   const canSend = inputText.trim().length > 0 && !isTyping;
   const [isAttachPressed, setIsAttachPressed] = useState(false);
+  const [isAttaching, setIsAttaching] = useState(false);
+  const [anexoErro, setAnexoErro] = useState<string | null>(null);
 
   // ATTENTION: rola para a ultima mensagem sempre que o historico cresce ou a IA "digita"
   useEffect(() => {
@@ -101,6 +106,16 @@ export function ChatBotScreen() {
     [],
   );
 
+  /**
+   * O anexo PONTUAL (D15): o documento entra nesta conversa e nao vira
+   * registro. Antes desta EPIC este botao saia do chat e levava direto a
+   * `/add-exam` -- ou seja, so existia a porta que registra, e quem so queria
+   * perguntar sobre um papel era mandado a cadastra-lo.
+   *
+   * As duas portas existem agora, e a que registra continua a um toque: ela
+   * fica na propria linha do anexo, no mesmo lugar em que a pessoa descobre
+   * que aquele documento nao entrou no historico.
+   */
   async function handleAttach() {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -108,20 +123,20 @@ export function ChatBotScreen() {
         copyToCacheDirectory: false,
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        router.push({
-          pathname: '/add-exam',
-          params: {
-            fileName: asset.name,
-            filePath: asset.uri,
-            fileSize: asset.size || 0,
-          },
-        });
-      }
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      setIsAttaching(true);
+      const enviado = await uploadAnexoDoChat(asset.uri, asset.name, asset.mimeType);
+      // O nome vem do que a PESSOA escolheu, e nao do que o bucket devolveu:
+      // a chave no bucket e unica de proposito (carimbo de tempo mais sorteio)
+      // e nao serve para ela se reconhecer.
+      setAnexo({ key: enviado.key, fileName: asset.name });
     } catch (error) {
-      console.error('Error picking document:', error);
-      alert('Erro ao selecionar o documento. Tente novamente.');
+      console.error('Error attaching document:', error);
+      setAnexoErro('Não consegui anexar este documento. Tente de novo ou registre-o pelo menu de exames.');
+    } finally {
+      setIsAttaching(false);
     }
   }
 
@@ -198,10 +213,27 @@ export function ChatBotScreen() {
         />
 
         <View className="border-t border-app-border bg-app-surface px-4 py-3 dark:border-app-dark-border dark:bg-app-dark-surface">
+          {anexo ? (
+            <ChatAttachmentRow
+              fileName={anexo.fileName}
+              onRemove={() => {
+                setAnexo(null);
+                setAnexoErro(null);
+              }}
+            />
+          ) : null}
+
+          {anexoErro ? (
+            <Text className="mb-2 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+              {anexoErro}
+            </Text>
+          ) : null}
+
           <View className="flex-row items-center gap-3">
             <Pressable
               accessibilityLabel="Anexar exame"
               accessibilityRole="button"
+              disabled={isAttaching}
               onPress={handleAttach}
               onPressIn={() => setIsAttachPressed(true)}
               onPressOut={() => setIsAttachPressed(false)}

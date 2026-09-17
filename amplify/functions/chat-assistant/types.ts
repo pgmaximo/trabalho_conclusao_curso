@@ -39,7 +39,12 @@ export type ChatTurnRequest = {
   message: string;
   /** Janela de historico -- o aplicativo manda, a funcao corta (C4). */
   history: { role: 'user' | 'assistant'; content: string }[];
-  /** Texto de um anexo pontual, que vive so nesta conversa (C7, D15). */
+  /** A chave do anexo pontual no bucket. O aplicativo manda a chave, nunca o
+   *  texto: aceitar texto pronto deixaria o chamador escrever qualquer coisa
+   *  como se tivesse saido de um documento. */
+  attachmentKey?: string | null;
+  /** O texto que o OCR leu do anexo. Preenchido pelo handler, nunca pelo
+   *  cliente, e vive so nesta conversa (C7, D15). */
   attachmentText?: string | null;
 };
 

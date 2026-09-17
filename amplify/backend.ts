@@ -565,6 +565,27 @@ chatAssistantLambda.addToRolePolicy(
   }),
 );
 
+// A funcao le APENAS os anexos pontuais da conversa -- nunca
+// `medical-documents/`. O anexo do chat nao e documento do historico (D15), e
+// conceder leitura do historico aqui daria ao chat um caminho para o arquivo
+// que ele nao precisa ter.
+backend.storage.resources.bucket.grantRead(chatAssistantLambda, 'chat-attachments/*');
+backend.chatAssistant.addEnvironment(
+  'HEALTH_BUCKET_NAME',
+  backend.storage.resources.bucket.bucketName,
+);
+
+// As duas acoes SINCRONAS do Textract bastam aqui: o anexo do chat e um papel
+// que a pessoa quer perguntar sobre agora, e o caminho assincrono tem teto de
+// 5 minutos -- tempo que nao cabe dentro de um turno de conversa. PDF grande
+// pertence a porta que registra, que tem a pipeline inteira.
+chatAssistantLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['textract:DetectDocumentText', 'textract:AnalyzeDocument'],
+    resources: ['*'], // o Textract nao tem recurso por ARN nestas acoes
+  }),
+);
+
 // O endereco vai para o aplicativo pelo mesmo caminho que os demais valores de
 // configuracao, para nao virar constante digitada em duas casas.
 backend.addOutput({ custom: { chatAssistantUrl: chatUrl.url } });

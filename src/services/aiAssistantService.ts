@@ -85,6 +85,9 @@ export async function sendMessageWithSources(
   message: string,
   history: ChatMessage[],
   _userContext?: string,
+  /** A chave do anexo pontual no bucket (C7, D15). O texto e lido pela funcao,
+   *  pelo OCR -- o aplicativo nunca manda texto se passando por documento. */
+  attachmentKey?: string | null,
 ): Promise<AssistantReply> {
   const url = chatAssistantUrl();
   // "Tente novamente" aqui mandaria a pessoa repetir algo que nunca vai
@@ -108,6 +111,7 @@ export async function sendMessageWithSources(
       body: JSON.stringify({
         message,
         history: history.map((m) => ({ role: m.role, content: m.content })),
+        ...(attachmentKey ? { attachmentKey } : {}),
       }),
       signal: controle.signal,
     });

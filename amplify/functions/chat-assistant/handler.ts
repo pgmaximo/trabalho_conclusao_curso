@@ -13,6 +13,7 @@
  * ELE NUNCA LANCA. Uma excecao que escapasse daqui viraria um 502 da Function
  * URL com um corpo que nao controlamos.
  */
+import { textoDoAnexo } from './anexoPontual';
 import { resolveIdentity } from './auth';
 import { checkRateLimit } from './rateLimit';
 import { responder } from './verificacao';
@@ -77,10 +78,15 @@ function lerCorpo(body: string | null | undefined): ChatTurnRequest | null {
         .map((m) => ({ role: m.role, content: m.content }))
     : [];
 
-  const attachmentText =
-    typeof objeto.attachmentText === 'string' ? objeto.attachmentText : null;
+  // O aplicativo manda a CHAVE do arquivo no bucket, nunca o texto: aceitar
+  // texto pronto deixaria o chamador escrever qualquer coisa como se tivesse
+  // saido de um documento, e o OCR e o que garante que saiu.
+  const attachmentKey =
+    typeof objeto.attachmentKey === 'string' && objeto.attachmentKey !== ''
+      ? objeto.attachmentKey
+      : null;
 
-  return { message, history, attachmentText };
+  return { message, history, attachmentKey };
 }
 
 export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlResponse> {
@@ -114,7 +120,14 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
     const pedido = lerCorpo(event.body);
     if (!pedido) return resposta(400, { error: 'Requisicao invalida.' });
 
-    const resultado = await responder(pedido, { identity });
+    // O anexo pontual (D15): o texto entra NAQUELA conversa e nada e gravado.
+    // Ler falhar nao derruba o turno -- a pergunta continua valendo sem ele.
+    const attachmentText = await textoDoAnexo(
+      pedido.attachmentKey ? { key: pedido.attachmentKey } : null,
+      identity,
+    );
+
+    const resultado = await responder({ ...pedido, attachmentText }, { identity });
     return resposta(200, resultado);
   } catch (erro) {
     // O detalhe tecnico fica no log, nunca no corpo: nome de tabela e mensagem

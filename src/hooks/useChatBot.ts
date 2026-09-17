@@ -23,6 +23,10 @@ export type HistoryGroup = {
  */
 export type ChatMessageComOrigem = ChatMessage & { citations?: Citation[] };
 
+/** O anexo pontual em espera: ja esta no bucket, ainda nao foi enviado com
+ *  nenhuma pergunta. */
+export type AnexoPendente = { key: string; fileName: string };
+
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
@@ -50,6 +54,9 @@ export interface UseChatBotReturn {
   // fica sempre vazio nesta versão, comunicado ao usuário via copy de estado
   // vazio no HistoryDrawer, nunca preenchido com dado inventado.
   historyGroups: HistoryGroup[];
+  /** O anexo pontual em espera, ou null. */
+  anexo: AnexoPendente | null;
+  setAnexo: (anexo: AnexoPendente | null) => void;
   openHistory: () => void;
   closeHistory: () => void;
   newChat: () => void;
@@ -60,6 +67,7 @@ export function useChatBot(): UseChatBotReturn {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [anexo, setAnexo] = useState<AnexoPendente | null>(null);
 
   // DECISION: aceita `override` para os prompts rapidos enviarem direto,
   // sem depender da atualizacao assincrona de `inputText`.
@@ -83,7 +91,7 @@ export function useChatBot(): UseChatBotReturn {
       setIsTyping(true);
 
       try {
-        const reply = await sendMessageWithSources(text, history);
+        const reply = await sendMessageWithSources(text, history, undefined, anexo?.key);
         setMessages((prev) => [
           ...prev,
           {
@@ -114,14 +122,19 @@ export function useChatBot(): UseChatBotReturn {
         ]);
       } finally {
         setIsTyping(false);
+        // O anexo vale para UMA pergunta. Mante-lo depois faria a segunda
+        // pergunta carregar um documento que a pessoa ja esqueceu que anexou,
+        // e pagar a janela do modelo por ele de novo.
+        setAnexo(null);
       }
     },
-    [inputText, isTyping, messages],
+    [anexo, inputText, isTyping, messages],
   );
 
   const clearHistory = useCallback(() => {
     setMessages([{ ...WELCOME_MESSAGE, id: nextMessageId() }]);
     setInputText('');
+    setAnexo(null);
   }, []);
 
   const openHistory = useCallback(() => setHistoryOpen(true), []);
@@ -141,6 +154,8 @@ export function useChatBot(): UseChatBotReturn {
     clearHistory,
     historyOpen,
     historyGroups: [],
+    anexo,
+    setAnexo,
     openHistory,
     closeHistory,
     newChat,

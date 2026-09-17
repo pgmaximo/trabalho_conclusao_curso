@@ -21,6 +21,10 @@ jest.mock('@/services/aiAssistantService', () => ({
   sendMessageWithSources: jest.fn(),
 }));
 
+// `aws-amplify/storage` e ESM e o jest-expo nao o carrega. Nenhum teste deste
+// arquivo anexa nada -- quem cobre o anexo e `anexoNoChat.test.tsx`.
+jest.mock('@/services/chatAttachmentService', () => ({ uploadAnexoDoChat: jest.fn() }));
+
 const { sendMessageWithSources: mockSendMessage } = jest.requireMock(
   '@/services/aiAssistantService',
 );
