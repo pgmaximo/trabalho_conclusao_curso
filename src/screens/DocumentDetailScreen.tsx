@@ -294,6 +294,9 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
               <ExtractedResultsSection
                 extraction={extraction}
                 onCorrigido={() => setSuccessMessage('Correção salva!')}
+                onOpenSeries={(analyteCode) =>
+                  router.push(`/analyte-series?code=${encodeURIComponent(analyteCode)}`)
+                }
               />
 
               {downloadError ? <InlineError message={downloadError} /> : null}
