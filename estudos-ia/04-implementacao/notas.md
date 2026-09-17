@@ -196,11 +196,17 @@ variável de ambiente, nunca de valor escrito no código.
 porque o identificador do guardrail dele vai mudar e é melhor ele saber por
 quê.
 
-### O Textract não está habilitado na conta
+### O Textract não está habilitado na conta — provavelmente por ser free tier
 
 `SubscriptionRequiredException: The AWS Access Key Id needs a subscription for
 the service`. É recusa no nível da **conta**, não de permissão de IAM — a mesma
 credencial invoca o Bedrock e o S3 sem problema.
+
+**Hipótese do usuário, 2026-09-17:** a conta é free tier, e o Textract pode não
+estar disponível nesse plano. Em apuração. Se confirmar, a consequência não é
+um contorno técnico: é que **o caminho de foto e documento escaneado não existe
+neste projeto**, e isso vira limitação documentada da Fase 4 (tarefa 4.1), não
+defeito pendente.
 
 Consequência hoje: **nenhuma**, porque a D19 tirou o Textract do caminho
 crítico e o PDF vai direto ao modelo. O caminho do Textract está escrito,

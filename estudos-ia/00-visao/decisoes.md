@@ -890,3 +890,96 @@ de wearable, que é de outra pessoa e está em produção (regra 5).
 **Recusado — não ter guardrail na extração.** A anonimização de PII na saída é
 barata e real: o laudo traz nome e CPF do paciente, e nada disso tem por que
 atravessar para o texto do modelo.
+
+---
+
+## D32 — Todo analito do papel vira linha; o que está fora do catálogo ganha código local
+**Data:** 2026-09-17 · **Estado:** decidida pelo usuário · **Reverte uma decisão minha**
+
+Ao fechar o Bloco B eu decidi **não gravar** as linhas cujo analito está fora
+da cobertura de 79 códigos, e transformá-las em aviso. O laudo do Delboni
+trouxe quatro: VPM, SHBG, Testosterona Biodisponível e Zinco.
+
+A razão técnica era real — as quatro saíam com `analyteCode` vazio, geravam o
+**mesmo id determinístico**, e o `UpdateCommand` gravaria uma e sobrescreveria
+três **sem levantar erro**. Mas a solução estava errada: eu resolvi uma colisão
+de chave jogando dado fora.
+
+**Decisão do usuário:** *"Acho importante ele cobrir 100% dos dados
+entregues."* Está certo. Um aplicativo que lê um laudo e mostra 41 dos 45
+valores ensina a pessoa a não confiar nele.
+
+### O mecanismo, e ele já estava escrito na licença
+
+A cláusula 3 da licença do LOINC, lida na tarefa 0.2a, diz que registros
+**acrescentados** por nós precisam levar um `X` à frente do código, para nunca
+serem confundidos com código oficial. Era uma cláusula que o projeto tinha
+registrado e nunca usado — porque até aqui não havíamos acrescentado nenhum.
+
+Agora acrescentamos. Analito sem código oficial recebe um código local
+determinístico, derivado do rótulo normalizado:
+
+```
+X-VPM        X-SHBG        X-ZINCO-SANGUINEO
+```
+
+Três propriedades, e as três importam:
+
+1. **O `X-` é exigido pela licença**, e diz visualmente que aquilo não é LOINC.
+2. **É determinístico a partir do rótulo**, então o mesmo analito no laudo do
+   mês que vem gera o mesmo código e as duas coletas se encontram.
+3. **Entra no id da tarefa 6 como qualquer outro código**, então a colisão das
+   quatro linhas desaparece sem tocar na regra de idempotência.
+
+### O que isto NÃO resolve, e precisa estar escrito
+
+**Analito com código local não converte unidade.** Ele não tem unidade canônica
+nem massa molar no catálogo, então o valor fica **na unidade em que o papel
+veio**. Consequência honesta: se um laboratório reportar zinco em `µg/dL` e
+outro em `µmol/L`, as duas coletas aparecem na mesma série **em escalas
+diferentes** — e isso é precisamente o erro que a EPIC inteira existe para
+evitar.
+
+Então a série por analito precisa tratar código local como **caso de unidade
+divergente** quando as unidades não baterem: a regra da S1 que exclui ponto com
+unidade diferente, **com motivo registrado**, já cobre isso e passa a ter uma
+segunda razão de existir.
+
+**Resumo da garantia, e ela é de dois níveis:**
+
+| | Catálogo (79 códigos LOINC) | Código local `X-` |
+|---|---|---|
+| Aparece na tela de detalhe | sim | **sim** |
+| É gravado e rastreável | sim | **sim** |
+| Vira série temporal | sim | **sim**, se a unidade não mudar |
+| Converte unidade entre laboratórios | sim | **não** |
+| Comparável entre laboratórios com nome diferente | sim, pelo LOINC | **não** — depende do rótulo bater |
+
+O primeiro nível é o que a tarefa 0.2b comprou com trabalho de vocabulário. O
+segundo é cobertura honesta: **o dado existe, é do usuário, e não some** — mas o
+aplicativo não promete sobre ele a mesma comparabilidade que promete sobre o
+outro.
+
+**Recusado — ampliar o catálogo para 100% dos analitos possíveis.** Seria
+regenerar o extrato do LOINC a cada analito novo encontrado, e o arquivo de
+origem (`Loinc.csv`, 84 MB) nem está no repositório. Cobertura por catálogo é
+trabalho de curadoria com ganho decrescente; cobertura por código local é
+automática e não mente sobre o que entrega.
+
+**Recusado — usar o rótulo cru como código.** "25-OH-Vitamina D" e
+"25 OH Vitamina D" virariam dois analitos. A normalização do rótulo (maiúsculas,
+acento, pontuação, espaço) é o que faz o código local ser estável, e ela precisa
+de teste próprio.
+
+### O que muda no código, e onde
+
+| Onde | Mudança |
+|---|---|
+| `analyteNormalizer.ts` (T5) | linha sem código do catálogo recebe `X-<slug>`; unidade canônica passa a ser a do papel |
+| `checksum.ts` (T6) | nada — o código local entra no id como qualquer outro |
+| `resultWriteBuilder.ts` (T10) | para de descartar linha sem código; mantém só a guarda de código repetido no mesmo momento |
+| `analyteCatalog.ts` (T3) | nada — o gerador não muda |
+| EPIC de série (S1) | código local é série legítima, e unidade divergente exclui o ponto com motivo |
+| Tela de detalhe (T12) | precisa distinguir visualmente o que é comparável do que é só registrado |
+
+A implementação é a primeira coisa do Bloco C.
