@@ -97,7 +97,10 @@ export type DocumentRow = {
   documentType?: string | null;
   s3FileName?: string;
   documentDate?: string;
-  expirationDate?: string | null;
+  // A validade da receita NAO entra aqui de proposito. Ela e do formulario, e
+  // o jeito seguro de a extracao nunca a tocar e ela nem existir no tipo com
+  // que esta funcao enxerga o documento -- mais forte do que um comentario
+  // pedindo cuidado. Ha teste varrendo os arquivos desta pasta.
 };
 
 export async function readDocumentRow(

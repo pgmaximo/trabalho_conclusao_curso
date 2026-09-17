@@ -25,7 +25,7 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 
 import type { ExtractedText } from './documentText';
-import { buildUserAsk, buildUserText, SYSTEM_PROMPT } from './extractionPrompt';
+import { buildUserAsk, buildUserText, systemPromptPara } from './extractionPrompt';
 import {
   extractionSchema,
   parseExtraction,
@@ -103,7 +103,7 @@ export async function requestExtraction(
     client.send(
       new ConverseCommand({
         modelId: options.modelId,
-        system: [{ text: SYSTEM_PROMPT }],
+        system: [{ text: systemPromptPara(documentType) }],
         messages: msgs,
         inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS, temperature: TEMPERATURE },
         // Saida estruturada imposta pelo servidor (D19). O schema sai do MESMO

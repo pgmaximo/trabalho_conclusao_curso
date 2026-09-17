@@ -19,6 +19,7 @@ import { CONFIDENCE_THRESHOLD, normalizeLabResult } from './analyteNormalizer';
 import { requestExtraction, type ExtractionSource } from './bedrockClient';
 import { fileChecksum, labResultId, prescriptionItemId } from './checksum';
 import { chooseReadingPath } from './documentText';
+import { normalizePrescriptionItem } from './prescriptionNormalizer';
 import {
   markFailed,
   markNoResults,
@@ -167,16 +168,17 @@ export async function handler(event: InvokeEvent): Promise<void> {
     );
     avisos.push(...avisosDaGravacao);
 
-    const itensReceita = saida.result.prescriptionItems.map((item) => ({
-      ...item,
-      documentId,
-      owner,
-      id: prescriptionItemId(documentId, checksum, item.medicationLabel, item.dose),
-      reviewStatus:
-        item.confidence < CONFIDENCE_THRESHOLD
-          ? ('PENDENTE_DE_REVISAO' as const)
-          : ('AUTO' as const),
-    }));
+    // A receita passa pelo seu proprio normalizador -- um ramo deliberadamente
+    // burro, que nao converte dose e nao interpreta posologia.
+    const itensReceita = saida.result.prescriptionItems.map((bruto) => {
+      const item = normalizePrescriptionItem(bruto);
+      return {
+        ...item,
+        documentId,
+        owner,
+        id: prescriptionItemId(documentId, checksum, item.medicationLabel, item.dose),
+      };
+    });
 
     // 8. Nenhuma linha NAO e falha: laudo em prosa, cultura e sorologia nao
     //    rendem analito, e a copy da tela nao pode tratar isso como erro.
