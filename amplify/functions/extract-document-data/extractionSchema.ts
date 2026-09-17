@@ -106,3 +106,41 @@ export function parseExtraction(raw: unknown): ParseExtractionResult {
 export function zodToToolInputSchema(schema: z.ZodType): DocumentType {
   return z.toJSONSchema(schema) as unknown as DocumentType;
 }
+
+/**
+ * Palavras-chave que o `output_config` do Bedrock RECUSA, nomeando o campo no
+ * erro. Medidas uma a uma contra o servico em 2026-09-17, nao supostas:
+ *
+ *   maxItems           -> "For 'array' type, property 'maxItems' is not supported"
+ *   minimum / maximum  -> "For 'number' type, properties maximum, minimum are not supported"
+ *
+ * Tudo o mais que este schema usa passou: minItems, minLength, maxLength,
+ * pattern, nullable, enum e additionalProperties aninhado.
+ *
+ * ATENCAO -- a assimetria e de proposito. A limpeza vale SO para o que vai ao
+ * modelo. O objeto zod continua com os limites e continua sendo quem valida a
+ * resposta: o modelo nao e informado do teto, e a validacao o aplica mesmo
+ * assim. Tirar os limites do zod para "combinar" com o modelo trocaria uma
+ * incompatibilidade de API por um buraco de validacao.
+ */
+const RECUSADAS_PELO_BEDROCK = new Set(['maxItems', 'minimum', 'maximum']);
+
+function limpar(no: unknown): unknown {
+  if (Array.isArray(no)) return no.map(limpar);
+  if (no === null || typeof no !== 'object') return no;
+  const saida: Record<string, unknown> = {};
+  for (const [chave, valor] of Object.entries(no as Record<string, unknown>)) {
+    if (RECUSADAS_PELO_BEDROCK.has(chave)) continue;
+    saida[chave] = limpar(valor);
+  }
+  return saida;
+}
+
+/**
+ * O JSON Schema que vai no `output_config`, derivado do MESMO objeto zod que
+ * valida a resposta -- entao os dois nunca divergem de conteudo, so de
+ * limites que a API nao aceita expressar.
+ */
+export function toStructuredOutputSchema(schema: z.ZodType): DocumentType {
+  return limpar(z.toJSONSchema(schema)) as DocumentType;
+}

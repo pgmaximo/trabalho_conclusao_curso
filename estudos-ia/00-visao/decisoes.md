@@ -821,3 +821,72 @@ dono da conta no console do Bedrock, em Model access.
 
 Se forem liberados depois, a medição se repete rodando o mesmo roteiro; a
 escolha é uma constante num lugar só.
+
+---
+
+## D20 — A extração tem guardrail próprio, e o da wearable a quebraria
+**Data:** 2026-09-17 · **Estado:** decidida · **Achada executando a Tarefa 9**
+
+A Tarefa 7 reaproveitou o `health-insights-guardrail` que a feature de
+wearable criou. A primeira chamada real contra o laudo do Delboni voltou
+`stopReason: guardrail_intervened`, e o rastro nomeou o culpado:
+
+```
+topicPolicy: { name: "prescricao-de-medicamento", type: "DENY",
+               action: "BLOCKED", detected: true }
+```
+
+Na **saída**. O que foi bloqueado foi a transcrição dos analitos.
+
+### Por que era inevitável, e não um ajuste de limiar
+
+O tópico está definido como *"Recomendar um medicamento específico, uma dose,
+ou uma mudança em uma prescrição médica existente."* Isso é a coisa certa a
+bloquear numa IA que **dá conselho**. Mas uma transcrição de laudo é
+literalmente uma lista de substâncias com números e unidades — e numa
+**receita**, que é metade desta EPIC, o documento é uma prescrição de
+medicamento. O classificador não errou: ele acertou a pergunta errada.
+
+**O conteúdo que precisa ser bloqueado numa resposta gerada é exatamente o
+conteúdo que uma transcrição legitimamente contém.** Um guardrail só serve
+para as duas coisas se não fizer nem uma direito.
+
+### O segundo achado, e ele é mais grave
+
+`guardrailCoverage` na entrada: **35 caracteres protegidos de 62**. Os 35 são o
+nosso pedido de texto. O **bloco de documento não é avaliado pelo guardrail** —
+o PDF passa inteiro, por fora.
+
+Isso derruba uma suposição escrita no plano: a de que o guardrail seria a
+primeira camada contra instrução plantada dentro do documento. **Ele não vê o
+documento.** No caminho de PDF nativo (D19), a proteção contra instrução
+plantada são duas, e nenhuma delas é o guardrail:
+
+1. a instrução de sistema, que manda não obedecer a nada vindo de dentro do
+   documento;
+2. o schema estrito de saída, que **não tem campo onde uma instrução obedecida
+   pudesse se manifestar** — é a D11 fazendo o trabalho.
+
+Registrar isso importa mais do que corrigir: o plano contava uma camada que não
+existe nesse caminho, e contar camada que não existe é pior que ter uma a
+menos.
+
+### O que fica
+
+Guardrail próprio, `document-extraction-guardrail`:
+
+| Política | Extração | Wearable | Por quê |
+|---|---|---|---|
+| `prescricao-de-medicamento` | **fora** | DENY | é o conteúdo do papel |
+| `diagnostico-medico-definitivo` | **fora** | DENY | o laudo traz indicação clínica escrita pelo médico |
+| `PROMPT_ATTACK` na entrada | HIGH | HIGH | vale para todo texto que passamos; não alcança o PDF |
+| PII (nome, e-mail, telefone, CPF) | ANONIMIZAR | ANONIMIZAR | o laudo traz os dados do paciente |
+| Filtros de conteúdo na saída | NONE | MEDIUM | a saída é número, unidade e código LOINC, validados por schema |
+
+**Recusado — baixar o limiar do tópico.** O tópico não está sensível demais;
+ele está certo para outra tarefa. Afrouxá-lo estragaria a proteção da feature
+de wearable, que é de outra pessoa e está em produção (regra 5).
+
+**Recusado — não ter guardrail na extração.** A anonimização de PII na saída é
+barata e real: o laudo traz nome e CPF do paciente, e nada disso tem por que
+atravessar para o texto do modelo.

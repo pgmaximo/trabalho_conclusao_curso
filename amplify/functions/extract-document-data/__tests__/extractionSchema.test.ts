@@ -1,4 +1,9 @@
-import { extractionSchema, parseExtraction, zodToToolInputSchema } from '../extractionSchema';
+import {
+  extractionSchema,
+  parseExtraction,
+  toStructuredOutputSchema,
+  zodToToolInputSchema,
+} from '../extractionSchema';
 
 // Todo numero chega do modelo como TEXTO, inclusive os limites da faixa. O
 // modelo transcreve o que esta no papel; quem converte para numero e o
@@ -117,5 +122,45 @@ describe('extractionSchema', () => {
   it('nunca lanca -- devolve resultado tipado mesmo com lixo', () => {
     expect(() => parseExtraction(null)).not.toThrow();
     expect(parseExtraction(null).ok).toBe(false);
+  });
+});
+
+describe('toStructuredOutputSchema', () => {
+  // Medido contra o Bedrock, nao suposto: o `output_config` recusa `maxItems`
+  // em array e `minimum`/`maximum` em number e integer, nomeando o campo.
+  // Todo o resto do nosso schema passa -- minItems, minLength, maxLength,
+  // pattern, nullable, enum e additionalProperties aninhado.
+  //
+  // A limpeza vale SO para o que vai ao modelo. O objeto zod continua com os
+  // limites e continua sendo quem valida a resposta: o modelo nao e informado
+  // do teto, e a validacao o aplica mesmo assim.
+  const json = toStructuredOutputSchema(extractionSchema) as unknown as Record<string, unknown>;
+  const texto = JSON.stringify(json);
+
+  it('tira maxItems, que o Bedrock recusa em array', () => {
+    expect(texto).not.toContain('maxItems');
+  });
+
+  it('tira minimum e maximum, que o Bedrock recusa em number e integer', () => {
+    expect(texto).not.toContain('"minimum"');
+    expect(texto).not.toContain('"maximum"');
+  });
+
+  it('preserva o que o Bedrock aceita e o schema precisa', () => {
+    expect(texto).toContain('additionalProperties');
+    expect(texto).toContain('maxLength');
+    expect(texto).toContain('pattern');
+    expect(json.type).toBe('object');
+    expect(json.required).toEqual(expect.arrayContaining(['documentKind', 'labResults']));
+  });
+
+  it('nao altera o objeto zod, que continua aplicando o teto na validacao', () => {
+    const cheio = {
+      documentKind: 'exam',
+      labResults: Array.from({ length: 121 }, () => linhaValida),
+      prescriptionItems: [],
+      warnings: [],
+    };
+    expect(parseExtraction(cheio).ok).toBe(false);
   });
 });
