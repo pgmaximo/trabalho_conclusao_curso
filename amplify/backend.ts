@@ -149,7 +149,7 @@ const sufixoUnicoDaStack = Fn.select(0, Fn.split('-', Fn.select(2, Fn.split('/',
 const healthInsightsGuardrail = new bedrock.CfnGuardrail(guardrailStack, 'HealthInsightsGuardrail', {
   name: `health-insights-${sufixoUnicoDaStack}`,
   description:
-    'Guardrail da analise de dados de wearables: bloqueia diagnostico definitivo e prescricao, filtra ataques de prompt e anonimiza PII.',
+    'Guardrail das IAs que GERAM texto de orientacao (analise de wearables e assistente conversacional): bloqueia diagnostico definitivo e prescricao, filtra ataques de prompt e anonimiza PII.',
   blockedInputMessaging:
     'Nao foi possivel processar esta solicitacao por questoes de seguranca de conteudo.',
   blockedOutputsMessaging:
@@ -527,6 +527,43 @@ backend.chatAssistant.addEnvironment('APPOINTMENT_TABLE_NAME', appointmentTable.
 backend.chatAssistant.addEnvironment('MEDICINE_TABLE_NAME', medicineTable.tableName);
 backend.chatAssistant.addEnvironment('VACCINE_DOSE_TABLE_NAME', vaccineDoseTable.tableName);
 backend.chatAssistant.addEnvironment('HEALTH_IMPORT_TABLE_NAME', healthImportTable.tableName);
+
+// O chat REUSA o guardrail da analise de wearables, e nao ganha um proprio.
+// A D20 mandou a extracao ter o seu porque la os dois topicos bloqueados sao o
+// CONTEUDO LEGITIMO do papel -- uma receita transcrita E uma prescricao de
+// medicamento. Aqui a razao se inverte: o chat e exatamente "uma IA que da
+// conselho", que e a IA para a qual aquele guardrail foi desenhado. Bloquear
+// diagnostico definitivo e indicacao de dose na SAIDA e o comportamento
+// desejado, e coincide com o que a R3 das regras de linguagem ja exige.
+backend.chatAssistant.addEnvironment('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID);
+backend.chatAssistant.addEnvironment(
+  'BEDROCK_GUARDRAIL_ID',
+  healthInsightsGuardrail.attrGuardrailId,
+);
+backend.chatAssistant.addEnvironment(
+  'BEDROCK_GUARDRAIL_VERSION',
+  healthInsightsGuardrailVersion.attrVersion,
+);
+
+// As duas ARNs pelo mesmo motivo registrado nas demais funcoes: com prefixo
+// "us." a chamada pode ser roteada para qualquer regiao do perfil, e faltar a
+// segunda ARN produz AccessDeniedException intermitente.
+chatAssistantLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['bedrock:InvokeModel'],
+    resources: [
+      `arn:aws:bedrock:${bedrockRegion}:${bedrockAccount}:inference-profile/${BEDROCK_INFERENCE_PROFILE_ID}`,
+      `arn:aws:bedrock:*::foundation-model/${BEDROCK_BASE_MODEL_ID}`,
+    ],
+  }),
+);
+
+chatAssistantLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['bedrock:ApplyGuardrail'],
+    resources: [healthInsightsGuardrail.attrGuardrailArn],
+  }),
+);
 
 // O endereco vai para o aplicativo pelo mesmo caminho que os demais valores de
 // configuracao, para nao virar constante digitada em duas casas.
