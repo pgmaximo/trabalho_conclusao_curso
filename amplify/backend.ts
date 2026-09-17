@@ -11,6 +11,8 @@ import { getVaccinationSites } from './functions/get-vaccination-sites/resource.
 import { sendMedicineReminders } from './functions/send-medicine-reminders/resource.js';
 import { startHealthAnalysis } from './functions/start-health-analysis/resource.js';
 import { analyzeHealthImport } from './functions/analyze-health-import/resource.js';
+import { startDocumentExtraction } from './functions/start-document-extraction/resource.js';
+import { extractDocumentData } from './functions/extract-document-data/resource.js';
 
 const backend = defineBackend({
   auth,
@@ -22,6 +24,8 @@ const backend = defineBackend({
   sendMedicineReminders,
   startHealthAnalysis,
   analyzeHealthImport,
+  startDocumentExtraction,
+  extractDocumentData,
 });
 
 backend.auth.resources.cfnResources.cfnUserPoolClient.addPropertyOverride('ExplicitAuthFlows', [
@@ -227,6 +231,113 @@ analyzeHealthImportLambda.addToRolePolicy(
 );
 
 analyzeHealthImportLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['bedrock:ApplyGuardrail'],
+    resources: [healthInsightsGuardrail.attrGuardrailArn],
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Extracao de documentos medicos (Bloco 6) -- duas funcoes, mesmo desenho da
+// feature de wearable: start-document-extraction e o resolver do AppSync (teto
+// de 30s, nunca espera) e extract-document-data faz o trabalho, invocada de
+// forma assincrona.
+// ---------------------------------------------------------------------------
+
+const medicalDocumentTable = backend.data.resources.tables['MedicalDocument'];
+const labResultTable = backend.data.resources.tables['LabResult'];
+const prescriptionItemTable = backend.data.resources.tables['PrescriptionItem'];
+const startDocumentExtractionLambda = backend.startDocumentExtraction.resources.lambda;
+const extractDocumentDataLambda = backend.extractDocumentData.resources.lambda;
+
+// O resolver so le o documento para validar o dono e marca PROCESSING.
+medicalDocumentTable.grantReadWriteData(startDocumentExtractionLambda);
+backend.startDocumentExtraction.addEnvironment(
+  'MEDICAL_DOCUMENT_TABLE_NAME',
+  medicalDocumentTable.tableName,
+);
+extractDocumentDataLambda.grantInvoke(startDocumentExtractionLambda);
+backend.startDocumentExtraction.addEnvironment(
+  'EXTRACT_FUNCTION_NAME',
+  extractDocumentDataLambda.functionName,
+);
+
+// A funcao de trabalho escreve nas tres tabelas: o estado em MedicalDocument e
+// as linhas em LabResult/PrescriptionItem. Ela cria as linhas ela mesma (nao o
+// cliente), entao precisa preencher owner, __typename e createdAt -- ver
+// tarefa 10.
+medicalDocumentTable.grantReadWriteData(extractDocumentDataLambda);
+labResultTable.grantReadWriteData(extractDocumentDataLambda);
+prescriptionItemTable.grantReadWriteData(extractDocumentDataLambda);
+backend.extractDocumentData.addEnvironment(
+  'MEDICAL_DOCUMENT_TABLE_NAME',
+  medicalDocumentTable.tableName,
+);
+backend.extractDocumentData.addEnvironment('LAB_RESULT_TABLE_NAME', labResultTable.tableName);
+backend.extractDocumentData.addEnvironment(
+  'PRESCRIPTION_ITEM_TABLE_NAME',
+  prescriptionItemTable.tableName,
+);
+
+// grantReadWrite (nao so read) porque a funcao tambem grava o texto extraido
+// de volta no bucket, para rastreabilidade (extractedTextKey).
+backend.storage.resources.bucket.grantReadWrite(extractDocumentDataLambda, 'medical-documents/*');
+backend.extractDocumentData.addEnvironment(
+  'HEALTH_BUCKET_NAME',
+  backend.storage.resources.bucket.bucketName,
+);
+
+// Mesma razao do retry zerado da analyze-health-import: a invocacao
+// assincrona tenta de novo ate 2x por padrao em caso de excecao nao tratada, e
+// isso pagaria o Bedrock duas ou tres vezes pelo mesmo documento. O handler ja
+// nunca lanca; isto e a segunda camada.
+extractDocumentDataLambda.configureAsyncInvoke({ retryAttempts: 0 });
+
+// As QUATRO acoes do Textract, e sao quatro por um motivo: as operacoes
+// SINCRONAS processam uma pagina so de PDF. Laudo de laboratorio tem tres,
+// quatro, as vezes dez. O caminho assincrono nao e refinamento, e o caminho
+// normal de um laudo de verdade -- conceder so as duas sincronas daria
+// AccessDenied no primeiro documento multipagina.
+//
+// O Textract assincrono le o objeto do S3 com as credenciais de quem chamou,
+// entao o grant do bucket acima ja cobre o acesso ao arquivo.
+extractDocumentDataLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      'textract:DetectDocumentText', // sincrona: imagem, e PDF de 1 pagina
+      'textract:AnalyzeDocument', // sincrona com tabela/formulario
+      'textract:StartDocumentTextDetection', // assincrona: PDF multipagina
+      'textract:GetDocumentTextDetection', // consulta do resultado assincrono
+    ],
+    resources: ['*'], // o Textract nao tem recurso por ARN nestas acoes
+  }),
+);
+
+// Modelo decidido pela medicao da tarefa 1 (D19), nao herdado por inercia:
+// Opus 4.6 e Sonnet 4.6 tiveram comportamento identico nos quatro cenarios, e
+// sem diferenca medida o desempate e custo. As duas ARNs sao obrigatorias pelo
+// mesmo motivo registrado acima para a analyze-health-import.
+backend.extractDocumentData.addEnvironment('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID);
+backend.extractDocumentData.addEnvironment(
+  'BEDROCK_GUARDRAIL_ID',
+  healthInsightsGuardrail.attrGuardrailId,
+);
+backend.extractDocumentData.addEnvironment(
+  'BEDROCK_GUARDRAIL_VERSION',
+  healthInsightsGuardrailVersion.attrVersion,
+);
+
+extractDocumentDataLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['bedrock:InvokeModel'],
+    resources: [
+      `arn:aws:bedrock:${bedrockRegion}:${bedrockAccount}:inference-profile/${BEDROCK_INFERENCE_PROFILE_ID}`,
+      `arn:aws:bedrock:*::foundation-model/${BEDROCK_BASE_MODEL_ID}`,
+    ],
+  }),
+);
+
+extractDocumentDataLambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['bedrock:ApplyGuardrail'],
     resources: [healthInsightsGuardrail.attrGuardrailArn],
