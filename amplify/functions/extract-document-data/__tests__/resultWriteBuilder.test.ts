@@ -90,17 +90,35 @@ describe('separarLinhasGravaveis', () => {
   // EM SILENCIO se ninguem olhar -- que e o modo de falha que a D22 existe
   // para fechar.
 
-  it('tira da gravacao a linha sem codigo, e diz qual era', () => {
-    // O laudo real trouxe VPM, SHBG, Testosterona Biodisponivel e Zinco, que
-    // nao estao na cobertura de 79 analitos. As quatro sairiam com
-    // analyteCode vazio, e as quatro gerariam O MESMO id deterministico --
-    // o UpdateCommand gravaria uma e sobrescreveria as outras tres sem
-    // levantar erro.
-    const semCodigo = { ...linha, analyteCode: '', projectLabel: 'Zinco Sanguineo' };
-    const { gravaveis, avisos } = separarLinhasGravaveis([linha, semCodigo]);
+  it('GRAVA a linha de codigo local, em vez de descarta-la (D32)', () => {
+    // O laudo real trouxe VPM, SHBG, Testosterona Biodisponivel e Zinco, fora
+    // da cobertura de 79 analitos. No fim do Bloco B elas eram descartadas --
+    // e isso era resolver uma colisao de chave jogando dado do usuario fora.
+    // Agora chegam aqui com codigo local, e codigo local e codigo: passa.
+    const zinco = {
+      ...linha,
+      analyteCode: 'X-ZINCO-SANGUINEO',
+      projectLabel: 'Zinco Sanguineo',
+    };
+    const { gravaveis, avisos } = separarLinhasGravaveis([linha, zinco]);
+    expect(gravaveis).toHaveLength(2);
+    expect(gravaveis.map((l) => l.analyteCode)).toContain('X-ZINCO-SANGUINEO');
+    expect(avisos).toEqual([]);
+  });
+
+  it('so fica de fora a linha cujo ROTULO nao identifica analito nenhum', () => {
+    // Residuo da D32, e o unico. Sem codigo o id deterministico de duas
+    // linhas assim seria O MESMO, e o UpdateCommand gravaria uma
+    // sobrescrevendo a outra sem levantar erro. O motivo mudou -- nao e mais
+    // "fora do catalogo", e sim "nao deu para identificar o que e".
+    const ilegivel = { ...linha, analyteCode: '', rawValue: '85', projectLabel: '—' };
+    const { gravaveis, avisos } = separarLinhasGravaveis([linha, ilegivel]);
     expect(gravaveis).toHaveLength(1);
     expect(gravaveis[0].analyteCode).toBe('62292-8');
-    expect(avisos.join(' ')).toContain('Zinco Sanguineo');
+    // O aviso precisa dizer o que estava escrito, senao a pessoa nao tem como
+    // saber o que o papel tem a mais do que a tela mostra.
+    expect(avisos.join(' ')).toContain('85');
+    expect(avisos.join(' ')).not.toContain('catálogo');
   });
 
   it('manda para revisao as duas linhas quando o mesmo codigo repete no mesmo momento', () => {

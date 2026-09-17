@@ -14,8 +14,9 @@ import type { ReviewStatus } from '../../data/schemas/extractionEnums';
 
 import { findAnalyteByCode } from './analyteCatalog';
 import type { RawLabResult } from './extractionSchema';
+import { localAnalyteCode } from './localAnalyteCode';
 import { parseDecimal } from './numberParser';
-import { convertConcentration } from './unitConverter';
+import { convertConcentration, normalizeUnitToken } from './unitConverter';
 
 // Importado de amplify/data/schemas/extractionEnums.ts (tarefa 7), NUNCA
 // redigitado aqui: esta funcao escreve direto no DynamoDB, e um valor que nao
@@ -65,8 +66,19 @@ export function normalizeLabResult(
   const analyte = raw.analyteCodeGuess ? findAnalyteByCode(raw.analyteCodeGuess) : null;
   const valorLido = parseDecimal(raw.rawValue);
 
+  // D32: todo analito do papel vira linha. Fora do catalogo, o codigo sai do
+  // ROTULO, nunca do palpite do modelo -- um codigo inventado gravado como se
+  // fosse LOINC promete comparacao entre laboratorios que nao existe, e pode
+  // colidir com o codigo real de outro analito.
+  const codigo = analyte?.code ?? localAnalyteCode(raw.analyteLabel) ?? '';
+
+  // Sem catalogo nao ha unidade canonica: a unidade de comparacao passa a ser
+  // a do papel, normalizada pelo mesmo tradutor de grafia que o conversor usa
+  // (D28), para "µg/dL" e "mcg/dL" nao virarem duas escalas diferentes.
+  const unidadeDeComparacao = analyte?.canonicalUnit ?? normalizeUnitToken(raw.rawUnit);
+
   const base = {
-    analyteCode: analyte?.code ?? raw.analyteCodeGuess ?? '',
+    analyteCode: codigo,
     analyteLabel: analyte?.label ?? raw.analyteLabel,
     projectLabel: analyte?.projectLabel ?? raw.analyteLabel,
     // O sinal de censura vem DENTRO de rawValue, porque e assim que esta no
@@ -92,11 +104,12 @@ export function normalizeLabResult(
 
   // 1. O numero nao pode ser lido. Nao ha o que converter e nao ha o que
   //    chutar -- "nao reagente" nao vira zero.
-  if (!valorLido.ok) return paraRevisao(analyte?.canonicalUnit ?? raw.rawUnit ?? '');
+  if (!valorLido.ok) return paraRevisao(unidadeDeComparacao);
 
-  // 2. O codigo sugerido nao existe no catalogo. Sem analito nao ha unidade
-  //    canonica nem massa molar, entao nao ha conversao possivel.
-  if (!analyte) return paraRevisao(raw.rawUnit ?? '');
+  // 2. Rotulo que nao identifica analito nenhum. Sem codigo nao ha eixo de
+  //    comparacao e o id deterministico colidiria com o de outra linha igual
+  //    -- e a unica linha que a D32 ainda deixa de fora da comparacao.
+  if (codigo === '') return paraRevisao(unidadeDeComparacao);
 
   const faixaBaixaLida = parseDecimal(raw.rawReferenceLow);
   const faixaAltaLida = parseDecimal(raw.rawReferenceHigh);
@@ -104,15 +117,23 @@ export function normalizeLabResult(
   const altaAusente = estaAusente(raw.rawReferenceHigh);
 
   if ((!baixaAusente && !faixaBaixaLida.ok) || (!altaAusente && !faixaAltaLida.ok)) {
-    return paraRevisao(analyte.canonicalUnit);
+    return paraRevisao(unidadeDeComparacao);
   }
 
   // 3. Valor e faixa convertem NUMA SO PASSAGEM, com a mesma massa molar
   //    (D17). Converter o valor e deixar a faixa para tras faz exame normal
   //    aparecer alterado, que e o modo de falha mais caro desta EPIC.
-  const de = raw.rawUnit ?? analyte.canonicalUnit;
+  //
+  //    Analito de codigo local NAO converte: a unidade de destino e a propria
+  //    unidade do papel, entao a conversao e a identidade. Isso e a limitacao
+  //    honesta da D32 -- dois laboratorios que escrevam o mesmo analito em
+  //    unidades diferentes nao se comparam, e quem exclui esse ponto, com
+  //    motivo registrado, e a EPIC de serie.
+  const alvo = analyte?.canonicalUnit ?? unidadeDeComparacao;
+  const de = raw.rawUnit ?? alvo;
   const converter = (n: number | null): number | null | 'falhou' => {
     if (n === null) return null;
+    if (!analyte) return n;
     const resultado = convertConcentration(n, de, analyte.canonicalUnit, analyte.molarMass);
     return resultado.ok ? resultado.value : 'falhou';
   };
@@ -122,16 +143,13 @@ export function normalizeLabResult(
   const alta = converter(altaAusente || !faixaAltaLida.ok ? null : faixaAltaLida.value);
 
   if (valor === 'falhou' || baixa === 'falhou' || alta === 'falhou') {
-    return paraRevisao(analyte.canonicalUnit);
+    return paraRevisao(unidadeDeComparacao);
   }
 
   return {
     ...base,
-    analyteCode: analyte.code,
-    analyteLabel: analyte.label,
-    projectLabel: analyte.projectLabel,
     value: valor,
-    unit: analyte.canonicalUnit,
+    unit: alvo,
     referenceLow: baixa,
     referenceHigh: alta,
     // 4. Confianca baixa manda para revisao mesmo com a conversao perfeita: o

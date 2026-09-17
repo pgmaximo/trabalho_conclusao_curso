@@ -18,11 +18,11 @@ O QUE FAZER
 - Copiar o valor EXATAMENTE como esta no papel, incluindo virgula decimal, ponto de milhar e sinal de menor-que ou maior-que. Nao converta, nao arredonde, nao reformate. "32,5" se transcreve "32,5". "<0,01" se transcreve "<0,01".
 - Transcrever os limites da faixa tambem como texto, pela mesma regra.
 - A data da coleta vai SEMPRE no formato AAAA-MM-DD. O laudo brasileiro escreve 04/10/2025; isso se transcreve 2025-10-04. Se a data nao estiver legivel no documento, deixe vazio.
-- Escolher o codigo do analito na lista de candidatos enviada nesta mensagem. Se nenhum servir, deixe o codigo vazio e baixe a confianca.
+- Escolher o codigo do analito na lista de candidatos enviada nesta mensagem. Se nenhum servir, deixe o codigo vazio e transcreva a linha do mesmo jeito: ela vai ser guardada por outro caminho. Nao invente codigo e NAO baixe a confianca por causa disso -- a lista e nossa e pode estar incompleta; a confianca e sobre a sua LEITURA do papel, nao sobre a nossa lista.
 - No hemograma, contagem ABSOLUTA e PERCENTUAL do mesmo tipo de celula sao DOIS analitos diferentes, com codigos diferentes. "Neutrofilos 3.515 /uL" e "Neutrofilos 63,9 %" sao duas linhas, com dois codigos, e nunca o mesmo codigo repetido. Transcreva as duas quando as duas estiverem no papel.
 - Quando o mesmo analito aparecer mais de uma vez (curva glicemica, cortisol de manha e de tarde), transcrever uma linha por medida e preencher o momento com o rotulo que o laudo usa: "jejum", "120 minutos", "manha".
 - Percorrer o documento INTEIRO, ate a ultima pagina, antes de responder. Analito esquecido nao deixa rastro nenhum na resposta.
-- Declarar a confianca de cada linha honestamente, entre 0 e 1. Confianca baixa e uma resposta valida e util.
+- Declarar a confianca de cada linha honestamente, entre 0 e 1. Ela mede o quanto voce confia na sua LEITURA daquela linha do papel -- caractere borrado, numero cortado, coluna ambigua. Confianca baixa e uma resposta valida e util.
 
 O QUE NAO FAZER
 - Nao interprete. Nao diga se um valor esta alto, baixo, normal ou alterado. Nao nomeie condicao. Nao calcule risco. Nao comente.

@@ -100,10 +100,14 @@ export function buildLabResultUpdate(row: LabResultRow, tableName: string): Upda
  *    Biodisponivel e Zinco, que estao fora da cobertura de 79 analitos. As
  *    quatro sairiam com `analyteCode` vazio, e as quatro gerariam O MESMO id
  *    deterministico -- o UpdateCommand gravaria uma e sobrescreveria as
- *    outras tres sem levantar erro. Sem codigo tambem nao ha eixo de
- *    comparacao, que e o proposito da tabela. Elas nao sao gravadas: viram
- *    aviso, com o nome, para a pessoa saber que o papel tem mais do que a
- *    tela mostra.
+ *    outras tres sem levantar erro.
+ *
+ *    A D32 mudou o remedio: essas quatro agora recebem codigo local `X-` no
+ *    normalizador e sao gravadas normalmente. Sobra aqui um residuo, e so
+ *    ele: a linha cujo ROTULO nao identifica analito nenhum, da qual nao da
+ *    para derivar codigo. Ela continua fora, pela mesma razao de sempre --
+ *    duas linhas assim colidiriam --, mas o motivo que vai no aviso e outro,
+ *    e a copy precisa dizer a verdade nova.
  *
  * 2. CODIGO REPETIDO NO MESMO MOMENTO. O modelo rotulou "Neutrofilos" tanto
  *    para 3.515 /uL quanto para 63,9 % -- sao dois analitos, com dois codigos
@@ -126,7 +130,7 @@ export function separarLinhasGravaveis(linhas: LabResultRow[]): {
   if (semCodigo.length > 0) {
     const nomes = semCodigo.map((l) => `${l.projectLabel} (${l.rawValue} ${l.rawUnit ?? ''})`.trim());
     avisos.push(
-      `Estes resultados estão no documento mas ficaram fora da lista comparável, porque não têm código no nosso catálogo: ${nomes.join('; ')}.`,
+      `Não conseguimos identificar de qual exame são estes valores, e por isso eles não entraram na lista: ${nomes.join('; ')}. Eles continuam no documento original.`,
     );
   }
 

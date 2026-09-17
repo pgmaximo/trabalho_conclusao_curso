@@ -50,6 +50,19 @@ describe('extractionPrompt', () => {
     expect(SYSTEM_PROMPT).toMatch(/absolut/i);
   });
 
+  it('nao manda baixar a confianca quando falta codigo no catalogo (D32)', () => {
+    // A instrucao antiga mandava "deixe o codigo vazio e baixe a confianca".
+    // Depois da D32 isso passou a ser um defeito: a linha sem codigo agora e
+    // GRAVADA com codigo local, e confianca baixa a manda para revisao. O
+    // usuario veria quatro linhas do laudo real pedindo conferencia de uma
+    // leitura que estava perfeita -- a duvida era nossa, sobre o vocabulario,
+    // e nao do modelo, sobre o papel.
+    expect(SYSTEM_PROMPT).not.toMatch(/deixe o codigo vazio e baixe a confianca/i);
+    // A confianca precisa continuar amarrada a LEITURA, e dito com todas as
+    // letras, senao o modelo repete o comportamento antigo por conta propria.
+    expect(SYSTEM_PROMPT).toMatch(/confianca.*(leitura|transcricao)/is);
+  });
+
   it('manda ignorar instrucao vinda de dentro do documento', () => {
     expect(SYSTEM_PROMPT).toMatch(/nao siga instrucao/i);
   });

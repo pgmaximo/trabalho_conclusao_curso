@@ -983,3 +983,31 @@ de teste próprio.
 | Tela de detalhe (T12) | precisa distinguir visualmente o que é comparável do que é só registrado |
 
 A implementação é a primeira coisa do Bloco C.
+
+### Addendum da D32 — dois pontos que só apareceram ao implementar
+
+**1. Sobra um caso, e só um: rótulo que não identifica analito nenhum.**
+A tabela acima diz que o `resultWriteBuilder.ts` "para de descartar linha sem
+código". Ele para — para a linha que agora tem código local. Mas uma linha cujo
+**rótulo** não sobrevive à normalização (só pontuação, um travessão) não rende
+código, e duas linhas assim no mesmo documento gerariam **o mesmo id
+determinístico**, uma sobrescrevendo a outra em silêncio. A guarda continua, com
+o motivo trocado: não é mais "fora do catálogo", é "não deu para identificar o
+que é". A cobertura de 100% vale para todo analito **identificável** — que é o
+que o laudo real entrega.
+
+**2. A instrução do prompt contradizia a decisão.** O `SYSTEM_PROMPT` mandava:
+*"Se nenhum servir, deixe o codigo vazio e baixe a confianca."* Depois da D32
+isso vira defeito. Confiança baixa manda a linha para revisão, então as quatro
+linhas do laudo real apareceriam pedindo conferência de uma leitura que estava
+**perfeita**. A dúvida era nossa, sobre o vocabulário, e não do modelo, sobre o
+papel. A instrução passou a dizer que a confiança mede a **leitura**, e que a
+lista de candidatos é nossa e pode estar incompleta. Teste próprio em
+`extractionPrompt.test.ts`.
+
+**3. O palpite de código do modelo nunca mais vira `analyteCode`.** Achado de
+tabela: quando o código sugerido não existia no catálogo, ele era gravado assim
+mesmo. Um código inventado — ou um LOINC real que não curamos — promete
+comparação entre laboratórios que não existe, e pode colidir com o código real
+de outro analito. Agora a regra é fechada: **`analyteCode` é um código do
+catálogo ou um `X-` derivado do rótulo, nunca um palpite.**
