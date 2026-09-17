@@ -369,3 +369,148 @@ rotular todos os pontos em vez de mexer no `chartScale`, de que a feature de
 wearable depende (regra 5). Numa série de duas a seis coletas, que é o que este
 domínio produz, não há ambiguidade. Se um dia produzir série longa, a correção
 está escrita na spec.
+
+---
+
+## Bloco E — assistente conversacional (C1 a C7)
+
+`npm run validate` verde: **823 testes, 81 suítes, 0 erros de lint**. Eram 664
+ao fim do Bloco D.
+
+Uma dependência nova, a única autorizada: **`aws-jwt-verify`**, no backend do
+assistente. Ela existe porque a D12 tirou o chat de dentro do AppSync, e com
+isso a verificação de identidade — que o AppSync fazia sozinho — passou a ser
+nossa.
+
+### O que o plano não trazia, e teve que ser desenhado
+
+1. **`rateLimit.ts`.** A estrutura de arquivos do plano o declara e a
+   `tasks.md` o exige — *"sem isso, o endereço direto é uma conta de Bedrock
+   aberta"* — mas **nenhuma tarefa do plano o especifica**. O desenho é nosso:
+   janela deslizante por dono, na memória da instância, mais concorrência
+   reservada na função. São duas defesas para dois problemas diferentes, e a
+   primeira **não** é um limite de conta: com várias instâncias, cada uma tem
+   seu próprio contador. Registrado no próprio arquivo, com o próximo passo
+   (tabela e uma escrita por turno) se a medição da C10 mostrar que o caso
+   comum não é o único.
+
+2. **`toJson()` e `extrairResposta()`.** O código da C4 chama as duas e o plano
+   não define nenhuma. A conversão certa já existia: o
+   `toStructuredOutputSchema` da extração, que além de converter **tira as
+   palavras-chave que o Bedrock recusa** (`maxItems`, `minimum`, `maximum`) —
+   medidas uma a uma contra o serviço em 2026-09-17. O `chatAnswerSchema` usa
+   `maxItems`, então a conversão ingênua teria sido recusada na primeira
+   chamada real.
+
+3. **`lerLabResults()`** (C3) e **`readObjectBuffer()`** (C7): citadas pelo
+   código do plano, inexistentes.
+
+### O que o plano trazia errado
+
+4. **A consulta de wearable usa `IndexName: 'byOwner'`.** Esse índice **não
+   existe em tabela nenhuma deste repositório.** O padrão da casa é
+   `ScanCommand` com `FilterExpression` sobre o dono, que é o que a
+   `get-prevention-recommendations` já faz. A chamada do plano teria falhado na
+   primeira execução real.
+
+5. **A tool de analitos aplicava TRÊS das cinco exclusões da EPIC de série** —
+   faltavam *sem data* e *unidade divergente*. A segunda é a perigosa: sem ela,
+   o modelo compararia `ng/mL` com `nmol/L` como se fosse a mesma escala, e
+   diria que um valor "subiu" porque a unidade mudou. Um teste agora compara os
+   motivos das duas superfícies **um a um**, lendo o `ExclusionReason` da fonte
+   da tela: se a tela passar a excluir por um motivo que a conversa não conhece,
+   a conversa citaria um número que a tela esconde, e ninguém perceberia até
+   alguém comparar as duas.
+
+6. **A busca por termo só olhava o catálogo.** Com a D32, parte das linhas tem
+   código local derivado do rótulo, e **nenhum código local está no catálogo** —
+   então o analito que a tela de série mostra ficaria invisível à conversa.
+   Agora a busca tem duas fontes, nesta ordem: catálogo e histórico da pessoa.
+
+7. **`extractText(bytes, key, bucket)`** (C7) não é a assinatura real, que é
+   `(bucket, key, contentType, bytes)`.
+
+8. **`responderComVerificacao(entrada, idsDevolvidos)`** (C5) recebe de quem
+   chama o conjunto de ids que as ferramentas devolveram — mas **quem chama não
+   tem como saber os ids antes do laço rodar.** O índice passou a ser derivado
+   onde ele existe, dentro da própria função, a partir do transcript.
+
+### Os testes do plano que não testavam
+
+9. **O teste de filtro por dono (C2) era vazio.** Ele criava um espião que não
+   estava ligado a nada e afirmava que a lista de chamadas do espião — sempre
+   `[]` — não continha o dono hostil. Passaria com qualquer implementação,
+   inclusive uma sem filtro nenhum. O espião agora é o próprio cliente do
+   DynamoDB, e a afirmação é sobre as consultas que de fato foram montadas:
+   `FilterExpression` exata e `:owner` ligado ao dono do token.
+
+10. **O `converseFalso` da C4** (`sempreChamaTool`, `depoisResponde`,
+    `limparContagem`) não existe em lugar nenhum do plano. O duplo foi escrito
+    aqui.
+
+11. **`requireActual` sobre o AWS SDK não carrega** sob o jest-expo: o pacote
+    publicado é ESM e quebra com `Unexpected token 'export'` antes de qualquer
+    asserção. Os mocks do SDK são completos, sem `requireActual`.
+
+12. **Nomes de mock sem o prefixo `mock`** impedem o `jest.mock` de carregar — o
+    mesmo tropeço da S3.
+
+### As decisões que o plano deixou em aberto
+
+**O chat REUSA o guardrail da análise de wearables**, e não ganha um próprio. A
+D20 mandou a extração ter o seu porque lá os dois tópicos bloqueados são o
+*conteúdo legítimo do papel* — uma receita transcrita **é** uma prescrição de
+medicamento. Aqui a razão se inverte: o chat é exatamente "uma IA que dá
+conselho", que é a IA para a qual aquele guardrail foi desenhado. Bloquear
+diagnóstico definitivo e indicação de dose na saída é o comportamento desejado,
+e coincide com o que a R3 já exige.
+
+**A dose cadastrada fica de FORA do modo degradado**, e essa é a diferença entre
+as duas superfícies: a tool pode devolvê-la ao modelo, porque é o dado da
+pessoa, mas `"50 mg"` numa linha de texto é exatamente o que a R3 reprova — e o
+modo degradado precisa passar as regras **por construção**, sem ter como saber
+que ali é um cadastro e não uma indicação. Quem quer ver a dose abre a tela de
+medicamentos, que é a tela dela.
+
+**`sendMessageWithSources` foi ACRESCENTADA ao lado de `sendMessage`**, que
+continua `(message, history, userContext?) => Promise<string>`. A bolha com
+origem exige que a resposta carregue as citações, e texto puro não carrega — mas
+mudar a forma do contrato quebraria o desenho que a EPIC anterior fez de
+propósito. O acréscimo mantém as duas coisas. **Este é o achado que a C6 pedia
+para registrar:** o contrato previa a troca de provedor, não a origem do número.
+
+**As sugestões rápidas da tela mudaram.** *"O que significa colesterol alto?"*
+seria respondida com a R5 — nenhuma ferramenta devolve explicação de conceito —
+e *"Lembrar de tomar remédio"* promete uma escrita que a D9 proíbe. Uma sugestão
+que o próprio produto recusa ensina a pessoa a não confiar nas sugestões. Saiu
+junto a copy mockada que dizia *"os valores estão dentro da faixa de referência
+usual"*: era interpretação clínica servida por um mock.
+
+**O botão de anexo mudou de destino.** Antes desta EPIC ele **saía do chat** e
+levava direto a `/add-exam` — ou seja, só existia a porta que registra, e quem
+só queria perguntar sobre um papel era mandado a cadastrá-lo. As duas portas
+existem agora, e a que registra continua a um toque: ela fica na própria linha
+do anexo, no mesmo lugar em que a pessoa descobre que aquele documento **não**
+entrou no histórico.
+
+### O que uma chamada real precisa confirmar (é da T1/C10, não daqui)
+
+**`output_config` junto com `toolConfig`.** A saída estruturada imposta pelo
+servidor foi medida pela extração (D19), mas lá **não havia ferramentas na
+chamada**. Aqui as duas vão juntas, e a combinação nunca foi exercida contra o
+serviço. O parser de `chatSchema.ts` é tolerante a cerca de código justamente
+por isso: se a saída estruturada não for aplicada, o modelo tende a embrulhar o
+JSON numa cerca, e uma resposta correta recusada por três crases seria uma
+reprovação sem conteúdo. Se a combinação for **recusada**, a chamada lança e o
+turno vira indisponibilidade honesta — visível, não silencioso.
+
+### A verificação por mutação
+
+Dois módulos passaram de primeira, o que não prova nada sozinho. Conferidos por
+mutação:
+
+- **A citação inventada é descartada** (`citacoes.ts`): trocando o `filter` por
+  um `map` que deixa passar o id cru, o teste reprova.
+- **A chave do anexo é conferida** (`anexoPontual.ts`): removendo
+  `chaveDeAnexoValida` da guarda, o teste que prova que uma chave de
+  `medical-documents/` nunca chega ao S3 reprova.
