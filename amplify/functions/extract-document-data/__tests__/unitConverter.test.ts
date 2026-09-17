@@ -64,4 +64,19 @@ describe('convertConcentration', () => {
     expect(volta.ok).toBe(true);
     if (volta.ok) expect(volta.value).toBeCloseTo(95, 6);
   });
+  it('entende a potencia com acento circunflexo, que e como o laudo real escreve', () => {
+    // Achado da Tarefa 1 contra o laudo do Delboni de 04/10/2025: eritrocitos
+    // vem como "10^6/uL" e leucocitos como "10^3/uL". O UCUM escreve "10*6/uL".
+    // Sem este alias a PRIMEIRA linha de todo hemograma vai para revisao por
+    // "unidade desconhecida" -- exatamente o modo de falha da D28, achado
+    // agora contra papel de verdade.
+    expect(normalizeUnitToken('10^6/µL')).toBe('10*6/uL');
+    expect(normalizeUnitToken('10^3/uL')).toBe('10*3/uL');
+    expect(normalizeUnitToken('10*6/µL')).toBe('10*6/uL');
+  });
+
+  it('converte eritrocitos do laudo real sem mandar para revisao', () => {
+    const result = convertConcentration(5.19, '10^6/µL', '10*6/uL', null);
+    expect(result).toEqual({ ok: true, value: 5.19 });
+  });
 });

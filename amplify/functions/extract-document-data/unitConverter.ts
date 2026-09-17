@@ -52,6 +52,8 @@ const UNIT_ALIASES: Record<string, string> = {
   'cel/mm3': '/uL',
   'celulas/mm3': '/uL',
   '/ul': '/uL',
+  '10*3/ul': '10*3/uL',
+  '10*6/ul': '10*6/uL',
   'g%': 'g/dL',
   'mg%': 'mg/dL',
 };
@@ -64,7 +66,15 @@ const UNIT_ALIASES: Record<string, string> = {
  */
 export function normalizeUnitToken(raw: string | null | undefined): string {
   if (!raw) return '';
-  const compacto = raw.replace(MICRO, 'u').replace(/\s+/g, '');
+  const compacto = raw
+    .replace(MICRO, 'u')
+    .replace(/\s+/g, '')
+    // O UCUM escreve potencia com asterisco ("10*6/uL"); o laudo brasileiro
+    // escreve com acento circunflexo ("10^6/uL"). Achado da Tarefa 1 contra o
+    // laudo real: sem esta linha a PRIMEIRA linha de todo hemograma --
+    // eritrocitos -- vai para revisao por "unidade desconhecida", que e o
+    // oposto do proposito da revisao (D28).
+    .replace(/^10\^(\d+)/, '10*$1');
   return UNIT_ALIASES[compacto.toLowerCase()] ?? compacto;
 }
 
