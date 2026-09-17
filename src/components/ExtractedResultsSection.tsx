@@ -15,11 +15,12 @@
  * conferido, a seta de fora da faixa e a barra colorida -- os tres sao
  * julgamento clinico, que a regra 4 proibe.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { CorrectResultPanel } from '@/components/CorrectResultPanel';
 import { ExtractedResultRow } from '@/components/ExtractedResultRow';
 import { InlineError } from '@/components/InlineError';
 import { useThemeColors } from '@/constants/theme';
@@ -29,12 +30,9 @@ import { agruparPorExame, contarLinhas } from '@/utils/labResultGrouping';
 
 export interface ExtractedResultsSectionProps {
   extraction: UseDocumentExtractionResult;
-  onCorrect: (result: LabResultView) => void;
   onOpenSeries?: (analyteCode: string) => void;
-  /** Linha cujo painel de correcao esta aberto -- ela esconde os botoes. */
-  linhaEmCorrecaoId?: string | null;
-  /** Renderizado logo abaixo da linha que esta sendo corrigida. */
-  renderPainelDeCorrecao?: (result: LabResultView) => React.ReactNode;
+  /** Avisa a tela que uma correcao entrou, para ela dar o retorno visivel. */
+  onCorrigido?: () => void;
 }
 
 function Legenda({ children }: { children: React.ReactNode }) {
@@ -47,12 +45,15 @@ function Legenda({ children }: { children: React.ReactNode }) {
 
 export function ExtractedResultsSection({
   extraction,
-  onCorrect,
   onOpenSeries,
-  linhaEmCorrecaoId = null,
-  renderPainelDeCorrecao,
+  onCorrigido,
 }: ExtractedResultsSectionProps) {
   const colors = useThemeColors();
+  // Uma linha por vez em correcao, do mesmo jeito que isConfirmingDelete faz
+  // com o painel de exclusao. O estado vive AQUI, e nao na tela: a tela de
+  // detalhe nao precisa conhecer o tipo de uma linha de analito para mostrar
+  // um documento.
+  const [linhaEmCorrecao, setLinhaEmCorrecao] = useState<LabResultView | null>(null);
   const { state, isLoading, isTimedOut, isRetrying, errorMessage } = extraction;
 
   const linhas = state?.results ?? [];
@@ -128,15 +129,25 @@ export function ExtractedResultsSection({
                 {grupo.linhas.map((linha) => (
                   <View key={linha.id}>
                     <ExtractedResultRow
-                      emCorrecao={linhaEmCorrecaoId === linha.id}
+                      emCorrecao={linhaEmCorrecao?.id === linha.id}
                       onConfirm={extraction.confirm}
-                      onCorrect={onCorrect}
+                      onCorrect={setLinhaEmCorrecao}
                       onOpenSeries={onOpenSeries}
                       result={linha}
                     />
-                    {linhaEmCorrecaoId === linha.id && renderPainelDeCorrecao
-                      ? renderPainelDeCorrecao(linha)
-                      : null}
+                    {linhaEmCorrecao?.id === linha.id ? (
+                      <CorrectResultPanel
+                        onCancel={() => setLinhaEmCorrecao(null)}
+                        onDone={() => {
+                          setLinhaEmCorrecao(null);
+                          // Rele o banco em vez de remendar o estado local: o
+                          // que a tela mostra passa a ser o que ficou gravado.
+                          extraction.refresh();
+                          onCorrigido?.();
+                        }}
+                        result={linha}
+                      />
+                    ) : null}
                   </View>
                 ))}
               </View>

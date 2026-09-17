@@ -17,11 +17,10 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
-import { CorrectResultPanel } from '@/components/CorrectResultPanel';
 import { DateInput } from '@/components/DateInput';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { DetailHeader } from '@/components/DetailHeader';
+import { DocumentSummaryCard } from '@/components/DocumentSummaryCard';
 import { ExtractedResultsSection } from '@/components/ExtractedResultsSection';
 import { FormField } from '@/components/FormField';
 import { HachuraPlaceholder } from '@/components/HachuraPlaceholder';
@@ -29,9 +28,7 @@ import { InlineError } from '@/components/InlineError';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
 import { useThemeColors } from '@/constants/theme';
 import type { UseDocumentExtractionResult } from '@/hooks/useDocumentExtraction';
-import type { LabResultView } from '@/services/extractionService';
 import {
-  formatDateForDisplay,
   getDocumentDownloadUrl,
   getExamDocumentIncompleteReason,
   isExamDocumentComplete,
@@ -57,9 +54,6 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  // Uma linha por vez em correcao, do mesmo jeito que isConfirmingDelete ja
-  // faz com o painel de exclusao.
-  const [linhaEmCorrecao, setLinhaEmCorrecao] = useState<LabResultView | null>(null);
 
   // Tipo do documento não é editável no Canvas 3c (modo edição só expõe Nome/Data/Data de
   // validade) — mantido só como valor de leitura para a linha "Tipo" e para a condição da
@@ -287,73 +281,19 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
             </>
           ) : (
             <>
-              {/* Card somente-leitura: Tipo/Nome/Data(/Data de validade), linhas com divisor */}
-              <Card padding="regular" style={{ marginBottom: 20 }} variant="surface">
-                <View className="border-b border-app-border pb-3 dark:border-app-dark-border">
-                  <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                    Tipo
-                  </Text>
-                  <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                    {typeLabel}
-                  </Text>
-                </View>
-
-                <View className="border-b border-app-border py-3 dark:border-app-dark-border">
-                  <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                    Nome
-                  </Text>
-                  <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                    {documentName}
-                  </Text>
-                </View>
-
-                <View
-                  className={isPrescription && expirationDate ? 'border-b border-app-border py-3 dark:border-app-dark-border' : 'pt-3'}
-                >
-                  <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                    Data
-                  </Text>
-                  <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                    {formatDateForDisplay(documentDate)}
-                  </Text>
-                </View>
-
-                {isPrescription && expirationDate ? (
-                  <View className="pt-3">
-                    <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                      Data de validade
-                    </Text>
-                    <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                      {formatDateForDisplay(expirationDate)}
-                    </Text>
-                  </View>
-                ) : null}
-              </Card>
+              <DocumentSummaryCard
+                documentDate={documentDate}
+                documentName={documentName}
+                expirationDate={isPrescription ? expirationDate : undefined}
+                typeLabel={typeLabel}
+              />
 
               {/* Leitura automatica do documento (EPIC 06). Entra ABAIXO do
                   que ja existia: os tres modos desta tela -- visualizacao,
                   edicao e exclusao -- nao mudaram (regra 5). */}
               <ExtractedResultsSection
                 extraction={extraction}
-                linhaEmCorrecaoId={linhaEmCorrecao?.id ?? null}
-                onCorrect={setLinhaEmCorrecao}
-                renderPainelDeCorrecao={(linha) => (
-                  <CorrectResultPanel
-                    onCancel={() => setLinhaEmCorrecao(null)}
-                    onDone={() => {
-                      setLinhaEmCorrecao(null);
-                      // Rele o banco em vez de remendar o estado local: o que a
-                      // tela mostra passa a ser o que ficou gravado.
-                      extraction.refresh();
-                      setSuccessMessage('Correção salva!');
-                    }}
-                    result={linha}
-                  />
-                )}
-                // O atalho para a serie por analito NAO e ligado aqui ainda:
-                // a rota /analyte-series so nasce na EPIC de serie (Bloco D), e
-                // um botao que leva a uma rota inexistente e pior do que a
-                // ausencia do botao. O componente ja aceita o callback.
+                onCorrigido={() => setSuccessMessage('Correção salva!')}
               />
 
               {downloadError ? <InlineError message={downloadError} /> : null}

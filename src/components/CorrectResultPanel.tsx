@@ -78,7 +78,7 @@ export function CorrectResultPanel({ result, onDone, onCancel }: CorrectResultPa
       <View className="mt-3 flex-row items-center gap-3">
         <TextInput
           accessibilityLabel="Valor"
-          className="flex-1 rounded-field border border-app-border bg-app-surface px-3 py-3 text-[16px] text-app-text dark:border-app-dark-border dark:bg-app-dark-surface dark:text-app-dark-text"
+          className="flex-1 rounded-field border border-app-border bg-app-surface p-3 text-[16px] text-app-text dark:border-app-dark-border dark:bg-app-dark-surface dark:text-app-dark-text"
           // "decimal-pad" e nao "numeric": o teclado precisa ter a virgula,
           // que e o separador decimal que o laudo usa.
           keyboardType="decimal-pad"
