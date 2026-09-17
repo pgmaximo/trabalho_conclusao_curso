@@ -230,3 +230,72 @@ A lista de candidatos sozinha são ~10.000 caracteres. Se o custo por documento
 incomodar, é o primeiro lugar a olhar — uma busca por semelhança antes da
 chamada reduziria 79 candidatos a uma dúzia. Não foi feito porque otimizar
 antes de medir a conta é otimizar no escuro.
+
+## Bloco C — o aplicativo (T11, T12, T12b, T13)
+
+### Achados do plano, executando-o
+
+1. **T11 pede um id que não existia.** O plano manda
+   `await startExtraction(savedMetadata.id)`, mas `saveDocumentMetadata`
+   devolvia `FileMetadata`, que não tem `id` — o id da linha criada pelo
+   resolver era **descartado**. A função passou a devolvê-lo, opcional, porque
+   a resposta do AppSync pode vir sem `data` e nesse caso o documento está
+   salvo do mesmo jeito; só não dá para pedir a leitura dele.
+
+2. **T12 se contradiz entre o teste e o código.** O teste do plano injeta o
+   estado por props (`props({ extractionStatus: 'PROCESSING' })`); o código do
+   plano busca com `useDocumentExtraction(document.id)` dentro da tela. Segui a
+   convenção do repositório — `HealthDashboardScreen` recebe `healthImport`,
+   `isLoading`, `isTimedOut`, `onRetry` por props e a **rota** é dona do hook —,
+   que satisfaz o teste do próprio plano e mantém a tela apresentável sem rede.
+
+3. **O código de tela do plano é de outro design system.** `Button` com filhos
+   (aqui é `title=`), `InlineError` com `className` (aqui só aceita `message`),
+   e classes `text-foreground` / `bg-warning/5` / `border-l-warning`, que não
+   existem: os tokens deste projeto são `app-*` / `dark:app-dark-*`. Traduzido
+   linha a linha.
+
+4. **`toLocaleString('pt-BR')` não serve para número de exame.** Depende do ICU
+   do Hermes, que varia por plataforma, e arredondar sem cuidado transforma
+   `0,004` em `"0"` — um número **errado** na tela, do tipo que ninguém percebe
+   conferindo por cima. Virou `src/utils/decimalDisplay.ts`, com teste.
+
+5. **T12 liga um botão para uma rota que só nasce no Bloco D.** O atalho
+   "Evolução" aponta para `/analyte-series`, que a EPIC de série cria (S4). O
+   componente aceita o callback, mas a tela **não o liga ainda**: um botão que
+   leva a rota inexistente é pior do que a ausência do botão. Ligar é uma linha,
+   no Bloco D.
+
+6. **`DocumentRow` declarava `expirationDate` sem ninguém usar.** Removido. A
+   validade não existir no tipo com que a extração enxerga o documento é uma
+   garantia mais forte do que o comentário pedindo cuidado que estava no
+   cabeçalho do `handler.ts`.
+
+### O que veio da tela do DASA, e o que não veio
+
+Copiado: contagem no topo, agrupamento por exame (campo `panel` do catálogo
+gerado — sem agrupamento inventado) e o valor ao lado da faixa do laboratório.
+Não copiado: o ícone de conferido, a seta laranja de fora da faixa e a barra
+colorida. Cor só no estado da **extração**; nunca no do **valor**.
+
+O agrupamento custa importar `analyteCatalog.ts` (gerado, ~1600 linhas) no
+pacote do aplicativo. É dado que já está no repositório e não é dependência
+nova, mas fica registrado: se o tamanho do pacote virar problema, o caminho é
+gerar um segundo arquivo só com `code → panel`.
+
+### O verificador de linguagem virou teste de tela
+
+O teste que prova o encaminhamento a um profissional de saúde e a ausência do
+termo vetado **não repete nenhum padrão**: ele chama `checkLanguageRules` da
+EPIC de regras de linguagem sobre o JSON da tela renderizada. A R2 cobre o
+encaminhamento, a R1 cobre o termo vetado, e a R3 foi desenhada para não
+confundir unidade de exame (`g/dL`) com dose de medicamento.
+
+### react-doctor
+
+O hook de pré-commit acusa "staged regressions" nos arquivos novos. Conferido
+um a um: são duas regras que já disparam no repositório inteiro — a de ajustar
+estado em efeito, que o `useHealthImportStatus` (o padrão que o
+`useDocumentExtraction` imita deliberadamente) também dispara, e uma regra de
+arquivo que lista praticamente todos os serviços, incluindo `src/utils/date.ts`.
+Nenhuma classe de defeito nova foi introduzida.

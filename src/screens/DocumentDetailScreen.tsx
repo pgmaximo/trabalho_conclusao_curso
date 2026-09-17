@@ -350,7 +350,10 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
                     result={linha}
                   />
                 )}
-                onOpenSeries={(analyteCode) => router.push(`/analyte-series?code=${analyteCode}`)}
+                // O atalho para a serie por analito NAO e ligado aqui ainda:
+                // a rota /analyte-series so nasce na EPIC de serie (Bloco D), e
+                // um botao que leva a uma rota inexistente e pior do que a
+                // ausencia do botao. O componente ja aceita o callback.
               />
 
               {downloadError ? <InlineError message={downloadError} /> : null}
