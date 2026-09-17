@@ -1,9 +1,9 @@
 {
   "auth": {
-    "user_pool_id": "us-east-1_CFEpevMNE",
+    "user_pool_id": "us-east-1_zCfDATatU",
     "aws_region": "us-east-1",
-    "user_pool_client_id": "66sa0ki36k87smhsr9ctmfldoi",
-    "identity_pool_id": "us-east-1:365c646a-4636-4b48-b95a-f8ffb4dc9aa2",
+    "user_pool_client_id": "1v2g5v2beejcifq6sqeb8km7pv",
+    "identity_pool_id": "us-east-1:fb85e028-e232-4061-8bb2-6f27eb1021cf",
     "mfa_methods": [],
     "standard_required_attributes": [
       "email"
@@ -26,7 +26,7 @@
     "unauthenticated_identities_enabled": true
   },
   "data": {
-    "url": "https://2qjmiuhwmjbcbcgx362vehcfru.appsync-api.us-east-1.amazonaws.com/graphql",
+    "url": "https://46psimaz6rahlmpua5w5itaf2i.appsync-api.us-east-1.amazonaws.com/graphql",
     "aws_region": "us-east-1",
     "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
     "authorization_types": [
@@ -249,6 +249,79 @@
               "isRequired": false,
               "attributes": []
             },
+            "extractionStatus": {
+              "name": "extractionStatus",
+              "isArray": false,
+              "type": {
+                "enum": "MedicalDocumentExtractionStatus"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "extractionStartedAt": {
+              "name": "extractionStartedAt",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "extractedAt": {
+              "name": "extractedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": []
+            },
+            "extractedTextKey": {
+              "name": "extractedTextKey",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "extractionError": {
+              "name": "extractionError",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "extractionWarnings": {
+              "name": "extractionWarnings",
+              "isArray": true,
+              "type": "String",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "modelId": {
+              "name": "modelId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "inputTokens": {
+              "name": "inputTokens",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "outputTokens": {
+              "name": "outputTokens",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "sourceChecksum": {
+              "name": "sourceChecksum",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "createdAt": {
               "name": "createdAt",
               "isArray": false,
@@ -272,6 +345,343 @@
             {
               "type": "model",
               "properties": {}
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "provider": "userPools",
+                    "ownerField": "owner",
+                    "allow": "owner",
+                    "identityClaim": "cognito:username",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": false,
+            "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
+        },
+        "LabResult": {
+          "name": "LabResult",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true,
+              "attributes": []
+            },
+            "documentId": {
+              "name": "documentId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "analyteCode": {
+              "name": "analyteCode",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "analyteLabel": {
+              "name": "analyteLabel",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "projectLabel": {
+              "name": "projectLabel",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "value": {
+              "name": "value",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "valueQualifier": {
+              "name": "valueQualifier",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "unit": {
+              "name": "unit",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "rawValue": {
+              "name": "rawValue",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "rawUnit": {
+              "name": "rawUnit",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "referenceLow": {
+              "name": "referenceLow",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "referenceHigh": {
+              "name": "referenceHigh",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "collectedAt": {
+              "name": "collectedAt",
+              "isArray": false,
+              "type": "AWSDate",
+              "isRequired": false,
+              "attributes": []
+            },
+            "collectionMoment": {
+              "name": "collectionMoment",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "sourcePage": {
+              "name": "sourcePage",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "confidence": {
+              "name": "confidence",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "reviewStatus": {
+              "name": "reviewStatus",
+              "isArray": false,
+              "type": {
+                "enum": "LabResultReviewStatus"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "correctedAt": {
+              "name": "correctedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "LabResults",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "key",
+              "properties": {
+                "name": "labResultsByDocumentId",
+                "queryField": "listLabResultByDocumentId",
+                "fields": [
+                  "documentId"
+                ]
+              }
+            },
+            {
+              "type": "key",
+              "properties": {
+                "name": "labResultsByAnalyteCodeAndCollectedAt",
+                "queryField": "listLabResultByAnalyteCodeAndCollectedAt",
+                "fields": [
+                  "analyteCode",
+                  "collectedAt"
+                ]
+              }
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "provider": "userPools",
+                    "ownerField": "owner",
+                    "allow": "owner",
+                    "identityClaim": "cognito:username",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": false,
+            "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
+        },
+        "PrescriptionItem": {
+          "name": "PrescriptionItem",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true,
+              "attributes": []
+            },
+            "documentId": {
+              "name": "documentId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "medicationLabel": {
+              "name": "medicationLabel",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "dose": {
+              "name": "dose",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "unit": {
+              "name": "unit",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "frequency": {
+              "name": "frequency",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "duration": {
+              "name": "duration",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "rawText": {
+              "name": "rawText",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "confidence": {
+              "name": "confidence",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "reviewStatus": {
+              "name": "reviewStatus",
+              "isArray": false,
+              "type": {
+                "enum": "PrescriptionItemReviewStatus"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "PrescriptionItems",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "key",
+              "properties": {
+                "name": "prescriptionItemsByDocumentId",
+                "queryField": "listPrescriptionItemByDocumentId",
+                "fields": [
+                  "documentId"
+                ]
+              }
             },
             {
               "type": "auth",
@@ -1364,6 +1774,32 @@
             "prescription"
           ]
         },
+        "MedicalDocumentExtractionStatus": {
+          "name": "MedicalDocumentExtractionStatus",
+          "values": [
+            "PENDING",
+            "PROCESSING",
+            "SUCCEEDED",
+            "NO_RESULTS",
+            "FAILED"
+          ]
+        },
+        "LabResultReviewStatus": {
+          "name": "LabResultReviewStatus",
+          "values": [
+            "AUTO",
+            "PENDENTE_DE_REVISAO",
+            "CONFIRMADO_PELO_USUARIO"
+          ]
+        },
+        "PrescriptionItemReviewStatus": {
+          "name": "PrescriptionItemReviewStatus",
+          "values": [
+            "AUTO",
+            "PENDENTE_DE_REVISAO",
+            "CONFIRMADO_PELO_USUARIO"
+          ]
+        },
         "AppointmentAppointmentType": {
           "name": "AppointmentAppointmentType",
           "values": [
@@ -1417,6 +1853,25 @@
         }
       },
       "nonModels": {
+        "StartDocumentExtractionResult": {
+          "name": "StartDocumentExtractionResult",
+          "fields": {
+            "documentId": {
+              "name": "documentId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "status": {
+              "name": "status",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            }
+          }
+        },
         "VaccinationCampaignResult": {
           "name": "VaccinationCampaignResult",
           "fields": {
@@ -1803,6 +2258,22 @@
         }
       },
       "mutations": {
+        "startDocumentExtraction": {
+          "name": "startDocumentExtraction",
+          "isArray": false,
+          "type": {
+            "nonModel": "StartDocumentExtractionResult"
+          },
+          "isRequired": false,
+          "arguments": {
+            "documentId": {
+              "name": "documentId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            }
+          }
+        },
         "startHealthAnalysis": {
           "name": "startHealthAnalysis",
           "isArray": false,
@@ -1824,11 +2295,11 @@
   },
   "storage": {
     "aws_region": "us-east-1",
-    "bucket_name": "amplify-tcc-artur-sandbox-medicaldocumentsbucketd9-7frolfaxexev",
+    "bucket_name": "amplify-tcc-pedro-sandbox-medicaldocumentsbucketd9-yp5x61ik2giw",
     "buckets": [
       {
         "name": "medicalDocuments",
-        "bucket_name": "amplify-tcc-artur-sandbox-medicaldocumentsbucketd9-7frolfaxexev",
+        "bucket_name": "amplify-tcc-pedro-sandbox-medicaldocumentsbucketd9-yp5x61ik2giw",
         "aws_region": "us-east-1",
         "paths": {
           "medical-documents/${cognito-identity.amazonaws.com:sub}/*": {

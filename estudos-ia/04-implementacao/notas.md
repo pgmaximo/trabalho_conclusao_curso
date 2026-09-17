@@ -163,3 +163,64 @@ Medição real, conta `370586504317`, região `us-east-1`. Decisão em D19.
    Sem alias, **a primeira linha de todo hemograma vai para revisão** — o
    mesmo modo de falha que a D28 descreve, encontrado agora contra papel de
    verdade em vez de hipótese. O mesmo vale para `10^3/µL`.
+
+## Do Bloco B (2026-09-17)
+
+### Nome de guardrail é único na conta, e isso travava todo sandbox menos um
+
+Ao publicar o backend da extração pela primeira vez, o CloudFormation fez
+rollback inteiro com:
+
+```
+Another guardrail in your account already has this name.
+(Service: Bedrock, Status Code: 400, HandlerErrorCode: AlreadyExists)
+```
+
+O `backend.ts` dava ao guardrail o nome fixo `health-insights-guardrail`. As
+tags do recurso mostraram o dono: `amplify-tcc-artur-sandbox-16e78b8e8b`,
+`CREATE_COMPLETE`. O sandbox do Arturo tinha criado o nome primeiro.
+
+**Não é um problema do meu backend: é um defeito de multiusuário que estava
+latente.** Nome de guardrail é único na **conta**, não na stack — então, com
+nome fixo, **só um sandbox por conta consegue existir**. Qualquer segundo
+desenvolvedor a publicar receberia o mesmo erro, com a mesma causa, e ela não
+aparece em lugar nenhum da mensagem.
+
+Corrigido nos dois guardrails com um sufixo derivado do identificador da
+stack. A troca de nome faz o CloudFormation **substituir** o guardrail no
+próximo deploy de cada ambiente: cria um novo com a mesma configuração e apaga
+o antigo. O identificador muda, e isso é inofensivo porque a Lambda o lê de
+variável de ambiente, nunca de valor escrito no código.
+
+**Avisar o Arturo** antes do próximo deploy dele — não porque vá quebrar, mas
+porque o identificador do guardrail dele vai mudar e é melhor ele saber por
+quê.
+
+### O Textract não está habilitado na conta
+
+`SubscriptionRequiredException: The AWS Access Key Id needs a subscription for
+the service`. É recusa no nível da **conta**, não de permissão de IAM — a mesma
+credencial invoca o Bedrock e o S3 sem problema.
+
+Consequência hoje: **nenhuma**, porque a D19 tirou o Textract do caminho
+crítico e o PDF vai direto ao modelo. O caminho do Textract está escrito,
+tipado e com a parte pura testada, mas **nunca foi exercitado contra o serviço**.
+Ele é o que lê foto e documento escaneado — então, enquanto não for habilitado,
+o aplicativo lê PDF e não lê foto.
+
+### O custo de um documento, medido
+
+Laudo do Delboni, 19 exames, PDF digital de 836 KB, pelo caminho de PDF nativo
+com a lista de 79 candidatos no prompt:
+
+| | |
+|---|---|
+| tokens de entrada | ~56.500 |
+| tokens de saída | ~4.400 |
+| tempo | 20 a 35 segundos |
+| linhas | 45, sendo 40 automáticas e 5 pendentes |
+
+A lista de candidatos sozinha são ~10.000 caracteres. Se o custo por documento
+incomodar, é o primeiro lugar a olhar — uma busca por semelhança antes da
+chamada reduziria 79 candidatos a uma dúzia. Não foi feito porque otimizar
+antes de medir a conta é otimizar no escuro.

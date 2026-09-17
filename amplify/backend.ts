@@ -1,7 +1,7 @@
 import { defineBackend } from '@aws-amplify/backend';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
-import { Stack } from 'aws-cdk-lib';
+import { Aws, Fn, Stack } from 'aws-cdk-lib';
 import { auth } from './auth/resource.js';
 import { data } from './data/resource.js';
 import { storage } from './storage/resource.js';
@@ -131,8 +131,20 @@ const bedrockAccount = Stack.of(analyzeHealthImportLambda).account;
 // reproduzivel — primeiro uso de aws-cdk-lib/aws-bedrock neste repo.
 const guardrailStack = backend.createStack('health-insights-guardrail');
 
+// O NOME de um guardrail e unico na CONTA inteira, nao na stack. Com nome fixo,
+// o SEGUNDO desenvolvedor a publicar um sandbox recebe "Another guardrail in
+// your account already has this name" e o deploy inteiro faz rollback -- ou
+// seja, so um sandbox por conta conseguia existir. Achado ao publicar o backend
+// da extracao de documentos em 2026-09-17; ver estudos-ia/04-implementacao.
+//
+// A troca de nome faz o CloudFormation SUBSTITUIR o guardrail no proximo deploy
+// de cada ambiente: cria um novo com a mesma configuracao e apaga o antigo. O
+// identificador muda, e isso e inofensivo porque a Lambda o le de variavel de
+// ambiente (BEDROCK_GUARDRAIL_ID), nunca de um valor escrito no codigo.
+const sufixoUnicoDaStack = Fn.select(0, Fn.split('-', Fn.select(2, Fn.split('/', Aws.STACK_ID))));
+
 const healthInsightsGuardrail = new bedrock.CfnGuardrail(guardrailStack, 'HealthInsightsGuardrail', {
-  name: 'health-insights-guardrail',
+  name: `health-insights-${sufixoUnicoDaStack}`,
   description:
     'Guardrail da analise de dados de wearables: bloqueia diagnostico definitivo e prescricao, filtra ataques de prompt e anonimiza PII.',
   blockedInputMessaging:
@@ -329,31 +341,50 @@ extractDocumentDataLambda.addToRolePolicy(
 // estrito, que nao tem campo onde uma instrucao obedecida se manifestaria.
 const extractionGuardrailStack = backend.createStack('document-extraction-guardrail');
 
+// O NOME de um guardrail e unico na CONTA inteira, nao na stack. Com nome
+// fixo, o segundo desenvolvedor a publicar um sandbox recebe
+// "Another guardrail in your account already has this name" e o deploy inteiro
+// faz rollback -- foi exatamente o que aconteceu ao publicar este backend pela
+// primeira vez, por causa do health-insights-guardrail que o sandbox do Arturo
+// ja tinha criado com nome fixo.
+//
+// O sufixo sai dos primeiros 8 caracteres do identificador desta stack, que e
+// diferente por sandbox e por ambiente. Limite do servico: 50 caracteres.
+const sufixoDaStack = sufixoUnicoDaStack;
+
 const documentExtractionGuardrail = new bedrock.CfnGuardrail(
   extractionGuardrailStack,
   'DocumentExtractionGuardrail',
   {
-    name: 'document-extraction-guardrail',
+    name: `document-extraction-${sufixoDaStack}`,
+    // Teto de 200 caracteres, e o CloudFormation nao diz qual campo passou --
+    // ele devolve "Validation failed with 1 error(s)" e nenhum evento de
+    // recurso. A razao completa da configuracao esta na D20.
     description:
-      'Guardrail da extracao de documentos medicos: anonimiza dados do paciente e filtra ataque de prompt. NAO bloqueia topico de medicamento nem de diagnostico, porque sao o conteudo legitimo do papel transcrito (D20).',
+      'Extracao de documentos medicos: anonimiza dados do paciente e filtra ataque de prompt. NAO bloqueia topico de medicamento nem de diagnostico -- sao o conteudo legitimo do papel (D20).',
     blockedInputMessaging:
       'Nao foi possivel processar este documento por questoes de seguranca de conteudo.',
     blockedOutputsMessaging:
       'A leitura deste documento foi bloqueada por questoes de seguranca de conteudo.',
     contentPolicyConfig: {
       filtersConfig: [
-        // PROMPT_ATTACK so se aplica ao INPUT; outputStrength e obrigatorio no
-        // schema do CFN mesmo assim, por isso NONE.
+        // Um filtro so, e de proposito. PROMPT_ATTACK cobre o unico vetor real
+        // desta pipeline -- instrucao plantada em texto que passamos ao modelo
+        // -- e so se aplica ao INPUT; outputStrength e obrigatorio no schema do
+        // CFN mesmo assim, por isso NONE.
+        //
+        // HATE, INSULTS, SEXUAL, VIOLENCE e MISCONDUCT ficam FORA. Nao e
+        // descuido: a saida e numero, unidade e codigo LOINC, validados por
+        // schema estrito, e filtro de conteudo sobre transcricao de exame e
+        // maquina de falso positivo -- um painel de sorologia bastaria para
+        // disparar SEXUAL, e a pessoa ficaria sem ler o proprio laudo.
+        //
+        // Declara-los com NONE nas duas pontas, que seria a forma de
+        // documentar a escolha no codigo, o CloudFormation RECUSA: entrada de
+        // filtro que nao filtra nada reprova a validacao do template
+        // ("Validation failed with 1 error(s)", sem dizer qual). O comentario
+        // faz esse trabalho.
         { type: 'PROMPT_ATTACK', inputStrength: 'HIGH', outputStrength: 'NONE' },
-        // Os demais ficam em NONE na saida de proposito: a saida e numero,
-        // unidade e codigo LOINC, validados por schema estrito. Filtro de
-        // conteudo sobre transcricao de exame e maquina de falso positivo --
-        // um painel de sorologia bastaria para disparar SEXUAL.
-        { type: 'HATE', inputStrength: 'NONE', outputStrength: 'NONE' },
-        { type: 'INSULTS', inputStrength: 'NONE', outputStrength: 'NONE' },
-        { type: 'SEXUAL', inputStrength: 'NONE', outputStrength: 'NONE' },
-        { type: 'VIOLENCE', inputStrength: 'NONE', outputStrength: 'NONE' },
-        { type: 'MISCONDUCT', inputStrength: 'NONE', outputStrength: 'NONE' },
       ],
     },
     // O laudo traz nome e CPF do paciente, e nada disso tem por que atravessar
@@ -368,7 +399,11 @@ const documentExtractionGuardrail = new bedrock.CfnGuardrail(
         {
           name: 'cpf',
           description: 'CPF brasileiro (com ou sem pontuacao)',
-          pattern: '\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b',
+          // Barra DUPLA: em TypeScript '\b' e o caractere de backspace (0x08),
+          // e ele chega ao template do CloudFormation como caractere invalido
+          // -- "Template contains invalid characters", sem dizer qual. A
+          // regex precisa da barra literal.
+          pattern: '\\b\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}\\b',
           action: 'ANONYMIZE',
         },
       ],
