@@ -46,3 +46,17 @@ export type ChatContext = {
   /** Sempre do token. Nenhum campo do corpo chega aqui. */
   identity: ChatIdentity;
 };
+
+/**
+ * Um bloco do MODO DEGRADADO (D31, tarefa C5b): o dado que as ferramentas
+ * devolveram, sem prosa gerada. Cada tool sabe renderizar o proprio, porque
+ * quem conhece a forma da saida e quem a produz.
+ */
+export type DegradedBlock = {
+  titulo: string;
+  linhas: {
+    texto: string;
+    /** Quando a linha vem de um documento, ela leva ate ele. */
+    documentId?: string;
+  }[];
+};

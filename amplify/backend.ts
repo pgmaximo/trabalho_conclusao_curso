@@ -500,6 +500,34 @@ backend.chatAssistant.addEnvironment(
   backend.auth.resources.userPoolClient.userPoolClientId,
 );
 
+// As tools sao SOMENTE LEITURA, e a permissao acompanha isso: `grantReadData`
+// em toda tabela, nunca `grantReadWriteData`. A garantia de que nenhuma tool
+// escreve esta em tres camadas -- o tipo (`readOnly: true`), o teste sobre a
+// lista registrada, e esta politica, que e a unica das tres que continua
+// valendo se as outras duas forem contornadas.
+const appointmentTable = backend.data.resources.tables['Appointment'];
+const vaccineDoseTable = backend.data.resources.tables['VaccineDose'];
+
+for (const tabela of [
+  userProfileTable,
+  medicalDocumentTable,
+  labResultTable,
+  appointmentTable,
+  medicineTable,
+  vaccineDoseTable,
+  healthImportTable,
+]) {
+  tabela.grantReadData(chatAssistantLambda);
+}
+
+backend.chatAssistant.addEnvironment('USER_PROFILE_TABLE_NAME', userProfileTable.tableName);
+backend.chatAssistant.addEnvironment('MEDICAL_DOCUMENT_TABLE_NAME', medicalDocumentTable.tableName);
+backend.chatAssistant.addEnvironment('LAB_RESULT_TABLE_NAME', labResultTable.tableName);
+backend.chatAssistant.addEnvironment('APPOINTMENT_TABLE_NAME', appointmentTable.tableName);
+backend.chatAssistant.addEnvironment('MEDICINE_TABLE_NAME', medicineTable.tableName);
+backend.chatAssistant.addEnvironment('VACCINE_DOSE_TABLE_NAME', vaccineDoseTable.tableName);
+backend.chatAssistant.addEnvironment('HEALTH_IMPORT_TABLE_NAME', healthImportTable.tableName);
+
 // O endereco vai para o aplicativo pelo mesmo caminho que os demais valores de
 // configuracao, para nao virar constante digitada em duas casas.
 backend.addOutput({ custom: { chatAssistantUrl: chatUrl.url } });
