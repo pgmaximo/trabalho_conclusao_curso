@@ -1,16 +1,29 @@
 /**
  * Resumo do arquivo:
- * Fronteira explícita com o provedor de IA do Assistente (tela 4a). Hoje retorna
- * respostas mockadas — a UI/hook do chat não sabem disso, só conhecem o contrato
- * `AiAssistantService`.
+ * Fronteira com o provedor de IA do Assistente (tela 4a).
  *
- * ATENÇÃO — pendência fora do escopo desta camada: a troca por uma IA real
- * (provedor, custo por token, política de retenção de dados de saúde enviados a
- * uma API de terceiros, base legal LGPD) é uma decisão maior que requer
- * confirmação explícita do usuário/orientador do TCC antes de ser tomada. Este
- * arquivo apenas prepara a fronteira (contrato de interface) para que, quando
- * decidida, a troca seja um swap desta função — nunca uma refatoração de UI.
+ * A versao mockada deste arquivo dizia, num aviso, que a troca por IA real
+ * exigia decidir provedor, custo, retencao e base legal. Tres das quatro foram
+ * respondidas fora daqui: o provedor e o Bedrock (D14), o custo e medido como
+ * na feature de wearable, e "API de terceiros" deixou de ser o caso -- o
+ * Bedrock roda na conta do proprio projeto. A quarta, retencao, e a tarefa 0.5
+ * do roadmap, e por isso a PERSISTENCIA da conversa continua fora: nada aqui
+ * grava conversa.
+ *
+ * A FORMA DO CONTRATO NAO MUDOU. A EPIC anterior desenhou `AiAssistantService`
+ * para que a troca fosse a substituicao de uma funcao, e nao uma refatoracao
+ * de interface, e `sendMessage` continua `(message, history, userContext?) =>
+ * Promise<string>`.
+ *
+ * O QUE MUDOU, E E ACRESCIMO: a bolha com origem exige que a resposta carregue
+ * as citacoes, e texto puro nao carrega. Em vez de mudar a forma do contrato,
+ * `sendMessageWithSources` foi ACRESCENTADA ao lado, e `sendMessage` passou a
+ * ser uma casca sobre ela. Quem so quer o texto continua com a mesma funcao de
+ * antes; quem precisa da origem chama a nova. Registrado como achado.
  */
+import { fetchAuthSession } from 'aws-amplify/auth';
+
+import { chatAssistantUrl } from './chatAssistantEndpoint';
 
 export interface ChatMessage {
   id: string;
@@ -19,37 +32,115 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+/** De onde veio um numero citado. Os campos chegam prontos da funcao: o
+ *  modelo devolve so o identificador, e o rotulo, o valor e a unidade sao
+ *  preenchidos la com o dado real. */
+export interface Citation {
+  resultId: string;
+  documentId: string;
+  analyteLabel: string;
+  value: string;
+  unit: string;
+  collectedAt: string | null;
+}
+
+/** Qual dos quatro caminhos da D31 aconteceu neste turno. */
+export type RuleCheckStatus = 'APROVADA' | 'APROVADA_NA_SEGUNDA' | 'DEGRADADA' | 'INDISPONIVEL';
+
+export interface AssistantReply {
+  text: string;
+  citations: Citation[];
+  ruleCheckStatus: RuleCheckStatus;
+}
+
 export interface AiAssistantService {
   // userContext (futuro): perfil + exames serializados injetados no system prompt
   sendMessage: (message: string, history: ChatMessage[], userContext?: string) => Promise<string>;
 }
 
-const MOCK_RESPONSES = [
-  'Baseado no seu perfil, recomendo consultar um médico para avaliar esses resultados.',
-  'Seus exames indicam que os valores estão dentro da faixa de referência usual para sua idade — isso é uma leitura informativa, não substitui a avaliação de um profissional de saúde.',
-  'Para entender melhor esse resultado, seria útil verificar o histórico dos últimos 6 meses.',
-  'Posso analisar seu exame com mais detalhes. Você pode me enviar o arquivo pelo botão de anexo.',
-];
+/** Teto do lado do aplicativo, MENOR que o da funcao (120s): a tela nunca fica
+ *  esperando para sempre, mesmo se a funcao demorar o maximo dela. */
+const TIMEOUT_MS = 90_000;
+
+const ERRO_GENERICO = 'Não consegui responder agora. Tente novamente em instantes.';
+const SEM_ENDERECO =
+  'O assistente está indisponível nesta versão do aplicativo. Você continua podendo ver seus exames, consultas e medicamentos normalmente.';
+const SESSAO_EXPIRADA = 'Sua sessão expirou. Entre de novo para continuar.';
+
+function lerCitacoes(bruto: unknown): Citation[] {
+  if (!Array.isArray(bruto)) return [];
+  return bruto.filter((c): c is Citation => {
+    const candidata = c as Partial<Citation> | null;
+    // Sem documento a citacao nao leva a lugar nenhum, e uma origem que nao
+    // abre nada e pior do que nenhuma origem: ela promete e nao cumpre.
+    return (
+      typeof candidata?.resultId === 'string' &&
+      typeof candidata.documentId === 'string' &&
+      candidata.documentId !== ''
+    );
+  });
+}
+
+export async function sendMessageWithSources(
+  message: string,
+  history: ChatMessage[],
+  _userContext?: string,
+): Promise<AssistantReply> {
+  const url = chatAssistantUrl();
+  // "Tente novamente" aqui mandaria a pessoa repetir algo que nunca vai
+  // funcionar: o endereco so existe depois do deploy.
+  if (!url) throw new Error(SEM_ENDERECO);
+
+  const sessao = await fetchAuthSession();
+  const token = sessao.tokens?.idToken?.toString();
+  if (!token) throw new Error(SESSAO_EXPIRADA);
+
+  const controle = new AbortController();
+  const relogio = setTimeout(() => controle.abort(), TIMEOUT_MS);
+
+  try {
+    const resposta = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      // NENHUM identificador de usuario no corpo. O dono vem do token, e
+      // mandar um identificador aqui abriria uma porta que a funcao teria que
+      // aprender a ignorar -- e um dia esqueceria.
+      body: JSON.stringify({
+        message,
+        history: history.map((m) => ({ role: m.role, content: m.content })),
+      }),
+      signal: controle.signal,
+    });
+
+    if (!resposta.ok) throw new Error(ERRO_GENERICO);
+
+    const corpo = (await resposta.json()) as {
+      answer?: string;
+      citations?: unknown;
+      ruleCheckStatus?: RuleCheckStatus;
+    };
+
+    return {
+      text: typeof corpo.answer === 'string' ? corpo.answer : ERRO_GENERICO,
+      citations: lerCitacoes(corpo.citations),
+      ruleCheckStatus: corpo.ruleCheckStatus ?? 'INDISPONIVEL',
+    };
+  } catch (erro) {
+    // As mensagens que JA sao honestas passam intactas; o resto vira a
+    // generica, para nao vazar detalhe de infraestrutura para a tela.
+    if (erro instanceof Error && (erro.message === SEM_ENDERECO || erro.message === SESSAO_EXPIRADA)) {
+      throw erro;
+    }
+    throw new Error(ERRO_GENERICO);
+  } finally {
+    clearTimeout(relogio);
+  }
+}
 
 export async function sendMessage(
   message: string,
-  _history: ChatMessage[],
-  _userContext?: string,
+  history: ChatMessage[],
+  userContext?: string,
 ): Promise<string> {
-  // DECISION: delay simulado de 1–2s para parecer processamento real
-  await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 1000));
-  return MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
+  return (await sendMessageWithSources(message, history, userContext)).text;
 }
-
-// ATTENTION: para conectar a Claude API, substituir apenas este sendMessage por:
-//   import Anthropic from '@anthropic-ai/sdk';
-//   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-//   const completion = await client.messages.create({
-//     model: 'claude-sonnet-4-6',
-//     max_tokens: 1024,
-//     system: userContext,                       // perfil + exames serializados
-//     messages: history.map((m) => ({ role: m.role, content: m.content }))
-//       .concat({ role: 'user', content: message }),
-//   });
-//   return completion.content[0].type === 'text' ? completion.content[0].text : '';
-// A interface AiAssistantService permanece a mesma — UI e hook nao mudam.

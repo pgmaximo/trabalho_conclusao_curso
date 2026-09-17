@@ -24,22 +24,34 @@ import { router } from 'expo-router';
 import { AiDisclaimerBanner } from '@/components/AiDisclaimerBanner';
 import { HistoryDrawer } from '@/components/HistoryDrawer';
 import { MessageBubble } from '@/components/MessageBubble';
+import { MessageSources } from '@/components/MessageSources';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { TypingIndicator } from '@/components/TypingIndicator';
 import { useThemeColors } from '@/constants/theme';
-import { useChatBot } from '@/hooks/useChatBot';
-import type { ChatMessage } from '@/services/aiAssistantService';
+import { useChatBot, type ChatMessageComOrigem } from '@/hooks/useChatBot';
 
+/**
+ * As sugestoes precisam ser perguntas que o assistente CONSEGUE responder com
+ * as ferramentas que ele tem -- todas somente leitura, todas sobre o que a
+ * pessoa registrou.
+ *
+ * As tres da versao mockada sairam: "o que significa colesterol alto?" seria
+ * respondida com a R5 ("nao tenho esse dado"), porque nenhuma ferramenta
+ * devolve explicacao de conceito; e "lembrar de tomar remedio" promete uma
+ * escrita que nao existe -- a D9 diz que a IA de conversa nao grava. Uma
+ * sugestao que o proprio produto recusa ensina a pessoa a nao confiar nas
+ * sugestoes.
+ */
 const QUICK_PROMPTS = [
   'Analisar meu último exame',
-  'O que significa colesterol alto?',
-  'Lembrar de tomar remédio',
+  'Como está minha vitamina D comparada ao exame anterior?',
+  'Quando é minha próxima consulta?',
 ];
 
 export function ChatBotScreen() {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
-  const listRef = useRef<FlatList<ChatMessage>>(null);
+  const listRef = useRef<FlatList<ChatMessageComOrigem>>(null);
   const {
     messages,
     inputText,
@@ -64,9 +76,28 @@ export function ChatBotScreen() {
   }, [messages.length, isTyping]);
 
   const renderMessage = useCallback(
-    ({ item }: { item: ChatMessage }) => (
-      <MessageBubble type={item.role === 'user' ? 'user' : 'ai'} content={item.content} />
-    ),
+    ({ item }: { item: ChatMessageComOrigem }) => {
+      // Sem citacao a bolha continua sendo a de antes: uma secao de origens
+      // vazia em toda resposta viraria ruido, e ensinaria a pessoa a ignorar o
+      // lugar onde a origem aparece quando ela existe.
+      if (item.role === 'user' || !item.citations?.length) {
+        return <MessageBubble type={item.role === 'user' ? 'user' : 'ai'} content={item.content} />;
+      }
+
+      return (
+        <MessageBubble
+          type="ai"
+          content={
+            <>
+              <Text className="text-[15px] leading-[22px] text-app-text dark:text-app-dark-text">
+                {item.content}
+              </Text>
+              <MessageSources citations={item.citations} />
+            </>
+          }
+        />
+      );
+    },
     [],
   );
 

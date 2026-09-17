@@ -5,12 +5,23 @@
  */
 import { useCallback, useState } from 'react';
 
-import { sendMessage as sendChatMessage, type ChatMessage } from '@/services/aiAssistantService';
+import {
+  sendMessageWithSources,
+  type ChatMessage,
+  type Citation,
+} from '@/services/aiAssistantService';
 
 export type HistoryGroup = {
   group: string;
   items: { id: string; title: string; onSelect: () => void }[];
 };
+
+/**
+ * Uma mensagem do assistente com a origem dos numeros que ela cita. A citacao
+ * fica na MENSAGEM, e nao num estado separado da tela: assim ela acompanha a
+ * bolha na rolagem e sobrevive a chegada da mensagem seguinte.
+ */
+export type ChatMessageComOrigem = ChatMessage & { citations?: Citation[] };
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
@@ -28,7 +39,7 @@ function nextMessageId(): string {
 }
 
 export interface UseChatBotReturn {
-  messages: ChatMessage[];
+  messages: ChatMessageComOrigem[];
   inputText: string;
   setInputText: (text: string) => void;
   isTyping: boolean;
@@ -45,7 +56,7 @@ export interface UseChatBotReturn {
 }
 
 export function useChatBot(): UseChatBotReturn {
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<ChatMessageComOrigem[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -72,18 +83,32 @@ export function useChatBot(): UseChatBotReturn {
       setIsTyping(true);
 
       try {
-        const reply = await sendChatMessage(text, history);
-        setMessages((prev) => [
-          ...prev,
-          { id: nextMessageId(), role: 'assistant', content: reply, timestamp: new Date() },
-        ]);
-      } catch {
+        const reply = await sendMessageWithSources(text, history);
         setMessages((prev) => [
           ...prev,
           {
             id: nextMessageId(),
             role: 'assistant',
-            content: 'Desculpe, ocorreu um erro. Tente novamente.',
+            content: reply.text,
+            timestamp: new Date(),
+            citations: reply.citations,
+          },
+        ]);
+      } catch (erro) {
+        // A camada de servico ja escreve mensagens honestas e DIFERENTES entre
+        // si -- "sua sessao expirou", "o assistente esta indisponivel nesta
+        // versao". Trocar todas por uma frase fixa aqui apagaria justamente a
+        // diferenca, e mandaria a pessoa tentar de novo em casos em que tentar
+        // de novo nao resolve.
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: nextMessageId(),
+            role: 'assistant',
+            content:
+              erro instanceof Error && erro.message
+                ? erro.message
+                : 'Não consegui responder agora. Tente novamente em instantes.',
             timestamp: new Date(),
           },
         ]);

@@ -22,6 +22,9 @@ const MOSTRAM_NUMERO = [
   'src/components/ExtractedResultRow.tsx',
   'src/components/ExtractedResultsSection.tsx',
   'src/components/CorrectResultPanel.tsx',
+  // A bolha do chat mostra valor, unidade e data de uma coleta: e superficie
+  // que mostra numero de exame como qualquer outra.
+  'src/components/MessageSources.tsx',
 ];
 
 /**

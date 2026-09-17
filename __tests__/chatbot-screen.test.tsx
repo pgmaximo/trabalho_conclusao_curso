@@ -18,10 +18,12 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/services/aiAssistantService', () => ({
-  sendMessage: jest.fn(),
+  sendMessageWithSources: jest.fn(),
 }));
 
-const { sendMessage: mockSendMessage } = jest.requireMock('@/services/aiAssistantService');
+const { sendMessageWithSources: mockSendMessage } = jest.requireMock(
+  '@/services/aiAssistantService',
+);
 
 function renderChatBotScreen() {
   return render(
@@ -50,8 +52,11 @@ describe('ChatBotScreen', () => {
     ).toBeTruthy();
     expect(screen.getByText('Como posso ajudar?')).toBeTruthy();
     expect(screen.getByText('Analisar meu último exame')).toBeTruthy();
-    expect(screen.getByText('O que significa colesterol alto?')).toBeTruthy();
-    expect(screen.getByText('Lembrar de tomar remédio')).toBeTruthy();
+    // As outras duas sugestoes mudaram nesta EPIC: as antigas pediam
+    // explicacao generica e uma acao de escrita, e nenhuma das duas sobrevive
+    // as ferramentas somente-leitura. Ver `chatComOrigem.test.tsx`.
+    expect(screen.getByText('Como está minha vitamina D comparada ao exame anterior?')).toBeTruthy();
+    expect(screen.getByText('Quando é minha próxima consulta?')).toBeTruthy();
   });
 
   it('has no dismiss control on the disclaimer banner', () => {
@@ -62,10 +67,11 @@ describe('ChatBotScreen', () => {
   });
 
   it('shows the typing indicator while awaiting a reply and keeps the banner visible', async () => {
-    let resolveReply: (value: string) => void = () => {};
+    let resolveReply: (value: { text: string; citations: []; ruleCheckStatus: string }) => void =
+      () => {};
     mockSendMessage.mockImplementation(
       () =>
-        new Promise<string>((resolve) => {
+        new Promise((resolve) => {
           resolveReply = resolve;
         }),
     );
@@ -82,19 +88,26 @@ describe('ChatBotScreen', () => {
       screen.getByText('Apoio informativo — não substitui avaliação médica.'),
     ).toBeTruthy();
 
-    resolveReply('Resposta mock.');
+    resolveReply({ text: 'Resposta mock.', citations: [], ruleCheckStatus: 'APROVADA' });
     await waitFor(() => expect(screen.getByText('Resposta mock.')).toBeTruthy());
   });
 
   it('shows a friendly error message and clears the typing state when the service fails', async () => {
-    mockSendMessage.mockRejectedValue(new Error('network error'));
+    // A mensagem passou a ser a que a propria camada de servico escreveu:
+    // ela distingue "sessao expirou" de "indisponivel nesta versao", e uma
+    // frase fixa aqui apagaria essa diferenca.
+    mockSendMessage.mockRejectedValue(
+      new Error('Não consegui responder agora. Tente novamente em instantes.'),
+    );
 
     renderChatBotScreen();
 
-    fireEvent.press(screen.getByText('Lembrar de tomar remédio'));
+    fireEvent.press(screen.getByText('Quando é minha próxima consulta?'));
 
     await waitFor(() =>
-      expect(screen.getByText('Desculpe, ocorreu um erro. Tente novamente.')).toBeTruthy(),
+      expect(
+        screen.getByText('Não consegui responder agora. Tente novamente em instantes.'),
+      ).toBeTruthy(),
     );
   });
 
