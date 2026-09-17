@@ -1,0 +1,48 @@
+/**
+ * Resumo do arquivo:
+ * O contrato entre a porta (handler) e o laco (conversationLoop), e entre a
+ * funcao e o aplicativo. Fica num arquivo proprio para que o handler nao
+ * precise importar o laco so para conhecer o formato da resposta.
+ */
+import type { ChatIdentity } from './auth';
+
+/**
+ * Qual dos quatro caminhos da D31 aconteceu. E o dado que calibra a secao 7 da
+ * spec -- sem ele nao ha como saber se a segunda geracao paga o que custa.
+ */
+export type RuleCheckStatus = 'APROVADA' | 'APROVADA_NA_SEGUNDA' | 'DEGRADADA' | 'INDISPONIVEL';
+
+/**
+ * De onde veio um numero citado. A R4 exige que todo numero na resposta tenha
+ * vindo de uma linha registrada; isto e o que torna a exigencia verificavel
+ * depois do fato, e nao so no momento da geracao.
+ */
+export type Citation = {
+  /** Id da linha de LabResult de onde o valor saiu. */
+  resultId: string;
+  /** Documento de origem, para a bolha levar a pessoa ate o papel. */
+  documentId: string;
+  analyteLabel: string;
+  value: string;
+  unit: string;
+  collectedAt: string | null;
+};
+
+export type ChatTurnResult = {
+  answer: string;
+  citations: Citation[];
+  ruleCheckStatus: RuleCheckStatus;
+};
+
+export type ChatTurnRequest = {
+  message: string;
+  /** Janela de historico -- o aplicativo manda, a funcao corta (C4). */
+  history: { role: 'user' | 'assistant'; content: string }[];
+  /** Texto de um anexo pontual, que vive so nesta conversa (C7, D15). */
+  attachmentText?: string | null;
+};
+
+export type ChatContext = {
+  /** Sempre do token. Nenhum campo do corpo chega aqui. */
+  identity: ChatIdentity;
+};

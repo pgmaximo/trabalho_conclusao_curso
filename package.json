@@ -26,6 +26,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.4.1",
     "aws-amplify": "^6.16.4",
+    "aws-jwt-verify": "^5.2.1",
     "expo": "~54.0.37",
     "expo-constants": "~18.0.14",
     "expo-device": "~8.0.10",

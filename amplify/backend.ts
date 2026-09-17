@@ -1,7 +1,8 @@
 import { defineBackend } from '@aws-amplify/backend';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
-import { Aws, Fn, Stack } from 'aws-cdk-lib';
+import { Aws, Duration, Fn, Stack } from 'aws-cdk-lib';
+import { FunctionUrlAuthType, HttpMethod } from 'aws-cdk-lib/aws-lambda';
 import { auth } from './auth/resource.js';
 import { data } from './data/resource.js';
 import { storage } from './storage/resource.js';
@@ -13,6 +14,7 @@ import { startHealthAnalysis } from './functions/start-health-analysis/resource.
 import { analyzeHealthImport } from './functions/analyze-health-import/resource.js';
 import { startDocumentExtraction } from './functions/start-document-extraction/resource.js';
 import { extractDocumentData } from './functions/extract-document-data/resource.js';
+import { chatAssistant } from './functions/chat-assistant/resource.js';
 
 const backend = defineBackend({
   auth,
@@ -26,6 +28,7 @@ const backend = defineBackend({
   analyzeHealthImport,
   startDocumentExtraction,
   extractDocumentData,
+  chatAssistant,
 });
 
 backend.auth.resources.cfnResources.cfnUserPoolClient.addPropertyOverride('ExplicitAuthFlows', [
@@ -447,3 +450,56 @@ extractDocumentDataLambda.addToRolePolicy(
     resources: [documentExtractionGuardrail.attrGuardrailArn],
   }),
 );
+
+// ---------------------------------------------------------------------------
+// Assistente conversacional (Bloco 7) -- o PRIMEIRO endereco direto de funcao
+// deste repositorio. Ver specs/07-ia-conversa/assistente-conversacional/.
+// ---------------------------------------------------------------------------
+
+const chatAssistantLambda = backend.chatAssistant.resources.lambda;
+
+// Sai do padrao do resto do aplicativo, e a justificativa e a D12: o resolver
+// do AppSync corta em 30s e um laco de tools passa disso. A regra 3 da
+// constituicao exige a justificativa escrita, e ela esta na spec desta EPIC.
+//
+// authType NONE nao significa aberto: significa que a AWS nao verifica a
+// identidade por nos, e que a funcao o faz -- ver auth.ts, que recusa qualquer
+// requisicao sem token valido do Cognito. Usar AWS_IAM aqui obrigaria o
+// aplicativo a montar assinatura SigV4 a mao para um endereco que nao e do
+// AppSync.
+const chatUrl = chatAssistantLambda.addFunctionUrl({
+  authType: FunctionUrlAuthType.NONE,
+  cors: {
+    // Origem cruzada passou a ser nossa responsabilidade quando o chat saiu do
+    // AppSync. Restrita ao que o aplicativo usa, nunca "*".
+    //
+    // O aplicativo nativo nao manda cabecalho Origin -- CORS e defesa de
+    // navegador, e so vale para a versao web do Expo. Listar as origens aqui
+    // nao substitui a verificacao do token; ela e que e a porta.
+    allowedOrigins: ['https://localhost', 'suasaude://'],
+    allowedMethods: [HttpMethod.POST],
+    allowedHeaders: ['content-type', 'authorization'],
+    maxAge: Duration.hours(1),
+  },
+});
+
+// O limite por dono em rateLimit.ts vive na memoria da instancia e pega o caso
+// comum -- uma pessoa segurando o botao de enviar. ESTE e o teto que nao
+// depende de instancia: com concorrencia reservada, o numero de chamadas
+// simultaneas ao Bedrock tem um maximo duro, independente de quantos donos
+// existam ou de como as instancias reciclem. Sao duas defesas para dois
+// problemas diferentes, e nenhuma substitui a outra.
+//
+// Se a conta recusar o deploy por nao ter 100 execucoes nao reservadas
+// sobrando, esta linha e a que sai -- e o limite volta a ser so o da memoria.
+backend.chatAssistant.resources.cfnResources.cfnFunction.reservedConcurrentExecutions = 5;
+
+backend.chatAssistant.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
+backend.chatAssistant.addEnvironment(
+  'USER_POOL_CLIENT_ID',
+  backend.auth.resources.userPoolClient.userPoolClientId,
+);
+
+// O endereco vai para o aplicativo pelo mesmo caminho que os demais valores de
+// configuracao, para nao virar constante digitada em duas casas.
+backend.addOutput({ custom: { chatAssistantUrl: chatUrl.url } });
