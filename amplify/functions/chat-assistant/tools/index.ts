@@ -15,6 +15,7 @@
  * como montar consulta, entao nao existe caminho por onde um valor da entrada
  * vire o dono da consulta.
  */
+import { analitosTool } from './analitos';
 import { consultasTool } from './consultas';
 import { examesTool } from './exames';
 import { medicamentosTool } from './medicamentos';
@@ -30,6 +31,7 @@ export type { ChatTool } from './tipos';
 export const CHAT_TOOLS: ChatTool[] = [
   perfilTool,
   examesTool,
+  analitosTool,
   consultasTool,
   medicamentosTool,
   vacinasTool,
