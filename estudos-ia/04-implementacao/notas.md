@@ -299,3 +299,73 @@ estado em efeito, que o `useHealthImportStatus` (o padrão que o
 `useDocumentExtraction` imita deliberadamente) também dispara, e uma regra de
 arquivo que lista praticamente todos os serviços, incluindo `src/utils/date.ts`.
 Nenhuma classe de defeito nova foi introduzida.
+
+## Bloco D — série por analito (S1 a S7)
+
+### Achados do plano, executando-o
+
+1. **A S1 se contradiz com o próprio teste, e o teste está certo.** O caso
+   "unidade divergente" exige que a coleta de **março** (`ng/mL`) sobreviva e a
+   de setembro (`nmol/L`) saia; o código do plano escolhe a unidade da coleta
+   **mais recente**, o que faz exatamente o contrário. Corrigi o padrão, nunca o
+   teste — e a análise confirma o teste: a unidade da série é a língua que ela
+   sempre falou, e uma coleta nova em outra unidade é a anomalia. Do outro
+   jeito, **uma única coleta nova apagaria do gráfico o histórico inteiro da
+   pessoa**. Com a D32 isso deixou de ser hipótese: analito de código local não
+   converte unidade.
+
+2. **Linha pendente podia decidir a unidade da série.** Uma leitura duvidosa com
+   unidade errada expulsaria do traço todas as linhas boas — a série inteira
+   sumiria por causa da pior linha dela.
+
+3. **A chave do grupo não tinha separador.** `analyteCode + collectionMoment`
+   concatenados fazem `X-AB` sem momento colidir com `X-A` no momento `B`: duas
+   substâncias num traço só. Com os códigos locais da D32 isso deixou de ser
+   hipótese, porque eles vêm de rótulo e têm tamanho livre.
+
+4. **Linha sem data saía como `sem-valor`.** Ela *tem* valor; o que falta é onde
+   pô-la no eixo. Numa tela cuja razão de existir é explicar o que ficou de
+   fora, um motivo falso é pior do que motivo nenhum. Novo motivo: `sem-data`.
+
+5. **O teste da S3 não carrega.** As variáveis do mock se chamavam `list` e
+   `listByAnalyte`; o Jest içа a fábrica de `jest.mock()` acima dos imports e
+   recusa referência a variável de fora do escopo que não comece com `mock`.
+
+6. **O código da S3 não compila** (TS7022, duas vezes): o tipo da resposta sai
+   da chamada, a chamada recebe `nextToken`, e `nextToken` é estreitado pelo
+   fluxo a partir da resposta.
+
+7. **O hook da S4 recarrega em laço.** `carregar` tem `selectedCode` nas
+   dependências **e** chama `setSelectedCode` dentro. O código passou a ir por
+   argumento.
+
+8. **A assinatura de `buildLinePath` no teste da S5 está trocada.** A real é
+   `(points, width, height, yDomain, padding)`; o plano passa o domínio no lugar
+   da largura.
+
+9. **A S7 escreve o termo vetado por extenso** no padrão do próprio teste, que é
+   justamente o que a regra do projeto proíbe. Trocado pelo `checkLanguageRules`
+   da EPIC de regras de linguagem, que monta a raiz a partir de partes.
+
+10. **A S7 pula componentes com um `return` no meio do teste** — e teste que sai
+    sem asserção passa sem verificar nada. Virou uma segunda lista, explícita.
+
+11. **O teste da S4 injeta o estado por props e o código do plano o busca por
+    hook dentro da tela** — a mesma contradição da T12. Segui a convenção do
+    repositório: a rota é dona do hook.
+
+### Sobre a varredura de copy (S7)
+
+Ela passou de primeira, o que não prova nada sozinho. Conferida por mutação:
+com `"Este valor está dentro da faixa e preocupante."` inserido no
+`AnalyteCollectionRow`, a varredura reprova; revertido, passa. **A varredura
+pega.**
+
+### Limitação herdada, e registrada
+
+O eixo X do `LineChart` posiciona por índice, não por data — correto para dado
+diário de wearable e impreciso para exame, que é esparso. A spec escolheu
+rotular todos os pontos em vez de mexer no `chartScale`, de que a feature de
+wearable depende (regra 5). Numa série de duas a seis coletas, que é o que este
+domínio produz, não há ambiguidade. Se um dia produzir série longa, a correção
+está escrita na spec.
