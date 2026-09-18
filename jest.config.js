@@ -17,9 +17,16 @@ module.exports = {
   //    deste projeto o teste e escrito para falhar primeiro, entao uma sessao em
   //    andamento reprova a validacao desta, por estar funcionando corretamente.
   //
-  // O padrao aceita os dois separadores porque o repositorio roda no Windows e
-  // o Jest compara o caminho nativo: `\.claude\worktrees\`, com contrabarra.
-  testPathIgnorePatterns: ['/node_modules/', '[/\\]\.claude[/\\]'],
+  // ANCORADO EM `<rootDir>`, e nao no caminho absoluto. Um padrao absoluto
+  // resolve o problema num sentido so: as arvores de trabalho VIVEM dentro de
+  // `.claude/worktrees/`, entao rodando de DENTRO de uma delas o mesmo padrao
+  // casa com o proprio `rootDir` e o Jest ignora a suite inteira -- 0 testes,
+  // e `npm run validate` sai com "No tests found" em vez de validar.
+  //
+  // Com `<rootDir>` o padrao vira relativo a quem esta rodando: da raiz ele
+  // exclui as arvores; de dentro de uma arvore ele aponta para o `.claude/`
+  // dela, que nao guarda teste nenhum. Conferido nos dois sentidos.
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/.claude/'],
   // O preset do jest-expo so transforma `.[jt]sx?`, e os geradores de
   // scripts/ sao `.mjs` (o package.json nao tem "type": "module", entao `.js`
   // ali seria CommonJS e `node scripts/...` quebraria). Sem esta entrada, um
