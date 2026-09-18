@@ -49,7 +49,7 @@ const { sendMessageWithSources: mockSendMessage } = jest.requireMock(
   '@/services/aiAssistantService',
 );
 
-function renderChatBotScreen() {
+function renderChatBotScreen(props: React.ComponentProps<typeof ChatBotScreen> = {}) {
   return render(
     <SafeAreaProvider
       initialMetrics={{
@@ -57,7 +57,7 @@ function renderChatBotScreen() {
         insets: { bottom: 24, left: 0, right: 0, top: 44 },
       }}
     >
-      <ChatBotScreen />
+      <ChatBotScreen {...props} />
     </SafeAreaProvider>,
   );
 }
@@ -143,5 +143,31 @@ describe('ChatBotScreen', () => {
     expect(screen.getByText('Histórico')).toBeTruthy();
     expect(screen.getByText('+ Nova conversa')).toBeTruthy();
     expect(screen.getByText('Nenhuma conversa anterior.')).toBeTruthy();
+  });
+});
+
+
+describe('abrir uma conversa vinda de fora da tela (M11)', () => {
+  it('a conversa indicada pela rota e carregada', async () => {
+    // O atalho da tela de memoria leva a conversa de ONDE o fato veio. Sem
+    // isto ele navegaria para o chat e mostraria outra coisa -- uma origem que
+    // promete e nao cumpre, que e pior do que origem nenhuma.
+    const { lerMensagens } = require('@/services/chatHistoryService');
+    lerMensagens.mockResolvedValue([
+      { id: 'm-1', role: 'user', content: 'pergunta antiga', createdAt: null, citations: [] },
+      { id: 'm-2', role: 'assistant', content: 'resposta antiga', createdAt: null, citations: [] },
+    ]);
+
+    renderChatBotScreen({ conversaInicial: 'c-9' });
+
+    await waitFor(() => expect(lerMensagens).toHaveBeenCalledWith('c-9'));
+    expect(await screen.findByText('resposta antiga')).toBeTruthy();
+  });
+
+  it('sem conversa indicada, a tela abre nova como antes', async () => {
+    const { lerMensagens } = require('@/services/chatHistoryService');
+    lerMensagens.mockClear();
+    renderChatBotScreen();
+    await waitFor(() => expect(lerMensagens).not.toHaveBeenCalled());
   });
 });

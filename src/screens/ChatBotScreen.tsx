@@ -50,7 +50,7 @@ const QUICK_PROMPTS = [
   'Quando é minha próxima consulta?',
 ];
 
-export function ChatBotScreen() {
+export function ChatBotScreen({ conversaInicial }: { conversaInicial?: string | null } = {}) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
   const listRef = useRef<FlatList<ChatMessageComOrigem>>(null);
@@ -72,7 +72,7 @@ export function ChatBotScreen() {
     confirmarMemoria,
     recusarMemoria,
     abrirMemoria,
-  } = useChatBot();
+  } = useChatBot(conversaInicial);
 
   const hasUserMessage = messages.some((message) => message.role === 'user');
   const canSend = inputText.trim().length > 0 && !isTyping;

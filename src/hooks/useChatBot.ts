@@ -94,7 +94,13 @@ export interface UseChatBotReturn {
   newChat: () => void;
 }
 
-export function useChatBot(): UseChatBotReturn {
+/**
+ * `conversaInicial` e a conversa que a tela deve abrir ao montar. Ela existe
+ * porque o atalho da tela de memoria leva a conversa de ONDE o fato veio (M11):
+ * sem isto, o atalho navegaria para o chat e mostraria outra coisa -- uma
+ * origem que promete e nao cumpre.
+ */
+export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
   const [propostaDeMemoria, setPropostaDeMemoria] = useState<PropostaNaTela | null>(null);
   // Os textos que a pessoa ja recusou NESTA conversa. Propor de novo o que ela
   // acabou de recusar transforma o pedido de consentimento em insistencia.
@@ -327,6 +333,14 @@ export function useChatBot(): UseChatBotReturn {
       })),
     [abrirConversa, conversas],
   );
+
+  // Abre UMA vez, ao montar com uma conversa indicada. A dependencia e so o
+  // identificador: reagir a `abrirConversa` faria a conversa recarregar a cada
+  // vez que o callback fosse recriado, jogando fora o que a pessoa digitou.
+  useEffect(() => {
+    if (conversaInicial) void abrirConversa(conversaInicial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversaInicial]);
 
   const openHistory = useCallback(() => setHistoryOpen(true), []);
   const closeHistory = useCallback(() => setHistoryOpen(false), []);
