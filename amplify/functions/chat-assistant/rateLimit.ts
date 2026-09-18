@@ -11,11 +11,18 @@
  * seguidas do mesmo dono caem na mesma instancia quente. Ela NAO e um limite
  * de conta: com varias instancias, cada uma tem seu proprio contador.
  *
- * O teto que nao depende de instancia e a concorrencia reservada da funcao,
- * declarada no backend.ts. Sao duas defesas para dois problemas diferentes, e
- * nenhuma das duas substitui a outra. Um limite forte por dono exigiria uma
- * tabela e uma escrita por turno; fica registrado como o proximo passo se a
- * medicao da C10 mostrar que o caso comum nao e o unico.
+ * E NAO HA, HOJE, UM TETO QUE NAO DEPENDA DE INSTANCIA. O desenho previa a
+ * concorrencia reservada da funcao para esse papel, e a conta recusou: a cota
+ * de concorrencia dela e pequena demais para reservar qualquer fatia sem
+ * derrubar as outras funcoes do aplicativo. A razao medida esta no backend.ts,
+ * com a mensagem que a AWS devolveu.
+ *
+ * O que sobra, entao, e este arquivo mais a exigencia de token do `auth.ts` e
+ * os tetos por turno do `conversationLoop.ts`. O que NAO esta coberto e uma
+ * enxurrada de donos distintos e autenticados ao mesmo tempo. Um limite forte
+ * por dono exigiria uma tabela e uma escrita por turno, e e isso -- nao a
+ * concorrencia reservada -- que deve ser feito se a medicao da C10 mostrar que
+ * o caso comum deixou de ser o unico.
  */
 
 /** Chamadas por dono dentro da janela. */

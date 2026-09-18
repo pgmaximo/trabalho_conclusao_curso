@@ -483,16 +483,35 @@ const chatUrl = chatAssistantLambda.addFunctionUrl({
   },
 });
 
-// O limite por dono em rateLimit.ts vive na memoria da instancia e pega o caso
-// comum -- uma pessoa segurando o botao de enviar. ESTE e o teto que nao
-// depende de instancia: com concorrencia reservada, o numero de chamadas
-// simultaneas ao Bedrock tem um maximo duro, independente de quantos donos
-// existam ou de como as instancias reciclem. Sao duas defesas para dois
-// problemas diferentes, e nenhuma substitui a outra.
+// NAO HA CONCORRENCIA RESERVADA AQUI, e a ausencia e medida, nao esquecimento.
 //
-// Se a conta recusar o deploy por nao ter 100 execucoes nao reservadas
-// sobrando, esta linha e a que sai -- e o limite volta a ser so o da memoria.
-backend.chatAssistant.resources.cfnResources.cfnFunction.reservedConcurrentExecutions = 5;
+// O desenho original punha `reservedConcurrentExecutions = 5` nesta funcao como
+// o teto de gasto que NAO depende de instancia -- a contagem do `rateLimit.ts`
+// vive na memoria, e memoria de instancia nao e limite de conta. A conta
+// recusou, e a mensagem dela e o dado:
+//
+//   "Specified ReservedConcurrentExecutions for function decreases account's
+//    UnreservedConcurrentExecution below its minimum value of [10]"
+//
+// Ou seja: a cota de concorrencia desta conta e pequena, e reservar qualquer
+// fatia para o chat derrubaria abaixo do minimo que a AWS exige deixar livre.
+// Reservar aqui tiraria capacidade das outras funcoes do aplicativo -- a
+// extracao de documentos e a analise de wearable -- em troca de um teto para
+// uma funcao so. Nao vale.
+//
+// O QUE PROTEGE A CONTA ENQUANTO ISSO, e vale escrever porque a ausencia acima
+// nao pode passar por descuido:
+// 1. `auth.ts` -- nenhuma chamada sem token valido do Cognito chega ao Bedrock;
+// 2. `rateLimit.ts` -- janela deslizante por dono, que pega o caso comum (uma
+//    pessoa segurando o botao de enviar), ainda que nao seja limite de conta;
+// 3. `MAX_TOOL_ITERATIONS` e `MAX_OUTPUT_TOKENS` -- teto de idas ao modelo e de
+//    tamanho por ida, dentro de cada turno.
+//
+// O que NAO esta coberto e uma enxurrada de donos distintos e autenticados ao
+// mesmo tempo. Para um aplicativo de TCC isso e hipotese; se a medicao da C10
+// mostrar que deixou de ser, a correcao e um limite por dono em tabela, que
+// tambem nao depende de instancia -- e nao a concorrencia reservada, que esta
+// conta nao comporta.
 
 backend.chatAssistant.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
 backend.chatAssistant.addEnvironment(
