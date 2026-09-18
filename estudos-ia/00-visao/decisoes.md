@@ -54,13 +54,17 @@ Bedrock e ponto. A primeira metade continua valendo, e virou a decisão inteira.
 ---
 
 ## D5 — Histórico de conversa no DynamoDB, não apenas no aparelho
-**Data:** 2026-09-15 · **Estado:** proposta, aguarda aceite
+**Data:** 2026-09-15 · **Estado:** ACEITA em 2026-09-17, pela D33
 
 O requisito é a IA enxergar o histórico do usuário, o que exige leitura no
 servidor. A spec da tela deixou a escolha em aberto de propósito.
 
 **Contrapartida:** conversa sobre saúde vira dado persistido, o que traz
 retenção e exclusão para dentro do escopo.
+
+**Aceite:** a contrapartida foi respondida pela **D33** — sem prazo de
+expiração, exclusão imediata e real na mão da pessoa, e aviso no topo da gaveta
+de histórico. A D33 é o que destrava a C8 e a C9.
 
 ---
 
@@ -1011,3 +1015,65 @@ mesmo. Um código inventado — ou um LOINC real que não curamos — promete
 comparação entre laboratórios que não existe, e pode colidir com o código real
 de outro analito. Agora a regra é fechada: **`analyteCode` é um código do
 catálogo ou um `X-` derivado do rótulo, nunca um palpite.**
+
+---
+
+## D33 — Retenção e exclusão de conversa: sem prazo, exclusão imediata, aviso na gaveta
+**Data:** 2026-09-17 · **Estado:** decidida · **Encerra a tarefa 0.5 do roadmap** · **Aceita a D5**
+
+A tarefa 0.5 era o último bloqueio externo da Fase 2, e bloqueava exatamente
+duas coisas: a C8 (persistência) e a C9 (gaveta de histórico). As três
+perguntas que ela fazia estão respondidas.
+
+### 1. Por quanto tempo uma conversa fica guardada
+
+**Enquanto o usuário quiser.** Sem expiração automática, sem TTL.
+
+É o comportamento que a pessoa espera de um assistente — reabrir em outubro a
+conversa que teve em março sobre um exame de março —, e é o que os aplicativos
+que ela já usa fazem.
+
+**A contrapartida, escrita porque ela é real:** conversa sobre saúde vira dado
+persistido que se acumula sem fim. A alternativa avaliada era um prazo fixo
+(90 dias, 12 meses) com apagamento automático, defensável como minimização de
+dado. Ela foi recusada porque um prazo que apaga sozinho **destrói justamente o
+caso de uso que a persistência existe para atender**: a conversa sobre um exame
+é útil quando o exame seguinte chega, e "o exame seguinte" pode levar um ano.
+
+O que compensa a ausência de prazo é o item 2, e é por isso que os dois andam
+juntos: **não há apagamento automático, mas há apagamento de verdade, imediato
+e na mão da pessoa.** Minimização por controle, não por relógio.
+
+### 2. Apagar significa sumir
+
+**Sim, e na hora.** Remoção efetiva das duas tabelas, sem marcação lógica e sem
+período de carência.
+
+A alternativa era marcar como apagada e remover depois, o que permitiria
+desfazer. Recusada por uma razão de linguagem, não de implementação: **"apagado"
+passaria a significar duas coisas ao mesmo tempo** — sumiu da sua tela, e ainda
+está no banco. Uma tela que promete apagar e não apaga é pior do que uma que
+não oferece apagar, porque a pessoa toma uma decisão sobre dado de saúde com
+base numa palavra que não é verdade.
+
+### 3. O que a tela diz, e onde
+
+**Uma linha no topo da gaveta de histórico**, dizendo o que é guardado e que a
+pessoa pode apagar.
+
+A gaveta é onde a pergunta nasce: é lá que a pessoa vê que as conversas dela
+ficaram guardadas. Um aviso nos termos de uso responde a mesma pergunta num
+lugar onde ninguém a está fazendo.
+
+### O que esta decisão NÃO autoriza
+
+Ela cobre a conversa, e só. **Nenhum fato sobre a pessoa é derivado, resumido ou
+anotado pelo modelo para ser lido em conversas seguintes.** O que o assistente
+sabe sobre o usuário continua vindo das tools, a cada turno, do dado que a
+própria pessoa registrou — com origem rastreável até um documento.
+
+Memória de fatos escrita pelo modelo é assunto de EPIC própria, com análise de
+LGPD antes de qualquer linha de código (ver `specs/07-ia-conversa/memoria-do-
+usuario/`). A razão de separar: um fato anotado pelo modelo e relido depois é
+**interpretação persistida como se fosse registro**, e a regra 4 da constituição
+fecha esse caminho para tudo o mais neste projeto.

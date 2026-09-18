@@ -38,7 +38,10 @@ Bloqueia as duas frentes. Nenhuma linha de código de IA antes disto.
 | 0.2e | Conversão de texto para número: vírgula decimal brasileira (D23) | **P0** — achado da revisão de 2026-09-16; era buraco em todo o material | Pedro | 1.2 |
 | 0.3 | Escrever as regras de linguagem da IA e transformá-las em teste — **EPIC escrita em 2026-09-16**, `specs/07-ia-conversa/regras-de-linguagem/` | P1 | Pedro | a Frente 2, e o guardrail da Frente 1 |
 | ~~0.4~~ | ~~Pedir a BASE_URL à Mauá~~ — **cancelada pela D14**: o servidor da instituição saiu do projeto | — | — | — |
-| 0.5 | Decidir retenção e exclusão de conversa | **P1** | Pedro + orientador | as tarefas C8 e C9 da EPIC do assistente conversacional — **e só elas** |
+| ~~0.5~~ | ~~Decidir retenção e exclusão de conversa~~ — **CONCLUÍDA em 2026-09-17, virou a D33**: sem prazo de expiração, exclusão imediata e real, aviso no topo da gaveta. Destrava C8 e C9 | — | Pedro | — |
+
+**A 0.5 foi respondida em 2026-09-17 e virou a D33.** O parágrafo abaixo fica
+como registro de por que ela existia e do que ela bloqueava.
 
 **A 0.5 subiu de P2 para P1** ao ser escrita a EPIC do assistente. Ela é o
 mesmo tipo de item que a 0.2a era: bloqueio externo, do usuário, que não sai
@@ -147,7 +150,7 @@ respostas mockadas. Esta fase troca o que está atrás dela.
 
 | # | Tarefa | P | Depende de |
 |---|---|---|---|
-| 2.1 | Models `ChatConversation` + `ChatMessage` no DynamoDB, escopo por dono | P1 | **0.5, e é bloqueio real** |
+| 2.1 | Models `ChatConversation` + `ChatMessage` no DynamoDB, escopo por dono | P1 | ~~0.5~~ — **destravada pela D33** |
 | 2.2 | Função `chat-assistant` com endereço direto, fora do AppSync (D12) | P1 | — |
 | 2.3 | Prompt de sistema com as regras de linguagem + testes que provam as regras | P1 | 0.3 |
 | 2.4 | Tools de leitura: perfil, exames, consultas, remédios, vacinas | P1 | 2.2 |

@@ -15,8 +15,8 @@ feita.
 
 ## Bloqueios (não são código)
 
-- [ ] **Tarefa 0.5 do roadmap — retenção e exclusão de conversa.** Precisa estar respondida **antes da primeira conversa ser gravada**, e é do usuário e do orientador. Três perguntas: por quanto tempo a conversa fica guardada; o usuário pode apagá-la e apagar significa sumir; o que a tela diz sobre isso e onde. **Bloqueia apenas C8 e C9.**
-- [ ] Aceitar a D5 (histórico em DynamoDB), hoje registrada como *proposta, aguarda aceite*, com a política de retenção decidida acima.
+- [x] **Tarefa 0.5 do roadmap — retenção e exclusão de conversa.** Precisa estar respondida **antes da primeira conversa ser gravada**, e é do usuário e do orientador. Três perguntas: por quanto tempo a conversa fica guardada; o usuário pode apagá-la e apagar significa sumir; o que a tela diz sobre isso e onde. **Bloqueia apenas C8 e C9.**
+- [x] Aceitar a D5 (histórico em DynamoDB), hoje registrada como *proposta, aguarda aceite*, com a política de retenção decidida acima.
 - [x] **EPIC de regras de linguagem concluída.** É pré-requisito duro: C5 consome `checkLanguageRules` e `LANGUAGE_RULES_PROMPT`.
 
 ## Fundação da função
