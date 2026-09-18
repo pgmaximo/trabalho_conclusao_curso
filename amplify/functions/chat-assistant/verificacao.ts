@@ -164,7 +164,7 @@ function citacoesConferem(answer: ChatAnswer, indice: Map<string, Citation>): bo
  */
 function temOrigemDeclarada(answer: ChatAnswer, entrada: TurnInput): boolean {
   if (answer.citacoes.length > 0) return true;
-  return (entrada.attachmentText ?? '').trim() !== '';
+  return entrada.anexo != null;
 }
 
 export async function responderComVerificacao(entrada: TurnInput): Promise<RespostaVerificada> {
@@ -261,7 +261,7 @@ export async function responder(
     message: request.message,
     systemPrompt: montarSystemPrompt(fatos),
     history: request.history,
-    attachmentText: request.attachmentText,
+    anexo: request.anexo,
     memoriaAtiva: request.memoriaAtiva,
     identity: context.identity,
     modelId: process.env.BEDROCK_MODEL_ID ?? '',

@@ -365,7 +365,25 @@ describe('a R4 no sentido da OMISSAO', () => {
     // papel, a falha aparece como status errado, e nao como um erro de mock.
     mockRegenerateAnswer.mockResolvedValue(turno('Não tenho esse exame registrado.', []));
 
-    const r = await responderComVerificacao({ ...ENTRADA, attachmentText: 'Hemoglobina 12,1 g/dL' });
+    const r = await responderComVerificacao({
+      ...ENTRADA,
+      anexo: { kind: 'texto', texto: 'Hemoglobina 12,1 g/dL' },
+    });
+    expect(r.status).toBe('APROVADA');
+    expect(mockRegenerateAnswer).not.toHaveBeenCalled();
+  });
+
+  it('com anexo em PDF, que nao tem texto nenhum, o numero do papel TAMBEM tem origem', async () => {
+    // A rota do PDF (D19) nao produz texto: os bytes vao direto ao modelo. Uma
+    // conferencia de origem que procurasse TEXTO do anexo mandaria todo PDF
+    // para o degradado -- justo o formato mais comum de laudo.
+    mockRunConversationTurn.mockResolvedValue(turno(COM_NUMERO_DO_PAPEL, []));
+    mockRegenerateAnswer.mockResolvedValue(turno('Não tenho esse exame registrado.', []));
+
+    const r = await responderComVerificacao({
+      ...ENTRADA,
+      anexo: { kind: 'pdf', bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46]) },
+    });
     expect(r.status).toBe('APROVADA');
     expect(mockRegenerateAnswer).not.toHaveBeenCalled();
   });

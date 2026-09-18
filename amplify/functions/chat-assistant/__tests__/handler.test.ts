@@ -10,9 +10,9 @@ jest.mock('../auth', () => ({
 // O handler passou a ler o anexo pontual, e isso puxa o S3 e o Textract --
 // valores do AWS SDK, que o jest-expo nao carrega. O duplo devolve "sem
 // anexo", que e o caso de toda requisicao destes testes.
-const mockTextoDoAnexo = jest.fn();
+const mockLerAnexo = jest.fn();
 jest.mock('../anexoPontual', () => ({
-  textoDoAnexo: (...a: unknown[]) => mockTextoDoAnexo(...a),
+  lerAnexo: (...a: unknown[]) => mockLerAnexo(...a),
 }));
 
 const mockResponder = jest.fn();
@@ -43,7 +43,7 @@ beforeEach(() => {
     citations: [],
     ruleCheckStatus: 'APROVADA',
   });
-  mockTextoDoAnexo.mockReset().mockResolvedValue(null);
+  mockLerAnexo.mockReset().mockResolvedValue(null);
   resetRateLimit();
 });
 

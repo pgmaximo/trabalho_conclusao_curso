@@ -13,7 +13,7 @@
  * ELE NUNCA LANCA. Uma excecao que escapasse daqui viraria um 502 da Function
  * URL com um corpo que nao controlamos.
  */
-import { textoDoAnexo } from './anexoPontual';
+import { lerAnexo } from './anexoPontual';
 import { resolveIdentity } from './auth';
 import { checkRateLimit } from './rateLimit';
 import { responder } from './verificacao';
@@ -125,14 +125,15 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
     const pedido = lerCorpo(event.body);
     if (!pedido) return resposta(400, { error: 'Requisicao invalida.' });
 
-    // O anexo pontual (D15): o texto entra NAQUELA conversa e nada e gravado.
+    // O anexo pontual (D15): ele entra NAQUELA conversa e nada e gravado. PDF
+    // vai ao modelo em bytes, o resto vira texto de OCR (D19).
     // Ler falhar nao derruba o turno -- a pergunta continua valendo sem ele.
-    const attachmentText = await textoDoAnexo(
+    const anexo = await lerAnexo(
       pedido.attachmentKey ? { key: pedido.attachmentKey } : null,
       identity,
     );
 
-    const resultado = await responder({ ...pedido, attachmentText }, { identity });
+    const resultado = await responder({ ...pedido, anexo }, { identity });
     return resposta(200, resultado);
   } catch (erro) {
     // O detalhe tecnico fica no log, nunca no corpo: nome de tabela e mensagem

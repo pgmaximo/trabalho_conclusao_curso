@@ -19,6 +19,7 @@ import { SYSTEM_PROMPT, buildUserMessage } from './chatPrompt';
 import { chatAnswerSchema, extrairResposta, type ChatAnswer } from './chatSchema';
 import { CHAT_TOOLS, runTool } from './tools';
 import type { ChatIdentity } from './auth';
+import type { AnexoLido } from './types';
 
 const client = new BedrockRuntimeClient({ maxAttempts: 3, retryMode: 'adaptive' });
 
@@ -53,7 +54,9 @@ export type TurnInput = {
   modelId: string;
   guardrailId: string;
   guardrailVersion: string;
-  attachmentText?: string | null;
+  /** O anexo pontual ja lido. PDF chega em bytes e vai ao modelo no bloco de
+   *  documento; o resto chega como texto de OCR (D19). */
+  anexo?: AnexoLido | null;
   /**
    * O interruptor da memoria (D34). Vem do aplicativo, que e quem le a linha de
    * `AssistantMemorySetting` -- uma tabela a menos ao alcance da funcao.
@@ -185,7 +188,7 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
     ...input.history
       .slice(-HISTORY_WINDOW)
       .map((m) => ({ role: m.role, content: [{ text: m.content }] })),
-    buildUserMessage(input.message, input.attachmentText),
+    buildUserMessage(input.message, input.anexo),
   ];
 
   const toolsUsadas: string[] = [];

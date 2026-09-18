@@ -617,10 +617,22 @@ backend.chatAssistant.addEnvironment(
   backend.storage.resources.bucket.bucketName,
 );
 
-// As duas acoes SINCRONAS do Textract bastam aqui: o anexo do chat e um papel
-// que a pessoa quer perguntar sobre agora, e o caminho assincrono tem teto de
-// 5 minutos -- tempo que nao cabe dentro de um turno de conversa. PDF grande
-// pertence a porta que registra, que tem a pipeline inteira.
+// As duas acoes SINCRONAS do Textract bastam aqui, e a lista curta e
+// DELIBERADA: o anexo do chat e um papel que a pessoa quer perguntar sobre
+// agora, e o caminho assincrono do Textract tem teto de 5 minutos -- tempo que
+// nao cabe dentro de um turno de conversa.
+//
+// O que torna essa lista suficiente e que o PDF NAO passa por Textract nenhum:
+// ele vai direto ao modelo, no bloco de documento do Converse (D19). Quem
+// garante isso e `chat-assistant/anexoPontual.ts`, que consulta
+// `chooseReadingPath` antes de decidir a rota, e o teste que confere que PDF
+// nao chama `extractText`.
+//
+// Ja custou uma vez: chamar `extractText` para todo formato mandava o PDF ao
+// caminho assincrono, e a falha aparecia aqui como AccessDenied. Conceder
+// StartDocumentTextDetection/GetDocumentTextDetection seria tratar o sintoma e
+// trazer de volta a espera de 5 minutos dentro da conversa. PDF grande pertence
+// a porta que registra, que tem a pipeline inteira.
 chatAssistantLambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['textract:DetectDocumentText', 'textract:AnalyzeDocument'],

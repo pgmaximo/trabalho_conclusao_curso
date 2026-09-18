@@ -29,6 +29,23 @@ export type Citation = {
   collectedAt: string | null;
 };
 
+/**
+ * O anexo pontual ja lido, na forma em que ele entra na conversa. Duas formas
+ * porque sao DUAS ROTAS, e qual delas vale foi medido na D19:
+ *
+ *   - `pdf`   -> os bytes vao direto ao modelo, no bloco de documento do
+ *                Converse. Sem OCR no caminho.
+ *   - `texto` -> o que o bloco de documento nao aceita passou pelo Textract
+ *                SINCRONO, e o que sobra dele e texto.
+ *
+ * O tipo e uniao, e nao um objeto com os dois campos opcionais, porque as duas
+ * rotas sao exclusivas: um anexo lido dos dois jeitos seria o mesmo papel
+ * entrando duas vezes na janela do modelo.
+ */
+export type AnexoLido =
+  | { kind: 'pdf'; bytes: Uint8Array }
+  | { kind: 'texto'; texto: string };
+
 export type ChatTurnResult = {
   answer: string;
   citations: Citation[];
@@ -51,9 +68,10 @@ export type ChatTurnRequest = {
    *  texto: aceitar texto pronto deixaria o chamador escrever qualquer coisa
    *  como se tivesse saido de um documento. */
   attachmentKey?: string | null;
-  /** O texto que o OCR leu do anexo. Preenchido pelo handler, nunca pelo
-   *  cliente, e vive so nesta conversa (C7, D15). */
-  attachmentText?: string | null;
+  /** O anexo ja lido. Preenchido pelo handler, nunca pelo cliente, e vive so
+   *  nesta conversa (C7, D15). Nao e mais "o texto do OCR": PDF chega aqui em
+   *  bytes, porque a rota dele e o modelo e nao o OCR (D19). */
+  anexo?: AnexoLido | null;
   /** Se a pessoa deixou a memoria ligada. Ausente significa ligada -- ver
    *  `TurnInput.memoriaAtiva`. */
   memoriaAtiva?: boolean;
