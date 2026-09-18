@@ -17,6 +17,15 @@ roadmap que produz software passou a ter EPIC rastreável, no formato
 | 1.6 | `specs/06-ia-leitura-exames/serie-por-analito/` | `docs/superpowers/plans/2026-09-16-serie-por-analito.md` |
 | 0.3 | `specs/07-ia-conversa/regras-de-linguagem/` | `docs/superpowers/plans/2026-09-16-regras-de-linguagem.md` |
 | 2.1 a 2.8, 3.1 | `specs/07-ia-conversa/assistente-conversacional/` | `docs/superpowers/plans/2026-09-16-assistente-conversacional.md` |
+| 2.9 (nova) | `specs/07-ia-conversa/memoria-do-usuario/` | `docs/superpowers/plans/2026-09-18-memoria-do-usuario.md` |
+
+A **2.9 não estava neste roadmap** e foi acrescentada em 2026-09-18: ela nasce
+de um pedido direto do usuário — memória de curto e longo prazo — e da fronteira
+que a D33 deixou escrita ao recusar fazer isso dentro da EPIC da conversa. Das
+três camadas de memória que o pedido descrevia, duas já existiam e só não tinham
+nome (a janela da conversa, na C4, e as tools sobre o dado registrado, na
+C2/C3); a EPIC entrega a terceira. Virou a **D34**, precedida da análise de LGPD
+em `01-estudos/memoria-do-usuario-e-lgpd.md`, que é pré-condição registrada.
 
 As tarefas 3.2, 4.1 e 4.2 continuam sem EPIC de propósito: elas produzem
 **texto do TCC**, não software, e criar spec para elas seria confundir

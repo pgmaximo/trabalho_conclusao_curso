@@ -1077,3 +1077,106 @@ LGPD antes de qualquer linha de código (ver `specs/07-ia-conversa/memoria-do-
 usuario/`). A razão de separar: um fato anotado pelo modelo e relido depois é
 **interpretação persistida como se fosse registro**, e a regra 4 da constituição
 fecha esse caminho para tudo o mais neste projeto.
+
+---
+
+## D34 — Memória de fatos: o modelo propõe, a pessoa grava, e a lista de tipos é fechada
+**Data:** 2026-09-18 · **Estado:** decidida · **Abre a EPIC `memoria-do-usuario`** · **Cumpre a condição da D33**
+
+A D33 recusou memória de fatos dentro da EPIC da conversa e escreveu a condição
+para ela existir: análise de LGPD antes de qualquer linha de código. A análise
+está escrita em `estudos-ia/01-estudos/memoria-do-usuario-e-lgpd.md`, e esta
+decisão é o que ela concluiu.
+
+O pedido do usuário foi "memória de curto e longo prazo, como as grandes
+empresas de IA fazem". Duas das três camadas já existiam e não tinham nome: a
+janela da conversa (C4) é a de curto prazo, e as sete tools sobre o dado
+registrado (C2/C3) são a memória de trabalho — a mais forte que o aplicativo
+tem, porque ela não é derivada, é o registro. O que faltava é a terceira.
+
+### A base legal decidiu a arquitetura
+
+Para dado sensível, o art. 11 da LGPD é exaustivo, e a hipótese que pareceria
+feita para um aplicativo de saúde — tutela da saúde, inciso II, "f" — vale
+**exclusivamente** para procedimento de profissional de saúde, serviço de saúde
+ou autoridade sanitária. Este aplicativo não é nenhum dos três. Sobrou o
+art. 11, I: **consentimento específico e destacado**.
+
+"Específico" não é por aplicativo, é por finalidade — e aqui, **por fato**. Um
+interruptor único de "ativar memória" seria consentimento genérico, que é o que
+o inciso recusa. Disso sai a decisão central:
+
+**O modelo propõe, a pessoa grava.** A proposta viaja num campo opcional do
+envelope JSON que já existe; o aplicativo mostra o texto exato; a pessoa toca em
+"Lembrar"; o aplicativo grava. Não existe caminho de código em que uma resposta
+do modelo produza uma escrita.
+
+Essa fronteira resolve três coisas de uma vez: é o consentimento do art. 11, I
+virando código; é a **D9 preservada inteira** — a IA de comunicação continua não
+gravando, porque quem grava é quem confirmou; e é o princípio da qualidade dos
+dados (art. 6º, V) atendido no único ponto em que ele pode ser atendido, que é
+antes de o fato existir. Um fato errado escrito por um modelo e relido a cada
+conversa é interpretação persistida com aparência de coisa que a pessoa disse.
+
+### A lista de tipos é fechada, e são quatro
+
+`COMO_ME_CHAMAR`, `PREFERENCIA_DE_RESPOSTA`, `ROTINA`, `ACESSO_A_CUIDADO`.
+
+A fronteira que os define: **cabe aqui o que muda a forma da resposta; não cabe
+o que muda o conteúdo factual sobre saúde.** Cada tipo novo é uma finalidade
+nova (art. 6º, I), e finalidade nova precisa de decisão registrada, não de um
+`push` no array.
+
+### As três recusas, e elas são o conteúdo da decisão
+
+**Recusado — guardar número.** Um valor de exame na memória seria número sem
+documento de origem, guardado e relido como verdade, justamente contra a R4. O
+esquema de citação não ganha campo para fato: não há onde escrevê-lo, então não
+acontece nem por acidente.
+
+**Recusado — guardar julgamento.** "Tem dificuldade de seguir o tratamento"
+guardado e relido mudaria o tom de tudo o que a pessoa recebe depois, a partir
+de uma leitura que ninguém validou. O art. 6º, IX veda tratamento para fins
+discriminatórios, e a regra 4 da constituição fecha o mesmo caminho por outro
+lado. A recusa é **por categoria**, no código, e não por revisão caso a caso.
+
+**Recusado — guardar condição, alergia ou medicamento.** Aqui a razão não é
+legal, é de arquitetura, e por isso ela está registrada como ambiguidade no
+`plan.md`: a pessoa dizer "tenho diabetes" é dado dela, declarado por ela, e
+guardá-lo seria defensável. Foi recusado porque **duas fontes de verdade sobre a
+mesma condição divergem**, e a que o assistente lê a cada turno passaria a ser a
+que ninguém atualiza. Condição tem formulário próprio no perfil de saúde. O
+assistente aponta o caminho e não grava a cópia.
+
+### Recusado — resumo de conversa
+
+Guardar um resumo gerado de cada conversa é o que resolveria "memória de longo
+prazo" com menos trabalho, e é o que foi recusado com mais convicção:
+**ninguém confirma um resumo frase a frase**. Ele teria todos os riscos da
+memória de fatos e nenhum dos controles — sem consentimento específico, sem
+texto curto para a pessoa conferir, sem categoria proibida verificável. É a
+quarta memória, e ela não existe neste projeto.
+
+### Revogar e apagar são direitos diferentes
+
+Desligar a memória interrompe o tratamento dali para frente (art. 18, IX); a
+eliminação do que já está guardado é o art. 18, VI e depende de requerimento.
+Traduzido para a tela: desligar **pergunta** se também apaga, e não decide.
+Apagar sem perguntar destruiria dado que a pessoa talvez quisesse manter; manter
+sem perguntar deixaria dado sensível guardado depois de ela ter dito que não
+quer mais. A pergunta é a única saída honesta — mesma forma de raciocínio da
+D33, item 2.
+
+### Dois números, e eles são limite de LGPD, não detalhe
+
+**20 fatos** e **140 caracteres por fato**. O art. 6º, III pede o mínimo
+necessário, que não é um número; os dois saíram de julgamento e estão
+registrados como ambiguidade no `plan.md`. O de 140 tem uma segunda razão: acima
+disso o fato deixa de ser fato e vira resumo, que é o que foi recusado acima.
+
+### O que esta decisão NÃO autoriza
+
+Ela não autoriza o modelo a inferir fato a partir do dado estruturado. O fato
+nasce do que a pessoa **escreveu na conversa**. Um modelo que lê os exames e
+conclui algo sobre a pessoa para guardar seria interpretação clínica pela porta
+dos fundos, e o caminho continua fechado.
