@@ -4,7 +4,7 @@
  * funcao e o aplicativo. Fica num arquivo proprio para que o handler nao
  * precise importar o laco so para conhecer o formato da resposta.
  */
-import type { AnswerCitation } from './chatSchema';
+import type { AnswerCitation, MemoryProposal } from './chatSchema';
 import type { ChatIdentity } from './auth';
 
 /**
@@ -33,6 +33,14 @@ export type ChatTurnResult = {
   answer: string;
   citations: Citation[];
   ruleCheckStatus: RuleCheckStatus;
+  /**
+   * A proposta de memoria (D34), quando houve uma e ela passou pela validacao.
+   *
+   * Isto NAO grava nada. E um texto que o aplicativo vai MOSTRAR, com dois
+   * botoes; quem grava e a pessoa, e e por isso que a funcao continua somente
+   * leitura -- o consentimento do art. 11, I virando caminho de codigo.
+   */
+  memoriaProposta?: MemoryProposal;
 };
 
 export type ChatTurnRequest = {
@@ -46,6 +54,9 @@ export type ChatTurnRequest = {
   /** O texto que o OCR leu do anexo. Preenchido pelo handler, nunca pelo
    *  cliente, e vive so nesta conversa (C7, D15). */
   attachmentText?: string | null;
+  /** Se a pessoa deixou a memoria ligada. Ausente significa ligada -- ver
+   *  `TurnInput.memoriaAtiva`. */
+  memoriaAtiva?: boolean;
 };
 
 export type ChatContext = {

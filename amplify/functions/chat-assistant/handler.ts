@@ -86,7 +86,12 @@ function lerCorpo(body: string | null | undefined): ChatTurnRequest | null {
       ? objeto.attachmentKey
       : null;
 
-  return { message, history, attachmentKey };
+  // Lido POR NOME, como todo campo deste corpo. Qualquer outra coisa que nao
+  // seja `false` explicito cai em `undefined`, e a funcao trata ausencia como
+  // memoria ligada (D34) -- decisao que fica num lugar so.
+  const memoriaAtiva = objeto.memoriaAtiva === false ? false : undefined;
+
+  return { message, history, attachmentKey, memoriaAtiva };
 }
 
 export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlResponse> {

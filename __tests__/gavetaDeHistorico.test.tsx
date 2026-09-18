@@ -33,6 +33,7 @@ function renderGaveta(over: Partial<React.ComponentProps<typeof HistoryDrawer>> 
       onClose={jest.fn()}
       onNewChat={jest.fn()}
       onDelete={jest.fn()}
+      onAbrirMemoria={jest.fn()}
       {...over}
     />,
   );
@@ -89,6 +90,29 @@ describe('o que a tela diz sobre o que é guardado (D33)', () => {
     renderGaveta();
     const texto = screen.getByText(/ficam guardadas/i).props.children as string;
     expect(texto).not.toMatch(/\d+\s*(dias|meses|ano)/i);
+  });
+});
+
+describe('a porta de entrada da memoria (M11)', () => {
+  it('a gaveta leva ao que o assistente lembra', () => {
+    // A gaveta e onde a pessoa ja esta perguntando "o que este aplicativo
+    // guarda de mim". A memoria responde a mesma pergunta, e por isso as duas
+    // portas ficam juntas.
+    const onAbrirMemoria = jest.fn();
+    renderGaveta({ onAbrirMemoria });
+    fireEvent.press(screen.getByText(/o que eu lembro/i));
+    expect(onAbrirMemoria).toHaveBeenCalled();
+  });
+
+  it('a porta aparece TAMBEM sem conversa nenhuma', () => {
+    renderGaveta({ groups: [], onAbrirMemoria: jest.fn() });
+    expect(screen.getByText(/o que eu lembro/i)).toBeTruthy();
+  });
+
+  it('sem quem trate o toque, a porta nao aparece', () => {
+    // Um item que nao leva a lugar nenhum e pior do que item nenhum.
+    renderGaveta({ onAbrirMemoria: undefined });
+    expect(screen.queryByText(/o que eu lembro/i)).toBeNull();
   });
 });
 

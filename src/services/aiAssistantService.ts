@@ -24,6 +24,10 @@
 import { fetchAuthSession } from 'aws-amplify/auth';
 
 import { chatAssistantUrl } from './chatAssistantEndpoint';
+import {
+  tipoValido,
+  type MemoryKind,
+} from '../../amplify/functions/chat-assistant/memoria/regras';
 
 export interface ChatMessage {
   id: string;
@@ -47,10 +51,19 @@ export interface Citation {
 /** Qual dos quatro caminhos da D31 aconteceu neste turno. */
 export type RuleCheckStatus = 'APROVADA' | 'APROVADA_NA_SEGUNDA' | 'DEGRADADA' | 'INDISPONIVEL';
 
+/** Um fato que o modelo PROPOS. Nada foi gravado: quem grava e a pessoa, ao
+ *  tocar em "Lembrar" (D34, art. 11, I da LGPD). */
+export interface MemoryProposal {
+  texto: string;
+  tipo: MemoryKind;
+}
+
 export interface AssistantReply {
   text: string;
   citations: Citation[];
   ruleCheckStatus: RuleCheckStatus;
+  /** Ausente na esmagadora maioria dos turnos. */
+  memoriaProposta?: MemoryProposal;
 }
 
 export interface AiAssistantService {
@@ -81,6 +94,20 @@ function lerCitacoes(bruto: unknown): Citation[] {
   });
 }
 
+/**
+ * A proposta e conferida ANTES de chegar a tela, mesmo ja tendo sido validada
+ * pela funcao. Aqui a conferencia e de FORMA -- que os dois campos existem e
+ * que o tipo esta na lista fechada --, e ela existe porque a alternativa e
+ * levar lixo a um cartao que pede consentimento. Um cartao com texto vazio
+ * pediria a pessoa que confirmasse nada.
+ */
+function lerProposta(bruto: unknown): MemoryProposal | undefined {
+  const candidata = bruto as Partial<MemoryProposal> | null;
+  if (typeof candidata?.texto !== 'string' || candidata.texto.trim() === '') return undefined;
+  if (typeof candidata.tipo !== 'string' || !tipoValido(candidata.tipo)) return undefined;
+  return { texto: candidata.texto, tipo: candidata.tipo };
+}
+
 export async function sendMessageWithSources(
   message: string,
   history: ChatMessage[],
@@ -88,6 +115,11 @@ export async function sendMessageWithSources(
   /** A chave do anexo pontual no bucket (C7, D15). O texto e lido pela funcao,
    *  pelo OCR -- o aplicativo nunca manda texto se passando por documento. */
   attachmentKey?: string | null,
+  /** Se a pessoa deixou a memoria ligada (D34). Omitido quando o aplicativo
+   *  ainda nao sabe -- e a FUNCAO que trata ausencia como ligada, porque
+   *  afirmar `true` daqui seria o aplicativo declarando um consentimento que
+   *  ele nao conferiu. */
+  memoriaAtiva?: boolean,
 ): Promise<AssistantReply> {
   const url = chatAssistantUrl();
   // "Tente novamente" aqui mandaria a pessoa repetir algo que nunca vai
@@ -112,6 +144,7 @@ export async function sendMessageWithSources(
         message,
         history: history.map((m) => ({ role: m.role, content: m.content })),
         ...(attachmentKey ? { attachmentKey } : {}),
+        ...(memoriaAtiva === undefined ? {} : { memoriaAtiva }),
       }),
       signal: controle.signal,
     });
@@ -122,12 +155,14 @@ export async function sendMessageWithSources(
       answer?: string;
       citations?: unknown;
       ruleCheckStatus?: RuleCheckStatus;
+      memoriaProposta?: unknown;
     };
 
     return {
       text: typeof corpo.answer === 'string' ? corpo.answer : ERRO_GENERICO,
       citations: lerCitacoes(corpo.citations),
       ruleCheckStatus: corpo.ruleCheckStatus ?? 'INDISPONIVEL',
+      memoriaProposta: lerProposta(corpo.memoriaProposta),
     };
   } catch (erro) {
     // As mensagens que JA sao honestas passam intactas; o resto vira a

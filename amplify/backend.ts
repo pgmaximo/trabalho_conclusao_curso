@@ -538,6 +538,12 @@ backend.chatAssistant.addEnvironment(
 // valendo se as outras duas forem contornadas.
 const appointmentTable = backend.data.resources.tables['Appointment'];
 const vaccineDoseTable = backend.data.resources.tables['VaccineDose'];
+// A memoria do usuario (D34). Entra aqui a tabela de FATOS, e so ela: a funcao
+// le o que a pessoa confirmou. A tabela do interruptor nao entra porque a
+// funcao nao precisa dela -- quem le o interruptor e o aplicativo, que decide
+// se manda o sinalizador de memoria ativa na requisicao. Uma tabela a menos ao
+// alcance da funcao e uma superficie a menos.
+const assistantMemoryFactTable = backend.data.resources.tables['AssistantMemoryFact'];
 
 for (const tabela of [
   userProfileTable,
@@ -547,6 +553,7 @@ for (const tabela of [
   medicineTable,
   vaccineDoseTable,
   healthImportTable,
+  assistantMemoryFactTable,
 ]) {
   tabela.grantReadData(chatAssistantLambda);
 }
@@ -558,6 +565,10 @@ backend.chatAssistant.addEnvironment('APPOINTMENT_TABLE_NAME', appointmentTable.
 backend.chatAssistant.addEnvironment('MEDICINE_TABLE_NAME', medicineTable.tableName);
 backend.chatAssistant.addEnvironment('VACCINE_DOSE_TABLE_NAME', vaccineDoseTable.tableName);
 backend.chatAssistant.addEnvironment('HEALTH_IMPORT_TABLE_NAME', healthImportTable.tableName);
+backend.chatAssistant.addEnvironment(
+  'ASSISTANT_MEMORY_TABLE_NAME',
+  assistantMemoryFactTable.tableName,
+);
 
 // O chat REUSA o guardrail da analise de wearables, e nao ganha um proprio.
 // A D20 mandou a extracao ter o seu porque la os dois topicos bloqueados sao o

@@ -13,6 +13,15 @@ type HistoryDrawerProps = {
   onNewChat: () => void;
   /** Apaga de verdade (D33). Ausente enquanto nao havia conversa persistida. */
   onDelete?: (id: string) => void | Promise<void>;
+  /**
+   * Leva ao que o assistente lembra (D34, M11). Fica AQUI, ao lado do aviso de
+   * retencao, porque a gaveta e onde a pessoa ja esta perguntando o que este
+   * aplicativo guarda dela -- e a memoria responde a mesma pergunta.
+   *
+   * Ausente esconde o item: um item que nao leva a lugar nenhum e pior do que
+   * item nenhum.
+   */
+  onAbrirMemoria?: () => void;
 };
 
 /**
@@ -33,6 +42,7 @@ export function HistoryDrawer({
   onClose,
   onNewChat,
   onDelete,
+  onAbrirMemoria,
 }: HistoryDrawerProps) {
   const colors = useThemeColors();
   // Qual conversa esta com a confirmacao aberta. Uma de cada vez, e por id:
@@ -88,6 +98,21 @@ export function HistoryDrawer({
           <Text className="mt-4 px-5 text-[13px] leading-[18px] text-app-textSecondary dark:text-app-dark-textSecondary">
             {AVISO_DE_RETENCAO}
           </Text>
+
+          {onAbrirMemoria ? (
+            <Pressable
+              accessibilityLabel="O que eu lembro de você"
+              accessibilityRole="button"
+              onPress={onAbrirMemoria}
+              className="mx-5 mt-3 min-h-11 flex-row items-center gap-2 rounded-xl px-1"
+              style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}
+            >
+              <Ionicons name="bookmark-outline" size={16} color={colors.iconMuted} />
+              <Text className="text-[14px] font-semibold text-app-primary dark:text-app-dark-primary">
+                O que eu lembro de você
+              </Text>
+            </Pressable>
+          ) : null}
 
           <ScrollView className="mt-4 flex-1 px-5" showsVerticalScrollIndicator={false}>
             {groups.length === 0 ? (

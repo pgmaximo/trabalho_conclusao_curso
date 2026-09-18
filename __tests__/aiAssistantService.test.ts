@@ -146,3 +146,62 @@ describe('as origens, que sao ACRESCIMO e nao troca', () => {
     expect((await sendMessageWithSources('oi', [])).citations).toEqual([]);
   });
 });
+
+describe('a proposta de memoria (M5, lado do aplicativo)', () => {
+  it('manda o estado da memoria quando ele e informado', async () => {
+    // Art. 18, IX -- com a memoria desligada, a funcao nem le os fatos.
+    await sendMessageWithSources('oi', [], undefined, null, false);
+    const corpo = JSON.parse(String(ultimaChamada().body));
+    expect(corpo.memoriaAtiva).toBe(false);
+  });
+
+  it('nao manda nada quando o estado nao e informado', async () => {
+    // Ausencia significa ligada, e quem decide isso e a funcao -- mandar
+    // `true` por padrao daqui seria o aplicativo afirmando um consentimento
+    // que ele nao verificou.
+    await sendMessage('oi', []);
+    expect(String(ultimaChamada().body)).not.toMatch(/memoriaAtiva/);
+  });
+
+  it('devolve a proposta quando ela vem', async () => {
+    respondeCom({
+      answer: 'Certo.',
+      citations: [],
+      ruleCheckStatus: 'APROVADA',
+      memoriaProposta: { texto: 'Prefiro respostas curtas', tipo: 'PREFERENCIA_DE_RESPOSTA' },
+    });
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.memoriaProposta).toEqual({
+      texto: 'Prefiro respostas curtas',
+      tipo: 'PREFERENCIA_DE_RESPOSTA',
+    });
+  });
+
+  it('descarta proposta malformada em vez de levar lixo a tela', async () => {
+    respondeCom({
+      answer: 'Certo.',
+      citations: [],
+      ruleCheckStatus: 'APROVADA',
+      memoriaProposta: { texto: 'sem tipo' },
+    });
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.memoriaProposta).toBeUndefined();
+  });
+
+  it('descarta proposta com tipo fora da lista fechada', async () => {
+    respondeCom({
+      answer: 'Certo.',
+      citations: [],
+      ruleCheckStatus: 'APROVADA',
+      memoriaProposta: { texto: 'Tenho diabetes', tipo: 'CONDICAO' },
+    });
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.memoriaProposta).toBeUndefined();
+  });
+
+  it('resposta sem proposta continua sendo o caminho normal', async () => {
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.memoriaProposta).toBeUndefined();
+    expect(r.text).toBe('Uma resposta.');
+  });
+});

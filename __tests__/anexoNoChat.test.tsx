@@ -36,6 +36,14 @@ jest.mock('@/services/chatHistoryService', () => ({
   apagarConversa: jest.fn().mockResolvedValue(undefined),
 }));
 
+// `useChatBot` passou a ler a memoria do usuario (D34, M8). Mockado como
+// servico, e nao como SDK, seguindo o que este arquivo ja faz com o historico:
+// estes testes sao sobre a tela do chat, e a memoria tem suite propria.
+jest.mock('@/services/assistantMemoryService', () => ({
+  lerInterruptor: jest.fn().mockResolvedValue(true),
+  guardarFato: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 
 import { readFileSync, readdirSync } from 'node:fs';
 

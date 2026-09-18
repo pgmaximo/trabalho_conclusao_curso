@@ -54,6 +54,23 @@ export type TurnInput = {
   guardrailId: string;
   guardrailVersion: string;
   attachmentText?: string | null;
+  /**
+   * O interruptor da memoria (D34). Vem do aplicativo, que e quem le a linha de
+   * `AssistantMemorySetting` -- uma tabela a menos ao alcance da funcao.
+   *
+   * AUSENTE significa ligada: ausencia e aplicativo anterior a EPIC, ou pessoa
+   * que nunca mexeu no interruptor. Ligada nao grava nada sozinha.
+   */
+  memoriaAtiva?: boolean;
+  /**
+   * O prompt de sistema JA MONTADO, com o bloco de memoria dentro quando ha
+   * fato (D34). Ausente significa o prompt sem memoria -- e o caminho antigo
+   * nao muda de byte, que e a regra 5 em forma de valor padrao.
+   *
+   * Ele entra por parametro, e nao e lido aqui, porque a leitura da memoria
+   * depende da identidade e de tabela, e este arquivo e sobre o laco.
+   */
+  systemPrompt?: string;
 };
 
 /**
@@ -135,7 +152,7 @@ function chamar(input: TurnInput, messages: unknown[], temperature: number) {
   return client.send(
     new ConverseCommand({
       modelId: input.modelId,
-      system: [{ text: SYSTEM_PROMPT }],
+      system: [{ text: input.systemPrompt ?? SYSTEM_PROMPT }],
       messages: messages as never,
       inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS, temperature },
       toolConfig: especificacaoDasTools() as never,

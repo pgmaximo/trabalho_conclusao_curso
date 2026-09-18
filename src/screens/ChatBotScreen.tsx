@@ -24,6 +24,7 @@ import { AiDisclaimerBanner } from '@/components/AiDisclaimerBanner';
 import { ChatAttachmentRow } from '@/components/ChatAttachmentRow';
 import { HistoryDrawer } from '@/components/HistoryDrawer';
 import { MessageBubble } from '@/components/MessageBubble';
+import { MemoryProposalCard } from '@/components/MemoryProposalCard';
 import { MessageSources } from '@/components/MessageSources';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { TypingIndicator } from '@/components/TypingIndicator';
@@ -67,6 +68,10 @@ export function ChatBotScreen() {
     openHistory,
     closeHistory,
     newChat,
+    propostaDeMemoria,
+    confirmarMemoria,
+    recusarMemoria,
+    abrirMemoria,
   } = useChatBot();
 
   const hasUserMessage = messages.some((message) => message.role === 'user');
@@ -185,6 +190,20 @@ export function ChatBotScreen() {
             <>
               {isTyping ? <TypingIndicator /> : null}
 
+              {/* O cartao fica ABAIXO da ultima bolha, e nunca dentro dela: e
+                  um pedido do APLICATIVO, e nao fala do assistente. Confundir
+                  os dois faria a pessoa achar que o modelo esta falando quando
+                  ele esta pedindo consentimento (D34). */}
+              {propostaDeMemoria && !isTyping ? (
+                <MemoryProposalCard
+                  key={propostaDeMemoria.proposta.texto}
+                  proposta={propostaDeMemoria.proposta}
+                  onConfirmar={confirmarMemoria}
+                  onRecusar={recusarMemoria}
+                  onVerMemoria={abrirMemoria}
+                />
+              ) : null}
+
               {!hasUserMessage ? (
                 <View className="mt-2">
                   <Text className="text-[20px] font-semibold text-app-text dark:text-app-dark-text">
@@ -270,6 +289,7 @@ export function ChatBotScreen() {
 
       <HistoryDrawer
         groups={historyGroups}
+        onAbrirMemoria={abrirMemoria}
         onClose={closeHistory}
         onDelete={deleteConversation}
         onNewChat={newChat}

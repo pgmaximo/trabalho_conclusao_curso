@@ -12,6 +12,18 @@ jest.mock('../conversationLoop', () => ({
   regenerateAnswer: (...a: unknown[]) => mockRegenerateAnswer(...a),
 }));
 
+// `verificacao.ts` passou a importar a leitura da memoria (M6), que le o
+// DynamoDB pela mesma porta das tools. O SDK publicado e ESM e o jest-expo o
+// carrega como CommonJS, entao importa-lo aqui quebraria a suite inteira antes
+// de qualquer assercao -- armadilha ja registrada no Bloco E.
+//
+// Mockar a LEITURA, e nao o SDK, e o recorte certo: estes testes sao sobre a
+// D31, e a memoria tem suite propria.
+jest.mock('../memoria/leitura', () => ({
+  lerMemoria: jest.fn().mockResolvedValue([]),
+  montarSystemPrompt: () => 'prompt-de-sistema',
+}));
+
 const mockBuildDegradedAnswer = jest.fn();
 jest.mock('../degradedAnswer', () => ({
   buildDegradedAnswer: (...a: unknown[]) => mockBuildDegradedAnswer(...a),

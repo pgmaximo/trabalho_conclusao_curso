@@ -22,7 +22,9 @@ import { checkLanguageRules, type QuestionKind } from '../ai-language-rules/lang
 import { regenerateAnswer, runConversationTurn, type TurnInput } from './conversationLoop';
 import { enriquecerCitacoes, indexarLinhasCitaveis } from './citacoes';
 import { buildDegradedAnswer } from './degradedAnswer';
-import type { AnswerCitation, ChatAnswer } from './chatSchema';
+import { validarProposta } from './memoria/propostaValida';
+import { lerMemoria, montarSystemPrompt } from './memoria/leitura';
+import type { AnswerCitation, ChatAnswer, MemoryProposal } from './chatSchema';
 import type {
   ChatContext,
   ChatTurnRequest,
@@ -59,6 +61,14 @@ export type RespostaVerificada = {
    *  com a resposta porque e daqui que a bolha tira rotulo, valor e unidade --
    *  o modelo devolve so o identificador. */
   indice: Map<string, Citation>;
+  /**
+   * A proposta de memoria (D34), quando houve uma E ela passou pela validacao.
+   *
+   * Ausente e o caso normal. Ela so acompanha resposta APROVADA: o caminho
+   * degradado nao e gerado, e montado, e uma proposta pendurada nele viria de
+   * um texto que foi descartado por quebrar as regras.
+   */
+  memoriaProposta?: MemoryProposal;
 };
 
 /**
@@ -86,6 +96,31 @@ function classificar(toolsUsadas: string[]): QuestionKind {
 }
 
 /**
+ * O segundo caminho da verificacao, e ele e SEPARADO do primeiro de proposito.
+ *
+ * Reprovar a proposta descarta a proposta e entrega a resposta. Se fossem o
+ * mesmo caminho, uma proposta ruim derrubaria uma resposta boa -- a EPIC nova
+ * quebrando a entregue (regra 5 da constituicao).
+ *
+ * E a recusa e SILENCIOSA: a pessoa nao pediu proposta nenhuma, entao a
+ * ausencia dela nao e erro que mereca mensagem na tela.
+ */
+function propostaAceitavel(
+  memoria: MemoryProposal | undefined,
+  memoriaAtiva: boolean | undefined,
+): MemoryProposal | undefined {
+  if (!memoria) return undefined;
+
+  // Ausencia do sinalizador e tratada como ligada: ela significa que o
+  // aplicativo e anterior a esta EPIC, ou que a pessoa nunca mexeu no
+  // interruptor. Nenhum dos dois grava nada sozinho -- gravar depende de
+  // confirmacao, que e o art. 11, I.
+  if (memoriaAtiva === false) return undefined;
+
+  return validarProposta(memoria).ok ? memoria : undefined;
+}
+
+/**
  * A R4 conferida DEPOIS do fato: uma citacao que aponta para uma linha que
  * nenhuma tool devolveu foi inventada, e isso e detectavel porque quem chamou
  * sabe o que as tools devolveram.
@@ -110,6 +145,7 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     texto: answer.texto,
     citacoes: answer.citacoes,
     indice,
+    memoriaProposta: propostaAceitavel(answer.memoria, entrada.memoriaAtiva),
   });
 
   // E -> C: o que fazer quando nao ha resposta exibivel. Tenta o dado sem
@@ -178,10 +214,20 @@ export async function responder(
   request: ChatTurnRequest,
   context: ChatContext,
 ): Promise<ChatTurnResult> {
+  // A memoria e lida ANTES do laco, e nao dentro dele: ela entra no prompt de
+  // sistema, que e montado uma vez por turno. `lerMemoria` nunca lanca -- sem
+  // memoria, o assistente continua respondendo.
+  //
+  // Com a memoria desligada (art. 18, IX), nem sequer lemos: revogar o
+  // consentimento interrompe o tratamento, e "tratamento" inclui a leitura.
+  const fatos = request.memoriaAtiva === false ? [] : await lerMemoria(context.identity);
+
   const entrada: TurnInput = {
     message: request.message,
+    systemPrompt: montarSystemPrompt(fatos),
     history: request.history,
     attachmentText: request.attachmentText,
+    memoriaAtiva: request.memoriaAtiva,
     identity: context.identity,
     modelId: process.env.BEDROCK_MODEL_ID ?? '',
     guardrailId: process.env.BEDROCK_GUARDRAIL_ID ?? '',
@@ -197,5 +243,6 @@ export async function responder(
     // segunda via para o numero divergir do que esta no banco.
     citations: enriquecerCitacoes(resposta.citacoes, resposta.indice),
     ruleCheckStatus: resposta.status,
+    memoriaProposta: resposta.memoriaProposta,
   };
 }

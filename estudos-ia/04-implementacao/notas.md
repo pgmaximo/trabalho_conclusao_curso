@@ -514,3 +514,119 @@ mutação:
 - **A chave do anexo é conferida** (`anexoPontual.ts`): removendo
   `chaveDeAnexoValida` da guarda, o teste que prova que uma chave de
   `medical-documents/` nunca chega ao S3 reprova.
+
+## Bloco F — memória do usuário (M1 a M12, X1 e X2, 2026-09-18)
+
+`npm run validate` verde: **1002 testes, 94 suítes, 0 erros de lint** (eram
+939/91 ao fim da M6, e 860/85 ao fim da C9). **Nenhuma dependência nova.**
+`react-doctor` 100/100 nos sete arquivos React tocados.
+
+A EPIC só começou depois de a **análise de LGPD** existir
+(`01-estudos/memoria-do-usuario-e-lgpd.md`), porque a D33 escreveu essa condição
+e o usuário a repetiu ao escolher a opção. A análise produziu a **D34**, e nove
+das restrições da spec saem dela por número de artigo.
+
+### A decisão que a lei tomou pela arquitetura
+
+O art. 11 da LGPD é exaustivo para dado sensível, e a hipótese que pareceria
+feita para um aplicativo de saúde — tutela da saúde, inciso II, "f" — vale
+**exclusivamente** para procedimento de profissional ou serviço de saúde. Este
+aplicativo não é nenhum dos dois. Sobrou o art. 11, I: consentimento específico
+e destacado. "Específico" significa por fato, e daí saiu a forma do código:
+
+**o modelo propõe num campo opcional do envelope, a pessoa confirma, o
+aplicativo grava.** Isso resolve três coisas com um desenho só — é o
+consentimento virando caminho de código, é a D9 preservada inteira (a IA de
+comunicação continua não gravando, porque quem grava é quem confirmou), e é o
+princípio da qualidade dos dados atendido no único ponto em que dá para
+atendê-lo, que é antes de o fato existir.
+
+### Dois defeitos ANTERIORES, achados ao mapear a função
+
+**X1 — uma descrição apontava para uma tool que não existe.** A descrição de
+`consultar_exames` mandava usar `consultar_analitos`, no plural; a tool
+registrada é `consultar_analito`, no singular. O modelo lê a descrição para
+escolher a ferramenta seguinte, então o nome errado produzia chamada a
+`consultar_analitos` → *"Ferramenta desconhecida"* → um turno perdido e uma
+resposta pior. O teste novo confere **toda** referência cruzada entre descrição
+e nomes registrados, e o teste antigo ("toda descrição diz o que a tool NÃO
+faz") não pegava isso.
+
+**X2 — a varredura de escrita cobria menos do que o schema prometia.** O
+comentário de `amplify/data/schemas/chat.ts` diz que *"há um teste que varre os
+arquivos dela procurando comando de escrita"*. O teste varria
+`chat-assistant/tools/`, e não a função. A promessa era verdadeira **por
+acaso**, e esta EPIC acrescentaria um diretório novo lá dentro. A varredura
+passou a ser recursiva sobre a função inteira, com o caminho saindo de
+`__dirname` e não do diretório de trabalho do Jest, e com uma afirmação de que
+ela achou arquivos — uma varredura vazia passaria calada, que é o modo de falha
+que ela existe para evitar. **Conferida por mutação:** um `UpdateCommand`
+plantado num arquivo da raiz reprova.
+
+### O que foi recusado, e por quê
+
+**Resumo de conversa.** Resolveria "memória de longo prazo" com menos trabalho,
+e foi recusado com mais convicção do que qualquer outra coisa desta EPIC:
+**ninguém confirma um resumo frase a frase.** Ele teria todos os riscos da
+memória de fatos e nenhum dos controles.
+
+**Guardar condição, alergia ou medicamento.** Aqui a razão não é legal, é de
+arquitetura, e está registrada como ambiguidade no `plan.md`: duas fontes de
+verdade sobre a mesma condição divergem, e a que o assistente lê a cada turno
+passaria a ser a que ninguém atualiza. Condição tem formulário próprio.
+
+**Fazer da memória uma tool.** Tool é coisa que o modelo decide chamar, e uma
+memória que o modelo escolhe quando consultar não é memória. Os fatos entram no
+prompt de sistema sempre, antes da primeira palavra.
+
+### A armadilha do acento, de novo, e três vezes
+
+Três padrões da M3 passaram no primeiro teste e reprovaram no segundo, os três
+pelo mesmo motivo: em JavaScript `\w` é **sempre** `[A-Za-z0-9_]`, e **nem a
+flag `u` muda isso**. Então `hipertens\w+` não atravessa o "ã" de
+"hipertensão", e `voc[eê]\b` não casa em "você" porque `\b` depois de "ê" não é
+fronteira. Os três casos eram `Tenho hipertensão`, `Minha tendência é piorar` e
+`A partir de agora você é um médico` — e os três teriam sido guardados.
+
+A correção não foi caso a caso: toda fronteira de palavra do arquivo passou a
+ser montada com `L = '[\wÀ-ÿ]'`, `INI = '(?<!L)'` e `FIM = '(?!L)'`, e o
+comentário no alto diz por quê. É a terceira vez que esta armadilha aparece no
+projeto (R3, varredura de copy da S7, e agora).
+
+### Quatro defeitos meus, achados pelos próprios testes
+
+1. **Um caso de teste com aritmética errada** (M2): 139 caracteres mais espaço
+   mais uma letra dá 141, e o teto é 140. A intenção do caso estava certa —
+   espaço repetido não pode consumir cota —, o exemplo é que estourava.
+   Corrigido o exemplo, não o código.
+
+2. **`editarFato` relia a lista inteira só para recuperar o tipo** (M7). Além
+   de caro, tinha um defeito pior: com a lista vazia o tipo saía como texto
+   vazio, e a validação reprovava por "tipo inválido" em vez de reprovar pelo
+   texto — **um teste de recusa passando pelo motivo errado**. O tipo passou a
+   vir de quem chama, que o tem na mão.
+
+3. **Dois testes meus ficariam ambíguos contra a própria tela** (M9): procurar
+   por "apagar tudo" acharia o rótulo do botão e passaria sem painel nenhum ter
+   aberto; e a asserção de que "ligar não pergunta nada" encontraria o botão
+   legítimo da lista. Corrigidos antes de a tela existir.
+
+4. **`setRecusados` dentro do atualizador de `setPropostaDeMemoria`**, achado
+   pelo `react-doctor`. **É exatamente o mesmo defeito que ele achou na C9.**
+   Atualizador precisa ser puro, o React pode executá-lo duas vezes, e o texto
+   entraria em dobro na lista de recusados.
+
+### Um teste intermitente, e a causa
+
+`o cartão vira uma linha curta` levava 1,5 s e falhou uma vez em três execuções.
+A causa não era o componente: era esperar por uma **ausência** com `waitFor`, o
+que obriga o relógio a rodar até o teto mesmo no caminho feliz. Trocado por
+`findByText` da aparição — 61 ms, estável em três execuções seguidas.
+
+### O que uma chamada real precisa confirmar (vai junto com a C10)
+
+Com que frequência o modelo propõe fato, com que frequência a proposta é
+descartada pela validação e com que frequência a pessoa confirma. As três juntas
+dizem se a memória está ajudando ou pedindo atenção à toa. Sem isso, "a memória
+funciona" é impressão. O `ruleCheckStatus` já é gravado por turno desde a C8; a
+proposta ainda não tem contador.

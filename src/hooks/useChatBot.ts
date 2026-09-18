@@ -5,11 +5,19 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { router } from 'expo-router';
+
 import {
   sendMessageWithSources,
   type ChatMessage,
   type Citation,
+  type MemoryProposal,
 } from '@/services/aiAssistantService';
+import {
+  guardarFato,
+  lerInterruptor,
+  type ResultadoDaGravacao,
+} from '@/services/assistantMemoryService';
 import {
   apagarConversa,
   criarConversa,
@@ -36,6 +44,13 @@ export type ChatMessageComOrigem = ChatMessage & { citations?: Citation[] };
  *  nenhuma pergunta. */
 export type AnexoPendente = { key: string; fileName: string };
 
+/**
+ * A proposta viva nesta tela, presa a mensagem que a gerou. Ela NAO e uma
+ * mensagem: e um pedido do aplicativo, e por isso vive fora da lista de bolhas
+ * (D34, M8).
+ */
+export type PropostaNaTela = { proposta: MemoryProposal; depoisDaMensagem: string };
+
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
@@ -52,6 +67,11 @@ function nextMessageId(): string {
 }
 
 export interface UseChatBotReturn {
+  /** A proposta de memoria aguardando o toque da pessoa. Nula quase sempre. */
+  propostaDeMemoria: PropostaNaTela | null;
+  confirmarMemoria: (proposta: MemoryProposal) => Promise<ResultadoDaGravacao>;
+  recusarMemoria: () => void;
+  abrirMemoria: () => void;
   messages: ChatMessageComOrigem[];
   inputText: string;
   setInputText: (text: string) => void;
@@ -75,6 +95,11 @@ export interface UseChatBotReturn {
 }
 
 export function useChatBot(): UseChatBotReturn {
+  const [propostaDeMemoria, setPropostaDeMemoria] = useState<PropostaNaTela | null>(null);
+  // Os textos que a pessoa ja recusou NESTA conversa. Propor de novo o que ela
+  // acabou de recusar transforma o pedido de consentimento em insistencia.
+  const [recusados, setRecusados] = useState<string[]>([]);
+  const [memoriaLigada, setMemoriaLigada] = useState<boolean | undefined>(undefined);
   const [messages, setMessages] = useState<ChatMessageComOrigem[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -99,6 +124,12 @@ export function useChatBot(): UseChatBotReturn {
     void recarregarConversas();
   }, [recarregarConversas]);
 
+  // O interruptor e lido UMA vez, ao abrir a tela. Le-lo a cada turno custaria
+  // uma consulta por pergunta para responder algo que muda uma vez por ano.
+  useEffect(() => {
+    void lerInterruptor().then(setMemoriaLigada);
+  }, []);
+
   // DECISION: aceita `override` para os prompts rapidos enviarem direto,
   // sem depender da atualizacao assincrona de `inputText`.
   const sendMessage = useCallback(
@@ -121,7 +152,13 @@ export function useChatBot(): UseChatBotReturn {
       setIsTyping(true);
 
       try {
-        const reply = await sendMessageWithSources(text, history, undefined, anexo?.key);
+        const reply = await sendMessageWithSources(
+          text,
+          history,
+          undefined,
+          anexo?.key,
+          memoriaLigada,
+        );
         setMessages((prev) => [
           ...prev,
           {
@@ -132,6 +169,15 @@ export function useChatBot(): UseChatBotReturn {
             citations: reply.citations,
           },
         ]);
+
+        // A proposta e presa a mensagem que a gerou, e nao substitui a
+        // anterior sem motivo: uma proposta ja recusada NESTA conversa nao
+        // volta, porque repetir um pedido de consentimento e insistir.
+        setPropostaDeMemoria(
+          reply.memoriaProposta && !recusados.includes(reply.memoriaProposta.texto)
+            ? { proposta: reply.memoriaProposta, depoisDaMensagem: reply.text }
+            : null,
+        );
 
         // A gravacao acontece DEPOIS de a resposta estar na tela, e nunca
         // derruba o turno: `salvarTurno` engole a falha. Perder o registro e
@@ -173,8 +219,52 @@ export function useChatBot(): UseChatBotReturn {
         setAnexo(null);
       }
     },
-    [anexo, conversationId, inputText, isTyping, messages, recarregarConversas],
+    [
+      anexo,
+      conversationId,
+      inputText,
+      isTyping,
+      memoriaLigada,
+      messages,
+      recarregarConversas,
+      recusados,
+    ],
   );
+
+  /**
+   * O toque em "Lembrar". ESTE e o consentimento do art. 11, I: ele parte da
+   * pessoa, depois de ela ler o texto exato, e e o unico caminho pelo qual um
+   * fato passa a existir.
+   */
+  const confirmarMemoria = useCallback(
+    async (proposta: MemoryProposal) => {
+      const resultado = await guardarFato(proposta, conversationId);
+      if (resultado.ok) setPropostaDeMemoria(null);
+      return resultado;
+    },
+    [conversationId],
+  );
+
+  const recusarMemoria = useCallback(() => {
+    // O texto recusado e anotado so em memoria, e so nesta conversa. Guardar a
+    // recusa no banco seria criar um segundo dado sobre a pessoa para resolver
+    // um problema de tela.
+    //
+    // A leitura da proposta e feita AQUI, e nao dentro de um
+    // `setPropostaDeMemoria(...)` com funcao: um atualizador de estado precisa
+    // ser puro, e o React pode executa-lo duas vezes -- o texto entraria em
+    // dobro na lista de recusados. Mesmo defeito que o react-doctor achou na C9.
+    if (propostaDeMemoria) {
+      const recusado = propostaDeMemoria.proposta.texto;
+      setRecusados((antes) => [...antes, recusado]);
+    }
+    setPropostaDeMemoria(null);
+  }, [propostaDeMemoria]);
+
+  const abrirMemoria = useCallback(() => {
+    setHistoryOpen(false);
+    router.push('/(app)/assistant-memory');
+  }, []);
 
   const clearHistory = useCallback(() => {
     setMessages([{ ...WELCOME_MESSAGE, id: nextMessageId() }]);
@@ -261,5 +351,9 @@ export function useChatBot(): UseChatBotReturn {
     openHistory,
     closeHistory,
     newChat,
+    propostaDeMemoria,
+    confirmarMemoria,
+    recusarMemoria,
+    abrirMemoria,
   };
 }

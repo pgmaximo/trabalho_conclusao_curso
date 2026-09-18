@@ -11,6 +11,8 @@
  */
 import { z } from 'zod';
 
+import { MAX_CARACTERES_FATO, MEMORY_KINDS } from './memoria/regras';
+
 export const citationSchema = z
   .object({
     /** Id da linha de LabResult de onde o numero saiu. */
@@ -20,15 +22,40 @@ export const citationSchema = z
   })
   .strict();
 
+/**
+ * A proposta de memoria (D34). OPCIONAL, e a opcionalidade e o contrato: uma
+ * resposta sem ela continua valida exatamente como antes desta EPIC.
+ *
+ * Este campo NAO grava nada. Ele e um texto que o aplicativo vai MOSTRAR a
+ * pessoa, com dois botoes. Quem grava e ela, e e por isso que a funcao continua
+ * somente leitura -- a base legal do art. 11, I virando caminho de codigo.
+ *
+ * O `tipo` e a lista fechada do art. 6º, I; o teto do texto vem do mesmo modulo
+ * que o aplicativo le, para os dois recusarem exatamente as mesmas coisas.
+ */
+export const memoryProposalSchema = z
+  .object({
+    texto: z.string().min(1).max(MAX_CARACTERES_FATO),
+    tipo: z.enum(MEMORY_KINDS),
+  })
+  .strict();
+
 export const chatAnswerSchema = z
   .object({
     texto: z.string().min(1).max(4000),
     /** Vazio quando a resposta nao cita nenhum valor de exame. */
     citacoes: z.array(citationSchema).max(20),
+    /**
+     * Ausente na esmagadora maioria dos turnos. Nao existe campo de citacao
+     * aqui, e a ausencia e a garantia: um fato nao consegue ser fonte de
+     * numero porque nao ha onde escrever a origem dele.
+     */
+    memoria: memoryProposalSchema.optional(),
   })
   .strict();
 
 export type AnswerCitation = z.infer<typeof citationSchema>;
+export type MemoryProposal = z.infer<typeof memoryProposalSchema>;
 export type ChatAnswer = z.infer<typeof chatAnswerSchema> & { toolsUsadas: string[] };
 
 /**
