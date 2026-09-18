@@ -572,6 +572,42 @@ arquivo oficial pega, que é precisamente o argumento da regra.
 documentação, não só para o código que vai a produção. E o catálogo da Tarefa 3
 é **gerado** a partir do extrato, não digitado.
 
+### Atualização de 2026-09-18 — a regra não tinha guarda, e foi quebrada de novo
+
+A decisão acima foi escrita e **não foi acompanhada de nenhum mecanismo.** O que
+os testes passaram a trazer, no lugar do código conferido, foi um **comentário
+dizendo que o código tinha sido conferido** — exatamente a forma de garantia que
+falhou com o `14635-7`, que também vinha com a conferência afirmada ao lado.
+
+Uma varredura do repositório encontrou **55 literais com forma de código LOINC em
+14 arquivos de teste.** Um deles, `analitosTool.test.ts`, escrevia "Nenhum codigo
+e digitado de cabeca, nem em teste" duas linhas acima de dois códigos digitados
+de cabeça.
+
+**Por que o comentário não serve:** ele não é executado. Um literal errado e o
+comentário que o abona erram juntos, em silêncio, e é preciso ir ao arquivo
+oficial para descobrir — que é o trabalho que a regra existe para dispensar.
+
+**O que muda:**
+
+1. **A regra virou teste**, no mesmo formato que a D23 já usava para a proibição
+   de `parseFloat`/`Number`: `__tests__/codigosLoincNaoDigitados.test.ts` varre
+   todo arquivo `.ts`, `.tsx`, `.mjs` e `.js` versionado e reprova qualquer
+   literal com a forma de um código LOINC, apontando arquivo e linha. Vale também
+   para comentário: código citado em prosa dentro do código-fonte foi o que deu a
+   falsa garantia.
+2. **Quem precisa de um código em teste busca no catálogo gerado**, por
+   `projectLabel` — o rótulo em português é campo nosso e pode ser digitado. O
+   padrão já existia em `__tests__/lab-result-grouping.test.ts` e agora é o único
+   permitido.
+3. **Uma exceção, registrada com motivo** no próprio guarda: o código inventado
+   do caso negativo em `analyteNormalizer.test.ts`, que prova que um palpite
+   inexistente do modelo nunca vira `analyteCode`. Ele não é um código do LOINC —
+   e o teste agora **verifica** que ele continua não existindo no catálogo, em
+   vez de supor.
+4. **O arquivo gerado ganhou guarda própria** (ver a D35), porque era o único
+   lugar onde um código podia estar certo na forma e errado no dígito.
+
 ---
 
 ## D28 — A unidade escrita no laudo nunca é UCUM, e traduzir isso é camada própria
@@ -1180,3 +1216,40 @@ Ela não autoriza o modelo a inferir fato a partir do dado estruturado. O fato
 nasce do que a pessoa **escreveu na conversa**. Um modelo que lê os exames e
 conclui algo sobre a pessoa para guardar seria interpretação clínica pela porta
 dos fundos, e o caminho continua fechado.
+
+---
+
+## D35 — O arquivo gerado é comparado com o extrato, não só confiado
+**Data:** 2026-09-18 · **Estado:** decidida
+
+`analyteCatalog.ts` é gerado por `scripts/gerar-catalogo-analitos.mjs` a partir do
+extrato oficial. Nada regenerava e comparava: o único guarda era a regex de
+**forma** `/^\d{1,6}-\d$/`, que aceita qualquer dígito trocado. Uma edição à mão no
+arquivo gerado — um dígito, uma `canonicalUnit`, uma massa molar — passava por
+toda a bateria de testes.
+
+É o modo de falha que a §6 da spec descreve com todas as letras: "um dígito
+trocado corrompe silenciosamente o eixo da comparação e o erro só aparece meses
+depois".
+
+**Confirmado por mutação, não suposto.** Trocando `62292-8` por `62232-8` no
+arquivo versionado, `analyteCatalog.test.ts` **passa** e o teste novo reprova.
+
+**O que muda:**
+
+- O gerador deixa de ser só comando e passa a exportar
+  `gerarCatalogoDeAnalitos(textoDoCsv)`, que faz a geração inteira **sem tocar no
+  disco**. A escrita fica atrás de uma checagem de entrypoint.
+- **A separação não é estética.** Enquanto o módulo gravava ao ser importado, um
+  teste de deriva *consertaria* a deriva em silêncio em vez de acusá-la — ele
+  reescreveria o arquivo e então o compararia consigo mesmo. Foi observado na
+  prática: a primeira execução do teste reescreveu `analyteCatalog.ts`.
+- `amplify/functions/extract-document-data/__tests__/catalogoNaoDeriva.test.ts`
+  regenera a partir do CSV e exige o mesmo arquivo de volta, analito a analito e
+  depois byte a byte. Quando ele falha, a correção é rodar o gerador e versionar
+  a saída — **nunca** editar o arquivo gerado para casar com o teste.
+- A checagem de entrypoint usa `basename(process.argv[1])` e não
+  `import.meta.url`: o `babel-preset-expo` mira Hermes, que não tem
+  `import.meta`, e o teste não conseguiria nem carregar o módulo.
+- `jest.config.js` ganhou uma entrada de `transform` para `.mjs`, que o preset do
+  `jest-expo` não cobre.
