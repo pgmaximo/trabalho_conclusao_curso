@@ -78,8 +78,16 @@ describe('buildDegradedAnswer', () => {
 
   it('PASSA no proprio verificador -- ela e segura por construcao', () => {
     // O teste que justifica a opcao E existir.
+    //
+    // `temOrigem` e verdadeiro porque a resposta degradada e MONTADA a partir da
+    // saida das ferramentas e ja sai com as citacoes dentro -- a origem dela nao
+    // depende do modelo lembrar de trazer. E a mesma coisa que a R4 cobra, dita
+    // no unico caso em que ela e garantida por construcao.
     const r = buildDegradedAnswer([saidaDeAnalito])!;
-    expect(checkLanguageRules(r.texto, { questionKind: 'clinica' })).toEqual({ ok: true });
+    expect(r.citacoes.length).toBeGreaterThan(0);
+    expect(checkLanguageRules(r.texto, { questionKind: 'clinica', temOrigem: true })).toEqual({
+      ok: true,
+    });
   });
 
   it('nao interpreta: nenhuma palavra compara o valor com a faixa', () => {
@@ -129,7 +137,9 @@ describe('buildDegradedAnswer', () => {
     ]);
     expect(r).not.toBeNull();
     expect(r!.texto).not.toContain('50 mg');
-    expect(checkLanguageRules(r!.texto, { questionKind: 'clinica' })).toEqual({ ok: true });
+    expect(checkLanguageRules(r!.texto, { questionKind: 'clinica', temOrigem: true })).toEqual({
+      ok: true,
+    });
   });
 
   it('junta mais de uma ferramenta na mesma resposta', () => {

@@ -94,6 +94,16 @@ function turnoQueFalhou(message = 'Não consegui reunir tudo o que essa pergunta
 const LIMPA = 'Seu registro de março mostra 32,5 ng/mL. Leve seus exames ao seu médico.';
 const COM_POSOLOGIA = 'Tome 2000 UI por dia.';
 
+/**
+ * A citacao que aponta para a linha que `SAIDA_DE_ANALITO` devolve.
+ *
+ * Ela e OBRIGATORIA em toda resposta que reporte valor de exame -- e a R4 no
+ * sentido da omissao. Antes de a R4 existir, `LIMPA` era aprovada com
+ * `citacoes: []`, e esse teste era a brecha escrita como expectativa: um numero
+ * de exame sem nenhuma origem passava como APROVADA.
+ */
+const CITACAO_VALIDA = [{ resultId: 'l-1', documentId: 'doc-1', collectedAt: '2026-03-12' }];
+
 beforeEach(() => {
   mockRunConversationTurn.mockReset();
   mockRegenerateAnswer.mockReset();
@@ -102,7 +112,7 @@ beforeEach(() => {
 
 describe('a verificacao de linguagem', () => {
   it('resposta limpa passa na primeira e e marcada como tal', async () => {
-    mockRunConversationTurn.mockResolvedValue(turno(LIMPA));
+    mockRunConversationTurn.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
     const r = await responderComVerificacao(ENTRADA);
     expect(r.status).toBe('APROVADA');
     expect(r.texto).toBe(LIMPA);
@@ -125,7 +135,7 @@ describe('a verificacao de linguagem', () => {
     // sai do campo `reason` da violacao, que a EPIC de regras escreve para ser
     // dito ao modelo.
     mockRunConversationTurn.mockResolvedValue(turno('Tome 500 mg.'));
-    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
     await responderComVerificacao(ENTRADA);
     const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
     expect(motivo).not.toMatch(/500/);
@@ -137,7 +147,7 @@ describe('a verificacao de linguagem', () => {
     // resultados das ferramentas.
     const primeira = turno(COM_POSOLOGIA);
     mockRunConversationTurn.mockResolvedValue(primeira);
-    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
     await responderComVerificacao(ENTRADA);
     const [, transcript] = mockRegenerateAnswer.mock.calls[0];
     expect(transcript).toBe(primeira.transcript);
@@ -224,9 +234,9 @@ describe('a classificacao da pergunta', () => {
 
   it('pergunta clinica SEM encaminhamento e reprovada pela R2', async () => {
     mockRunConversationTurn.mockResolvedValue(
-      turno('Seu registro de março mostra 32,5 ng/mL.', ['consultar_analito']),
+      turno('Seu registro de março mostra 32,5 ng/mL.', ['consultar_analito'], CITACAO_VALIDA),
     );
-    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
     expect((await responderComVerificacao(ENTRADA)).status).toBe('APROVADA_NA_SEGUNDA');
   });
 
@@ -246,16 +256,14 @@ describe('a R4 conferida depois do fato', () => {
         { resultId: 'linha-inventada', documentId: 'doc-1', collectedAt: '2026-03-12' },
       ]),
     );
-    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], []));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
     const r = await responderComVerificacao(ENTRADA);
     expect(r.status).toBe('APROVADA_NA_SEGUNDA');
   });
 
   it('citacao que aponta para linha devolvida passa', async () => {
     mockRunConversationTurn.mockResolvedValue(
-      turno(LIMPA, ['consultar_analito'], [
-        { resultId: 'l-1', documentId: 'doc-1', collectedAt: '2026-03-12' },
-      ]),
+      turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA),
     );
     const r = await responderComVerificacao(ENTRADA);
     expect(r.status).toBe('APROVADA');
@@ -267,7 +275,7 @@ describe('a R4 conferida depois do fato', () => {
         { resultId: 'linha-inventada', documentId: 'd', collectedAt: '2026-03-12' },
       ]),
     );
-    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], []));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
     await responderComVerificacao(ENTRADA);
     const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
     expect(motivo).toMatch(/ferramenta/i);
@@ -297,5 +305,77 @@ describe('quando o laco nem chega a produzir texto', () => {
     const r = await responderComVerificacao(ENTRADA);
     expect(r.status).toBe('INDISPONIVEL');
     expect(r.texto).toBe('Não consigo responder a essa mensagem.');
+  });
+});
+
+describe('a R4 no sentido da OMISSAO', () => {
+  it('valor de exame sem citacao nenhuma NAO e aprovado', async () => {
+    // A brecha que esta EPIC fechou. `[].every(...)` e verdadeiro, entao a
+    // conferencia de citacao aprovava a resposta que nao citava nada -- e um
+    // numero de exame sem origem subia com status APROVADA.
+    mockRunConversationTurn.mockResolvedValue(turno(LIMPA, ['consultar_analito'], []));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+  });
+
+  it('a reprovacao por omissao segue a D31: UMA segunda geracao, com bilhete de REGRA', async () => {
+    // O caminho continua valendo, e e o que a spec pede que se confirme: a
+    // omissao de R4 nao vira degradado direto. Ela rende uma nova geracao com o
+    // motivo em maos, como qualquer outra violacao.
+    mockRunConversationTurn.mockResolvedValue(turno(LIMPA, ['consultar_analito'], []));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+    await responderComVerificacao(ENTRADA);
+
+    expect(mockRegenerateAnswer).toHaveBeenCalledTimes(1);
+    const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
+    expect(motivo).toMatch(/origem|ferramenta/i);
+    // Fala da regra, nunca do sintoma: repetir o numero ensinaria o modelo a
+    // escrever o mesmo valor por extenso.
+    expect(motivo).not.toContain('32,5');
+    expect(motivo).not.toContain('ng/mL');
+  });
+
+  it('reprovada DUAS vezes por omissao cai no degradado, e o texto sem origem nao sai', async () => {
+    mockBuildDegradedAnswer.mockReturnValue({
+      texto: 'O dado, sem prosa: 12/03/2026 — 32,5 ng/mL',
+      citacoes: CITACAO_VALIDA,
+    });
+    mockRunConversationTurn.mockResolvedValue(turno(LIMPA, ['consultar_analito'], []));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], []));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).toBe('DEGRADADA');
+    // O dado do degradado vem da ferramenta e leva citacao; o texto reprovado,
+    // que trazia o mesmo numero sem origem, nao aparece.
+    expect(r.citacoes).toEqual(CITACAO_VALIDA);
+    expect(r.texto).not.toContain('Leve seus exames');
+  });
+
+  const COM_NUMERO_DO_PAPEL =
+    'No papel que você enviou, a hemoglobina está 12,1 g/dL. Vale levar ao seu médico.';
+
+  it('com anexo pontual no turno, o numero do papel TEM origem', async () => {
+    // D15: o anexo passa pelo OCR e NAO grava dado clinico, entao nao existe
+    // linha citavel para ele. Exigir citacao aqui faria "me explica este papel
+    // aqui" cair no degradado toda vez -- a EPIC nova quebrando a entregue
+    // (regra 5 da constituicao). O papel esta na mao de quem perguntou, e foi
+    // essa pessoa quem o mandou: a origem existe, so nao esta no banco.
+    mockRunConversationTurn.mockResolvedValue(turno(COM_NUMERO_DO_PAPEL, []));
+    // A segunda geracao fica armada de proposito: se a R4 reprovar o numero do
+    // papel, a falha aparece como status errado, e nao como um erro de mock.
+    mockRegenerateAnswer.mockResolvedValue(turno('Não tenho esse exame registrado.', []));
+
+    const r = await responderComVerificacao({ ...ENTRADA, attachmentText: 'Hemoglobina 12,1 g/dL' });
+    expect(r.status).toBe('APROVADA');
+    expect(mockRegenerateAnswer).not.toHaveBeenCalled();
+  });
+
+  it('SEM anexo, a mesma resposta sem citacao nao passa', async () => {
+    // O par do teste de cima, e ele e o que da sentido ao outro: prova que quem
+    // aprovou foi o anexo, e nao o texto.
+    mockRunConversationTurn.mockResolvedValue(turno(COM_NUMERO_DO_PAPEL, []));
+    mockRegenerateAnswer.mockResolvedValue(turno('Não tenho esse exame registrado.', []));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).toBe('APROVADA_NA_SEGUNDA');
   });
 });

@@ -89,9 +89,19 @@ Não há tela. A entrega são três artefatos.
 
 ### 3.1 O verificador
 
-Função pura que recebe o texto gerado, o tipo da pergunta (clínica ou
-operacional) e devolve aprovação ou uma lista de violações, cada uma com regra,
-motivo em português e o trecho que a disparou.
+Função pura que recebe o texto gerado e, num objeto de opções, o que o texto não
+diz sobre si mesmo: o tipo da pergunta (clínica ou operacional) e se a resposta
+trouxe **origem** para os números dela (`temOrigem`, a R4). Devolve aprovação ou
+uma lista de violações, cada uma com regra, motivo em português e o trecho que a
+disparou.
+
+As duas opções vêm de fora pelo mesmo motivo: quem chama sabe — conhece a
+pergunta, a tool usada e o envelope da resposta — e fazer o verificador adivinhar
+criaria uma segunda classificação, falível, dentro da camada que existe
+justamente para ser confiável. **Ausente significa "sem origem"**, que é o
+contrato "na dúvida, reprova" aplicado à própria assinatura: um chamador que
+esquecer de ligar a origem recebe reprovação, nunca aprovação silenciosa — e
+aprovação silenciosa era exatamente o defeito que a R4 tinha.
 
 ### 3.2 O bloco de regras para o prompt de sistema
 
@@ -132,6 +142,21 @@ aprovada custa muito mais. Onde a regra for ambígua, ela reprova.
 **A R1 alcança flexões e derivações**, não só o termo isolado: o plural, e os
 verbos e substantivos formados a partir dele. A verificação usa raiz, não
 igualdade.
+
+**A R4 alcança número de MEDIDA, e não todo dígito.** Dígito seguido de unidade
+de exame laboratorial é medida; "dia 12 de março", "3 vacinas pendentes" e "2
+comprimidos" não são. Unidade de corpo — `kg`, `cm`, `m`, `bpm`, `mmHg` — fica
+fora, porque só a saída de `consultar_analito` produz linha citável e exigir
+citação do que nunca pode ser citado tornaria a pergunta irrespondível. A `%`
+entra, apesar do alcance largo, porque hemoglobina glicada, hematócrito e
+saturação são todos `%` — e o custo ("100% das vacinas em dia" também reprova)
+está registrado em teste como aproximação declarada.
+
+**Fronteira de palavra montada à mão, nunca `\b` nem `\w`.** Em JavaScript `\w`
+é sempre `[A-Za-z0-9_]` e **nem a flag `u` muda isso**, então `\b` não é
+fronteira antes de "é", "ã" ou "ç". A R4 usa `[\wÀ-ÿ]` num lookahead negativo,
+pela mesma razão e com a mesma técnica de `memoria/propostaValida.ts`. Trocá-lo
+por `\b` quebra três casos de teste — a trava existe e é exercitada.
 
 **A verificação não vive no prompt.** Ela é código, testada como código. O
 prompt é a primeira camada e a mais fácil de contornar; esta é a quarta camada
@@ -178,16 +203,39 @@ exigir que `reason` tenha conteúdo; a D31 é a razão de ele existir.
       encaminhamento é aprovada — coberto por teste.
 - [ ] Sugestão pequena de baixo risco é aprovada — coberto por teste, para
       provar que a verificação não é um filtro que barra tudo.
+- [x] **R4: valor de exame sem origem é reprovado** — coberto por teste, em dez
+      unidades da lista, incluindo o sinal de micro e o expoente em sobrescrito.
+      Acrescentado em 2026-09-18; antes disso não havia verificador de R4 e a
+      regra era sustentada só pelo prompt.
+- [x] **R4: número comum NÃO é reprovado** — "dia 12 de março", "3 vacinas
+      pendentes", "2 comprimidos", "às 8h", "78 kg", "72 bpm" — coberto por
+      teste. É o critério que separa medida de dígito, e sem ele a R4 quebraria a
+      conversa inteira por falso positivo.
+- [x] **R4: o mesmo texto que reprova sem origem é aprovado com origem** —
+      coberto por teste, unidade por unidade. É o par do critério da sugestão
+      pequena: sem ele, a R4 poderia barrar todo número e ninguém notaria que ela
+      ficou inútil.
+- [x] **A ausência do sinalizador de origem reprova** — coberto por teste. Na
+      dúvida, reprova: um chamador que esquecer de ligar a origem recebe
+      reprovação, nunca aprovação silenciosa, que era o defeito de origem.
 - [ ] Cada violação identifica a regra, o motivo em português e o trecho.
 - [ ] A verificação nunca altera o texto recebido — coberto por teste.
 - [ ] O bloco de regras do prompt e a documentação saem da mesma constante.
-- [ ] **PARCIAL, conferido em 2026-09-18.** Existe um conjunto adversarial
-      rodando em `npm run validate` sem chamar o modelo — isso está cumprido.
-      Mas ele **não tem uma tentativa por regra**: cobre R1, R2 e R3, e não
-      cobre R4 nem R5. A falta da tentativa de R4 é a mesma lacuna vista do
-      outro lado — não existe verificador de R4 em `languageRules.ts`, então
-      não haveria o que a tentativa exercitasse. Registrado em vez de
-      propagado.
+- [x] **CUMPRIDO em 2026-09-18, depois de ter sido registrado como parcial no
+      mesmo dia.** O conjunto adversarial roda em `npm run validate` sem chamar o
+      modelo e agora tem **uma tentativa por regra**: a de R4 ("pede um valor que
+      nenhuma ferramenta devolveu") e a de R5 ("pede um exame que não existe e o
+      modelo devolve silêncio") fecham o que faltava.
+      - A tentativa de R4 só passou a ter o que exercitar porque o **verificador
+        de R4** foi escrito junto — a lacuna era a mesma vista dos dois lados.
+      - O conjunto ganhou uma asserção que **impede a lacuna de voltar em
+        silêncio**: o conjunto das regras exercitadas tem de ser exatamente
+        {R1, R2, R3, R4, R5}. Uma regra sem tentativa era invisível para a
+        validação, e foi assim que a R4 ficou sem verificador sem ninguém notar.
+      - A resposta CERTA de cada tentativa passou a morar **na mesma linha** da
+        tentativa. Com sete linhas, a lista paralela anterior casava por posição,
+        e uma linha nova no meio desalinharia tudo sem nenhuma asserção
+        reclamar.
 - [ ] Existe uma tarefa manual, registrada, de conferir o verificador contra
       respostas reais do modelo — porque teste sobre texto de exemplo não prova
       comportamento de modelo.

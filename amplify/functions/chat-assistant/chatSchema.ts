@@ -4,10 +4,22 @@
  * CAMPO, nao promessa.
  *
  * A R4 diz "nenhum numero sem origem". Deixar isso so no prompt seria confiar
- * que o modelo lembra. Aqui, a resposta que cita valores e obrigada a trazer
- * de qual linha eles sairam -- e uma citacao que aponta para uma linha que
- * nenhuma tool devolveu e detectavel, porque quem chamou sabe o que as tools
- * devolveram (C5).
+ * que o modelo lembra. O que este arquivo entrega e o LUGAR onde a origem cabe:
+ * sem campo de citacao, a R4 nao teria como ser verificada por ninguem.
+ *
+ * O QUE ELE NAO FAZ, e a distincao importa porque a redacao anterior deste
+ * comentario afirmava o contrario: ele **nao** obriga a resposta com numero a
+ * trazer citacao. Nao ha `refine` ligando digito em `texto` a `citacoes`, e a
+ * ausencia e deliberada -- reprovar aqui seria reprovar no PARSE, e falha de
+ * parse devolve `ok: false` no laco, que `responderComVerificacao` manda direto
+ * para o caminho degradado. A omissao de R4 perderia a segunda geracao que a
+ * D31 garante (A -> E -> C), e a pessoa receberia o dado cru onde poderia ter
+ * recebido uma resposta escrita.
+ *
+ * Quem cobra a R4, entao, sao dois verificadores, os dois DEPOIS do parse:
+ * - a OMISSAO -- numero de exame sem origem -- em `ai-language-rules/languageRules.ts`;
+ * - a citacao INVENTADA -- id que nenhuma tool devolveu -- em `verificacao.ts`,
+ *   que e o unico lugar que sabe o que as tools entregaram (C5).
  */
 import { z } from 'zod';
 
@@ -43,7 +55,11 @@ export const memoryProposalSchema = z
 export const chatAnswerSchema = z
   .object({
     texto: z.string().min(1).max(4000),
-    /** Vazio quando a resposta nao cita nenhum valor de exame. */
+    /**
+     * Vazio quando a resposta nao cita nenhum valor de exame. Vazio COM valor de
+     * exame no texto e o que o verificador de R4 reprova -- aqui e campo, la e
+     * regra.
+     */
     citacoes: z.array(citationSchema).max(20),
     /**
      * Ausente na esmagadora maioria dos turnos. Nao existe campo de citacao

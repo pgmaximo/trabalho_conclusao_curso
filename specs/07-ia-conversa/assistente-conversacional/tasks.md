@@ -94,9 +94,15 @@ conferencia dos criterios de aceite um a um nao foi feita.
 - [x] Nenhuma copy da tela e nenhuma resposta aceita usa o termo vetado.
 - [x] Critérios de aceite da `spec.md` conferidos um a um, em 2026-09-18: **28
       com teste, 2 sem teste, 1 NÃO CUMPRIDO, 2 não verificáveis sem chamada
-      real**. O não cumprido é o mais grave do projeto e está descrito na §8 da
-      spec: a R4 no sentido da OMISSÃO não é verificada, e a spec afirmava que
-      era. Os dois sem teste: a autorização por dono dos dois models de chat não
-      tem o equivalente de `schemaDeMemoria.test.ts`, e a decisão de retenção é
-      documento.
+      real**. O não cumprido era o mais grave do projeto: a R4 no sentido da
+      OMISSÃO não era verificada, e a spec afirmava que era. Os dois sem teste: a
+      autorização por dono dos dois models de chat não tem o equivalente de
+      `schemaDeMemoria.test.ts`, e a decisão de retenção é documento.
+- [x] **O NÃO CUMPRIDO foi fechado em 2026-09-18**, no mesmo dia em que foi
+      registrado: verificador de R4 para a omissão (com o anexo pontual contando
+      como origem, D15), tentativas de R4 e de R5 no conjunto adversarial, e as
+      três afirmações falsas sobre o schema corrigidas. A reprovação por omissão
+      segue a D31 — uma segunda geração com bilhete de regra, e só então o
+      degradado —, coberto por teste. `npm run validate`: **94 suítes, 1057
+      testes** (eram 1006).
 - [x] `npm run validate` passa.

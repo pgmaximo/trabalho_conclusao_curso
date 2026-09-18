@@ -121,17 +121,50 @@ function propostaAceitavel(
 }
 
 /**
- * A R4 conferida DEPOIS do fato: uma citacao que aponta para uma linha que
- * nenhuma tool devolveu foi inventada, e isso e detectavel porque quem chamou
- * sabe o que as tools devolveram.
+ * A R4 tem DOIS sentidos, e este arquivo cuida dos dois por caminhos separados.
  *
- * Com o conjunto vazio a conferencia nao roda. Nao e brecha: o conjunto so
- * chega vazio quando nenhuma tool devolveu linha, e nesse caso a R4 ja foi
- * exercida pelo proprio laco -- o modelo nao tinha de onde tirar numero.
+ * ESTE, a citacao INVENTADA: uma citacao que aponta para uma linha que nenhuma
+ * tool devolveu, detectavel porque quem chamou sabe o que as tools devolveram.
+ *
+ * O OUTRO, a OMISSAO -- valor de exame sem citacao nenhuma --, e do verificador
+ * de R4 em `languageRules.ts`, alimentado por `temOrigemDeclarada` logo abaixo.
+ * Ele NAO mora aqui de proposito: um valor sem origem e reconhecivel so com o
+ * texto, e deixa-lo aqui manteria a R1, a R2 e a R3 num lugar e metade da R4 em
+ * outro. E o que esta funcao NAO cobre e justamente o que faltava: `[].every(...)`
+ * e verdadeiro, entao citacoes vazias sempre conferiram.
+ *
+ * Com o indice vazio a conferencia nao roda. Nao e brecha: o indice so chega
+ * vazio quando nenhuma tool devolveu linha, e o valor sem origem que o modelo
+ * escrevesse nesse caso e exatamente o que o verificador de R4 pega.
  */
 function citacoesConferem(answer: ChatAnswer, indice: Map<string, Citation>): boolean {
   if (indice.size === 0) return true;
   return answer.citacoes.every((c) => indice.has(c.resultId));
+}
+
+/**
+ * A resposta trouxe de onde os numeros dela sairam? Quem chama sabe; o texto,
+ * sozinho, nao. Duas coisas contam como origem:
+ *
+ * 1. CITACAO no envelope. Se ela e VALIDA e outra pergunta, respondida por
+ *    `citacoesConferem` -- aqui basta haver origem declarada. Uma citacao
+ *    inventada reprova pelo outro caminho, e os dois bilhetes somam.
+ *
+ * 2. O ANEXO PONTUAL do turno (D15). O papel esta na mao da pessoa e foi ela
+ *    quem o mandou, entao o numero dele TEM origem; nao ha linha citavel porque
+ *    a D15 decidiu que anexo pontual nao grava dado clinico. Sem esta segunda
+ *    porta, "me explica este papel aqui" cairia no degradado toda vez -- a EPIC
+ *    nova quebrando a entregue (regra 5 da constituicao).
+ *
+ * APROXIMACAO DECLARADA: a conferencia e de PRESENCA, nao de correspondencia
+ * valor por valor. Casar cada numero do texto com uma linha do indice
+ * reprovaria a faixa de referencia do laboratorio ("referencia de 12 a 16"),
+ * que nao e citacao de resultado e e informacao legitima. A presenca e o que a
+ * R4 pede: nenhum numero SEM origem.
+ */
+function temOrigemDeclarada(answer: ChatAnswer, entrada: TurnInput): boolean {
+  if (answer.citacoes.length > 0) return true;
+  return (entrada.attachmentText ?? '').trim() !== '';
 }
 
 export async function responderComVerificacao(entrada: TurnInput): Promise<RespostaVerificada> {
@@ -174,6 +207,7 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
 
   const check = checkLanguageRules(primeira.answer.texto, {
     questionKind: classificar(primeira.answer.toolsUsadas),
+    temOrigem: temOrigemDeclarada(primeira.answer, entrada),
   });
   const citacoesOk = citacoesConferem(primeira.answer, indice);
   if (check.ok && citacoesOk) return aprovada(primeira.answer, 'APROVADA');
@@ -193,6 +227,7 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
 
   const recheck = checkLanguageRules(segunda.answer.texto, {
     questionKind: classificar(segunda.answer.toolsUsadas),
+    temOrigem: temOrigemDeclarada(segunda.answer, entrada),
   });
   if (recheck.ok && citacoesConferem(segunda.answer, indice)) {
     return aprovada(segunda.answer, 'APROVADA_NA_SEGUNDA');
