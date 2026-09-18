@@ -13,6 +13,8 @@
 //
 // =============================================================================
 
+import type { CalendarDateItem } from '@/types/models';
+
 export type AgendaScope = 'dia' | 'semana' | 'mes' | 'ano';
 export type AgendaListOverride = 'proximos' | 'historico';
 export type DateRange = { start: Date; end: Date };
@@ -187,4 +189,120 @@ export function formatPeriodLabel(scope: AgendaScope, anchor: Date, today: Date)
     case 'ano':
       return String(anchor.getFullYear());
   }
+}
+
+export type AgendaMonthCell = {
+  month: number;   // 0-11
+  label: string;   // "Março"
+  count: number;
+  isoDate: string; // primeiro dia do mes, para o drill-down
+};
+
+const MONTH_SHORT_FORMATTER = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
+
+function formatMonthAbbrev(date: Date): string {
+  return MONTH_SHORT_FORMATTER.format(date).replace('.', '').toLowerCase();
+}
+
+// Indice absoluto do dia, via Date.UTC — exato e imune a horario de verao, ao
+// contrario de dividir a diferenca de milissegundos entre dois Date locais.
+function dayIndex(date: Date): number {
+  return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000);
+}
+
+function toIsoDateSet(scheduledAtList: string[]): Set<string> {
+  const set = new Set<string>();
+  for (const value of scheduledAtList) {
+    const date = parseScheduledAt(value);
+    if (date) {
+      set.add(toIsoDate(date));
+    }
+  }
+  return set;
+}
+
+function toCell(date: Date, occupied: Set<string>, today: Date): CalendarDateItem {
+  const isoDate = toIsoDate(date);
+  return {
+    isoDate,
+    day: date.getDate(),
+    month: formatMonthAbbrev(date),
+    hasAppointments: occupied.has(isoDate),
+    isToday: isoDate === toIsoDate(today),
+  };
+}
+
+// Blocos de 7 dias ALINHADOS A HOJE: com a ancora em hoje..hoje+6 a faixa e
+// exatamente hoje..hoje+6 (identica ao Canvas 2c), e selecionar um dia dentro do
+// bloco visivel nunca desloca a faixa debaixo do dedo do usuario.
+export function buildDayCells(anchor: Date, scheduledAtList: string[], today: Date): CalendarDateItem[] {
+  const occupied = toIsoDateSet(scheduledAtList);
+  const offset = dayIndex(anchor) - dayIndex(today);
+  const blockStart = Math.floor(offset / 7) * 7;
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + blockStart + index);
+    return toCell(date, occupied, today);
+  });
+}
+
+// A semana do escopo Semana e domingo-sabado da ancora, exatamente o periodo de
+// buildRange('semana', anchor) — as celulas marcadas e a lista abaixo delas tem
+// de recortar os mesmos sete dias.
+export function buildWeekCells(anchor: Date, scheduledAtList: string[], today: Date): CalendarDateItem[] {
+  const occupied = toIsoDateSet(scheduledAtList);
+  const { start } = buildRange('semana', anchor);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+    return toCell(date, occupied, today);
+  });
+}
+
+export function buildMonthCells(
+  anchor: Date,
+  scheduledAtList: string[],
+  today: Date,
+): (CalendarDateItem | null)[][] {
+  const occupied = toIsoDateSet(scheduledAtList);
+  const { start, end } = buildRange('mes', anchor);
+
+  const cells: (CalendarDateItem | null)[] = Array(start.getDay()).fill(null);
+
+  for (let day = 1; day <= end.getDate(); day += 1) {
+    cells.push(toCell(new Date(anchor.getFullYear(), anchor.getMonth(), day), occupied, today));
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push(null);
+  }
+
+  const weeks: (CalendarDateItem | null)[][] = [];
+  for (let index = 0; index < cells.length; index += 7) {
+    weeks.push(cells.slice(index, index + 7));
+  }
+
+  return weeks;
+}
+
+export function buildYearCells(anchor: Date, scheduledAtList: string[]): AgendaMonthCell[] {
+  const year = anchor.getFullYear();
+  const counts = Array<number>(12).fill(0);
+
+  for (const value of scheduledAtList) {
+    const date = parseScheduledAt(value);
+    if (date && date.getFullYear() === year) {
+      counts[date.getMonth()] += 1;
+    }
+  }
+
+  return counts.map((count, month) => {
+    const first = new Date(year, month, 1);
+    return {
+      month,
+      label: capitalize(MONTH_LONG_FORMATTER.format(first)),
+      count,
+      isoDate: toIsoDate(first),
+    };
+  });
 }

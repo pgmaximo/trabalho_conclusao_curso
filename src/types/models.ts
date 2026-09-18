@@ -202,9 +202,12 @@ export interface MedicinesSnapshot {
 
 // Interface para item de calendário
 export interface CalendarDateItem {
+  isoDate: string;                // Identidade da celula (AAAA-MM-DD). Dia-do-mes
+                                  // sozinho e ambiguo quando a navegacao atravessa meses.
   day: number;                    // Dia do mês
   month: string;                  // Mês (abreviado)
-  hasAppointments?: boolean;       // Se há consultas no dia
+  hasAppointments?: boolean;      // Se há compromissos no dia
+  isToday?: boolean;              // Destaque de "hoje" quando a ancora esta em outro periodo
 }
 
 // Tipo para tipo de consulta — alinhado ao enum real do schema Amplify
