@@ -8,10 +8,11 @@ Marcado em 2026-09-17, contra o codigo no branch `sistema_ia`. As caixas
 fechadas tem commit, de `095ccc4` (C1) a `f65bcdb` (C7), mais `ebc1e0a`, que
 tirou a concorrencia reservada porque a conta nao a comporta.
 
-**O que continua aberto e de quem:** a C8 e a C9 dependem da tarefa 0.5 do
-roadmap e do aceite da D5, que sao do usuario e do orientador; a C10 e medicao
-contra chamada real; e a conferencia dos criterios de aceite um a um nao foi
-feita.
+**Atualizado em 2026-09-17:** a tarefa 0.5 foi respondida e virou a **D33**, e
+a D5 foi aceita. Com isso a C8 e a C9 sairam do bloqueio e estao entregues.
+
+**O que continua aberto e de quem:** a C10 e medicao contra chamada real, e a
+conferencia dos criterios de aceite um a um nao foi feita.
 
 ## Bloqueios (não são código)
 
@@ -72,12 +73,12 @@ feita.
 
 ## Persistência — depende da tarefa 0.5
 
-- [ ] C8 — Models `ChatConversation` e `ChatMessage`, autorização por dono, índice por `conversationId`.
-- [ ] C8 — `citations` permite reabrir o documento de origem de um número semanas depois.
-- [ ] C8 — Título da conversa vem das primeiras palavras do usuário, **nunca gerado pelo modelo**.
-- [ ] C9 — Gaveta de histórico com conversas reais, agrupadas por período.
-- [ ] C9 — Apagar uma conversa, e apagar significa sumir.
-- [ ] C9 — A tela comunica o que é guardado e por quanto tempo.
+- [x] C8 — Models `ChatConversation` e `ChatMessage`, autorização por dono, índice por `conversationId`.
+- [x] C8 — `citations` permite reabrir o documento de origem de um número semanas depois.
+- [x] C8 — Título da conversa vem das primeiras palavras do usuário, **nunca gerado pelo modelo**.
+- [x] C9 — Gaveta de histórico com conversas reais, agrupadas por período.
+- [x] C9 — Apagar uma conversa, e apagar significa sumir.
+- [x] C9 — A tela comunica o que é guardado e por quanto tempo.
 
 ## Medição
 

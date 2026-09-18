@@ -21,6 +21,18 @@ jest.mock('@/services/aiAssistantService', () => ({
   sendMessageWithSources: jest.fn(),
 }));
 
+// `chatHistoryService` puxa `aws-amplify/data`, que e ESM e o jest-expo nao
+// carrega. Quem cobre a persistencia e `chatPersistence.test.ts`, e quem cobre
+// a gaveta e `gavetaDeHistorico.test.tsx`.
+jest.mock('@/services/chatHistoryService', () => ({
+  listarConversas: jest.fn().mockResolvedValue([]),
+  criarConversa: jest.fn().mockResolvedValue('c-1'),
+  salvarTurno: jest.fn().mockResolvedValue(undefined),
+  lerMensagens: jest.fn().mockResolvedValue([]),
+  apagarConversa: jest.fn().mockResolvedValue(undefined),
+}));
+
+
 // `aws-amplify/storage` e ESM e o jest-expo nao o carrega. Nenhum teste deste
 // arquivo anexa nada -- quem cobre o anexo e `anexoNoChat.test.tsx`.
 jest.mock('@/services/chatAttachmentService', () => ({ uploadAnexoDoChat: jest.fn() }));

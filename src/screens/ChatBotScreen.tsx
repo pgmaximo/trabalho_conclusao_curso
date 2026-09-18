@@ -61,6 +61,7 @@ export function ChatBotScreen() {
     sendMessage,
     historyOpen,
     historyGroups,
+    deleteConversation,
     anexo,
     setAnexo,
     openHistory,
@@ -270,6 +271,7 @@ export function ChatBotScreen() {
       <HistoryDrawer
         groups={historyGroups}
         onClose={closeHistory}
+        onDelete={deleteConversation}
         onNewChat={newChat}
         visible={historyOpen}
       />

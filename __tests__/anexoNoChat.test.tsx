@@ -25,6 +25,18 @@ jest.mock('@/services/chatAttachmentService', () => ({
   uploadAnexoDoChat: (...a: unknown[]) => mockUploadAnexo(...a),
 }));
 
+// `chatHistoryService` puxa `aws-amplify/data`, que e ESM e o jest-expo nao
+// carrega. Quem cobre a persistencia e `chatPersistence.test.ts`, e quem cobre
+// a gaveta e `gavetaDeHistorico.test.tsx`.
+jest.mock('@/services/chatHistoryService', () => ({
+  listarConversas: jest.fn().mockResolvedValue([]),
+  criarConversa: jest.fn().mockResolvedValue('c-1'),
+  salvarTurno: jest.fn().mockResolvedValue(undefined),
+  lerMensagens: jest.fn().mockResolvedValue([]),
+  apagarConversa: jest.fn().mockResolvedValue(undefined),
+}));
+
+
 import { readFileSync, readdirSync } from 'node:fs';
 
 import React from 'react';
