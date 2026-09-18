@@ -59,15 +59,59 @@ describe('o registro das tools', () => {
     }
   });
 
-  it('nenhuma tool importa um comando de escrita do DynamoDB', () => {
+  it('nenhum arquivo da FUNCAO importa um comando de escrita do DynamoDB', () => {
     // A garantia do `readOnly` e uma declaracao; esta e sobre o codigo. Uma
     // tool que importasse PutCommand teria como escrever mesmo se declarasse
     // o contrario.
+    //
+    // A varredura cobre a FUNCAO INTEIRA, e nao so `tools/`. Ela cobria so
+    // `tools/` enquanto o comentario de `amplify/data/schemas/chat.ts`
+    // prometia que varria "os arquivos dela" -- promessa verdadeira por acaso,
+    // porque nenhum arquivo da raiz importava escrita. A EPIC da memoria
+    // acrescenta um diretorio novo aqui dentro, e "por acaso" deixou de bastar.
+    //
+    // O caminho sai de `__dirname`, e nao do diretorio de trabalho do Jest: um
+    // caminho relativo que aponte para nada faz `readdirSync` lancar, o que e
+    // ruidoso hoje e fragil amanha.
     const { readFileSync, readdirSync } = require('node:fs') as typeof import('node:fs');
-    const dir = 'amplify/functions/chat-assistant/tools';
-    for (const arquivo of readdirSync(dir).filter((f) => f.endsWith('.ts'))) {
-      const fonte = readFileSync(`${dir}/${arquivo}`, 'utf8');
-      expect(fonte).not.toMatch(/PutCommand|UpdateCommand|DeleteCommand|BatchWriteCommand|TransactWriteCommand/);
+    const { join } = require('node:path') as typeof import('node:path');
+    const ESCRITA = /PutCommand|UpdateCommand|DeleteCommand|BatchWriteCommand|TransactWriteCommand/;
+
+    const arquivos: string[] = [];
+    const varrer = (dir: string) => {
+      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+        // Os proprios testes ficam de fora: eles mencionam os comandos de
+        // escrita justamente para proibi-los.
+        if (entrada.name === '__tests__') continue;
+        const caminho = join(dir, entrada.name);
+        if (entrada.isDirectory()) varrer(caminho);
+        else if (entrada.name.endsWith('.ts')) arquivos.push(caminho);
+      }
+    };
+    varrer(join(__dirname, '..'));
+
+    // Se a varredura nao achar nada, ela passaria por vazio -- que e
+    // exatamente o modo de falha silenciosa que este teste existe para evitar.
+    expect(arquivos.length).toBeGreaterThan(10);
+    for (const arquivo of arquivos) {
+      expect(readFileSync(arquivo, 'utf8')).not.toMatch(ESCRITA);
+    }
+  });
+
+  it('toda tool citada dentro de uma descricao existe de verdade', () => {
+    // O modelo le a descricao para escolher a ferramenta seguinte. Um nome
+    // errado ali produz chamada a ferramenta inexistente, que custa um turno e
+    // devolve uma resposta pior. Achado real: `consultar_exames` mandava usar
+    // `consultar_analitos`, no plural, e a tool e `consultar_analito`.
+    const registrados = new Set(CHAT_TOOLS.map((t) => t.name));
+    for (const tool of CHAT_TOOLS) {
+      for (const citado of tool.description.match(/consultar_[a-z_]+/g) ?? []) {
+        expect({ tool: tool.name, citado, existe: registrados.has(citado) }).toEqual({
+          tool: tool.name,
+          citado,
+          existe: true,
+        });
+      }
     }
   });
 

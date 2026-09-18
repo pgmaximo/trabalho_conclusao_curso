@@ -29,7 +29,7 @@ type DocumentoParaOModelo = {
 export const examesTool: ChatTool = {
   name: 'consultar_exames',
   description:
-    'Lista os documentos médicos que o usuário guardou no aplicativo: título, tipo, data e laboratório. Use para saber QUE exames existem. NÃO traz os valores dos resultados (use consultar_analitos para isso), NÃO grava e NÃO interpreta.',
+    'Lista os documentos médicos que o usuário guardou no aplicativo: título, tipo, data e laboratório. Use para saber QUE exames existem. NÃO traz os valores dos resultados (use consultar_analito para isso), NÃO grava e NÃO interpreta.',
   inputSchema: z.object({}).strict(),
   readOnly: true,
   async run(_input: unknown, identity: ChatIdentity) {
