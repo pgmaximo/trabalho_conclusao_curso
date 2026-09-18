@@ -473,10 +473,22 @@ const chatUrl = chatAssistantLambda.addFunctionUrl({
     // Origem cruzada passou a ser nossa responsabilidade quando o chat saiu do
     // AppSync. Restrita ao que o aplicativo usa, nunca "*".
     //
-    // O aplicativo nativo nao manda cabecalho Origin -- CORS e defesa de
-    // navegador, e so vale para a versao web do Expo. Listar as origens aqui
-    // nao substitui a verificacao do token; ela e que e a porta.
-    allowedOrigins: ['https://localhost', 'suasaude://'],
+    // SO ORIGEM HTTP(S), e isto foi medido: o plano trazia `suasaude://` nesta
+    // lista, e a AWS recusa o template inteiro --
+    //   "suasaude:// isn't a valid origin. An origin must be in a valid URL
+    //    format. For example: https://www.example.com, https://*, or the
+    //    wildcard character (*)."
+    // Um esquema proprio de aplicativo nao e uma origem, e nem precisaria ser:
+    //
+    // CORS E DEFESA DE NAVEGADOR. O aplicativo nativo nao manda cabecalho
+    // Origin, entao esta lista nao governa nada do lado nativo -- ela vale
+    // para a versao web do Expo, e so. Quem barra requisicao indevida e a
+    // verificacao do token em `auth.ts`; listar origem aqui nao substitui isso
+    // e nunca substituiu.
+    //
+    // As portas sao as do Expo web em desenvolvimento. Quando o aplicativo for
+    // publicado na web, o dominio de producao entra aqui.
+    allowedOrigins: ['http://localhost:8081', 'http://localhost:19006', 'https://localhost'],
     allowedMethods: [HttpMethod.POST],
     allowedHeaders: ['content-type', 'authorization'],
     maxAge: Duration.hours(1),
