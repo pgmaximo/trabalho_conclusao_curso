@@ -278,9 +278,27 @@ documento de origem é exatamente o que ele se propôs a fazer. A prosa era o
 acréscimo; o dado rastreável era o produto.
 
 **Nenhum número sem origem (R4), e isso é estrutural.** Toda citação de valor
-tem que sair de uma tool. O schema de saída exige que a resposta que cita um
-número traga a referência da linha — o modelo não pode citar o que não recebeu
-onde citar (D11).
+tem que sair de uma tool. O schema de saída oferece o **lugar** onde a origem
+cabe — sem campo de citação a R4 não teria como ser verificada por ninguém
+(D11) —, mas ele **não** é quem a cobra: quem cobra são dois verificadores,
+depois do parse. A omissão (valor de exame sem origem) fica em
+`languageRules.ts`; a citação inventada fica em `verificacao.ts`, que é o único
+lugar que sabe o que as tools entregaram.
+
+**Duas coisas contam como origem, e as duas são decisão registrada.** A citação
+no envelope; e o **anexo pontual** do turno, porque a D15 decidiu que ele não
+grava dado clínico e por isso nunca terá linha citável — sem essa segunda porta,
+"me explica este papel aqui" cairia no degradado toda vez. A conferência é de
+**presença**, não de correspondência valor por valor: casar cada número com uma
+linha do índice reprovaria a faixa de referência do laboratório, que é
+informação legítima e não é citação de resultado.
+
+**A R4 alcança valor de EXAME LABORATORIAL, e não todo dígito.** `kg`, `cm`,
+`m`, `bpm` e `mmHg` ficam fora de propósito: `indexarLinhasCitaveis` só indexa a
+saída de `consultar_analito`, então peso, altura, batimento e pressão não têm
+linha citável, e exigir citação de uma unidade que nunca pode ser citada faria
+"quanto eu peso?" cair no degradado para sempre. "Sua consulta é dia 12 de
+março", "3 vacinas pendentes" e "2 comprimidos" têm dígito e nenhum é medida.
 
 **`maxTokens` sempre explícito.** Deixar em branco reserva a cota máxima do
 modelo e é a causa principal de estrangulamento sem motivo aparente — armadilha
@@ -310,16 +328,28 @@ existindo.
       **documento de origem** de cada número citado.
 - [ ] Pergunta sobre exame **não** registrado recebe "não tenho esse exame
       registrado", sem estimativa e sem série completada — coberto por teste.
-- [ ] **NÃO CUMPRIDO, e conferido em 2026-09-18.** Nenhum número aparece na
-      resposta sem ter vindo de uma tool. A redação anterior dizia "coberto por
-      teste sobre o schema de saída", e **esse teste não existe**. O que existe
-      cobre o sentido inverso: `citacoesConferem` reprova citação que aponta
-      para linha que nenhuma tool devolveu. A **omissão** passa —
-      `[].every(...)` é verdadeiro, `chatAnswerSchema` não tem `refine` ligando
-      dígito no texto à presença de citação, e `languageRules.ts` não registra
-      verificador de R4. Hoje a R4 no sentido da omissão é sustentada **apenas
-      pelo prompt**, que é exatamente o que a §2 da EPIC de regras diz não
-      bastar. Corrigido aqui em vez de propagado.
+- [x] **CUMPRIDO em 2026-09-18, depois de ter sido registrado como não cumprido
+      no mesmo dia.** Nenhum número aparece na resposta sem ter vindo de uma
+      tool, **nos dois sentidos** — coberto por teste.
+      - A citação **inventada** já era reprovada: `citacoesConferem`, em
+        `verificacao.ts`, recusa id que nenhuma tool devolveu.
+      - A **omissão** passou a ser reprovada por um verificador de R4 em
+        `ai-language-rules/languageRules.ts`. Ele recebe de quem chama o
+        sinalizador `temOrigem`, porque só quem chama sabe: o texto, sozinho, não
+        diz se a resposta trouxe origem.
+      - **Por que não um `refine` no `chatAnswerSchema`, que era o caminho
+        óbvio:** falha de schema volta como `ok: false` do laço, e
+        `responderComVerificacao` manda isso direto para o caminho degradado —
+        **sem a segunda geração**. O `refine` faria toda omissão de R4 perder a
+        nova geração que a D31 garante. Como verificador, a R4 entra no mesmo
+        caminho da R1, da R2 e da R3, e a reprovação rende um bilhete.
+      - **O que era falso e foi corrigido junto:** a redação anterior deste
+        critério dizia "coberto por teste sobre o schema de saída", e o teste não
+        existia; o comentário do topo de `chatSchema.ts` e o §7 desta spec
+        afirmavam que o schema obrigava a citação. Nenhum dos três dizia a
+        verdade. E o defeito estava **codificado como expectativa** em
+        `verificacao.test.ts`, onde uma resposta com "32,5 ng/mL" e
+        `citacoes: []` era esperada como `APROVADA`.
 - [ ] Pergunta operacional é respondida sem repetir a frase de encaminhamento.
 - [ ] Pergunta clínica traz encaminhamento a um profissional de saúde no corpo
       da resposta.

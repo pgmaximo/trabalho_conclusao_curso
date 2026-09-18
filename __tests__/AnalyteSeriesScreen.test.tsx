@@ -207,9 +207,15 @@ describe('AnalyteSeriesScreen — o seletor de momento (D22)', () => {
 
 describe('AnalyteSeriesScreen — o que a tela nao pode dizer', () => {
   it('sempre encaminha a um profissional de saude', () => {
+    // `temOrigem` e verdadeiro porque esta tela mostra o valor REGISTRADO, com a
+    // data e o documento ao lado: a origem esta na propria tela. A R4 existe
+    // contra numero que o modelo escreveu sem ter de onde tira-lo, e aqui nao ha
+    // modelo nenhum no caminho.
     renderScreen(props());
     const texto = JSON.stringify(screen.toJSON());
-    expect(checkLanguageRules(texto, { questionKind: 'clinica' })).toEqual({ ok: true });
+    expect(checkLanguageRules(texto, { questionKind: 'clinica', temOrigem: true })).toEqual({
+      ok: true,
+    });
   });
 
   it('nenhuma copy interpreta o resultado', () => {

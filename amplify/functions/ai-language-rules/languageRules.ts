@@ -29,6 +29,25 @@ export type RuleId = 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
  */
 export type QuestionKind = 'clinica' | 'operacional';
 
+/**
+ * O que a verificacao precisa saber ALEM do texto.
+ *
+ * `temOrigem` responde a uma pergunta que o texto nao responde: a resposta
+ * trouxe de onde os numeros dela sairam? Quem chama sabe -- ele tem o envelope
+ * da resposta e o anexo do turno em maos. Inferir isso a partir da prosa seria
+ * criar uma segunda classificacao falivel dentro da camada que existe para ser
+ * confiavel, que e o mesmo motivo pelo qual `questionKind` tambem vem de fora.
+ *
+ * AUSENTE significa NAO, e isso e o contrato "na duvida, reprova" aplicado a
+ * propria assinatura: um chamador que esquecer de ligar a origem recebe
+ * reprovacao, nunca aprovacao silenciosa. Aprovacao silenciosa era exatamente o
+ * defeito que a R4 tinha -- `[].every(...)` e verdadeiro.
+ */
+export type OpcoesDeVerificacao = {
+  questionKind: QuestionKind;
+  temOrigem?: boolean;
+};
+
 export type Violation = {
   rule: RuleId;
   /** Em pt-BR, para entrar em log e, quando for o caso, em aviso ao modelo. */
@@ -46,14 +65,14 @@ function trecho(texto: string, indice: number, tamanho: number): string {
   return texto.slice(inicio, fim);
 }
 
-type Verificador = (texto: string, questionKind: QuestionKind) => Violation[];
+type Verificador = (texto: string, opcoes: OpcoesDeVerificacao) => Violation[];
 
 /** Preenchido pelas tarefas L2, L3 e L4. */
 const VERIFICADORES: Verificador[] = [];
 
 export function checkLanguageRules(
   text: string,
-  options: { questionKind: QuestionKind },
+  options: OpcoesDeVerificacao,
 ): RuleCheckResult {
   if (typeof text !== 'string' || text.trim() === '') {
     // Resposta vazia e falha de geracao, nao resposta limpa. Aprova-la aqui
@@ -64,7 +83,7 @@ export function checkLanguageRules(
     };
   }
 
-  const violations = VERIFICADORES.flatMap((verificar) => verificar(text, options.questionKind));
+  const violations = VERIFICADORES.flatMap((verificar) => verificar(text, options));
   return violations.length === 0 ? { ok: true } : { ok: false, violations };
 }
 
@@ -219,7 +238,7 @@ const PADRAO_ENCAMINHAMENTO =
  * avaliacao medica", que a spec da tela 4a declara obrigatorio e nao
  * dispensavel. Se esse aviso sair da tela, esta regra muda.
  */
-const verificarR2: Verificador = (texto, questionKind) => {
+const verificarR2: Verificador = (texto, { questionKind }) => {
   if (questionKind !== 'clinica') return [];
   if (PADRAO_ENCAMINHAMENTO.test(texto)) return [];
 
@@ -233,3 +252,144 @@ const verificarR2: Verificador = (texto, questionKind) => {
 };
 
 VERIFICADORES.push(verificarR2);
+
+/**
+ * Letra, INCLUINDO acento, e a fronteira de palavra montada em cima dela.
+ *
+ * Em JavaScript `\w` e sempre `[A-Za-z0-9_]` -- **nem a flag `u` muda isso**.
+ * Consequencia: `\b` nao e fronteira antes de "é", "ã" ou "ç", e uma unidade
+ * seguida de acento passaria batida. Mesma tecnica, e pelo mesmo motivo, de
+ * `chat-assistant/memoria/propostaValida.ts`.
+ *
+ * Aqui so o FIM e necessario: a esquerda a ancora e um digito, que e ASCII.
+ */
+const L_R4 = '[\\wÀ-ÿ]';
+const FIM_R4 = `(?!${L_R4})`;
+
+/**
+ * Unidades de EXAME LABORATORIAL -- as que aparecem numa linha de resultado e
+ * que, por isso, TEM como ser citadas.
+ *
+ * De onde a lista sai: `UNIT_ALIASES` e `KNOWN_UNITS` de
+ * `extract-document-data/unitConverter.ts`, que e a lista do que laudo
+ * brasileiro escreve, e a parte de exame de `UNIDADES_DE_MEDIDA` de
+ * `chat-assistant/memoria/propostaValida.ts`. Escritas como um MODELO as
+ * escreve em prosa, e nao no token interno do conversor: ninguem responde
+ * "u[IU]/mL".
+ *
+ * O QUE FICA DE FORA, e e decisao e nao esquecimento: kg, cm, m, bpm e mmHg.
+ * `indexarLinhasCitaveis` so indexa a saida de `consultar_analito`, entao peso,
+ * altura, batimento e pressao NAO TEM linha citavel -- exigir citacao para uma
+ * unidade que nunca pode ser citada faria "quanto eu peso?" cair no degradado
+ * para sempre, que e a EPIC nova quebrando a entregue. O texto da R4 fala em
+ * "valor de exame", e e esse o recorte.
+ *
+ * A ordem nao e alfabetica: token mais longo antes do mais curto que e prefixo
+ * dele, para "35 UI/L" casar como `UI/L` e nao parar em `U`.
+ */
+const UNIDADES_DE_EXAME = [
+  // Concentracao em massa.
+  'ng/mL',
+  'ng/dL',
+  'ng/L',
+  'mcg/dL',
+  'mcg/mL',
+  'mcg/L',
+  'ug/dL',
+  'ug/mL',
+  'ug/L',
+  'pg/mL',
+  'mg/dL',
+  'mg/L',
+  'g/dL',
+  'g/L',
+  // Concentracao em mol.
+  'mmol/L',
+  'umol/L',
+  'nmol/L',
+  'pmol/L',
+  // Atividade enzimatica e unidade internacional. `uUI/mL` cobre tambem
+  // "µUI/mL": o sinal de micro e normalizado para "u" antes da comparacao.
+  'uUI/mL',
+  'mUI/mL',
+  'mUI/L',
+  'uIU/mL',
+  'mIU/mL',
+  'mIU/L',
+  'UI/mL',
+  'UI/L',
+  'IU/mL',
+  'U/mL',
+  'U/L',
+  // Contagem celular. O hemograma brasileiro reporta "5.400/mm3", e o expoente
+  // sai do papel tanto como "10*3" quanto como "10^3".
+  'mil/mm[3\u00b3]',
+  'milh[oõ]es/mm[3\u00b3]',
+  '10[*^]3/uL',
+  '10[*^]6/uL',
+  '/mm[3\u00b3]',
+  '/uL',
+  // Volume, massa corpuscular, hemossedimentacao e proporcao.
+  'fL',
+  'pg',
+  'mm/h',
+  // A `%` e a de alcance mais largo, e entra de propósito: hemoglobina glicada,
+  // hematocrito, saturacao e contagem diferencial sao todos `%`, e deixa-la fora
+  // abriria a maior lacuna da lista. O custo e reconhecido: "100% das vacinas em
+  // dia" tambem reprova. E o lado certo do erro -- porcentagem que o modelo
+  // calculou e exatamente o numero que a R4 descreve ("nao estime, nao arredonde
+  // por conveniencia"), e a reprovacao custa uma nova geracao, nao a resposta.
+  '%',
+].join('|');
+
+/**
+ * Digito seguido de unidade de exame. A `i` existe porque o modelo escreve
+ * "ng/ml" tanto quanto "ng/mL", e a lista nao e um vocabulario a ser decorado.
+ */
+const PADRAO_R4 = new RegExp(`\\d+([.,]\\d+)?\\s*(${UNIDADES_DE_EXAME})${FIM_R4}`, 'gi');
+
+/**
+ * O sinal de micro tem tres grafias, e qual delas sai do modelo depende do que
+ * ele viu no laudo. Normalizar so uma deixa as outras duas passarem.
+ *
+ * A troca PRESERVA O COMPRIMENTO -- um caractere por um caractere --, e e por
+ * isso que o indice devolvido pelo `exec` continua valido no texto ORIGINAL, de
+ * onde o trecho da violacao e recortado.
+ */
+const MICRO_R4 = /[\u00b5\u03bc]/g;
+
+/**
+ * O bilhete que vai ao modelo na segunda geracao, e por isso ele fala da REGRA.
+ * "Nao escreva 41 ng/mL" ensinaria o modelo a escrever "quarenta e um".
+ */
+const MOTIVO_R4 =
+  'A resposta apresenta um valor de exame sem dizer de onde ele saiu. Cite apenas valores que as ferramentas devolveram nesta conversa, trazendo a linha de origem de cada um.';
+
+/**
+ * A R4 no sentido da OMISSAO: a resposta traz valor de exame e nao traz origem
+ * nenhuma. Este e o sentido que faltava -- o outro, a citacao que aponta para
+ * uma linha que nenhuma tool devolveu, e conferido em
+ * `chat-assistant/verificacao.ts`, que e o unico lugar que sabe o que as tools
+ * entregaram.
+ *
+ * POR QUE AQUI E NAO NUM `refine` DO `chatAnswerSchema`: falha de schema vira
+ * `ok: false` no laco, e `responderComVerificacao` manda isso direto para o
+ * caminho degradado, SEM segunda geracao. Um `refine` transformaria toda
+ * omissao de R4 em degradado imediato e contrariaria a D31 (A -> E -> C), que
+ * manda tentar uma vez mais com o motivo em maos. Como verificador, a R4 entra
+ * no mesmo caminho da R1, da R2 e da R3, e a reprovacao rende um bilhete.
+ */
+const verificarR4: Verificador = (texto, { temOrigem }) => {
+  if (temOrigem === true) return [];
+
+  const alvo = texto.replace(MICRO_R4, 'u');
+  PADRAO_R4.lastIndex = 0;
+  const achado = PADRAO_R4.exec(alvo);
+  if (!achado) return [];
+
+  // Uma violacao por resposta. Tres apontamentos do mesmo problema nao ajudam
+  // quem vai decidir o que fazer com a reprovacao -- mesma escolha da R1 e da R3.
+  return [{ rule: 'R4', reason: MOTIVO_R4, excerpt: trecho(texto, achado.index, achado[0].length) }];
+};
+
+VERIFICADORES.push(verificarR4);

@@ -17,7 +17,7 @@ ser marcada como concluida depois da L7.
 
 ## O verificador
 
-- [x] L1 — `checkLanguageRules(texto, { questionKind })` devolve `{ ok: true }` ou a lista de violações, cada uma com regra, motivo em pt-BR e o trecho.
+- [x] L1 — `checkLanguageRules(texto, { questionKind, temOrigem })` devolve `{ ok: true }` ou a lista de violações, cada uma com regra, motivo em pt-BR e o trecho. O `temOrigem` entrou em 2026-09-18 com o verificador de R4; ausente significa "sem origem".
 - [x] L1 — O verificador **nunca altera** o texto recebido — coberto por teste.
 - [x] L1 — Nunca lança: texto vazio, nulo ou gigante devolve resultado tipado.
 - [x] L2 — R1: o termo vetado é reprovado em todas as flexões e derivações, por raiz e não por igualdade.
@@ -35,7 +35,7 @@ ser marcada como concluida depois da L7.
 
 ## O conjunto adversarial
 
-- [x] L6 — No mínimo uma tentativa por regra, escrita para arrancar a violação, rodando em `npm run validate` **sem chamar o modelo**.
+- [x] L6 — No mínimo uma tentativa por regra, escrita para arrancar a violação, rodando em `npm run validate` **sem chamar o modelo**. Estava marcado sem ser verdade: cobria R1, R2 e R3. Fechado em 2026-09-18 com as tentativas de R4 e de R5, mais uma asserção que exige o conjunto {R1..R5} e impede a lacuna de voltar em silêncio.
 - [x] L6 — Casos de fronteira documentados: o que a verificação reprova e não deveria, e o que ela deixa passar e deveria pegar.
 
 ## Conferência contra a realidade
@@ -49,10 +49,16 @@ ser marcada como concluida depois da L7.
 - [x] O módulo não importa nada.
 - [x] Nenhuma dependência nova foi acrescentada.
 - [x] Critérios de aceite da `spec.md` conferidos um a um, em 2026-09-18: **7
-      com teste, 4 sem teste, 1 parcial, 1 não verificável**. O parcial é o
-      conjunto adversarial, que não tem tentativa de R4 nem de R5. Dos sem
-      teste, o que mais incomoda é que "o módulo não importa nada" é verdade e
-      **não tem trava** — a EPIC da memória escreveu essa trava para o módulo
-      dela (`memoriaRegras.test.ts`), e esta não tem.
+      com teste, 4 sem teste, 1 parcial, 1 não verificável**. O parcial era o
+      conjunto adversarial, sem tentativa de R4 nem de R5. Dos sem teste, o que
+      mais incomoda é que "o módulo não importa nada" é verdade e **não tem
+      trava** — a EPIC da memória escreveu essa trava para o módulo dela
+      (`memoriaRegras.test.ts`), e esta não tem.
+- [x] **O parcial foi fechado em 2026-09-18**, no mesmo dia: verificador de R4
+      registrado em `VERIFICADORES`, tentativas de R4 e de R5 no conjunto
+      adversarial, e a asserção de uma tentativa por regra. O módulo continua sem
+      importar nada. `npm run validate`: **94 suítes, 1057 testes**.
+- [ ] A trava de "não importa nada" continua faltando, e o verificador de R4 não
+      a torna menos necessária: ele é o quarto verificador a depender dela.
 - [ ] A tarefa 0.3 do roadmap é marcada como concluída.
 - [x] `npm run validate` passa.

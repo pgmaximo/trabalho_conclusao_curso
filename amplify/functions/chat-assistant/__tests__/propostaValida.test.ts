@@ -57,6 +57,17 @@ describe('proibição 2 — nenhum número de saúde vira fato', () => {
     recusa('Minha pressão é 12 por 8');
     recusa('Pressão 120 mmHg');
   });
+
+  it('recusa a unidade de exame que só a R4 conhece', () => {
+    // As duas listas de unidade do projeto cobriam metades diferentes: o padrão
+    // `medida` deste arquivo conhece ng/mL e mg/dL, e a R4 conhece as do
+    // conversor de unidades. "28 U/L" e "90 fL" escapavam da primeira, e passam
+    // pela segunda -- guardar medida é o que a análise de LGPD proibiu, e as duas
+    // listas agora somam em vez de cada uma cobrir um pedaço.
+    recusa('Meu TGO deu 28 U/L');
+    recusa('Meu VCM ficou em 90 fL');
+    recusa('Meus leucócitos deram 5.400/mm3');
+  });
 });
 
 describe('proibição 4 — condição, alergia e medicamento são registro, não memória', () => {

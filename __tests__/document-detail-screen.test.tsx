@@ -165,9 +165,13 @@ describe('DocumentDetailScreen — o que a tela pode e nao pode dizer', () => {
     // Requisito de interface da regra 4, em toda tela que mostra numero de
     // exame. Verificado pela R2 do modulo de regras de linguagem, e nao por
     // uma frase exata -- exigir a frase exata viraria rodape mecanico.
+    // `temOrigem` e verdadeiro pelo mesmo motivo da tela de serie: o numero aqui
+    // vem do documento registrado, que esta na tela junto com ele.
     renderScreen(extracao({ status: 'SUCCEEDED', results: [hemoglobina] }));
     const texto = JSON.stringify(screen.toJSON());
-    expect(checkLanguageRules(texto, { questionKind: 'clinica' })).toEqual({ ok: true });
+    expect(checkLanguageRules(texto, { questionKind: 'clinica', temOrigem: true })).toEqual({
+      ok: true,
+    });
   });
 
   it('nenhuma copy classifica o resultado', () => {

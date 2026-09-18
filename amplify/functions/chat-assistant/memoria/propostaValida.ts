@@ -168,6 +168,16 @@ export function validarProposta(proposta: PropostaBruta): ResultadoDaProposta {
   // é uma resposta sobre saúde; exigir dele o encaminhamento da R2 reprovaria
   // "Prefiro respostas curtas" por não mandar a pessoa ao médico, que é
   // exatamente o rodapé mecânico que a R2 manda evitar.
+  //
+  // `temOrigem` fica AUSENTE, e a ausência é estrutural e não esquecimento: o
+  // `memoryProposalSchema` não tem campo de citação, então um fato nunca tem de
+  // onde declarar origem. Ausente significa "sem origem", que é o que um fato é.
+  //
+  // O efeito é que a R4 também pega medida aqui, e isso é ganho: o padrão
+  // `medida` acima conhece as unidades de `UNIDADES_DE_MEDIDA`, e a R4 conhece as
+  // do conversor de unidades — "meu TGO deu 28 U/L" escapava da primeira lista e
+  // passa a ser reprovado pela segunda. Guardar medida é o que a análise de LGPD
+  // proibiu, e agora as duas listas somam em vez de cada uma cobrir metade.
   const regras = checkLanguageRules(texto, { questionKind: 'operacional' });
   if (!regras.ok) return { ok: false, motivo: `regra de linguagem: ${regras.violations[0].rule}` };
 
