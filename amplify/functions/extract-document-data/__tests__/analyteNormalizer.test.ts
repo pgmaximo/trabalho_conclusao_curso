@@ -1,11 +1,23 @@
+import { ANALYTE_CATALOG, findAnalyteByCode } from '../analyteCatalog';
 import { normalizeLabResult, CONFIDENCE_THRESHOLD } from '../analyteNormalizer';
 
-// 62292-8 = "25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum
-// or Plasma", ng/mL. E a SOMA D3+D2, que e o que o laboratorio brasileiro
-// reporta, na variante de massa. Conferido no arquivo oficial, nao de memoria:
-// uma versao anterior deste plano trazia 14635-7, que e a D3 sozinha e em
-// nmol/L -- codigo LOINC valido, mas o errado para nos. Ver
-// estudos-ia/05-vocabularios/loinc/loinc-analitos-suasaude.csv.
+// Uma versao anterior deste plano trazia, para a vitamina D, o codigo 14635-7
+// -- a D3 sozinha e em nmol/L, codigo LOINC valido mas o errado para nos, que
+// precisamos da SOMA D3+D2 na variante de massa. Ao lado dele havia um
+// comentario dizendo "conferido no arquivo oficial". O comentario estava
+// errado junto com o codigo, e foi por isso que ninguem viu.
+//
+// Dai a D27: o teste nao digita codigo nenhum. Ele conhece o rotulo em
+// portugues, e o codigo sai do catalogo gerado a partir do extrato oficial
+// (estudos-ia/05-vocabularios/loinc/loinc-analitos-suasaude.csv). Se o extrato
+// mudar, este teste passa a usar o codigo novo sem ninguem reescrever nada --
+// e se ele mudar errado, e o teste de deriva do catalogo que acusa.
+const codigoDe = (rotulo: string): string => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado.code;
+};
+
 const vitaminaD = {
   analyteLabel: '25-OH-Vitamina D',
   rawValue: '32,5',
@@ -16,7 +28,7 @@ const vitaminaD = {
   collectionMoment: null,
   sourcePage: 2,
   confidence: 0.94,
-  analyteCodeGuess: '62292-8',
+  analyteCodeGuess: codigoDe('Vitamina D (25-OH)'),
 };
 
 describe('normalizeLabResult', () => {
@@ -29,7 +41,7 @@ describe('normalizeLabResult', () => {
   it('preserva o sinal de censura e nao o trata como medida', () => {
     const tsh = {
       ...vitaminaD,
-      analyteCodeGuess: '3016-3',
+      analyteCodeGuess: codigoDe('TSH'),
       analyteLabel: 'TSH',
       rawValue: '<0,01',
       rawUnit: 'uUI/mL',
@@ -57,7 +69,7 @@ describe('normalizeLabResult', () => {
     const linha = normalizeLabResult(
       {
         ...vitaminaD,
-        analyteCodeGuess: '2345-7',
+        analyteCodeGuess: codigoDe('Glicose'),
         analyteLabel: 'Glicose',
         rawValue: '92',
         rawUnit: 'mg/dL',
@@ -101,7 +113,7 @@ describe('normalizeLabResult', () => {
   it('qualificador preenchido NAO manda para revisao -- e leitura certa, nao duvidosa', () => {
     const tsh = {
       ...vitaminaD,
-      analyteCodeGuess: '3016-3',
+      analyteCodeGuess: codigoDe('TSH'),
       analyteLabel: 'TSH',
       rawValue: '<0,01',
       rawUnit: 'uUI/mL',
@@ -162,8 +174,17 @@ describe('normalizeLabResult', () => {
     // Um codigo inventado gravado como se fosse LOINC e pior do que nenhum:
     // ele promete comparacao entre laboratorios que nao existe, e pode ate
     // colidir com o codigo real de outro analito.
+    //
+    // Este e o UNICO literal com forma de codigo LOINC em todo o projeto fora
+    // do catalogo gerado, e esta registrado como excecao em
+    // __tests__/codigosLoincNaoDigitados.test.ts. Ele nao e um codigo do
+    // LOINC: e um codigo INVENTADO, e a asercao abaixo mantem isso verdadeiro
+    // mesmo se a cobertura do catalogo crescer um dia.
+    const INVENTADO = '99999-9';
+    expect(findAnalyteByCode(INVENTADO)).toBeNull();
+
     const linha = normalizeLabResult(
-      { ...zinco, analyteCodeGuess: '99999-9' },
+      { ...zinco, analyteCodeGuess: INVENTADO },
       CONFIDENCE_THRESHOLD,
     );
     expect(linha.analyteCode).toBe('X-ZINCO-SANGUINEO');

@@ -24,15 +24,25 @@ jest.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: class {} }));
 
 import { readFileSync } from 'node:fs';
 
+import { ANALYTE_CATALOG } from '../../extract-document-data/analyteCatalog';
 import type { ChatIdentity } from '../auth';
 import { MOTIVOS_DE_EXCLUSAO, analitosTool } from '../tools/analitos';
 
 const IDENTIDADE: ChatIdentity = { sub: 's-1', username: 'u-1', owner: 's-1::u-1' };
 
-// 62292-8 e 2345-7 saem do extrato oficial do LOINC, como em todas as EPICs
-// desta feature. Nenhum codigo e digitado de cabeca, nem em teste.
-const VITAMINA_D = '62292-8';
-const GLICOSE = '2345-7';
+// D27: nenhum codigo LOINC e digitado a mao, nem como exemplo em teste, e
+// comentario dizendo "vem do extrato oficial" nao e verificacao -- um literal
+// errado e o comentario ao lado dele erram juntos. O codigo sai do catalogo
+// gerado a partir do extrato, buscado pelo rotulo em portugues, que e campo
+// nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const VITAMINA_D = doCatalogo('Vitamina D (25-OH)').code;
+const GLICOSE = doCatalogo('Glicose').code;
 
 type LinhaCrua = Record<string, unknown>;
 

@@ -11,16 +11,29 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
 jest.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: class {} }));
 
 import { checkLanguageRules } from '../../ai-language-rules/languageRules';
+import { ANALYTE_CATALOG } from '../../extract-document-data/analyteCatalog';
 import { buildDegradedAnswer } from '../degradedAnswer';
 import { formatarDecimal } from '../formatoPtBr';
 
-// 62292-8 do extrato oficial do LOINC.
+// D27: nenhum codigo LOINC e digitado a mao, nem como exemplo em teste, e
+// comentario dizendo "vem do extrato oficial" nao e verificacao -- um literal
+// errado e o comentario ao lado dele erram juntos. O codigo sai do catalogo
+// gerado a partir do extrato, buscado pelo rotulo em portugues, que e campo
+// nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const VITAMINA_D = doCatalogo('Vitamina D (25-OH)');
+
 const saidaDeAnalito = {
   name: 'consultar_analito',
   output: {
     disponivel: true,
-    analyteCode: '62292-8',
-    nome: 'Vitamina D (25-OH)',
+    analyteCode: VITAMINA_D.code,
+    nome: VITAMINA_D.projectLabel,
     series: [
       {
         momento: null,

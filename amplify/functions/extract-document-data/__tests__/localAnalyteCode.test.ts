@@ -14,7 +14,7 @@ describe('localAnalyteCode', () => {
   });
 
   it('nunca tem a forma de um codigo LOINC, mesmo por acidente', () => {
-    // LOINC e digitos-hifen-digito ("62292-8"). Um codigo local que casasse
+    // LOINC e digitos-hifen-digito. Um codigo local que casasse
     // com esse padrao faria a linha parecer comparavel entre laboratorios.
     const codigo = localAnalyteCode('12345 6');
     expect(codigo).not.toMatch(/^\d+-\d$/);

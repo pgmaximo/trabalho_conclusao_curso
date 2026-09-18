@@ -21,6 +21,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ANALYTE_CATALOG } from '../amplify/functions/extract-document-data/analyteCatalog';
 import { checkLanguageRules } from '../amplify/functions/ai-language-rules/languageRules';
 import { CLASSE_LINHA_PENDENTE } from '@/components/ExtractedResultRow';
 import { DocumentDetailScreen } from '@/screens/DocumentDetailScreen';
@@ -41,13 +42,24 @@ const documento = {
   createdAt: '',
 };
 
-// 718-7 = "Hemoglobin [Mass/volume] in Blood". Conferido no catalogo gerado a
-// partir do extrato oficial do LOINC, nao digitado de memoria.
+// D27: nenhum codigo LOINC e digitado a mao, nem como exemplo em teste, e
+// comentario dizendo "vem do extrato oficial" nao e verificacao -- um literal
+// errado e o comentario ao lado dele erram juntos. O codigo sai do catalogo
+// gerado a partir do extrato, buscado pelo rotulo em portugues, que e campo
+// nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const HEMOGLOBINA = doCatalogo('Hemoglobina');
+
 const hemoglobina: LabResultView = {
   id: 'linha-1',
-  analyteCode: '718-7',
-  projectLabel: 'Hemoglobina',
-  analyteLabel: 'Hemoglobin [Mass/volume] in Blood',
+  analyteCode: HEMOGLOBINA.code,
+  projectLabel: HEMOGLOBINA.projectLabel,
+  analyteLabel: HEMOGLOBINA.label,
   value: 16.1,
   valueQualifier: null,
   unit: 'g/dL',

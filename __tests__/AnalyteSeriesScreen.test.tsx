@@ -13,6 +13,7 @@ import { render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { checkLanguageRules } from '../amplify/functions/ai-language-rules/languageRules';
+import { ANALYTE_CATALOG } from '../amplify/functions/extract-document-data/analyteCatalog';
 import type { UseAnalyteSeriesResult } from '@/hooks/useAnalyteSeries';
 import { AnalyteSeriesScreen } from '@/screens/AnalyteSeriesScreen';
 import type { AnalyteSeries, ExcludedResult, SeriesPoint } from '@/services/analyteSeries';
@@ -33,12 +34,25 @@ function ponto(id: string, collectedAt: string, value: number): SeriesPoint {
   };
 }
 
-// 62292-8 do extrato oficial do LOINC, como em toda esta EPIC.
+// D27: nenhum codigo LOINC e digitado a mao, nem como exemplo em teste, e
+// comentario dizendo "vem do extrato oficial" nao e verificacao -- um literal
+// errado e o comentario ao lado dele erram juntos. O codigo sai do catalogo
+// gerado a partir do extrato, buscado pelo rotulo em portugues, que e campo
+// nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const VITAMINA_D = doCatalogo('Vitamina D (25-OH)');
+const GLICOSE = doCatalogo('Glicose');
+
 function serieCom(n: number, over: Partial<AnalyteSeries> = {}): AnalyteSeries {
   return {
-    analyteCode: '62292-8',
-    projectLabel: 'Vitamina D (25-OH)',
-    analyteLabel: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma',
+    analyteCode: VITAMINA_D.code,
+    projectLabel: VITAMINA_D.projectLabel,
+    analyteLabel: VITAMINA_D.label,
     collectionMoment: null,
     unit: 'ng/mL',
     points: DATAS.slice(0, n).map((d, i) => ponto(`p${i}`, d, 32 + i * 5)),
@@ -58,7 +72,7 @@ function excluida(reason: ExcludedResult['reason']): ExcludedResult {
 }
 
 function seriesDaCurvaGlicemica(): AnalyteSeries[] {
-  const base = { analyteCode: '2345-7', projectLabel: 'Glicose', unit: 'mg/dL' };
+  const base = { analyteCode: GLICOSE.code, projectLabel: GLICOSE.projectLabel, unit: 'mg/dL' };
   return [
     serieCom(2, { ...base, collectionMoment: 'jejum' }),
     serieCom(2, { ...base, collectionMoment: '120 minutos' }),
@@ -69,9 +83,14 @@ function props(over: Partial<UseAnalyteSeriesResult> = {}): UseAnalyteSeriesResu
   const series = over.series ?? [serieCom(2)];
   return {
     options: [
-      { analyteCode: '62292-8', projectLabel: 'Vitamina D (25-OH)', collectionCount: 2, pendingCount: 0 },
+      {
+        analyteCode: VITAMINA_D.code,
+        projectLabel: VITAMINA_D.projectLabel,
+        collectionCount: 2,
+        pendingCount: 0,
+      },
     ],
-    selectedCode: '62292-8',
+    selectedCode: VITAMINA_D.code,
     selectCode: jest.fn(),
     series,
     selectedMoment: null,

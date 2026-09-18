@@ -1,9 +1,23 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
+import { ANALYTE_CATALOG } from '../amplify/functions/extract-document-data/analyteCatalog';
 import { AnalyteSeriesChart } from '@/components/AnalyteSeriesChart';
 import { buildLinePath } from '@/components/charts/chartScale';
 import type { AnalyteSeries, SeriesPoint } from '@/services/analyteSeries';
+
+// D27: nenhum codigo LOINC e digitado a mao, nem como exemplo em teste, e
+// comentario dizendo "vem do extrato oficial" nao e verificacao -- um literal
+// errado e o comentario ao lado dele erram juntos. O codigo sai do catalogo
+// gerado a partir do extrato, buscado pelo rotulo em portugues, que e campo
+// nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const VITAMINA_D = doCatalogo('Vitamina D (25-OH)');
 
 function ponto(over: Partial<SeriesPoint> & { id: string; collectedAt: string; value: number }): SeriesPoint {
   return {
@@ -19,9 +33,9 @@ function ponto(over: Partial<SeriesPoint> & { id: string; collectedAt: string; v
 function serieCom(n: number): AnalyteSeries {
   const datas = ['2026-03-12', '2026-06-01', '2026-09-20'];
   return {
-    analyteCode: '62292-8',
-    projectLabel: 'Vitamina D (25-OH)',
-    analyteLabel: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma',
+    analyteCode: VITAMINA_D.code,
+    projectLabel: VITAMINA_D.projectLabel,
+    analyteLabel: VITAMINA_D.label,
     collectionMoment: null,
     unit: 'ng/mL',
     points: datas.slice(0, n).map((d, i) => ponto({ id: `p${i}`, collectedAt: d, value: 32 + i * 5 })),
