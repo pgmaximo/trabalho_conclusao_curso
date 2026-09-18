@@ -55,5 +55,9 @@ criterios de aceite um a um nao foi feita.
 
 - [x] Nenhuma dependência nova foi acrescentada.
 - [x] `chartScale.ts` não foi modificado.
-- [ ] Critérios de aceite da `spec.md` conferidos um a um.
+- [x] Critérios de aceite da `spec.md` conferidos um a um, em 2026-09-18: **14
+      com teste, 1 sem teste, 0 não cumpridos, 1 não verificável**. Uma
+      divergência real entre spec e tela: a spec promete que o valor censurado
+      apareça "com o sinal preservado", e a tela lista a coleta excluída com
+      data, motivo e atalho, **sem o valor**. Tarefa própria.
 - [x] `npm run validate` passa.

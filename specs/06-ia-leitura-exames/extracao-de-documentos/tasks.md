@@ -82,6 +82,12 @@ for publicado, o que ainda nao aconteceu.
 
 - [x] `npm run validate` passa.
 - [x] O catálogo de analitos foi **gerado**, não digitado, e o gerador roda sem avisos.
-- [ ] Critérios de aceite da `spec.md` conferidos um a um.
+- [x] Critérios de aceite da `spec.md` conferidos um a um, em 2026-09-18: **22
+      com teste, 3 sem teste, 0 não cumpridos, 1 não verificável**. Dos sem
+      teste, o que importa é a herança da data do formulário com aviso (D24),
+      que mora em `handler.ts` — o maior arquivo da feature sem arquivo de
+      teste. Achado extra, fora dos critérios: **cinco arquivos de teste do
+      backend digitam códigos LOINC à mão**, contra a D27, e não existe teste de
+      deriva do catálogo gerado. Tarefa própria, não desta EPIC.
 - [x] Nenhum código de analito foi digitado à mão — todos vieram do arquivo oficial, **inclusive os de exemplo em teste** (D27).
 - [ ] O aviso da cláusula 10.1 do LOINC entra nos termos de uso quando o aplicativo for publicado.

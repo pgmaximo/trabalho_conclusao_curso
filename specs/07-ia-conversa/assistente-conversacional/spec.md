@@ -310,8 +310,16 @@ existindo.
       **documento de origem** de cada número citado.
 - [ ] Pergunta sobre exame **não** registrado recebe "não tenho esse exame
       registrado", sem estimativa e sem série completada — coberto por teste.
-- [ ] Nenhum número aparece na resposta sem ter vindo de uma tool — coberto por
-      teste sobre o schema de saída.
+- [ ] **NÃO CUMPRIDO, e conferido em 2026-09-18.** Nenhum número aparece na
+      resposta sem ter vindo de uma tool. A redação anterior dizia "coberto por
+      teste sobre o schema de saída", e **esse teste não existe**. O que existe
+      cobre o sentido inverso: `citacoesConferem` reprova citação que aponta
+      para linha que nenhuma tool devolveu. A **omissão** passa —
+      `[].every(...)` é verdadeiro, `chatAnswerSchema` não tem `refine` ligando
+      dígito no texto à presença de citação, e `languageRules.ts` não registra
+      verificador de R4. Hoje a R4 no sentido da omissão é sustentada **apenas
+      pelo prompt**, que é exatamente o que a §2 da EPIC de regras diz não
+      bastar. Corrigido aqui em vez de propagado.
 - [ ] Pergunta operacional é respondida sem repetir a frase de encaminhamento.
 - [ ] Pergunta clínica traz encaminhamento a um profissional de saúde no corpo
       da resposta.

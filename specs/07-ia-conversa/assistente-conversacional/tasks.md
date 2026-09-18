@@ -92,5 +92,11 @@ conferencia dos criterios de aceite um a um nao foi feita.
 ## Encerramento
 
 - [x] Nenhuma copy da tela e nenhuma resposta aceita usa o termo vetado.
-- [ ] Critérios de aceite da `spec.md` conferidos um a um, separando os que dependem da tarefa 0.5.
+- [x] Critérios de aceite da `spec.md` conferidos um a um, em 2026-09-18: **28
+      com teste, 2 sem teste, 1 NÃO CUMPRIDO, 2 não verificáveis sem chamada
+      real**. O não cumprido é o mais grave do projeto e está descrito na §8 da
+      spec: a R4 no sentido da OMISSÃO não é verificada, e a spec afirmava que
+      era. Os dois sem teste: a autorização por dono dos dois models de chat não
+      tem o equivalente de `schemaDeMemoria.test.ts`, e a decisão de retenção é
+      documento.
 - [x] `npm run validate` passa.

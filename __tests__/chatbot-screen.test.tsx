@@ -171,3 +171,60 @@ describe('abrir uma conversa vinda de fora da tela (M11)', () => {
     await waitFor(() => expect(lerMensagens).not.toHaveBeenCalled());
   });
 });
+
+describe('a recusa de uma proposta de memoria vale para a conversa inteira (M8)', () => {
+  async function perguntar(texto: string) {
+    fireEvent.changeText(screen.getByPlaceholderText(/digite sua pergunta/i), texto);
+    fireEvent.press(screen.getByLabelText('Enviar mensagem'));
+  }
+
+  it('depois de "Agora nao", o MESMO fato nao e proposto de novo', async () => {
+    // Repetir um pedido de consentimento ja recusado e insistir, e insistencia
+    // e o que transforma o consentimento do art. 11, I em ruido clicado sem
+    // ler. A spec afirmava isto e so metade tinha teste.
+    const proposta = { texto: 'Prefiro respostas curtas', tipo: 'PREFERENCIA_DE_RESPOSTA' };
+    mockSendMessage.mockResolvedValue({
+      text: 'Certo.',
+      citations: [],
+      ruleCheckStatus: 'APROVADA',
+      memoriaProposta: proposta,
+    });
+
+    renderChatBotScreen();
+
+    await perguntar('pode responder mais curto?');
+    fireEvent.press(await screen.findByText('Agora não'));
+    expect(screen.queryByText('Agora não')).toBeNull();
+
+    // O modelo propoe o MESMO fato de novo no turno seguinte.
+    await perguntar('e minha consulta?');
+    await waitFor(() => expect(mockSendMessage).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Agora não')).toBeNull();
+  });
+
+  it('um fato DIFERENTE continua sendo proposto', async () => {
+    // A recusa e daquele fato, e nao da memoria inteira -- desligar a memoria e
+    // outra coisa, e tem interruptor proprio.
+    mockSendMessage
+      .mockResolvedValueOnce({
+        text: 'Certo.',
+        citations: [],
+        ruleCheckStatus: 'APROVADA',
+        memoriaProposta: { texto: 'Prefiro respostas curtas', tipo: 'PREFERENCIA_DE_RESPOSTA' },
+      })
+      .mockResolvedValueOnce({
+        text: 'Anotado.',
+        citations: [],
+        ruleCheckStatus: 'APROVADA',
+        memoriaProposta: { texto: 'Trabalho de madrugada', tipo: 'ROTINA' },
+      });
+
+    renderChatBotScreen();
+
+    await perguntar('pode responder mais curto?');
+    fireEvent.press(await screen.findByText('Agora não'));
+
+    await perguntar('trabalho a noite');
+    expect(await screen.findByText(/Trabalho de madrugada/)).toBeTruthy();
+  });
+});

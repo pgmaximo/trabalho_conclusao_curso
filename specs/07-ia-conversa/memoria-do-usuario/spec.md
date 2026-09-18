@@ -283,10 +283,20 @@ silêncio é decidir por ela qual parte dela deixa de importar.
 **Teto de tamanho do fato.** Um "fato" de trezentos caracteres é um resumo
 disfarçado. O limite é curto, e ultrapassá-lo descarta a proposta.
 
-**Nenhum fato é fonte de número.** A R4 continua valendo inteira: todo número
-citado numa resposta vem de tool, com `resultId` e `documentId`. O bloco de
-memória no prompt diz isso explicitamente, e o esquema de citação não muda —
-não há como citar um fato, porque citação aponta para linha de exame.
+**Nenhum fato é fonte de número.** O bloco de memória no prompt diz isso
+explicitamente, e o esquema de citação não muda — não há como citar um fato,
+porque citação aponta para linha de exame, e essa ausência de campo é a
+garantia.
+
+**Corrigido depois da conferência dos critérios de aceite:** a redação original
+desta linha dizia que "a R4 continua valendo inteira", e isso é mais forte do
+que a verdade. A R4 é verificada em **um sentido só** — uma citação que aponta
+para linha que nenhuma tool devolveu é detectada e reprovada
+(`citacoesConferem`), mas uma resposta que traz número **sem citação nenhuma**
+passa, porque `[].every(...)` é verdadeiro e não existe verificador de R4 em
+`languageRules.ts`. A lacuna é anterior a esta EPIC e está registrada na
+`spec.md` do assistente conversacional. O que esta EPIC garante é o que está
+escrito acima: a memória não acrescenta uma via nova para número sem origem.
 
 **A função continua somente leitura.** Nenhum comando de escrita entra em
 `amplify/functions/chat-assistant/`. O teste existente que garante isso não é
@@ -342,8 +352,11 @@ tela, nem no rótulo de um tipo, nem no texto de um fato aceito (regra 4).
 - [ ] Nenhum número de resposta passa a vir de um fato: o esquema de citação
       continua exigindo linha de exame — coberto por teste.
 - [ ] A leitura dos fatos é filtrada pelo dono do token — coberto por teste.
-- [ ] Nenhum arquivo da função do chat contém comando de escrita — coberto pelo
-      teste já existente, que não é alterado.
+- [ ] Nenhum arquivo da função do chat contém comando de escrita — coberto por
+      teste. **O teste FOI alterado por esta EPIC**, e para melhor: ele varria
+      só `tools/`, e passou a varrer a função inteira (tarefa X2). A redação
+      anterior desta linha dizia "que não é alterado", o que ficou falso no
+      mesmo dia em que foi escrito.
 
 ### Os direitos do titular
 

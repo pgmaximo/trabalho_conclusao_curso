@@ -181,8 +181,13 @@ exigir que `reason` tenha conteúdo; a D31 é a razão de ele existir.
 - [ ] Cada violação identifica a regra, o motivo em português e o trecho.
 - [ ] A verificação nunca altera o texto recebido — coberto por teste.
 - [ ] O bloco de regras do prompt e a documentação saem da mesma constante.
-- [ ] Existe um conjunto adversarial com, no mínimo, uma tentativa por regra,
-      rodando em `npm run validate` sem chamar o modelo.
+- [ ] **PARCIAL, conferido em 2026-09-18.** Existe um conjunto adversarial
+      rodando em `npm run validate` sem chamar o modelo — isso está cumprido.
+      Mas ele **não tem uma tentativa por regra**: cobre R1, R2 e R3, e não
+      cobre R4 nem R5. A falta da tentativa de R4 é a mesma lacuna vista do
+      outro lado — não existe verificador de R4 em `languageRules.ts`, então
+      não haveria o que a tentativa exercitasse. Registrado em vez de
+      propagado.
 - [ ] Existe uma tarefa manual, registrada, de conferir o verificador contra
       respostas reais do modelo — porque teste sobre texto de exemplo não prova
       comportamento de modelo.

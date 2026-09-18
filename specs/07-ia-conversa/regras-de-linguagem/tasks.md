@@ -48,6 +48,11 @@ ser marcada como concluida depois da L7.
 
 - [x] O módulo não importa nada.
 - [x] Nenhuma dependência nova foi acrescentada.
-- [ ] Critérios de aceite da `spec.md` conferidos um a um.
+- [x] Critérios de aceite da `spec.md` conferidos um a um, em 2026-09-18: **7
+      com teste, 4 sem teste, 1 parcial, 1 não verificável**. O parcial é o
+      conjunto adversarial, que não tem tentativa de R4 nem de R5. Dos sem
+      teste, o que mais incomoda é que "o módulo não importa nada" é verdade e
+      **não tem trava** — a EPIC da memória escreveu essa trava para o módulo
+      dela (`memoriaRegras.test.ts`), e esta não tem.
 - [ ] A tarefa 0.3 do roadmap é marcada como concluída.
 - [x] `npm run validate` passa.

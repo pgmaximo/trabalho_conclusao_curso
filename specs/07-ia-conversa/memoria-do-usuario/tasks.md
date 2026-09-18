@@ -89,5 +89,12 @@ ser feita, aqui como nas outras tres EPICs.
 
 - [x] Nenhuma copy, teste, comentário ou prompt desta EPIC usa o termo vetado.
 - [x] Nenhuma copy desta EPIC interpreta resultado de exame.
-- [ ] Critérios de aceite da `spec.md` conferidos um a um.
+- [x] Critérios de aceite da `spec.md` conferidos um a um, em 2026-09-18: **22
+      com teste, 3 sem teste, 0 não cumpridos, 2 não verificáveis sem chamada
+      real**. A conferência achou duas afirmações falsas na própria spec, e as
+      duas foram corrigidas nela: a metade sem teste do critério de `Agora não`
+      (agora coberta em `__tests__/chatbot-screen.test.tsx`, e conferida por
+      mutação), e a cláusula "coberto pelo teste já existente, que não é
+      alterado" sobre a varredura de escrita — o teste FOI alterado, pela X2
+      desta mesma EPIC.
 - [x] `npm run validate` passa.

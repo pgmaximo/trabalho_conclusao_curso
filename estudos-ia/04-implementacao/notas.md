@@ -630,3 +630,69 @@ descartada pela validação e com que frequência a pessoa confirma. As três ju
 dizem se a memória está ajudando ou pedindo atenção à toa. Sem isso, "a memória
 funciona" é impressão. O `ruleCheckStatus` já é gravado por turno desde a C8; a
 proposta ainda não tem contador.
+
+### A conferência dos critérios de aceite, enfim feita (2026-09-18)
+
+Era a caixa aberta no cabeçalho de **todas** as cinco `tasks.md` desde o Bloco B.
+Foi feita contra o código e os testes que existem, critério a critério, nas cinco
+EPICs de IA. Resultado agregado:
+
+| EPIC | Com teste | Sem teste | **Não cumprido** | Não verificável |
+|---|---|---|---|---|
+| extração de documentos | 22 | 3 | 0 | 1 |
+| série por analito | 14 | 1 | 0 | 1 |
+| regras de linguagem | 7 | 4 | 1 (parcial) | 1 |
+| assistente conversacional | 28 | 2 | **1** | 2 |
+| memória do usuário | 22 | 3 | 0 | 2 |
+
+**O achado grave, e ele é na regra central: a R4 é verificada em um sentido só.**
+
+Citação **inventada** é pega — `citacoesConferem` reprova o que aponta para linha
+que nenhuma ferramenta devolveu. Citação **omitida** passa: `[].every(...)` é
+`true`, `chatAnswerSchema` não tem `refine` ligando dígito no texto à presença de
+citação, e `languageRules.ts` não registra verificador de R4. Uma resposta com
+"sua vitamina D foi 22 ng/mL" e `citacoes: []` volta como `APROVADA`.
+
+E a spec do assistente afirmava, literalmente, *"coberto por teste sobre o schema
+de saída"*. **Esse teste não existe.** Hoje a R4, no sentido da omissão, é
+sustentada só pelo prompt — que é exatamente o que a §2 da EPIC de regras diz não
+bastar. Corrigido na spec em vez de propagado; a implementação é tarefa própria,
+porque o risco dela é falso positivo ("sua consulta é dia 12" tem dígito e não é
+medida) e isso merece decisão registrada.
+
+**Quatro afirmações falsas de documentação, todas corrigidas no lugar:**
+
+1. A da R4, acima.
+2. `memoria-do-usuario/spec.md` dizia que `Agora não` "não volta a propor o mesmo
+   fato — coberto por teste", e só a primeira metade tinha teste. A segunda foi
+   escrita (`chatbot-screen.test.tsx`) e conferida por mutação.
+3. A mesma spec dizia "coberto pelo teste já existente, **que não é alterado**"
+   sobre a varredura de escrita. Ele **foi** alterado, pela X2 desta própria
+   EPIC, e para melhor. Uma spec que descreve o passado errado é uma spec que a
+   próxima EPIC cita como fato.
+4. `regras-de-linguagem/spec.md` promete conjunto adversarial com uma tentativa
+   **por regra**; há tentativas para R1, R2 e R3, e nenhuma para R4 nem R5.
+
+**Três lacunas sem teste que valem registro:**
+
+- A herança da data do formulário com aviso (D24) vive em
+  `extract-document-data/handler.ts`, que é o maior arquivo da feature **sem
+  arquivo de teste** (214 linhas).
+- A autorização por dono dos dois models de chat não tem o equivalente do
+  `schemaDeMemoria.test.ts`, que a EPIC da memória escreveu para os dela.
+- "O módulo de regras não importa nada" é verdade e **não tem trava**. A EPIC da
+  memória escreveu essa trava para o módulo dela; esta não tem, e um `import`
+  acrescentado amanhã quebraria a D30 em silêncio.
+
+**Dois achados fora dos critérios:**
+
+- **Cinco arquivos de teste do backend digitam 29 códigos LOINC à mão**, contra a
+  D27, que diz em título que isto vale para exemplo em teste. O padrão certo já
+  existe no repositório (`__tests__/lab-result-grouping.test.ts` importa o
+  catálogo e busca por rótulo). E não há **teste de deriva**: nada regenera o
+  catálogo a partir do CSV para comparar com o arquivo versionado, então um
+  dígito trocado à mão passa por tudo — que é o modo de falha que a própria spec
+  descreve.
+- A tela de série lista a coleta censurada com data, motivo e atalho, **sem o
+  valor**, enquanto a spec promete "com o sinal preservado". O sinal só aparece
+  na tela de detalhe do documento.
