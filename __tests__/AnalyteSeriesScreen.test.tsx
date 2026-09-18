@@ -47,14 +47,49 @@ function serieCom(n: number, over: Partial<AnalyteSeries> = {}): AnalyteSeries {
   };
 }
 
-function excluida(reason: ExcludedResult['reason']): ExcludedResult {
+/**
+ * A linha do laudo que existe e NAO entra na comparacao. Ela carrega o
+ * `result` inteiro de proposito: e dele que sai o valor com o sinal quando o
+ * resultado e um limite (D21), e um fixture vazio esconderia essa exigencia.
+ */
+const LINHA_EXCLUIDA: LabResultView = {
+  id: 'x1',
+  analyteCode: '62292-8',
+  projectLabel: 'Vitamina D (25-OH)',
+  analyteLabel: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma',
+  value: 32.5,
+  valueQualifier: null,
+  unit: 'ng/mL',
+  rawValue: '32,5',
+  rawUnit: 'ng/mL',
+  referenceLow: 30,
+  referenceHigh: 100,
+  collectedAt: '2026-06-01',
+  collectionMoment: null,
+  sourcePage: 2,
+  reviewStatus: 'AUTO',
+};
+
+function excluida(
+  reason: ExcludedResult['reason'],
+  result: Partial<LabResultView> = {},
+): ExcludedResult {
   return {
     id: 'x1',
     documentId: 'doc-2',
     collectedAt: '2026-06-01',
     reason,
-    result: {} as LabResultView,
+    result: { ...LINHA_EXCLUIDA, ...result },
   };
+}
+
+/** `<0,01`: o laboratorio guardou o numero e o sinal ao lado dele (D21). */
+function limiteDeDeteccao(): ExcludedResult {
+  return excluida('limite-de-deteccao', {
+    value: 0.01,
+    valueQualifier: '<',
+    rawValue: '<0,01',
+  });
 }
 
 function seriesDaCurvaGlicemica(): AnalyteSeries[] {
@@ -135,9 +170,18 @@ describe('AnalyteSeriesScreen — o que ficou de fora', () => {
   });
 
   it('o motivo de cada exclusao e dito, e nao so a contagem', () => {
-    const s = serieCom(2, { excluded: [excluida('limite-de-deteccao')] });
+    const s = serieCom(2, { excluded: [limiteDeDeteccao()] });
     renderScreen(props({ series: [s], activeSeries: s }));
     expect(screen.getByText(/limite, não como uma medida/i)).toBeTruthy();
+  });
+
+  it('valor censurado continua legivel na lista, com o sinal preservado (D21)', () => {
+    // O criterio de aceite promete o VALOR, e nao so o motivo: quem abre a
+    // evolucao do analito precisa conseguir ler o `<0,01` ali, sem ter de
+    // abrir o documento de origem para descobrir qual era o numero.
+    const s = serieCom(2, { excluded: [limiteDeDeteccao()] });
+    renderScreen(props({ series: [s], activeSeries: s }));
+    expect(screen.getByText('<0,01 ng/mL')).toBeTruthy();
   });
 
   it('cada exclusao leva ao documento dela', () => {

@@ -27,6 +27,8 @@ import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { useThemeColors } from '@/constants/theme';
 import type { UseAnalyteSeriesResult } from '@/hooks/useAnalyteSeries';
 import type { ExclusionReason } from '@/services/analyteSeries';
+import type { LabResultView } from '@/services/extractionService';
+import { formatarDecimal } from '@/utils/decimalDisplay';
 
 /**
  * O motivo de cada exclusao, em portugues. Sao FRASES DE FATO, nunca de
@@ -41,6 +43,26 @@ const MOTIVOS: Record<ExclusionReason, string> = {
   'limite-de-deteccao': 'foi informado como um limite, não como uma medida',
   'unidade-divergente': 'está em outra unidade de medida',
 };
+
+/**
+ * O valor de uma coleta que e limite, e nao medida (D21), com o sinal colado
+ * no numero.
+ *
+ * O SINAL NAO E ENFEITE: sem ele, `<0,01` vira `0,01` na tela, e a pessoa le
+ * como medida um numero que o laboratorio declarou NAO ter medido. Por isso
+ * este resultado sai do traco mas continua legivel aqui -- quem abre a
+ * evolucao do analito nao deveria precisar abrir o documento de origem so
+ * para descobrir qual era o valor.
+ *
+ * A unidade e a DAQUELA linha, e nao a da serie: a exclusao por limite
+ * acontece antes da conferencia de unidade, entao a linha pode estar numa
+ * unidade que a serie nao fala, e rotula-la com a da serie seria afirmar uma
+ * conversao que ninguem fez.
+ */
+function valorComSinal(result: LabResultView): string {
+  const unidade = result.unit ?? result.rawUnit ?? '';
+  return `${result.valueQualifier ?? ''}${formatarDecimal(result.value)} ${unidade}`.trim();
+}
 
 export interface AnalyteSeriesScreenProps {
   state: UseAnalyteSeriesResult;
@@ -212,22 +234,31 @@ export function AnalyteSeriesScreen({ state }: AnalyteSeriesScreenProps) {
                 </Text>
 
                 {serie.excluded.map((item) => (
-                  <Pressable
-                    accessibilityLabel={`Ver o documento de ${item.collectedAt ?? 'data não informada'}`}
-                    accessibilityRole="button"
-                    className="mt-2"
-                    key={item.id}
-                    onPress={() => router.push(`/document-detail?id=${item.documentId}`)}
-                  >
-                    <Text className="text-[13px]" style={{ color: colors.primary }}>
-                      {item.collectedAt ?? 'Sem data'}
-                      {/* Com UMA exclusao o resumo acima ja disse o motivo;
-                          repeti-lo aqui e ruido. Com varias, o resumo so tem a
-                          contagem, e cada linha precisa dizer o seu. */}
-                      {serie.excluded.length > 1 ? ` · ${MOTIVOS[item.reason]}` : ''} · ver
-                      documento
-                    </Text>
-                  </Pressable>
+                  <View className="mt-2" key={item.id}>
+                    {/* O valor que a spec promete manter legivel. So para o
+                        limite: uma linha pendente tem valor que NAO foi lido
+                        com seguranca, e exibi-lo aqui como numero o
+                        apresentaria como leitura confiavel. */}
+                    {item.reason === 'limite-de-deteccao' ? (
+                      <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">
+                        {valorComSinal(item.result)}
+                      </Text>
+                    ) : null}
+                    <Pressable
+                      accessibilityLabel={`Ver o documento de ${item.collectedAt ?? 'data não informada'}`}
+                      accessibilityRole="button"
+                      onPress={() => router.push(`/document-detail?id=${item.documentId}`)}
+                    >
+                      <Text className="text-[13px]" style={{ color: colors.primary }}>
+                        {item.collectedAt ?? 'Sem data'}
+                        {/* Com UMA exclusao o resumo acima ja disse o motivo;
+                            repeti-lo aqui e ruido. Com varias, o resumo so tem
+                            a contagem, e cada linha precisa dizer o seu. */}
+                        {serie.excluded.length > 1 ? ` · ${MOTIVOS[item.reason]}` : ''} · ver
+                        documento
+                      </Text>
+                    </Pressable>
+                  </View>
                 ))}
               </Card>
             ) : null}

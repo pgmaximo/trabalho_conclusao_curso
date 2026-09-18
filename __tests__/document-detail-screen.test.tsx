@@ -61,6 +61,28 @@ const hemoglobina: LabResultView = {
   reviewStatus: 'AUTO',
 };
 
+// 3016-3 = "Thyrotropin [Units/volume] in Serum or Plasma", com a unidade
+// canonica que o catalogo define para ele. Conferido em analyteCatalog.ts.
+// TSH abaixo do limite de deteccao e o caso classico da D21: o laboratorio
+// nao mediu 0,01 -- ele disse que o valor esta ABAIXO de 0,01.
+const tshAbaixoDoLimite: LabResultView = {
+  id: 'linha-4',
+  analyteCode: '3016-3',
+  projectLabel: 'TSH',
+  analyteLabel: 'Thyrotropin [Units/volume] in Serum or Plasma',
+  value: 0.01,
+  valueQualifier: '<',
+  unit: 'u[IU]/mL',
+  rawValue: '<0,01',
+  rawUnit: 'µUI/mL',
+  referenceLow: 0.4,
+  referenceHigh: 4.5,
+  collectedAt: '2025-10-04',
+  collectionMoment: null,
+  sourcePage: 2,
+  reviewStatus: 'AUTO',
+};
+
 function extracao(overrides: Partial<ExtractionState> = {}): UseDocumentExtractionResult {
   return {
     state: {
@@ -152,6 +174,21 @@ describe('DocumentDetailScreen — o que a tela pode e nao pode dizer', () => {
     renderScreen(extracao({ status: 'SUCCEEDED', results: [hemoglobina] }));
     const texto = JSON.stringify(screen.toJSON()).toLowerCase();
     expect(texto).not.toMatch(/alterado|preocupante|dentro do esperado|fora do esperado/);
+  });
+
+  it('o sinal de um limite fica colado no valor, e nao e engolido', () => {
+    // `<0,01` exibido como `0,01` afirma uma medida que o laboratorio
+    // declarou NAO ter feito (D21). O sinal nao e enfeite tipografico: e a
+    // diferenca entre um numero e um limite.
+    renderScreen(extracao({ status: 'SUCCEEDED', results: [tshAbaixoDoLimite] }));
+    expect(screen.getByText('<0,01 u[IU]/mL')).toBeTruthy();
+  });
+
+  it('explica que um limite nao entra na comparacao entre coletas', () => {
+    // Frase de FATO sobre a leitura, e nao sobre a pessoa: diz o que o
+    // laboratorio informou e o que o aplicativo faz com isso.
+    renderScreen(extracao({ status: 'SUCCEEDED', results: [tshAbaixoDoLimite] }));
+    expect(screen.getByText(/limite, não como uma medida/i)).toBeTruthy();
   });
 
   it('linha pendente usa o token de AVISO, nunca o de erro', () => {
