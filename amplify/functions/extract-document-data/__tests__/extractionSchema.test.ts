@@ -1,9 +1,20 @@
+import { ANALYTE_CATALOG } from '../analyteCatalog';
 import {
   extractionSchema,
   parseExtraction,
   toStructuredOutputSchema,
   zodToToolInputSchema,
 } from '../extractionSchema';
+
+// D27: nenhum codigo LOINC digitado a mao, nem como exemplo em teste. O codigo
+// sai do catalogo gerado a partir do extrato oficial, buscado pelo rotulo em
+// portugues. Aqui o schema so confere a FORMA do campo, entao um digito
+// trocado num literal passaria por todas as asercoes deste arquivo.
+const codigoDe = (rotulo: string): string => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado.code;
+};
 
 // Todo numero chega do modelo como TEXTO, inclusive os limites da faixa. O
 // modelo transcreve o que esta no papel; quem converte para numero e o
@@ -20,7 +31,7 @@ const linhaValida = {
   collectionMoment: null,
   sourcePage: 2,
   confidence: 0.94,
-  analyteCodeGuess: '62292-8',
+  analyteCodeGuess: codigoDe('Vitamina D (25-OH)'),
 };
 
 describe('extractionSchema', () => {
@@ -67,7 +78,7 @@ describe('extractionSchema', () => {
   it('aceita o sinal de censura que laudo brasileiro usa em TSH, PSA e beta-HCG', () => {
     const tsh = {
       ...linhaValida,
-      analyteCodeGuess: '3016-3',
+      analyteCodeGuess: codigoDe('TSH'),
       analyteLabel: 'TSH',
       rawValue: '<0,01',
       rawUnit: 'uUI/mL',
@@ -84,7 +95,7 @@ describe('extractionSchema', () => {
   it('aceita o mesmo analito duas vezes quando os momentos de coleta diferem', () => {
     const jejum = {
       ...linhaValida,
-      analyteCodeGuess: '2345-7',
+      analyteCodeGuess: codigoDe('Glicose'),
       analyteLabel: 'Glicose',
       rawValue: '92',
       rawUnit: 'mg/dL',

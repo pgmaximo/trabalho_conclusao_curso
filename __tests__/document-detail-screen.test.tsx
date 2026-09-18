@@ -21,11 +21,13 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ANALYTE_CATALOG } from '../amplify/functions/extract-document-data/analyteCatalog';
 import { checkLanguageRules } from '../amplify/functions/ai-language-rules/languageRules';
 import { CLASSE_LINHA_PENDENTE } from '@/components/ExtractedResultRow';
 import { DocumentDetailScreen } from '@/screens/DocumentDetailScreen';
 import type { ExtractionState, LabResultView } from '@/services/extractionService';
 import type { UseDocumentExtractionResult } from '@/hooks/useDocumentExtraction';
+
 
 const documento = {
   id: 'doc-1',
@@ -41,13 +43,24 @@ const documento = {
   createdAt: '',
 };
 
-// 718-7 = "Hemoglobin [Mass/volume] in Blood". Conferido no catalogo gerado a
-// partir do extrato oficial do LOINC, nao digitado de memoria.
+// D27: nenhum codigo LOINC e digitado a mao, nem como exemplo em teste, e
+// comentario dizendo "vem do extrato oficial" nao e verificacao -- um literal
+// errado e o comentario ao lado dele erram juntos. O codigo sai do catalogo
+// gerado a partir do extrato, buscado pelo rotulo em portugues, que e campo
+// nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const HEMOGLOBINA = doCatalogo('Hemoglobina');
+
 const hemoglobina: LabResultView = {
   id: 'linha-1',
-  analyteCode: '718-7',
-  projectLabel: 'Hemoglobina',
-  analyteLabel: 'Hemoglobin [Mass/volume] in Blood',
+  analyteCode: HEMOGLOBINA.code,
+  projectLabel: HEMOGLOBINA.projectLabel,
+  analyteLabel: HEMOGLOBINA.label,
   value: 16.1,
   valueQualifier: null,
   unit: 'g/dL',
@@ -61,13 +74,11 @@ const hemoglobina: LabResultView = {
   reviewStatus: 'AUTO',
 };
 
-// 3016-3 = "Thyrotropin [Units/volume] in Serum or Plasma", com a unidade
-// canonica que o catalogo define para ele. Conferido em analyteCatalog.ts.
 // TSH abaixo do limite de deteccao e o caso classico da D21: o laboratorio
 // nao mediu 0,01 -- ele disse que o valor esta ABAIXO de 0,01.
 const tshAbaixoDoLimite: LabResultView = {
   id: 'linha-4',
-  analyteCode: '3016-3',
+  analyteCode: doCatalogo('TSH').code,
   projectLabel: 'TSH',
   analyteLabel: 'Thyrotropin [Units/volume] in Serum or Plasma',
   value: 0.01,

@@ -312,7 +312,17 @@ de versionar qualquer extrato no repositório. Bloqueia a gravação de códigos
 
 **Códigos de terminologia não são digitados à mão.** Eles vêm do arquivo oficial
 do LOINC. Um dígito trocado corrompe silenciosamente o eixo da comparação e o
-erro só aparece meses depois.
+erro só aparece meses depois. A proibição **é verificada em teste**, e vale
+também para exemplo em teste e para código citado em comentário (D27): um
+comentário afirmando que o código foi conferido não é conferência — ele erra
+junto com o literal ao lado. Quem precisa de um código em teste busca a entrada
+no catálogo gerado, por `projectLabel`.
+
+**O catálogo gerado é comparado com o extrato, não só confiado (D35).** Conferir
+só a *forma* do código não pega o dígito trocado, que é justamente o erro
+descrito acima. O teste regenera `analyteCatalog.ts` a partir do CSV e exige o
+mesmo arquivo de volta. Quando ele falha, a correção é rodar o gerador e
+versionar a saída — nunca editar o arquivo gerado.
 
 **Lógica pura com teste unitário**, no padrão que a feature de wearable
 estabeleceu: conversão, normalização, idempotência e validação de schema vivem em
@@ -375,6 +385,17 @@ considerar qualquer coisa concluída.
 - [ ] A licença do LOINC/UCUM foi aceita e as condições de redistribuição
       conferidas antes de qualquer extrato ser versionado.
 - [ ] Nenhum código LOINC foi digitado à mão — todos vieram do arquivo oficial.
+      **Verificado por varredura**, não por inspeção: nenhum arquivo `.ts`,
+      `.tsx`, `.mjs` ou `.js` versionado contém literal com a forma de um código
+      LOINC, nem em comentário. A única fonte é o catálogo gerado; a única
+      exceção é o código inventado do caso negativo, registrada com motivo no
+      próprio teste e acompanhada da asserção de que ele não existe no catálogo.
+- [ ] O catálogo gerado não derivou do extrato: regenerar a partir do CSV
+      devolve exatamente o `analyteCatalog.ts` versionado, analito a analito e
+      depois byte a byte. **Confirmado por mutação** — com um dígito trocado no
+      arquivo versionado, a checagem de forma passa e este teste reprova.
+- [ ] Importar o gerador não escreve nada em disco: um teste de deriva que
+      regravasse o arquivo o consertaria em silêncio em vez de acusá-lo.
 - [ ] Conversão, normalização e idempotência têm teste unitário sem dependência
       de AWS.
 - [ ] `npm run validate` passa.

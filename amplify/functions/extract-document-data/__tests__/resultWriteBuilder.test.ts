@@ -1,12 +1,28 @@
+import { ANALYTE_CATALOG } from '../analyteCatalog';
 import { buildLabResultUpdate, separarLinhasGravaveis } from '../resultWriteBuilder';
+
+// D27: nenhum codigo LOINC digitado a mao, nem como exemplo em teste. Codigo e
+// nome oficial saem do catalogo gerado a partir do extrato do LOINC, buscados
+// pelo rotulo em portugues -- que e campo nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const VITAMINA_D = doCatalogo('Vitamina D (25-OH)');
+const GLICOSE = doCatalogo('Glicose');
+// Dois analitos distintos com o mesmo rotulo no laudo -- ver o caso de colisao
+// mais abaixo.
+const NEUTROFILOS_ABSOLUTO = doCatalogo('Neutrofilos (absoluto)');
 
 const linha = {
   id: 'a3f1', // saida de labResultId (tarefa 6), sha256 em hex
   owner: 'sub::username',
   documentId: 'doc-1',
-  analyteCode: '62292-8', // LOINC, sempre (D27)
-  analyteLabel: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma',
-  projectLabel: 'Vitamina D (25-OH)',
+  analyteCode: VITAMINA_D.code,
+  analyteLabel: VITAMINA_D.label,
+  projectLabel: VITAMINA_D.projectLabel,
   value: 32.5,
   valueQualifier: null,
   unit: 'ng/mL',
@@ -114,7 +130,7 @@ describe('separarLinhasGravaveis', () => {
     const ilegivel = { ...linha, analyteCode: '', rawValue: '85', projectLabel: '—' };
     const { gravaveis, avisos } = separarLinhasGravaveis([linha, ilegivel]);
     expect(gravaveis).toHaveLength(1);
-    expect(gravaveis[0].analyteCode).toBe('62292-8');
+    expect(gravaveis[0].analyteCode).toBe(VITAMINA_D.code);
     // O aviso precisa dizer o que estava escrito, senao a pessoa nao tem como
     // saber o que o papel tem a mais do que a tela mostra.
     expect(avisos.join(' ')).toContain('85');
@@ -126,16 +142,16 @@ describe('separarLinhasGravaveis', () => {
     // Sao dois analitos com codigos LOINC distintos; se ele mapear os dois
     // para um codigo so, o id colide. Nenhuma das duas pode ser gravada como
     // certa, porque nao da para saber qual venceu.
-    const a = { ...linha, analyteCode: '26499-4', rawValue: '3.515', rawUnit: '/uL' };
-    const b = { ...linha, analyteCode: '26499-4', rawValue: '63,9', rawUnit: '%' };
+    const a = { ...linha, analyteCode: NEUTROFILOS_ABSOLUTO.code, rawValue: '3.515', rawUnit: '/uL' };
+    const b = { ...linha, analyteCode: NEUTROFILOS_ABSOLUTO.code, rawValue: '63,9', rawUnit: '%' };
     const { gravaveis, avisos } = separarLinhasGravaveis([a, b]);
     expect(gravaveis.every((l) => l.reviewStatus === 'PENDENTE_DE_REVISAO')).toBe(true);
-    expect(avisos.join(' ')).toMatch(/26499-4/);
+    expect(avisos.join(' ')).toContain(NEUTROFILOS_ABSOLUTO.code);
   });
 
   it('nao confunde colisao com curva glicemica, que e o caso legitimo (D22)', () => {
-    const jejum = { ...linha, analyteCode: '2345-7', collectionMoment: 'jejum' };
-    const em120 = { ...linha, analyteCode: '2345-7', collectionMoment: '120 minutos' };
+    const jejum = { ...linha, analyteCode: GLICOSE.code, collectionMoment: 'jejum' };
+    const em120 = { ...linha, analyteCode: GLICOSE.code, collectionMoment: '120 minutos' };
     const { gravaveis, avisos } = separarLinhasGravaveis([jejum, em120]);
     expect(gravaveis).toHaveLength(2);
     expect(gravaveis.every((l) => l.reviewStatus === 'AUTO')).toBe(true);

@@ -1,5 +1,16 @@
 import { ANALYTE_CATALOG, candidatesForPrompt, findAnalyteByCode } from '../analyteCatalog';
 
+// Nenhum codigo e digitado aqui (D27), nem para exemplo. O teste conhece o
+// rotulo em portugues -- `projectLabel`, campo nosso -- e o codigo sai do
+// proprio catalogo gerado a partir do extrato oficial do LOINC. Um comentario
+// dizendo "conferido no arquivo oficial" nao e verificacao: um literal errado
+// e o comentario ao lado dele erram juntos, em silencio.
+const codigoDe = (rotulo: string): string => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado.code;
+};
+
 describe('analyteCatalog', () => {
   it('nao tem codigo repetido', () => {
     const codes = ANALYTE_CATALOG.map((a) => a.code);
@@ -12,13 +23,13 @@ describe('analyteCatalog', () => {
   });
 
   it('marca hemoglobina como sem conversao molar (D18)', () => {
-    // 718-7 = "Hemoglobin [Mass/volume] in Blood", g/dL. Buscado por codigo, e
-    // nao por texto dentro de `label`: `label` carrega o nome OFICIAL do LOINC,
-    // que e em ingles (clausula 10.3), entao procurar "hemoglobina" ali nao
-    // acha nada -- e procurar "hemoglobin" acharia tambem a CHCM, que tem o
-    // mesmo COMPONENT e a mesma unidade. O rotulo em portugues vive em
-    // `projectLabel`.
-    const hb = findAnalyteByCode('718-7');
+    // Procurado por `projectLabel`, e nao por texto dentro de `label`: `label`
+    // carrega o nome OFICIAL do LOINC, que e em ingles (clausula 10.3), entao
+    // procurar "hemoglobina" ali nao acha nada -- e procurar "hemoglobin"
+    // acharia tambem a CHCM, que tem o mesmo COMPONENT e a mesma unidade.
+    // O codigo do catalogo ainda passa por findAnalyteByCode, que continua
+    // sendo o que este caso exercita.
+    const hb = findAnalyteByCode(codigoDe('Hemoglobina'));
     expect(hb).toBeDefined();
     expect(hb?.canonicalUnit).toBe('g/dL');
     expect(hb?.convertsToMolar).toBe(false);
@@ -26,7 +37,7 @@ describe('analyteCatalog', () => {
   });
 
   it('usa unidade convencional brasileira como canonica (D17)', () => {
-    const glicose = findAnalyteByCode('2345-7'); // Glucose [Mass/volume] in Serum or Plasma
+    const glicose = findAnalyteByCode(codigoDe('Glicose'));
     expect(glicose?.canonicalUnit).toBe('mg/dL');
   });
 
@@ -39,7 +50,7 @@ describe('analyteCatalog', () => {
   });
 
   it('preserva a unidade de exemplo do LOINC ao lado da nossa canonica', () => {
-    const vitD = findAnalyteByCode('62292-8'); // 25-OH-D3+D2 [Mass/volume], ng/mL
+    const vitD = findAnalyteByCode(codigoDe('Vitamina D (25-OH)'));
     expect(vitD?.canonicalUnit).toBe('ng/mL');
     expect(vitD?.loincExampleUnit).toBe('ng/mL');
   });
@@ -49,7 +60,7 @@ describe('analyteCatalog', () => {
     // Plasma". Mandar so o nome oficial do LOINC obrigaria o modelo a traduzir
     // de cabeca justamente na etapa em que errar custa mais caro -- e seria
     // desperdicar a variante pt-BR que a D26 descobriu.
-    const glicose = candidatesForPrompt().find((c) => c.code === '2345-7');
+    const glicose = candidatesForPrompt().find((c) => c.code === codigoDe('Glicose'));
     expect(glicose?.projectLabel).toBe('Glicose');
     expect(glicose?.synonyms.length).toBeGreaterThan(0);
   });

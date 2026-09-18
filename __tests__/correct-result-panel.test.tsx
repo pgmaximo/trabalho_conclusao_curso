@@ -4,15 +4,27 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { CorrectResultPanel } from '@/components/CorrectResultPanel';
+import { ANALYTE_CATALOG } from '../amplify/functions/extract-document-data/analyteCatalog';
 import { correctLabResult, type LabResultView } from '@/services/extractionService';
 
-// 62292-8 = a soma D3+D2 em massa, que e o que o laboratorio brasileiro
-// reporta. Do catalogo gerado a partir do extrato oficial do LOINC.
+// D27: nenhum codigo LOINC e digitado a mao, nem como exemplo em teste, e
+// comentario dizendo "vem do extrato oficial" nao e verificacao -- um literal
+// errado e o comentario ao lado dele erram juntos. O codigo sai do catalogo
+// gerado a partir do extrato, buscado pelo rotulo em portugues, que e campo
+// nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const VITAMINA_D = doCatalogo('Vitamina D (25-OH)');
+
 const pendente: LabResultView = {
   id: 'linha-1',
-  analyteCode: '62292-8',
-  projectLabel: 'Vitamina D (25-OH)',
-  analyteLabel: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma',
+  analyteCode: VITAMINA_D.code,
+  projectLabel: VITAMINA_D.projectLabel,
+  analyteLabel: VITAMINA_D.label,
   value: null,
   valueQualifier: null,
   unit: 'ng/mL',

@@ -17,7 +17,22 @@ jest.mock('aws-amplify/data', () => ({
   }),
 }));
 
+import { ANALYTE_CATALOG } from '../amplify/functions/extract-document-data/analyteCatalog';
 import { listAnalytesWithResults, listLabResultsByAnalyte } from '@/services/analyteSeriesService';
+
+// D27: nenhum codigo LOINC e digitado a mao, nem como exemplo em teste, e
+// comentario dizendo "vem do extrato oficial" nao e verificacao -- um literal
+// errado e o comentario ao lado dele erram juntos. O codigo sai do catalogo
+// gerado a partir do extrato, buscado pelo rotulo em portugues, que e campo
+// nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const VITAMINA_D = doCatalogo('Vitamina D (25-OH)').code;
+const GLICOSE = doCatalogo('Glicose').code;
 
 beforeEach(() => {
   mockList.mockReset();
@@ -30,9 +45,9 @@ describe('listLabResultsByAnalyte', () => {
     // analyteCode/collectedAt existe no schema exatamente porque esta
     // consulta era conhecida de antemao.
     mockListByAnalyte.mockResolvedValue({ data: [], errors: undefined, nextToken: null });
-    return listLabResultsByAnalyte('62292-8').then(() => {
+    return listLabResultsByAnalyte(VITAMINA_D).then(() => {
       expect(mockListByAnalyte).toHaveBeenCalledWith(
-        expect.objectContaining({ analyteCode: '62292-8' }),
+        expect.objectContaining({ analyteCode: VITAMINA_D }),
       );
       expect(mockList).not.toHaveBeenCalled();
     });
@@ -42,7 +57,7 @@ describe('listLabResultsByAnalyte', () => {
     mockListByAnalyte
       .mockResolvedValueOnce({ data: [{ id: 'a' }], nextToken: 'n1' })
       .mockResolvedValueOnce({ data: [{ id: 'b' }], nextToken: null });
-    const linhas = await listLabResultsByAnalyte('62292-8');
+    const linhas = await listLabResultsByAnalyte(VITAMINA_D);
     expect(linhas.map((l) => l.id)).toEqual(['a', 'b']);
   });
 
@@ -50,13 +65,13 @@ describe('listLabResultsByAnalyte', () => {
     mockListByAnalyte
       .mockResolvedValueOnce({ data: [{ id: 'a' }], nextToken: 'n1' })
       .mockResolvedValueOnce({ data: [{ id: 'b' }], nextToken: null });
-    await listLabResultsByAnalyte('62292-8');
+    await listLabResultsByAnalyte(VITAMINA_D);
     expect(mockListByAnalyte.mock.calls[1][0]).toMatchObject({ nextToken: 'n1' });
   });
 
   it('para a paginacao no teto, em vez de girar para sempre', async () => {
     mockListByAnalyte.mockResolvedValue({ data: [{ id: 'x' }], nextToken: 'sempre' });
-    const linhas = await listLabResultsByAnalyte('62292-8');
+    const linhas = await listLabResultsByAnalyte(VITAMINA_D);
     expect(linhas.length).toBeLessThanOrEqual(2000);
     expect(mockListByAnalyte.mock.calls.length).toBeLessThanOrEqual(20);
   });
@@ -65,7 +80,7 @@ describe('listLabResultsByAnalyte', () => {
     // Lista vazia e "voce nao tem esse exame". Erro e outra coisa, e a tela
     // precisa poder dizer qual dos dois aconteceu.
     mockListByAnalyte.mockResolvedValue({ data: null, errors: [{ message: 'sem permissao' }] });
-    await expect(listLabResultsByAnalyte('62292-8')).rejects.toThrow('sem permissao');
+    await expect(listLabResultsByAnalyte(VITAMINA_D)).rejects.toThrow('sem permissao');
   });
 });
 
@@ -73,14 +88,14 @@ describe('listAnalytesWithResults', () => {
   it('conta as coletas por analito para o seletor', async () => {
     mockList.mockResolvedValue({
       data: [
-        { id: '1', analyteCode: '62292-8', projectLabel: 'Vitamina D (25-OH)' },
-        { id: '2', analyteCode: '62292-8', projectLabel: 'Vitamina D (25-OH)' },
-        { id: '3', analyteCode: '2345-7', projectLabel: 'Glicose' },
+        { id: '1', analyteCode: VITAMINA_D, projectLabel: 'Vitamina D (25-OH)' },
+        { id: '2', analyteCode: VITAMINA_D, projectLabel: 'Vitamina D (25-OH)' },
+        { id: '3', analyteCode: GLICOSE, projectLabel: 'Glicose' },
       ],
       nextToken: null,
     });
     const opcoes = await listAnalytesWithResults();
-    expect(opcoes[0]).toMatchObject({ analyteCode: '62292-8', collectionCount: 2 });
+    expect(opcoes[0]).toMatchObject({ analyteCode: VITAMINA_D, collectionCount: 2 });
   });
 
   it('linha pendente NAO infla a contagem de coletas comparaveis', async () => {
@@ -89,10 +104,10 @@ describe('listAnalytesWithResults', () => {
     // uma comparacao que a tela nao vai mostrar.
     mockList.mockResolvedValue({
       data: [
-        { id: '1', analyteCode: '62292-8', projectLabel: 'Vitamina D', reviewStatus: 'AUTO' },
+        { id: '1', analyteCode: VITAMINA_D, projectLabel: 'Vitamina D', reviewStatus: 'AUTO' },
         {
           id: '2',
-          analyteCode: '62292-8',
+          analyteCode: VITAMINA_D,
           projectLabel: 'Vitamina D',
           reviewStatus: 'PENDENTE_DE_REVISAO',
         },
@@ -111,7 +126,7 @@ describe('listAnalytesWithResults', () => {
       data: [
         {
           id: '1',
-          analyteCode: '62292-8',
+          analyteCode: VITAMINA_D,
           projectLabel: 'Vitamina D',
           reviewStatus: 'PENDENTE_DE_REVISAO',
         },

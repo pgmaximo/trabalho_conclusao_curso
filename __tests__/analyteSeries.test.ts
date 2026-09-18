@@ -1,15 +1,28 @@
+import { ANALYTE_CATALOG } from '../amplify/functions/extract-document-data/analyteCatalog';
 import { buildAnalyteSeries, sharedReferenceRange } from '@/services/analyteSeries';
 import type { LabResultView } from '@/services/extractionService';
 
-// 62292-8 = "25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum
-// or Plasma", ng/mL. Do extrato oficial do LOINC, nunca de memoria (D27).
+// D27: nenhum codigo LOINC e digitado a mao, nem como exemplo em teste, e
+// comentario dizendo "vem do extrato oficial" nao e verificacao -- um literal
+// errado e o comentario ao lado dele erram juntos. O codigo sai do catalogo
+// gerado a partir do extrato, buscado pelo rotulo em portugues, que e campo
+// nosso e pode ser digitado.
+const doCatalogo = (rotulo: string) => {
+  const achado = ANALYTE_CATALOG.find((a) => a.projectLabel === rotulo);
+  if (!achado) throw new Error(`Analito "${rotulo}" nao esta no catalogo gerado.`);
+  return achado;
+};
+
+const VITAMINA_D = doCatalogo('Vitamina D (25-OH)');
+const GLICOSE = doCatalogo('Glicose');
+
 function linha(over: Partial<LabResultView> = {}): LabResultView {
   return {
     id: 'l1',
     documentId: 'doc-marco',
-    analyteCode: '62292-8',
-    projectLabel: 'Vitamina D (25-OH)',
-    analyteLabel: '25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma',
+    analyteCode: VITAMINA_D.code,
+    projectLabel: VITAMINA_D.projectLabel,
+    analyteLabel: VITAMINA_D.label,
     value: 32.5,
     valueQualifier: null,
     unit: 'ng/mL',
@@ -86,8 +99,8 @@ describe('buildAnalyteSeries', () => {
 
   it('curva glicemica vira DUAS series, nunca uma serra (D22)', () => {
     const glicose = {
-      analyteCode: '2345-7',
-      projectLabel: 'Glicose',
+      analyteCode: GLICOSE.code,
+      projectLabel: GLICOSE.projectLabel,
       unit: 'mg/dL',
       rawUnit: 'mg/dL',
     };

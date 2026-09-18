@@ -9,10 +9,15 @@ const path = require('path');
  * 1. **Nao use o caminho cru.** `testPathIgnorePatterns` recebe EXPRESSAO
  *    REGULAR, e um caminho do Windows usado cru vira uma expressao quebrada:
  *    `C:\Users\pedro\Documents\Developing\tcc` contem `\t`, que em expressao
- *    regular e TABULACAO. O padrao nunca casaria, e falharia em silencio. E a
- *    mesma razao pela qual o token `<rootDir>` nao serve aqui: ele vale em
- *    `setupFilesAfterEnv` e em `moduleNameMapper`, que recebem CAMINHO, e nao
- *    aqui. Por isso cada pedaco e escapado separadamente.
+ *    regular e TABULACAO. O padrao nunca casaria, e falharia em silencio. Por
+ *    isso cada pedaco e escapado separadamente.
+ *
+ *    **Correcao de uma afirmacao falsa desta mesma linha:** a redacao anterior
+ *    dizia que o token `<rootDir>` "nao serve aqui". Serve. Medido em
+ *    2026-09-18 com `jest --listTests`: a configuracao com
+ *    `'<rootDir>/.claude/'` devolveu 97 arquivos e NENHUM de arvore de
+ *    trabalho. O motivo de este arquivo nao usa-lo esta na nota da constante
+ *    abaixo, e e sobre testabilidade, nao sobre funcionar.
  *
  * 2. **Junte com barra normal, e nao com contrabarra.** O Jest reescreve a `/`
  *    dos padroes de caminho para o separador nativo antes de compara-los -- e por
@@ -53,6 +58,13 @@ function padraoDoCaminho(absoluto) {
  *
  * A trava que impede o padrao solto de voltar esta em
  * `__tests__/configuracaoDoJest.test.ts`.
+ *
+ * POR QUE `__dirname` E NAO `<rootDir>`, ja que os dois funcionam: o token so e
+ * expandido pelo Jest em tempo de execucao, entao um teste que LEIA este arquivo
+ * enxergaria a string literal `<rootDir>/.claude/`, que como expressao regular
+ * nao casa com caminho nenhum -- e a trava acima nao teria como afirmar coisa
+ * alguma. Com o caminho ja resolvido, ela consegue conferir a invariante nas
+ * duas pontas. Neste projeto, "da para testar" ganha de "e mais curto".
  */
 const ARVORES_DE_TRABALHO = `${padraoDoCaminho(path.join(__dirname, '.claude'))}/`;
 
@@ -63,5 +75,16 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  // As duas arvores de trabalho consertaram este mesmo defeito de jeitos
+  // diferentes, e o conflito foi resolvido MEDINDO em vez de escolhendo pela
+  // prosa. O que ficou de cada uma esta escrito no bloco acima e logo abaixo.
   testPathIgnorePatterns: ['/node_modules/', ARVORES_DE_TRABALHO],
+  // O preset do jest-expo so transforma `.[jt]sx?`, e os geradores de
+  // scripts/ sao `.mjs` (o package.json nao tem "type": "module", entao `.js`
+  // ali seria CommonJS e `node scripts/...` quebraria). Sem esta entrada, um
+  // teste que importa o gerador morre em "Cannot use import statement outside
+  // a module". Quem precisa disso hoje: catalogoNaoDeriva.test.ts.
+  transform: {
+    '\\.mjs$': ['babel-jest', { caller: { name: 'metro', bundler: 'metro', platform: 'ios' } }],
+  },
 };
