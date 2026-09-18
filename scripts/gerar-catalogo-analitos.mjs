@@ -3,11 +3,17 @@
 //
 //   node scripts/gerar-catalogo-analitos.mjs
 //
+// Tambem e MODULO: `gerarCatalogoDeAnalitos(textoDoCsv)` faz a geracao inteira
+// sem tocar no disco. E o que permite ao teste de deriva regenerar e comparar
+// com o arquivo versionado sem reescrever nada -- um teste que gravasse o
+// arquivo "consertaria" a deriva em vez de acusa-la. A escrita so acontece
+// quando este arquivo e chamado como comando (ver o fim do arquivo).
+//
 // NENHUM codigo LOINC aparece neste arquivo (D27) -- todos sao lidos da coluna
 // LOINC_NUM do CSV. O arquivo gerado tambem nao e editado a mao: para mudar
 // algo, mude este script ou o extrato, e rode de novo.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 
 const EXTRATO = resolve('estudos-ia/05-vocabularios/loinc/loinc-analitos-suasaude.csv');
 const SAIDA = resolve('amplify/functions/extract-document-data/analyteCatalog.ts');
@@ -128,54 +134,61 @@ function sinonimos(linha) {
   return saida;
 }
 
-const linhas = lerCsv(readFileSync(EXTRATO, 'utf8'));
-const avisos = [];
+/**
+ * Le as linhas do extrato e monta o catalogo. Os avisos saem junto em vez de
+ * irem direto ao console: quem imprime e o comando, nao a geracao.
+ */
+function montarCatalogo(linhas) {
+  const avisos = [];
 
-const catalogo = linhas.map((linha) => {
-  const rotulo = linha.rotulo_projeto;
-  const massaMolar = MASSA_MOLAR[rotulo] ?? null;
+  const catalogo = linhas.map((linha) => {
+    const rotulo = linha.rotulo_projeto;
+    const massaMolar = MASSA_MOLAR[rotulo] ?? null;
 
-  if (massaMolar !== null && SEM_CONVERSAO_MOLAR.has(rotulo)) {
-    // Nao e aviso: e parada. Ver D18.
-    throw new Error(
-      `${rotulo} esta em MASSA_MOLAR e em SEM_CONVERSAO_MOLAR ao mesmo tempo. Decida qual das duas vale antes de gerar.`,
-    );
-  }
-  // Clausula 10.2 da licenca: material com direito de terceiro nao pode sair
-  // do extrato para dentro do aplicativo.
-  if ((linha.EXTERNAL_COPYRIGHT_NOTICE ?? '').trim()) {
-    throw new Error(`${linha.LOINC_NUM} carrega aviso de copyright de terceiro.`);
-  }
-  // O LOINC as vezes lista mais de uma unidade de exemplo separadas por ponto
-  // e virgula ("mg/L;mg/dL"). Nesse caso a escolha e OBRIGATORIAMENTE nossa,
-  // porque o proprio LOINC nao escolheu.
-  const exemploLoinc = linha.EXAMPLE_UCUM_UNITS;
-  const canonica = UNIDADE_CANONICA[rotulo] ?? exemploLoinc;
-  if (!UNIDADE_CANONICA[rotulo] && exemploLoinc.includes(';')) {
-    avisos.push(
-      `${rotulo}: o LOINC lista mais de uma unidade de exemplo ("${exemploLoinc}") e nao ha entrada em UNIDADE_CANONICA.`,
-    );
-  }
-  const listaSinonimos = sinonimos(linha);
-  if (listaSinonimos.length === 0) avisos.push(`${rotulo}: sem nenhum sinonimo em pt-BR.`);
+    if (massaMolar !== null && SEM_CONVERSAO_MOLAR.has(rotulo)) {
+      // Nao e aviso: e parada. Ver D18.
+      throw new Error(
+        `${rotulo} esta em MASSA_MOLAR e em SEM_CONVERSAO_MOLAR ao mesmo tempo. Decida qual das duas vale antes de gerar.`,
+      );
+    }
+    // Clausula 10.2 da licenca: material com direito de terceiro nao pode sair
+    // do extrato para dentro do aplicativo.
+    if ((linha.EXTERNAL_COPYRIGHT_NOTICE ?? '').trim()) {
+      throw new Error(`${linha.LOINC_NUM} carrega aviso de copyright de terceiro.`);
+    }
+    // O LOINC as vezes lista mais de uma unidade de exemplo separadas por ponto
+    // e virgula ("mg/L;mg/dL"). Nesse caso a escolha e OBRIGATORIAMENTE nossa,
+    // porque o proprio LOINC nao escolheu.
+    const exemploLoinc = linha.EXAMPLE_UCUM_UNITS;
+    const canonica = UNIDADE_CANONICA[rotulo] ?? exemploLoinc;
+    if (!UNIDADE_CANONICA[rotulo] && exemploLoinc.includes(';')) {
+      avisos.push(
+        `${rotulo}: o LOINC lista mais de uma unidade de exemplo ("${exemploLoinc}") e nao ha entrada em UNIDADE_CANONICA.`,
+      );
+    }
+    const listaSinonimos = sinonimos(linha);
+    if (listaSinonimos.length === 0) avisos.push(`${rotulo}: sem nenhum sinonimo em pt-BR.`);
 
-  return {
-    code: linha.LOINC_NUM,
-    label: linha.LONG_COMMON_NAME, // nome oficial -- clausula 10.3
-    projectLabel: rotulo,
-    panel: linha.painel,
-    canonicalUnit: canonica,
-    loincExampleUnit: exemploLoinc,
-    molarMass: massaMolar,
-    synonyms: listaSinonimos,
-    convertsToMolar: massaMolar !== null && !SEM_CONVERSAO_MOLAR.has(rotulo),
-  };
-});
+    return {
+      code: linha.LOINC_NUM,
+      label: linha.LONG_COMMON_NAME, // nome oficial -- clausula 10.3
+      projectLabel: rotulo,
+      panel: linha.painel,
+      canonicalUnit: canonica,
+      loincExampleUnit: exemploLoinc,
+      molarMass: massaMolar,
+      synonyms: listaSinonimos,
+      convertsToMolar: massaMolar !== null && !SEM_CONVERSAO_MOLAR.has(rotulo),
+    };
+  });
 
-const repetidos = catalogo.map((a) => a.code).filter((c, i, todos) => todos.indexOf(c) !== i);
-if (repetidos.length > 0) throw new Error(`Codigo LOINC repetido: ${repetidos.join(', ')}`);
+  const repetidos = catalogo.map((a) => a.code).filter((c, i, todos) => todos.indexOf(c) !== i);
+  if (repetidos.length > 0) throw new Error(`Codigo LOINC repetido: ${repetidos.join(', ')}`);
 
-const cabecalho = `// ARQUIVO GERADO -- nao editar a mao.
+  return { catalogo, avisos };
+}
+
+const CABECALHO = `// ARQUIVO GERADO -- nao editar a mao.
 // Fonte: estudos-ia/05-vocabularios/loinc/loinc-analitos-suasaude.csv (LOINC 2.83)
 // Gerador: scripts/gerar-catalogo-analitos.mjs
 //
@@ -189,7 +202,9 @@ const cabecalho = `// ARQUIVO GERADO -- nao editar a mao.
 // registered United States trademark of Regenstrief Institute, Inc.
 `;
 
-const corpo = `${cabecalho}
+/** O texto do analyteCatalog.ts, do cabecalho de licenca ate a ultima funcao. */
+function renderizarArquivo(catalogo) {
+  return `${CABECALHO}
 export type CanonicalAnalyte = {
   /** Codigo LOINC, lido do arquivo oficial. */
   code: string;
@@ -239,12 +254,38 @@ export function candidatesForPrompt(): Array<
   }));
 }
 `;
+}
 
-writeFileSync(SAIDA, corpo, 'utf8');
-console.log(`LOINC 2.83 -- ${catalogo.length} analitos gravados em ${SAIDA}`);
-console.log(`  com massa molar: ${catalogo.filter((a) => a.molarMass !== null).length}`);
-console.log(
-  `  unidade canonica != exemplo do LOINC: ${catalogo.filter((a) => a.canonicalUnit !== a.loincExampleUnit).length}`,
-);
-for (const aviso of avisos) console.warn(`  AVISO: ${aviso}`);
-if (avisos.length === 0) console.log('  Sem avisos.');
+/**
+ * A geracao inteira, sem tocar no disco: entra o texto do extrato, sai o
+ * catalogo e o texto exato do analyteCatalog.ts.
+ *
+ * Quem consome, alem do comando abaixo, e o teste de deriva em
+ * amplify/functions/extract-document-data/__tests__/catalogoNaoDeriva.test.ts.
+ */
+export function gerarCatalogoDeAnalitos(textoDoCsv) {
+  const { catalogo, avisos } = montarCatalogo(lerCsv(textoDoCsv));
+  return { catalogo, avisos, fonte: renderizarArquivo(catalogo) };
+}
+
+// Daqui para baixo so roda quando o arquivo e chamado como comando. Importar
+// este modulo NAO pode escrever nada: o teste de deriva importa para comparar,
+// e se a importacao regravasse o arquivo ele passaria sempre -- consertando a
+// deriva em silencio em vez de acusa-la.
+// Comparado pelo nome do arquivo em execucao, e nao por `import.meta.url`:
+// o babel-preset-expo mira Hermes, que nao tem `import.meta`, e o teste de
+// deriva nao conseguiria nem carregar o modulo. Sob o jest, `process.argv[1]`
+// e o binario do jest, entao a comparacao da falso -- que e o que importa.
+const chamadoComoComando = basename(process.argv[1] ?? '') === 'gerar-catalogo-analitos.mjs';
+
+if (chamadoComoComando) {
+  const { catalogo, avisos, fonte } = gerarCatalogoDeAnalitos(readFileSync(EXTRATO, 'utf8'));
+  writeFileSync(SAIDA, fonte, 'utf8');
+  console.log(`LOINC 2.83 -- ${catalogo.length} analitos gravados em ${SAIDA}`);
+  console.log(`  com massa molar: ${catalogo.filter((a) => a.molarMass !== null).length}`);
+  console.log(
+    `  unidade canonica != exemplo do LOINC: ${catalogo.filter((a) => a.canonicalUnit !== a.loincExampleUnit).length}`,
+  );
+  for (const aviso of avisos) console.warn(`  AVISO: ${aviso}`);
+  if (avisos.length === 0) console.log('  Sem avisos.');
+}

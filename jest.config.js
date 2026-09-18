@@ -19,5 +19,13 @@ module.exports = {
   //
   // O padrao aceita os dois separadores porque o repositorio roda no Windows e
   // o Jest compara o caminho nativo: `\.claude\worktrees\`, com contrabarra.
-  testPathIgnorePatterns: ['/node_modules/', '[/\\\\]\\.claude[/\\\\]'],
+  testPathIgnorePatterns: ['/node_modules/', '[/\\]\.claude[/\\]'],
+  // O preset do jest-expo so transforma `.[jt]sx?`, e os geradores de
+  // scripts/ sao `.mjs` (o package.json nao tem "type": "module", entao `.js`
+  // ali seria CommonJS e `node scripts/...` quebraria). Sem esta entrada, um
+  // teste que importa o gerador morre em "Cannot use import statement outside
+  // a module". Quem precisa disso hoje: catalogoNaoDeriva.test.ts.
+  transform: {
+    '\\.mjs$': ['babel-jest', { caller: { name: 'metro', bundler: 'metro', platform: 'ios' } }],
+  },
 };
