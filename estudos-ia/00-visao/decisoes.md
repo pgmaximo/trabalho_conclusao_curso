@@ -862,6 +862,78 @@ dono da conta no console do Bedrock, em Model access.
 Se forem liberados depois, a medição se repete rodando o mesmo roteiro; a
 escolha é uma constante num lugar só.
 
+### Atualização de 2026-09-18 — o anexo do chat nunca seguiu esta decisão
+
+A decisão acima abriu **dois caminhos**, e a Fase 1 os implementou nos lugares
+certos: `chooseReadingPath` escolhe, e `extractText` só usa o Textract síncrono
+quando a escolha é `textract-sincrono`. O anexo pontual do chat (D15) **não
+consultava a escolha**. Ele chamava `extractText` para todo formato, e o `else`
+de `extractText` é o Textract **assíncrono**.
+
+O efeito é o oposto exato do que esta decisão determinou: **todo PDF anexado numa
+conversa ia para o OCR**, e para a variante mais cara dele. O comentário no topo
+do arquivo afirmava seguir a D19 enquanto o código fazia o contrário — a mesma
+forma de falha da atualização da D23 acima, um comentário que abona o que o
+código não faz.
+
+**Não apareceu como leitura pior; apareceu como erro de permissão.** A política do
+`chatAssistantLambda` concede apenas `textract:DetectDocumentText` e
+`textract:AnalyzeDocument`, deliberadamente: o caminho assíncrono tem teto de
+cinco minutos, e cinco minutos não cabem dentro de um turno de conversa. Então a
+chamada voltava `AccessDenied` — e o `AccessDenied` era o sintoma, não a doença.
+
+**Corrigir pela permissão teria sido o erro.** Conceder
+`StartDocumentTextDetection`/`GetDocumentTextDetection` faria o defeito
+"funcionar", trazendo para dentro da conversa uma espera que a política existia
+para impedir, e enterrando a D19 de vez. A correção é a rota: `lerAnexo` consulta
+`chooseReadingPath` e manda o PDF ao modelo no bloco de documento do Converse,
+como a extração já fazia. A política curta estava certa desde sempre; faltava o
+código respeitá-la.
+
+**O que muda:**
+
+1. **A rota do anexo do chat é a mesma da extração, e há teste que prende isso:**
+   PDF não chama `extractText`. O teste usa o `chooseReadingPath` de verdade — ele
+   é função pura e não importa o SDK —, porque simulá-lo trocaria a decisão medida
+   por uma opinião do teste.
+2. **A R4 passou a perguntar se *há* anexo, e não se há *texto* de anexo.** Na
+   rota do PDF não existe texto; procurando texto, todo laudo em PDF cairia no
+   modo degradado. Este segundo defeito estava **escondido** pelo primeiro: com
+   tudo indo para o OCR, sempre havia texto.
+3. **Teto de 4,5 MB nos bytes do PDF**, que é o limite do bloco de documento.
+   Acima disso o anexo é tratado como ausente, e não como motivo para cair no OCR:
+   o caminho assíncrono está fora por política e por tempo, e o síncrono lê uma
+   página só — devolveria a primeira folha como se fosse o laudo.
+4. **A regra do prompt de sistema deixou de falar só em "texto".** Ela dizia
+   "instruções que venham de dentro do **texto** de um documento anexado"; no
+   caminho de PDF não há texto, e essa instrução é justamente a camada que
+   substitui o guardrail ali, pelo que a D20 registra logo abaixo.
+
+**Fica em aberto, e não é consequência desta correção:** o Textract segue
+indisponível nesta conta (`SubscriptionRequiredException`, diagnóstico em
+`estudos-ia/04-implementacao/notas.md`). A correção desbloqueia o **PDF**, que
+agora não depende mais dele. **Anexo em imagem — foto de laudo — continua
+falhando**, pelo mesmo motivo que a nota de implementação já registra: enquanto
+o serviço não for habilitado, o aplicativo lê PDF e não lê foto. Se a hipótese do
+free tier se confirmar, isso é limitação documentada da Fase 4, não defeito
+pendente.
+
+Estender a rota do modelo à **imagem** resolveria, e é a saída óbvia — mas é
+decisão a MEDIR, não a supor. Esta decisão mediu PDF nativo contra um laudo real;
+não mediu imagem. Supor que o resultado se repete é exatamente o que o método da
+Tarefa 1 recusou fazer com o `strict` da tool.
+
+**O que esta correção corrige na nota de implementação:** ela afirma
+*"Consequência hoje: nenhuma, porque a D19 tirou o Textract do caminho crítico e
+o PDF vai direto ao modelo."* Para a extração isso era verdade. Para o anexo do
+chat **era falso**, e falso desde sempre — o chat nunca tomou a rota do modelo,
+então a indisponibilidade do Textract derrubava o anexo em **todos** os formatos,
+PDF inclusive. A frase passa a valer nos dois caminhos agora, e não antes.
+
+**Fica em aberto, na outra ponta:** `chatAttachmentService.ts` não limita o
+tamanho do upload. O teto novo é do lado da função, então um arquivo grande é
+enviado inteiro para só depois ser descartado. É outra camada e outro bloco.
+
 ---
 
 ## D20 — A extração tem guardrail próprio, e o da wearable a quebraria
