@@ -65,17 +65,17 @@
 
 ## 8. Fechamento do teste do item 1
 
-- [ ] `npx jest agenda-compromisso-fora-da-janela` verde, com a saída registrada.
-- [ ] Teste adicional: após `deleteAppointment`, o item some da lista sem remontar a tela (o registro de refetch de `appointmentsCache` já existe — confirmar que segue funcionando com o hook enxugado).
+- [x] `npx jest agenda-compromisso-fora-da-janela` verde, com a saída registrada. Evidência (Task 9, 2026-09-18): `npx jest agendaCompromissoForaDaJanela` (nome real do arquivo é `__tests__/agendaCompromissoForaDaJanela.test.tsx`, camelCase) → `Test Suites: 1 passed, 1 total` / `Tests: 3 passed, 3 total`.
+- [ ] Teste adicional: após `deleteAppointment`, o item some da lista sem remontar a tela (o registro de refetch de `appointmentsCache` já existe — confirmar que segue funcionando com o hook enxugado). Não coberto por comando executado nesta sessão (a suíte acima não inclui um teste de exclusão); fica desmarcado.
 
 ## 9. Validação final (evidência obrigatória)
 
-- [ ] `npm run validate` executado por inteiro, com a saída colada no relatório de fim de bloco. Nenhum item acima é marcado com base em leitura de código.
-- [ ] Verificação por `grep` de que nenhum arquivo de agenda constrói `Date` a partir de `scheduledAt` fora de `parseScheduledAt`, nem compara `scheduledAt` com `toISOString()`.
-- [ ] `git diff --stat` conferindo que `amplify/data/schemas/appointments.ts` e `package.json` não foram tocados.
-- [ ] Teste manual em dispositivo com Amplify sandbox (Node 20): criar um compromisso no passado, achá-lo por "Histórico", **excluí-lo**, e confirmar que some da Agenda e da Home. Este é o cenário exato reportado em 2026-09-18 — sem ele, a EPIC não está entregue.
+- [x] `npm run validate` executado por inteiro, com a saída colada no relatório de fim de bloco. Nenhum item acima é marcado com base em leitura de código. Evidência (Task 9, 2026-09-18): `npm run validate` → typecheck OK, typecheck:backend OK, lint sem erros (11 warnings pré-existentes, nenhum nos arquivos tocados nesta task), `test:ci` → `Test Suites: 101 passed, 101 total` / `Tests: 1128 passed, 1128 total`. Saída completa em `.superpowers/sdd/2026-09-18-agenda-navegacao-temporal/task-9-report.md`.
+- [x] Verificação por `grep` de que nenhum arquivo de agenda constrói `Date` a partir de `scheduledAt` fora de `parseScheduledAt`, nem compara `scheduledAt` com `toISOString()`. Evidência (Task 9, 2026-09-18): `grep -rnE "new Date\((appointment|entry|record|item)?\.?scheduledAt|scheduledAt.*toISOString|toISOString.*scheduledAt" src/screens/AgendaScreen.tsx src/hooks/useAppointmentsData.ts src/hooks/useAgendaNavigation.ts src/components/CalendarPicker.tsx` → nenhuma saída.
+- [x] `git diff --stat` conferindo que `amplify/data/schemas/appointments.ts` e `package.json` não foram tocados. Evidência (Task 9, 2026-09-18): `git diff --stat` → apenas `src/screens/AgendaScreen.tsx` e `src/utils/googleCalendar.ts`.
+- [ ] Teste manual em dispositivo com Amplify sandbox (Node 20): criar um compromisso no passado, achá-lo por "Histórico", **excluí-lo**, e confirmar que some da Agenda e da Home. Este é o cenário exato reportado em 2026-09-18 — sem ele, a EPIC não está entregue. **NÃO EXECUTADO** — exige dispositivo e backend reais (Amplify sandbox ativo), indisponíveis neste ambiente de agente. Fica para o usuário.
 
 ## 10. Documentação
 
-- [ ] `specs/design/GAP_ANALYSIS.md` (Bloco 2, linha 2c): registrar a extensão do Canvas com os 4 escopos e o Histórico, com a justificativa da regra 8 já escrita no `spec.md` §6.
-- [ ] Criar `specs/02-perfil-home-agenda/home-compromissos/` (EPIC irmã) com os defeitos da Home listados no `spec.md` §2.1, para que não se percam.
+- [x] `specs/design/GAP_ANALYSIS.md` (Bloco 2, linha 2c): registrar a extensão do Canvas com os 4 escopos e o Histórico, com a justificativa da regra 8 já escrita no `spec.md` §6. Evidência (Task 9, 2026-09-18): item `9.c` acrescentado logo após `9.b` em `specs/design/GAP_ANALYSIS.md`.
+- [ ] Criar `specs/02-perfil-home-agenda/home-compromissos/` (EPIC irmã) com os defeitos da Home listados no `spec.md` §2.1, para que não se percam. Não executado nesta sessão — fora do escopo do despacho da Task 9; fica desmarcado.
