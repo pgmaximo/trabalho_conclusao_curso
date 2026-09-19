@@ -5,12 +5,14 @@
 
 import React, { useEffect } from 'react';
 import { AgendaScreen } from '@/screens/AgendaScreen';
+import { useAgendaNavigation } from '@/hooks/useAgendaNavigation';
 import { useAppointmentsData } from '@/hooks/useAppointmentsData';
 import { listAppointmentsForUser } from '@/services/appointmentService';
 import { restoreAppointmentReminders } from '@/services/appointmentNotifications';
 
 export default function AppointmentsRoute() {
-  const appointments = useAppointmentsData();
+  const { appointments, isLoading, errorMessage, retry } = useAppointmentsData();
+  const navigation = useAgendaNavigation();
 
   useEffect(() => {
     void (async () => {
@@ -21,14 +23,11 @@ export default function AppointmentsRoute() {
 
   return (
     <AgendaScreen
-      dates={appointments.dates}
-      selectedDate={appointments.selectedDate}
-      selectedDayLabel={appointments.selectedDayLabel}
-      appointments={appointments.appointmentsForSelectedDate}
-      isLoading={appointments.isLoading}
-      errorMessage={appointments.errorMessage}
-      onRetry={appointments.retry}
-      onDateSelect={appointments.setSelectedDate}
+      appointments={appointments}
+      errorMessage={errorMessage}
+      isLoading={isLoading}
+      navigation={navigation}
+      onRetry={retry}
     />
   );
 }
