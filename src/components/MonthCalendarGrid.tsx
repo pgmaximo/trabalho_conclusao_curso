@@ -17,8 +17,8 @@ import type { CalendarDateItem } from '@/types/models';
 
 type MonthCalendarGridProps = {
   weeks: (CalendarDateItem | null)[][];
-  selectedIsoDate: string;
-  onSelectDate: (isoDate: string) => void;
+  selectedIsoDate?: string;
+  onSelectDate?: (isoDate: string) => void;
 };
 
 const WEEKDAY_HEADERS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
@@ -60,17 +60,8 @@ export function MonthCalendarGrid({ weeks, selectedIsoDate, onSelectDate }: Mont
 
             const isSelected = cell.isoDate === selectedIsoDate;
 
-            return (
-              <Pressable
-                accessibilityLabel={accessibilityLabelFor(cell)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                className="flex-1 items-center justify-center"
-                hitSlop={2}
-                key={cell.isoDate}
-                onPress={() => onSelectDate(cell.isoDate)}
-                style={({ pressed }) => [{ height: 44 }, pressed && { opacity: 0.6 }]}
-              >
+            const conteudo = (
+              <>
                 <View
                   className="h-9 w-9 items-center justify-center rounded-full"
                   style={{
@@ -99,6 +90,37 @@ export function MonthCalendarGrid({ weeks, selectedIsoDate, onSelectDate }: Mont
                     backgroundColor: cell.hasAppointments && !isSelected ? colors.primary : 'transparent',
                   }}
                 />
+              </>
+            );
+
+            // Sem `onSelectDate`, o toque nao coordena nada (§4 da spec) — a
+            // celula vira `View` nao-interativa, sem papel nem estado de botao,
+            // para o leitor de tela nao anunciar ~30 botoes inertes.
+            if (!onSelectDate) {
+              return (
+                <View
+                  accessibilityLabel={accessibilityLabelFor(cell)}
+                  className="flex-1 items-center justify-center"
+                  key={cell.isoDate}
+                  style={{ height: 44 }}
+                >
+                  {conteudo}
+                </View>
+              );
+            }
+
+            return (
+              <Pressable
+                accessibilityLabel={accessibilityLabelFor(cell)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                className="flex-1 items-center justify-center"
+                hitSlop={2}
+                key={cell.isoDate}
+                onPress={() => onSelectDate(cell.isoDate)}
+                style={({ pressed }) => [{ height: 44 }, pressed && { opacity: 0.6 }]}
+              >
+                {conteudo}
               </Pressable>
             );
           })}

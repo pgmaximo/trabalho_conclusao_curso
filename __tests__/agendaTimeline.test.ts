@@ -1,6 +1,4 @@
 import {
-  ROW_HEIGHT,
-  buildRowOffsets,
   buildTimelineRows,
   findTodayRowIndex,
 } from '@/services/agendaTimeline';
@@ -122,19 +120,5 @@ describe('findTodayRowIndex', () => {
 
   it('devolve -1 quando nao ha linhas', () => {
     expect(findTodayRowIndex([])).toBe(-1);
-  });
-});
-
-describe('buildRowOffsets', () => {
-  it('acumula as alturas por tipo de linha', () => {
-    const rows = buildTimelineRows([emDias(1)], AGORA);
-    const offsets = buildRowOffsets(rows);
-
-    expect(offsets).toHaveLength(rows.length);
-    expect(offsets[0]).toBe(0);
-
-    for (let i = 1; i < rows.length; i += 1) {
-      expect(offsets[i]).toBe(offsets[i - 1] + ROW_HEIGHT[rows[i - 1].kind]);
-    }
   });
 });

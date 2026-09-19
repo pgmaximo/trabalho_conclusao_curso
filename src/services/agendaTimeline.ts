@@ -4,12 +4,11 @@
 // =============================================================================
 //
 // Por que linhas achatadas e nao secoes: a tela abre ancorada em hoje, o que
-// exige `initialScrollIndex`, que exige `getItemLayout`. Escrever `getItemLayout`
-// a mao para `SectionList` e fragil (o indice intercala cabecalhos, rodapes e
-// separadores), e a biblioteca que resolve isso esta fora de cogitacao pela
-// regra 3 da constituicao. Achatando, `getItemLayout` vira soma de prefixos — e,
-// mais importante, a ancoragem vira logica pura que um teste verifica sem
-// renderizar nada.
+// exige rolar ate um indice. Calcular esse indice em cima de `SectionList` e
+// fragil (o indice intercala cabecalhos, rodapes e separadores), e a
+// biblioteca que resolve isso esta fora de cogitacao pela regra 3 da
+// constituicao. Achatando, a ancoragem vira logica pura — `findTodayRowIndex`
+// — que um teste verifica sem renderizar nada.
 //
 // `now` e sempre injetado: e o que torna os cenarios de virada de dia testaveis
 // sem relogio falso.
@@ -25,16 +24,6 @@ export type TimelineRow<T> =
   | { kind: 'card'; key: string; appointment: T; isPast: boolean }
   | { kind: 'todayEmpty'; key: string }
   | { kind: 'futureEmpty'; key: string };
-
-// Alturas fixas por tipo de linha. Sao o que permite `getItemLayout` exato e,
-// por consequencia, a lista abrir em hoje sem piscar. O card depende de o
-// endereco ser truncado em uma linha (ver AgendaScreen).
-export const ROW_HEIGHT: Record<TimelineRow<unknown>['kind'], number> = {
-  header: 36,
-  card: 88,
-  todayEmpty: 44,
-  futureEmpty: 128,
-};
 
 const WEEKDAY_LONG_FORMATTER = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' });
 const MONTH_LONG_FORMATTER = new Intl.DateTimeFormat('pt-BR', { month: 'long' });
@@ -161,16 +150,4 @@ export function buildTimelineRows<T extends TimelineAppointment>(
 
 export function findTodayRowIndex(rows: TimelineRow<unknown>[]): number {
   return rows.findIndex((row) => row.kind === 'header' && row.isToday);
-}
-
-export function buildRowOffsets(rows: TimelineRow<unknown>[]): number[] {
-  const offsets: number[] = [];
-  let acumulado = 0;
-
-  for (const row of rows) {
-    offsets.push(acumulado);
-    acumulado += ROW_HEIGHT[row.kind];
-  }
-
-  return offsets;
 }

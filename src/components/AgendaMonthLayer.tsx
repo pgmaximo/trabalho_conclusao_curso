@@ -11,7 +11,7 @@
 //
 // =============================================================================
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -26,7 +26,6 @@ import {
   isWithinRange,
   parseScheduledAt,
   shiftAnchor,
-  toIsoDate,
 } from '@/services/agendaDateRange';
 import type { AppointmentEntry } from '@/types/models';
 
@@ -52,7 +51,14 @@ export function AgendaMonthLayer({
   const colors = useThemeColors();
   const [today] = useState(() => new Date());
   const [anchor, setAnchor] = useState(() => new Date());
-  const [selectedIsoDate, setSelectedIsoDate] = useState(() => toIsoDate(new Date()));
+
+  // Camada fica montada entre aberturas: sem isto, reabrir mostra o ultimo mes
+  // visto, nao o mes corrente.
+  useEffect(() => {
+    if (visible) {
+      setAnchor(new Date());
+    }
+  }, [visible]);
 
   const scheduledAtList = useMemo(
     () => appointments.map((appointment) => appointment.scheduledAt),
@@ -101,11 +107,7 @@ export function AgendaMonthLayer({
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
-          <MonthCalendarGrid
-            onSelectDate={setSelectedIsoDate}
-            selectedIsoDate={selectedIsoDate}
-            weeks={weeks}
-          />
+          <MonthCalendarGrid weeks={weeks} />
 
           {doMes.length > 0 ? (
             doMes.map((appointment) => (

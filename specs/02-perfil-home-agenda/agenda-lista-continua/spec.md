@@ -139,12 +139,14 @@ Fonte real única, inalterada: `Appointment` no DynamoDB, via `useAppointmentsDa
 | `src/components/YearMonthsGrid.tsx` | Apagado — a visão de ano não serve a nenhum dos dois usos declarados |
 | `src/components/CalendarPicker.tsx` | Apagado — a faixa de dias desaparece |
 | `buildDayCells`, `buildWeekCells`, `buildYearCells` | Apagados de `agendaDateRange.ts` |
-| `AgendaScope`, `AgendaListOverride`, `shiftAnchor`, `formatPeriodLabel` | Apagados — sem escopo não há o que deslocar nem rotular |
+| `AgendaListOverride` | Apagado — sem escopo não há o que sobrepor |
 | `src/hooks/useAgendaNavigation.ts` | **Apagado.** O único estado que sobraria é o mês visível dentro da camada — e esse pertence à própria camada, não a um hook compartilhado. Um hook cujo único consumidor é um modal é indireção sem ganho |
 
 ### 5.2 O que sobrevive intacto
 
 `parseScheduledAt`, `isPast`, `compareScheduled`, `isWithinRange`, `isDateWithinRange`, `toIsoDate`, `startOfDay`, `buildRange` e `buildMonthCells` em `agendaDateRange.ts`; `MonthCalendarGrid`; `AppointmentCard`; `src/services/homeAppointments.ts` e toda a Home; `useAppointmentsData`; `appointmentService`; `amplify/**`.
+
+`AgendaScope`, `shiftAnchor` e `formatPeriodLabel` também sobrevivem, fora do escopo original desta tabela: a camada de mês (`AgendaMonthLayer.tsx`) os consome para navegar entre meses e rotular o mês visível, sempre com escopo `'mes'`.
 
 **O contrato de data é o ativo mais valioso das duas EPICs anteriores e não é tocado.**
 
@@ -189,7 +191,7 @@ Esta é uma **decisão de produto informada por uso posterior ao Canvas**. Deve 
 - [ ] Um `Appointment` com `scheduledAt` inválido aparece ao final, rotulado "Data inválida", e é tocável.
 - [ ] Estados de carregando e erro preservados sem alteração.
 - [ ] `AgendaScopeSelector`, `AgendaPeriodHeader`, `YearMonthsGrid` e `CalendarPicker` foram **apagados**, e nenhum import órfão restou. *(verificável por `grep`)*
-- [ ] `buildDayCells`, `buildWeekCells`, `buildYearCells`, `shiftAnchor`, `formatPeriodLabel`, `AgendaScope` e `AgendaListOverride` foram apagados de `agendaDateRange.ts`, e o restante do módulo segue verde.
+- [ ] `buildDayCells`, `buildWeekCells`, `buildYearCells` e `AgendaListOverride` foram apagados de `agendaDateRange.ts`, e o restante do módulo segue verde.
 - [ ] `grep` não encontra construção de `Date` a partir de `scheduledAt` nem comparação com `toISOString()` em nenhum arquivo da Agenda.
 - [ ] `src/services/homeAppointments.ts`, `src/app/(app)/dashboard.tsx`, `src/screens/HomeScreen.tsx`, `useAppointmentsData`, `appointmentService` e `amplify/**` não aparecem no diff.
 - [ ] Nenhuma biblioteca nova; nenhuma cor fora de `DESIGN_TOKENS.md`.

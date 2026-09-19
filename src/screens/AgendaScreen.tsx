@@ -14,8 +14,6 @@ import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { useThemeColors } from '@/constants/theme';
 import { parseScheduledAt } from '@/services/agendaDateRange';
 import {
-  ROW_HEIGHT,
-  buildRowOffsets,
   buildTimelineRows,
   findTodayRowIndex,
   type TimelineRow,
@@ -61,17 +59,7 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
   // `new Date()` no corpo do memo, e nao em dependencia: a lista e reconstruida
   // quando os compromissos mudam, nao a cada tique do relogio.
   const rows = useMemo(() => buildTimelineRows(appointments, new Date()), [appointments]);
-  const offsets = useMemo(() => buildRowOffsets(rows), [rows]);
   const todayIndex = useMemo(() => findTodayRowIndex(rows), [rows]);
-
-  const getItemLayout = useCallback(
-    (_: unknown, index: number) => ({
-      length: ROW_HEIGHT[rows[index]?.kind ?? 'card'],
-      offset: offsets[index] ?? 0,
-      index,
-    }),
-    [rows, offsets],
-  );
 
   // `todayIndexRef` e declarado ANTES do callback que o le: a FlatList exige que
   // `onViewableItemsChanged` seja uma referencia estavel, entao ele nao pode
@@ -114,7 +102,7 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
     ({ item }: { item: Row }) => {
       if (item.kind === 'header') {
         return (
-          <View accessibilityRole="header" style={{ height: ROW_HEIGHT.header, justifyContent: 'flex-end' }}>
+          <View accessibilityRole="header" style={{ paddingTop: 16, paddingBottom: 8 }}>
             <Text
               className={`text-[15px] font-semibold ${
                 item.isToday
@@ -130,7 +118,7 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
 
       if (item.kind === 'todayEmpty') {
         return (
-          <View style={{ height: ROW_HEIGHT.todayEmpty, justifyContent: 'center' }}>
+          <View style={{ paddingVertical: 12 }}>
             <Text className="text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
               Nada marcado para hoje.
             </Text>
@@ -140,7 +128,7 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
 
       if (item.kind === 'futureEmpty') {
         return (
-          <View style={{ height: ROW_HEIGHT.futureEmpty, justifyContent: 'center' }}>
+          <View style={{ paddingVertical: 12 }}>
             <Text className="mb-3 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
               Nada marcado daqui para frente.
             </Text>
@@ -157,7 +145,7 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
       }
 
       return (
-        <View style={{ height: ROW_HEIGHT.card, opacity: item.isPast ? 0.6 : 1 }}>
+        <View style={{ opacity: item.isPast ? 0.6 : 1 }}>
           <AppointmentCard
             location={item.appointment.location}
             onPress={() =>
@@ -229,10 +217,17 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
             <FlatList
               contentContainerStyle={{ paddingBottom: 48 }}
               data={rows}
-              getItemLayout={getItemLayout}
               initialNumToRender={rows.length}
               keyExtractor={(item) => item.key}
               onLayout={handleLayout}
+              onScrollToIndexFailed={({ index }) => {
+                // Sem `getItemLayout`, a lista pode ainda nao ter medido a linha
+                // alvo na primeira tentativa. Reagenda uma vez, depois desiste —
+                // a pilula "Hoje" continua disponivel como saida manual.
+                requestAnimationFrame(() => {
+                  listRef.current?.scrollToIndex({ index, animated: false });
+                });
+              }}
               onViewableItemsChanged={onViewableItemsChanged}
               ref={listRef}
               renderItem={renderRow}
