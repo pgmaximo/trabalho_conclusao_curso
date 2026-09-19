@@ -6,6 +6,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useColorScheme } from 'nativewind';
 import { router } from 'expo-router';
 
+import { AgendaMonthLayer } from '@/components/AgendaMonthLayer';
 import { AppointmentCard } from '@/components/AppointmentCard';
 import { EmptyState } from '@/components/EmptyState';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -253,6 +254,16 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
           </>
         )}
       </View>
+
+      <AgendaMonthLayer
+        appointments={appointments}
+        onClose={() => setMonthLayerOpen(false)}
+        onSelectAppointment={(id) => {
+          setMonthLayerOpen(false);
+          router.push(`/edit-appointment?id=${encodeURIComponent(id)}`);
+        }}
+        visible={monthLayerOpen}
+      />
     </SafeAreaView>
   );
 }
