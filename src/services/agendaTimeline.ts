@@ -16,7 +16,7 @@
 //
 // =============================================================================
 
-import { compareScheduled, parseScheduledAt, toIsoDate } from '@/services/agendaDateRange';
+import { compareScheduled, isPast, parseScheduledAt, toIsoDate } from '@/services/agendaDateRange';
 
 export type TimelineAppointment = { scheduledAt: string };
 
@@ -99,7 +99,14 @@ export function buildTimelineRows<T extends TimelineAppointment>(
     const iso = toIsoDate(date);
     const passado = iso < hojeIso;
 
-    if (!passado) {
+    // `temFuturo` responde "ainda ha algo pela frente?", que e pergunta de HORA, nao
+    // de dia: um compromisso hoje as 09:00 ja passou quando sao 14:00. `passado`
+    // acima continua em granularidade de dia de proposito — ele governa a atenuacao
+    // visual da secao inteira, e atenuar por hora faria um compromisso da manha
+    // escurecer enquanto o resto da secao de hoje segue normal.
+    // `=== false` e nao `!isPast(...)`: `isPast` devolve `boolean | null`, e `null`
+    // (data corrompida) nao e futuro.
+    if (isPast(appointment.scheduledAt, now) === false) {
       temFuturo = true;
     }
 

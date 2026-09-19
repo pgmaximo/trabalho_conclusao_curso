@@ -72,6 +72,21 @@ describe('buildTimelineRows', () => {
     expect(rows.some((row) => row.kind === 'futureEmpty')).toBe(false);
   });
 
+  it('acrescenta a linha de futuro vazio quando o unico compromisso de hoje ja passou', () => {
+    // AGORA e 14:00; o compromisso foi as 09:00. Em granularidade de dia ele nao
+    // e "passado", mas em hora ele e — e a pergunta que futureEmpty responde e
+    // de hora.
+    const rows = buildTimelineRows([emDias(0, 9)], AGORA);
+
+    expect(rows.some((row) => row.kind === 'futureEmpty')).toBe(true);
+  });
+
+  it('nao acrescenta a linha de futuro vazio quando ainda ha compromisso hoje mais tarde', () => {
+    const rows = buildTimelineRows([emDias(0, 20)], AGORA);
+
+    expect(rows.some((row) => row.kind === 'futureEmpty')).toBe(false);
+  });
+
   it('marca isPast nos cabecalhos e cards anteriores a hoje', () => {
     const rows = buildTimelineRows([emDias(-3), emDias(3)], AGORA);
     const cabecalhos = rows.filter((row) => row.kind === 'header') as { isPast: boolean }[];
