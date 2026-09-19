@@ -35,7 +35,7 @@ export function AgendaScopeSelector({ value, onChange }: AgendaScopeSelectorProp
             key={option.value}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
-            className={`h-11 flex-1 items-center justify-center rounded-app border ${
+            className={`h-12 flex-1 items-center justify-center rounded-app border ${
               isSelected
                 ? 'border-app-primary bg-app-primarySoft dark:border-app-dark-primary dark:bg-app-dark-primarySoft'
                 : 'border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface'

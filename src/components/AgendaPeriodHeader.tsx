@@ -37,8 +37,8 @@ export function AgendaPeriodHeader({
         accessibilityLabel="Período anterior"
         accessibilityRole="button"
         accessibilityState={{ disabled: navigationDisabled }}
+        className="h-12 w-12 items-center justify-center"
         disabled={navigationDisabled}
-        hitSlop={12}
         onPress={onPrevious}
         style={({ pressed }) => [pressed && { opacity: 0.6 }]}
       >
@@ -57,7 +57,7 @@ export function AgendaPeriodHeader({
       {canGoToToday && !navigationDisabled ? (
         <Pressable
           accessibilityRole="button"
-          hitSlop={8}
+          className="h-12 items-center justify-center px-2"
           onPress={onToday}
           style={({ pressed }) => [pressed && { opacity: 0.6 }]}
         >
@@ -71,8 +71,8 @@ export function AgendaPeriodHeader({
         accessibilityLabel="Próximo período"
         accessibilityRole="button"
         accessibilityState={{ disabled: navigationDisabled }}
+        className="h-12 w-12 items-center justify-center"
         disabled={navigationDisabled}
-        hitSlop={12}
         onPress={onNext}
         style={({ pressed }) => [pressed && { opacity: 0.6 }]}
       >
