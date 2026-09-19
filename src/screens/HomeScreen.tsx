@@ -10,6 +10,7 @@ import { QuickAccessButton } from '@/components/QuickAccessButton';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
+import { parseScheduledAt } from '@/services/agendaDateRange';
 import type { AppointmentEntry, AppointmentType, MedicalDocument } from '@/types/models';
 
 // DECISION (specs/02-perfil-home-agenda/home/spec.md §5): "Prevenção em atraso"
@@ -45,6 +46,10 @@ type HomeScreenProps = {
   appointmentsError: string | null;
   onRetryAppointments: () => void;
   onNavigateToExamDetail: (id: string) => void;
+  /** Abre o compromisso tocado (`/edit-appointment?id=`). Distinto de
+   *  `onNavigateToAppointments`, que continua levando a Agenda a partir de
+   *  "Ver agenda", do botao do Resumo, do estado vazio e do Acesso rapido. */
+  onNavigateToAppointmentDetail?: (id: string) => void;
   onNavigateToExams: () => void;
   onNavigateToAppointments?: () => void;
   onNavigateToAi?: () => void;
@@ -75,6 +80,7 @@ export function HomeScreen({
   appointmentsError,
   onRetryAppointments,
   onNavigateToExamDetail,
+  onNavigateToAppointmentDetail,
   onNavigateToExams,
   onNavigateToAppointments,
   onNavigateToAi,
@@ -184,7 +190,7 @@ export function HomeScreen({
               <UpcomingAppointmentCard
                 appointment={appointment}
                 key={appointment.id}
-                onPress={onNavigateToAppointments}
+                onPress={onNavigateToAppointmentDetail}
               />
             ))
           ) : (
@@ -359,7 +365,13 @@ const APPOINTMENT_BAR_CLASS: Record<AppointmentType, string> = {
 // selecionado. A Home lista compromissos de varios dias diferentes ao mesmo
 // tempo, entao precisa do proprio "Quando" derivado de `scheduledAt`.
 function formatAppointmentWhen(scheduledAt: string): string {
-  const date = new Date(scheduledAt);
+  const date = parseScheduledAt(scheduledAt);
+  if (!date) {
+    // Mesmo rotulo que a Agenda usa no modo "Historico", para a mesma condicao
+    // ter o mesmo nome nas duas telas.
+    return 'Data inválida';
+  }
+
   const today = new Date();
   const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
@@ -382,12 +394,15 @@ function UpcomingAppointmentCard({
   onPress,
 }: {
   appointment: AppointmentEntry;
-  onPress?: () => void;
+  onPress?: (id: string) => void;
 }) {
   return (
     <Pressable
-      className="mb-3 flex-row overflow-hidden rounded-card border border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface"
-      onPress={onPress}
+      accessibilityRole="button"
+      className="mb-3 min-h-[48px] flex-row overflow-hidden rounded-card border border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface"
+      // `AppointmentEntry.id` e `string | number`; a conversao acontece aqui, no
+      // ponto de chamada, para a rota receber sempre uma string.
+      onPress={() => onPress?.(String(appointment.id))}
       style={({ pressed }) => [pressed && { opacity: 0.7 }]}
     >
       <View className={`w-1 ${APPOINTMENT_BAR_CLASS[appointment.type]}`} />
