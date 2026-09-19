@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { FONTS, SIZES, useThemeColors } from '@/constants/theme';
+import type { CalendarDateItem } from '@/types/models';
 
 interface CalendarPickerProps {
-  selectedDate: number;
-  onDateSelect: (date: number) => void;
-  dates: { day: number; month: string; hasAppointments?: boolean }[];
+  selectedDate: string; // AAAA-MM-DD
+  onDateSelect: (isoDate: string) => void;
+  dates: CalendarDateItem[];
 }
 
 export function CalendarPicker({ selectedDate, onDateSelect, dates }: CalendarPickerProps) {
@@ -18,18 +19,20 @@ export function CalendarPicker({ selectedDate, onDateSelect, dates }: CalendarPi
       contentContainerStyle={styles.container}
     >
       {dates.map((date) => {
-        const isSelected = selectedDate === date.day;
+        const isSelected = selectedDate === date.isoDate;
         return (
           <Pressable
-            key={`${date.day}-${date.month}`}
+            key={date.isoDate}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSelected }}
             style={[
               styles.dateButton,
               {
-                borderColor: isSelected ? colors.primary : colors.border,
+                borderColor: isSelected ? colors.primary : date.isToday ? colors.secondary : colors.border,
                 backgroundColor: isSelected ? colors.primary : colors.surface,
               },
             ]}
-            onPress={() => onDateSelect(date.day)}
+            onPress={() => onDateSelect(date.isoDate)}
           >
             <Text style={[styles.dayText, { color: isSelected ? colors.onPrimary : colors.text }]}>
               {date.day}
