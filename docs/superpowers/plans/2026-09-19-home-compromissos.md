@@ -475,8 +475,10 @@ Expected: **PASS**, todos os `describe`. O teste de tela continua vermelho — �
 
 - [ ] **Step 4: Confirmar a pureza**
 
-Run: `grep -nE "react|expo|amplify|async-storage" src/services/homeAppointments.ts`
+Run: `grep -nE "^import .*(react|expo|amplify|async-storage)" src/services/homeAppointments.ts`
 Expected: **nenhuma saída**.
+
+O padrão é **ancorado em `^import`** de propósito. A versão solta (`grep -nE "react|expo|..."`) casa a palavra `export`, porque `expo` é substring dela — devolveria uma linha por função exportada, e um "zero" relatado sobre ela seria falso.
 
 - [ ] **Step 5: Checkpoint**
 
