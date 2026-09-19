@@ -4,7 +4,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { AgendaScreen } from '@/screens/AgendaScreen';
-import { useAgendaNavigation } from '@/hooks/useAgendaNavigation';
 import type { AppointmentEntry } from '@/types/models';
 
 jest.mock('expo-router', () => ({
@@ -52,64 +51,70 @@ const PASSADO: AppointmentEntry = {
   scheduledAt: isoEmDias(-20, '14:00'),
 };
 
-// Wrapper: a tela e de apresentacao pura, entao o hook de navegacao vive aqui,
-// exatamente como a rota real fara na Task 8.
-function Harness({ appointments }: { appointments: AppointmentEntry[] }) {
-  const navigation = useAgendaNavigation();
-  return (
-    <AgendaScreen
-      appointments={appointments}
-      errorMessage={null}
-      isLoading={false}
-      navigation={navigation}
-      onRetry={jest.fn()}
-    />
-  );
-}
+const CORROMPIDO: AppointmentEntry = {
+  id: 'apt-corrompido',
+  time: '--:--',
+  title: 'Consulta sem data',
+  location: 'Local desconhecido',
+  type: 'consulta',
+  scheduledAt: 'lixo',
+};
 
 function renderAgenda(appointments: AppointmentEntry[]) {
   return render(
     <SafeAreaProvider initialMetrics={METRICS}>
-      <Harness appointments={appointments} />
+      <AgendaScreen
+        appointments={appointments}
+        errorMessage={null}
+        isLoading={false}
+        onRetry={jest.fn()}
+      />
     </SafeAreaProvider>,
   );
 }
 
-describe('Agenda — compromissos fora da janela de 7 dias', () => {
+describe('Agenda — todo compromisso e alcancavel na lista continua', () => {
   beforeEach(() => {
     (router.push as jest.Mock).mockClear();
   });
 
-  it('alcanca um compromisso a 13 dias pelo modo "Proximos" e abre a tela de edicao', () => {
+  it('mostra um compromisso a 13 dias SEM nenhuma interacao', () => {
     renderAgenda([FUTURO_DISTANTE, PASSADO]);
 
-    fireEvent.press(screen.getByText('Próximos'));
-
+    // A garantia e mais forte que na versao anterior deste teste: antes era
+    // preciso tocar um chip para alcancar o compromisso. Agora ele esta la.
     expect(screen.getByText('Cardiologista')).toBeTruthy();
+  });
+
+  it('mostra um compromisso de 20 dias atras SEM nenhuma interacao', () => {
+    renderAgenda([FUTURO_DISTANTE, PASSADO]);
+
+    expect(screen.getByText('Medico de cabeca')).toBeTruthy();
+  });
+
+  it('abre a tela de edicao do compromisso futuro tocado', () => {
+    renderAgenda([FUTURO_DISTANTE, PASSADO]);
 
     fireEvent.press(screen.getByText('Cardiologista'));
 
     expect(router.push).toHaveBeenCalledWith('/edit-appointment?id=apt-futuro');
   });
 
-  it('alcanca um compromisso passado pelo modo "Historico" e abre a tela de edicao', () => {
+  it('abre a tela de edicao do compromisso passado tocado', () => {
     renderAgenda([FUTURO_DISTANTE, PASSADO]);
-
-    fireEvent.press(screen.getByText('Histórico'));
-
-    expect(screen.getByText('Medico de cabeca')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Medico de cabeca'));
 
     expect(router.push).toHaveBeenCalledWith('/edit-appointment?id=apt-passado');
   });
 
-  it('nao mostra o compromisso a 13 dias no escopo Dia ancorado em hoje', () => {
-    renderAgenda([FUTURO_DISTANTE, PASSADO]);
+  it('mostra e permite abrir um compromisso com data corrompida', () => {
+    renderAgenda([FUTURO_DISTANTE, CORROMPIDO]);
 
-    // Comportamento correto e desejado: o escopo Dia recorta so o dia atual.
-    // O defeito nunca foi este recorte — foi nao existir nenhum outro caminho.
-    expect(screen.queryByText('Cardiologista')).toBeNull();
-    expect(screen.queryByText('Medico de cabeca')).toBeNull();
+    expect(screen.getByText('Data inválida')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Consulta sem data'));
+
+    expect(router.push).toHaveBeenCalledWith('/edit-appointment?id=apt-corrompido');
   });
 });
