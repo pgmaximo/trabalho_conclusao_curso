@@ -18,8 +18,7 @@ export function buildGoogleCalendarUrl(appointment: GoogleCalendarAppointment): 
   const end = new Date(start.getTime() + 60 * 60 * 1000);
 
   const formatGoogleDate = (date: Date) => {
-    const utcDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return utcDate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
   };
 
   const url = new URL('https://calendar.google.com/calendar/render');

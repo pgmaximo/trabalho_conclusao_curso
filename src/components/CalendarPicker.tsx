@@ -1,12 +1,26 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { FONTS, SIZES, useThemeColors } from '@/constants/theme';
+import { parseScheduledAt } from '@/services/agendaDateRange';
 import type { CalendarDateItem } from '@/types/models';
 
 interface CalendarPickerProps {
   selectedDate: string; // AAAA-MM-DD
   onDateSelect: (isoDate: string) => void;
   dates: CalendarDateItem[];
+}
+
+// Rotulo por extenso para leitor de tela: "15" sozinho nao diz nada.
+const DATE_LABEL_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+function accessibilityLabelFor(date: CalendarDateItem): string {
+  const parsed = parseScheduledAt(date.isoDate);
+  const label = parsed ? DATE_LABEL_FORMATTER.format(parsed) : `${date.day} ${date.month}`;
+  return date.hasAppointments ? `${label}, com compromissos` : label;
 }
 
 export function CalendarPicker({ selectedDate, onDateSelect, dates }: CalendarPickerProps) {
@@ -23,6 +37,7 @@ export function CalendarPicker({ selectedDate, onDateSelect, dates }: CalendarPi
         return (
           <Pressable
             key={date.isoDate}
+            accessibilityLabel={accessibilityLabelFor(date)}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
             style={[
