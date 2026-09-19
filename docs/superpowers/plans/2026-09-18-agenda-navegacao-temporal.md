@@ -20,6 +20,7 @@
 - **Contrato de data:** `scheduledAt` é `"AAAA-MM-DDTHH:mm"`, hora **local ingênua, sem offset**. Nenhum arquivo de agenda pode chamar `new Date(scheduledAt)` nem comparar `scheduledAt` com `new Date().toISOString()`. Todo acesso passa por `parseScheduledAt`.
 - **Semana começa no domingo** (`getDay() === 0`), como já faz `src/components/DateInput.tsx`.
 - **Aritmética de data:** sempre pelo construtor `new Date(y, m, d)` com valores fora de faixa, que normaliza sozinho. **Nunca** somar milissegundos (`+ 7 * 86400000`) a um `Date`.
+- **Gotcha do NativeWind** (descoberto na revisão da Task 6, e já documentado no repositório em `src/components/BackHeader.tsx` e no `SectionLink` de `src/screens/HomeScreen.tsx`): um `Pressable` com `style={({ pressed }) => ...}` e **sem** prop `className` tem o resultado da função **descartado** — renderiza sem estilo nenhum. Todo `Pressable` com `style` função neste plano carrega `className`, e dar-lhe ali uma altura resolve de uma vez o estilo e o alvo de toque de 48dp.
 - **Commits:** o `AGENTS.md` deste projeto proíbe commitar ou dar push sem autorização explícita. Cada task termina num **checkpoint**: rode a verificação, mostre `git diff --stat`, e **pare para pedir autorização**. A mensagem de commit sugerida vem pronta em cada checkpoint, para ser usada quando a autorização vier.
 - **Comando de teste único:** `npx jest <substring do arquivo>`. Validação completa: `npm run validate`.
 - **Node 20** (`nvm use 20.20.1`) para qualquer comando Amplify — o `ampx` quebra no Node 22/24.
@@ -1415,7 +1416,7 @@ export function AgendaScopeSelector({ value, onChange }: AgendaScopeSelectorProp
             key={option.value}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
-            className={`h-11 flex-1 items-center justify-center rounded-app border ${
+            className={`h-12 flex-1 items-center justify-center rounded-app border ${
               isSelected
                 ? 'border-app-primary bg-app-primarySoft dark:border-app-dark-primary dark:bg-app-dark-primarySoft'
                 : 'border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface'
@@ -1482,8 +1483,12 @@ export function AgendaPeriodHeader({
         accessibilityLabel="Período anterior"
         accessibilityRole="button"
         accessibilityState={{ disabled: navigationDisabled }}
+        // O `className` NÃO é decorativo: um Pressable com `style` função e SEM
+        // className tem o resultado da função descartado pelo NativeWind (mesmo
+        // defeito documentado em BackHeader.tsx e em SectionLink/HomeScreen.tsx).
+        // A altura h-12 também entrega o alvo de toque de 48dp sem hitSlop.
+        className="h-12 w-12 items-center justify-center"
         disabled={navigationDisabled}
-        hitSlop={12}
         onPress={onPrevious}
         style={({ pressed }) => [pressed && { opacity: 0.6 }]}
       >
@@ -1502,7 +1507,7 @@ export function AgendaPeriodHeader({
       {canGoToToday && !navigationDisabled ? (
         <Pressable
           accessibilityRole="button"
-          hitSlop={8}
+          className="h-12 items-center justify-center px-2"
           onPress={onToday}
           style={({ pressed }) => [pressed && { opacity: 0.6 }]}
         >
@@ -1516,8 +1521,8 @@ export function AgendaPeriodHeader({
         accessibilityLabel="Próximo período"
         accessibilityRole="button"
         accessibilityState={{ disabled: navigationDisabled }}
+        className="h-12 w-12 items-center justify-center"
         disabled={navigationDisabled}
-        hitSlop={12}
         onPress={onNext}
         style={({ pressed }) => [pressed && { opacity: 0.6 }]}
       >
