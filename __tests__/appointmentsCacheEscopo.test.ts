@@ -45,6 +45,17 @@ describe('appointmentsCache — escopo por usuario e TTL', () => {
     expect(await loadCachedAppointments()).toBeNull();
   });
 
+  it('devolve null para um envelope malformado (sem savedAt numerico)', async () => {
+    getUserIdMock.mockResolvedValue('usuario-a');
+    // Mesmo formato de chave que o modulo constroi: `prefixo:userId`.
+    await AsyncStorage.setItem(
+      '@SuaSaude:appointmentsCache:usuario-a',
+      JSON.stringify([{ id: 'apt-cru' }]),
+    );
+
+    expect(await loadCachedAppointments()).toBeNull();
+  });
+
   it('invalida o cache mesmo quando nao ha sessao — o caso do logout', async () => {
     getUserIdMock.mockResolvedValue('usuario-a');
     await saveAppointmentsCache([{ id: 'apt-a' }]);

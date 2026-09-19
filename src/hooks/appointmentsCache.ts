@@ -52,12 +52,19 @@ export async function loadCachedAppointments<T>(): Promise<T | null> {
       return null;
     }
 
-    const envelope = JSON.parse(raw) as CacheEnvelope<T>;
+    const envelope = JSON.parse(raw) as Partial<CacheEnvelope<T>>;
+    // Ignora o formato sem envelope (ou com envelope incompleto): sem
+    // `savedAt` numerico, `Date.now() - undefined` e `NaN`, `NaN > CACHE_TTL_MS`
+    // e `false`, e a expiracao nunca dispara — o cache viraria eterno. A
+    // proxima leitura recarrega o backend e o substitui por um envelope valido.
+    if (typeof envelope.savedAt !== 'number' || !('value' in envelope)) {
+      return null;
+    }
     if (Date.now() - envelope.savedAt > CACHE_TTL_MS) {
       return null;
     }
 
-    return envelope.value;
+    return envelope.value as T;
   } catch (error) {
     console.warn('Failed to load cached appointments:', error);
     return null;

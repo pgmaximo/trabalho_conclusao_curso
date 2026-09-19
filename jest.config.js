@@ -2,6 +2,23 @@
 const path = require('path');
 
 /**
+ * Fixa o fuso da suite em `America/Sao_Paulo`, ANTES de o Jest montar os
+ * ambientes de teste (o Node le `process.env.TZ` na inicializacao, e este
+ * arquivo e avaliado antes disso).
+ *
+ * O motivo e o teste de regressao do defeito principal da Home
+ * (`__tests__/homeCompromissos.test.ts`, caso "inclui um compromisso de hoje
+ * daqui a duas horas"): ele compara uma hora local ingenua
+ * (`scheduledAt`, formato `AAAA-MM-DDTHH:mm`, sem fuso) com um ISO em UTC
+ * (`new Date().toISOString()`). Em fusos a oeste de Greenwich a comparacao
+ * pega a armadilha; em UTC nao -- `"2026-09-18T16:00" >= "2026-09-18T14:00:00.000Z"`
+ * e `true` mesmo com o defeito de volta, e o teste passaria sem acusar nada.
+ * Como o assunto do teste e justamente fuso horario, a suite precisa rodar
+ * num fuso conhecido em vez de herdar o que o ambiente calhar de ter.
+ */
+process.env.TZ = 'America/Sao_Paulo';
+
+/**
  * Monta a expressao regular que casa um caminho absoluto.
  *
  * DUAS ARMADILHAS, e as duas foram medidas em 2026-09-18:
