@@ -89,7 +89,7 @@ export function AppointmentCard({ time, dateLabel, title, location, type, onPres
         </View>
 
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-        <Text style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
+        <Text numberOfLines={1} style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
       </View>
     </Pressable>
   );
