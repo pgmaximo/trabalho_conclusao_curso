@@ -1,4 +1,4 @@
-import { formatarDecimal } from '@/utils/decimalDisplay';
+import { formatarDecimal, formatarFaixa } from '@/utils/decimalDisplay';
 
 // O banco guarda ponto decimal; o papel e a pessoa usam virgula. Este modulo
 // e so a traducao de volta -- e o cuidado de nunca deixar o arredondamento
@@ -34,5 +34,27 @@ describe('formatarDecimal', () => {
 
   it('zero de verdade continua zero', () => {
     expect(formatarDecimal(0)).toBe('0');
+  });
+});
+
+// Esta funcao nao tinha um unico teste, e o plano do Bloco 9 afirmava que
+// tinha. Ela e a metade de tela do F3: o laudo que escreve "Superior a 40
+// mg/dL" so vira faixa visivel se ela souber escrever um lado so.
+describe('formatarFaixa', () => {
+  it('escreve os dois limites quando o laudo deu os dois', () => {
+    expect(formatarFaixa(30, 100)).toBe('30 a 100');
+  });
+
+  it('escreve UM LADO SO quando o laudo deu um limite so (F3)', () => {
+    expect(formatarFaixa(40, null)).toBe('acima de 40');
+    expect(formatarFaixa(null, 200)).toBe('até 200');
+  });
+
+  it('sem limite nenhum nao inventa faixa', () => {
+    expect(formatarFaixa(null, null)).toBeNull();
+  });
+
+  it('respeita a virgula decimal do laudo brasileiro', () => {
+    expect(formatarFaixa(0.4, 4.3)).toBe('0,4 a 4,3');
   });
 });

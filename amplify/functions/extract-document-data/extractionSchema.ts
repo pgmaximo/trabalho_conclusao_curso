@@ -28,6 +28,22 @@ export const rawLabResultSchema = z
     rawUnit: z.string().max(40).nullable(),
     rawReferenceLow: z.string().max(40).nullable(),
     rawReferenceHigh: z.string().max(40).nullable(),
+    /**
+     * A faixa COMO O PAPEL A APRESENTA, quando ela nao cabe em dois numeros.
+     *
+     * Medido em 2026-09-19: 14 das 48 linhas do laudo do Delboni entraram sem
+     * faixa nenhuma, e em doze delas o laudo TINHA informado -- em tabela por
+     * risco, por idade, por sexo, por jejum, ou em categorias. Dois numeros
+     * nao alcancam nenhuma dessas formas, e reduzi-las a um par seria ESCOLHER
+     * uma linha da tabela, que e interpretar (D3 do Bloco 9).
+     *
+     * `optional` e nao obrigatorio: a faixa que ja coube nos dois limites nao
+     * se repete aqui, e linha lida antes deste campo existir continua valida.
+     * O teto de 400 e o mesmo do `rawText` da receita -- a tabela de perfil
+     * lipideo cabe, e o limite existe para o campo nao virar um despejo do
+     * laudo inteiro.
+     */
+    rawReferenceText: z.string().max(400).nullable().optional(),
     /** ISO, da LINHA (D24). Vazio e resposta legitima: quem decide a reserva
      *  e o orquestrador, com a data do formulario e um aviso -- nunca o
      *  modelo com uma data inventada. */
@@ -65,6 +81,18 @@ export const rawPrescriptionSchema = z
 export const extractionSchema = z
   .object({
     documentKind: z.enum(['exam', 'prescription']),
+    /**
+     * Quem emitiu o laudo, COMO ESTA ESCRITO no papel -- sem normalizar.
+     *
+     * No nivel do DOCUMENTO e nao da linha: o laboratorio e do laudo, nao do
+     * analito. Opcional porque laudo que nao diz quem emitiu continua sendo um
+     * laudo, e preferir vazio a chutar e a regra desta feature inteira.
+     *
+     * Normalizar "Delboni", "Delboni Auriemo" e "DASA" no mesmo emissor e
+     * resolucao de entidade, e nao precisa estar resolvida para o campo ser
+     * util -- a S8 so precisa distinguir DE QUEM e cada faixa de referencia.
+     */
+    laboratorio: z.string().max(120).optional(),
     labResults: z.array(rawLabResultSchema).max(120),
     prescriptionItems: z.array(rawPrescriptionSchema).max(40),
     /** Em pt-BR, do que o modelo nao conseguiu ler. Lista vazia e normal. */

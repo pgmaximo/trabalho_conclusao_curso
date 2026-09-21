@@ -29,6 +29,7 @@ jest.mock('../degradedAnswer', () => ({
   buildDegradedAnswer: (...a: unknown[]) => mockBuildDegradedAnswer(...a),
 }));
 
+import { TEXTO_DE_ENCAMINHAMENTO } from '../encaminhamento';
 import { INDISPONIVEL, responderComVerificacao } from '../verificacao';
 
 const IDENTIDADE = { sub: 's-1', username: 'u-1', owner: 's-1::u-1' };
@@ -232,12 +233,21 @@ describe('a classificacao da pergunta', () => {
     expect((await responderComVerificacao(ENTRADA)).status).toBe('APROVADA');
   });
 
-  it('pergunta clinica SEM encaminhamento e reprovada pela R2', async () => {
+  it('pergunta clinica SEM encaminhamento recebe o encaminhamento do aplicativo', async () => {
+    // Ate 2026-09-19 este caso gastava uma segunda geracao, e quando ela
+    // tambem esquecia, a resposta inteira ia embora. A decisao A2 trocou isso:
+    // a R2 sozinha nao derruba mais nada, porque o aplicativo sabe escrever a
+    // frase que falta. O que continua valendo e a CLASSIFICACAO -- a pergunta
+    // e clinica, e por isso o encaminhamento tem que estar na resposta.
     mockRunConversationTurn.mockResolvedValue(
       turno('Seu registro de março mostra 32,5 ng/mL.', ['consultar_analito'], CITACAO_VALIDA),
     );
-    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
-    expect((await responderComVerificacao(ENTRADA)).status).toBe('APROVADA_NA_SEGUNDA');
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toContain(TEXTO_DE_ENCAMINHAMENTO);
+    expect(mockRegenerateAnswer).not.toHaveBeenCalled();
   });
 
   it('sem tool nenhuma a pergunta e operacional', async () => {
@@ -395,5 +405,432 @@ describe('a R4 no sentido da OMISSAO', () => {
     mockRegenerateAnswer.mockResolvedValue(turno('Não tenho esse exame registrado.', []));
     const r = await responderComVerificacao(ENTRADA);
     expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+  });
+});
+
+/**
+ * A C10 pede "a distribuicao das reprovacoes por regra (R1 a R4) e quantas sao
+ * falso positivo". Em 2026-09-18 isso era IMPOSSIVEL de medir: a reprovacao nao
+ * deixava rastro nenhum -- `verificacao.ts` nao tinha um `console.` sequer.
+ *
+ * O sintoma apareceu com o aplicativo na mao: a conversa devolveu "nao consegui
+ * escrever uma resposta" e nem o log sabia por que. Sem estes registros, toda
+ * reprovacao e uma caixa preta, e a C10 nao tem de onde tirar numero.
+ *
+ * O QUE NAO PODE SER REGISTRADO: o texto reprovado. Ele nao sai da funcao nem
+ * para o log -- um log e lido por gente e guardado por tempo indeterminado, e
+ * dado de saude num log e dado de saude vazado. So o identificador da regra.
+ */
+describe('rastro da reprovacao', () => {
+  let info: jest.SpyInstance;
+
+  beforeEach(() => {
+    info = jest.spyOn(console, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => info.mockRestore());
+
+  function registros() {
+    return info.mock.calls.map((c) => String(c[0]));
+  }
+
+  it('registra QUAL regra reprovou, nas duas geracoes', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(COM_POSOLOGIA));
+    mockRegenerateAnswer.mockResolvedValue(turno(COM_POSOLOGIA));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    await responderComVerificacao(ENTRADA);
+
+    const tudo = registros().join('\n');
+    expect(tudo).toContain('resposta-reprovada');
+    expect(tudo).toMatch(/R[1-4]/);
+    // As duas etapas deixam rastro, senao nao da para saber quantas a segunda
+    // geracao salva -- que e o gatilho de reabertura da D31.
+    expect(tudo).toContain('primeira');
+    expect(tudo).toContain('segunda');
+  });
+
+  it('nunca registra o texto reprovado', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(COM_POSOLOGIA));
+    mockRegenerateAnswer.mockResolvedValue(turno(COM_POSOLOGIA));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    await responderComVerificacao(ENTRADA);
+
+    for (const linha of registros()) {
+      expect(linha).not.toContain('2000');
+      expect(linha).not.toContain('Tome');
+    }
+  });
+
+  it('nao registra reprovacao quando a resposta passa', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(registros().join('\n')).not.toContain('resposta-reprovada');
+  });
+});
+
+/**
+ * U1/U2/U3 -- a R2 classificava pelo eixo errado.
+ *
+ * Medido em producao, 2026-09-18: 2 de 2 reprovacoes foram R2, e as duas eram
+ * falso positivo. "Faca uma visao de todos" foi classificada como CLINICA
+ * porque `consultar_exames` estava na lista de tools clinicas -- nao porque a
+ * resposta trouxesse medida nenhuma. O modelo escreveu um panorama, nao fechou
+ * com o rodape, e a resposta foi descartada duas vezes.
+ *
+ * O eixo passa de "qual ferramenta rodou" para "o que a resposta diz". Isso
+ * APERTA em um sentido e afrouxa em outro, e os dois tem caso aqui.
+ */
+describe('classificacao clinica (U2)', () => {
+  let info: jest.SpyInstance;
+  beforeEach(() => {
+    info = jest.spyOn(console, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => info.mockRestore());
+
+  const regrasRegistradas = () => info.mock.calls.map((c) => String(c[0])).join('\n');
+
+  // Comeca com "Encontrei" e nao com "Você tem" de proposito: a primeira
+  // redacao deste caso usava "Você tem um Exame de sangue guardado" e falhava
+  // -- nao pela R2, mas pela R3, cujo padrao de diagnostico e "você tem" SEM
+  // exigir objeto nenhum. O caso estava errado, nao o codigo; corrigido aqui, e
+  // o defeito da R3 que ele revelou virou tarefa propria (U3b, abaixo).
+  const SO_DOCUMENTO = 'Encontrei um Exame de sangue guardado, de 18/09/2026.';
+  const COM_MEDIDA_SEM_ENCAMINHAMENTO = 'Sua glicose foi 86 mg/dL nesse exame.';
+  const CONDICAO_SEM_UNIDADE = 'No seu perfil está registrado que você tem asma.';
+
+  it('resposta com so nome e data de documento NAO e reprovada pela R2', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(SO_DOCUMENTO, ['consultar_exames']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(regrasRegistradas()).not.toContain('R2');
+  });
+
+  it('resposta COM medida continua obrigada ao encaminhamento, venha de onde vier', async () => {
+    // O aperto: mesmo com uma tool que saiu da lista clinica, o texto manda.
+    mockRunConversationTurn.mockResolvedValue(
+      turno(COM_MEDIDA_SEM_ENCAMINHAMENTO, ['consultar_exames']),
+    );
+    mockRegenerateAnswer.mockResolvedValue(turno(COM_MEDIDA_SEM_ENCAMINHAMENTO, ['consultar_exames']));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(regrasRegistradas()).toContain('R2');
+  });
+
+  it('dado de saude SEM unidade continua clinico -- a armadilha do perfil', async () => {
+    // Condicao cronica e alergia sao dado de saude e nao tem unidade de
+    // medida. So o texto nao bastaria: o classificador tem DUAS entradas.
+    mockRunConversationTurn.mockResolvedValue(turno(CONDICAO_SEM_UNIDADE, ['consultar_perfil']));
+    mockRegenerateAnswer.mockResolvedValue(turno(CONDICAO_SEM_UNIDADE, ['consultar_perfil']));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(regrasRegistradas()).toContain('R2');
+  });
+});
+
+/**
+ * U18 -- o custo por turno, que a C10 pede e que nunca foi escrito.
+ *
+ * O dado ja chega do Bedrock e era descartado: `runConversationTurn` devolve
+ * `inputTokens` e `outputTokens`, e ninguem os lia. Sem isto, "quanto custa um
+ * turno" so se descobre pela fatura no fim do mes, que nao separa por pergunta.
+ *
+ * Uma linha POR GERACAO, e nao por turno: e a unica forma de saber o que a
+ * segunda geracao custa, que e metade do gatilho de reabertura da D31.
+ */
+describe('rastro do custo (U18)', () => {
+  let info: jest.SpyInstance;
+  beforeEach(() => {
+    info = jest.spyOn(console, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => info.mockRestore());
+
+  const linhasDeCusto = () =>
+    info.mock.calls.map((c) => String(c[0])).filter((l) => l.includes('geracao-concluida'));
+
+  it('registra os tokens da geracao aprovada', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+
+    await responderComVerificacao(ENTRADA);
+
+    expect(linhasDeCusto()).toHaveLength(1);
+    expect(linhasDeCusto()[0]).toContain('"entrada":10');
+    expect(linhasDeCusto()[0]).toContain('"saida":5');
+    expect(linhasDeCusto()[0]).toContain('"etapa":"primeira"');
+  });
+
+  it('registra as DUAS geracoes quando houve duas', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(COM_POSOLOGIA));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+
+    await responderComVerificacao(ENTRADA);
+
+    expect(linhasDeCusto()).toHaveLength(2);
+    expect(linhasDeCusto()[1]).toContain('"etapa":"segunda"');
+  });
+
+  it('nunca registra o texto da resposta', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+
+    await responderComVerificacao(ENTRADA);
+
+    for (const linha of linhasDeCusto()) {
+      expect(linha).not.toContain('32,5');
+      expect(linha).not.toContain('vitamina');
+    }
+  });
+});
+
+/**
+ * U13 -- a ORDEM entre limpar e verificar, que e onde mora o risco.
+ *
+ * Limpar depois de verificar seria uma porta de evasao: a marcacao parte a
+ * palavra ao meio, a regra nao a reconhece, e a limpeza a remonta inteira na
+ * tela. O caso abaixo usa a R3 para demonstrar isso sem escrever o termo
+ * vetado do projeto em lugar nenhum.
+ */
+describe('limpeza antes da verificacao (U13)', () => {
+  // O encaminhamento esta AQUI de proposito: sem ele a R2 reprovaria a frase e
+  // o caso passaria pelo motivo errado -- foi o que aconteceu na primeira
+  // redacao deste teste. Com a R2 satisfeita, so a R3 pode reprovar, e e ela
+  // que a marcacao estava escondendo.
+  const COM_MARCACAO = 'Seu exame está **alterado**. Leve ao seu médico.';
+
+  it('a marcacao nao esconde a violacao da regra', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(COM_MARCACAO, ['consultar_analito']));
+    mockRegenerateAnswer.mockResolvedValue(turno(COM_MARCACAO, ['consultar_analito']));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+  });
+
+  it('a resposta aprovada sai sem marcacao nenhuma', async () => {
+    mockRunConversationTurn.mockResolvedValue(
+      turno(`**${LIMPA}**`, ['consultar_analito'], CITACAO_VALIDA),
+    );
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).not.toContain('**');
+    expect(r.texto).toBe(LIMPA);
+  });
+});
+
+/**
+ * A R5 ligada ao turno. O verificador so sabe se ha dado se alguem contar, e
+ * quem viu o que as tools devolveram e ESTE modulo -- mesma razao pela qual
+ * `temOrigem` e `questionKind` tambem nascem aqui.
+ *
+ * `semDados` e verdadeiro quando ferramentas FORAM chamadas e TODAS disseram
+ * que nao ha dado. As duas metades importam: sem a primeira, um "ola" sem tool
+ * nenhuma seria reprovado por nao dizer que falta algo.
+ */
+describe('R5 no turno', () => {
+  function turnoSemDado(texto: string) {
+    return {
+      ok: true,
+      answer: { texto, citacoes: [], toolsUsadas: ['consultar_exames'] },
+      transcript: {
+        messages: [],
+        toolOutputs: [{ name: 'consultar_exames', output: { disponivel: false } }],
+      },
+      inputTokens: 10,
+      outputTokens: 5,
+      modelId: 'm',
+    };
+  }
+
+  it('reprova a resposta que nao reconhece a ausencia de dado', async () => {
+    mockRunConversationTurn.mockResolvedValue(turnoSemDado('Seu acompanhamento está em dia.'));
+    mockRegenerateAnswer.mockResolvedValue(turnoSemDado('Seu acompanhamento está em dia.'));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+  });
+
+  it('aprova a resposta que DIZ que nao ha', async () => {
+    mockRunConversationTurn.mockResolvedValue(
+      turnoSemDado('Não encontrei nenhum exame registrado no aplicativo.'),
+    );
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+  });
+
+  it('nao se aplica quando alguma ferramenta trouxe dado', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+  });
+});
+
+/**
+ * Decisoes A2 e C3 do Bloco 9 -- o encaminhamento costurado.
+ *
+ * Ate aqui, faltar o encaminhamento custava uma geracao inteira e, quando a
+ * segunda tambem esquecia, a resposta inteira. Foram 2 de 2 reprovacoes
+ * medidas em producao, e uma delas caiu no degradado duas vezes.
+ *
+ * A troca: a garantia da R2 deixa de ser probabilistica -- o modelo lembra ou
+ * nao -- e passa a ser deterministica. E ela continua sendo UMA excecao, e nao
+ * uma porta: com qualquer outra regra junto, o caminho continua A -> E -> C.
+ */
+describe('o encaminhamento costurado (A2 e C3)', () => {
+  let info: jest.SpyInstance;
+  beforeEach(() => {
+    info = jest.spyOn(console, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => info.mockRestore());
+
+  const registrado = () => info.mock.calls.map((c) => String(c[0])).join('\n');
+
+  const SEM_ENCAMINHAMENTO = 'Seu registro de março mostra 32,5 ng/mL.';
+
+  it('R2 sozinha: costura e entrega, SEM gastar uma segunda geracao', async () => {
+    mockRunConversationTurn.mockResolvedValue(
+      turno(SEM_ENCAMINHAMENTO, ['consultar_analito'], CITACAO_VALIDA),
+    );
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${SEM_ENCAMINHAMENTO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+    expect(mockRegenerateAnswer).not.toHaveBeenCalled();
+  });
+
+  it('a costura nao mexe em NADA do que o modelo escreveu', async () => {
+    mockRunConversationTurn.mockResolvedValue(
+      turno(SEM_ENCAMINHAMENTO, ['consultar_analito'], CITACAO_VALIDA),
+    );
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.texto.startsWith(SEM_ENCAMINHAMENTO)).toBe(true);
+    expect(r.citacoes).toEqual(CITACAO_VALIDA);
+  });
+
+  it('R2 COM outra regra junto continua no caminho A -> E -> C', async () => {
+    // Este e o teste que impede a costura de virar afrouxamento. A posologia
+    // nao ganha um rodape: ela derruba a resposta, como sempre derrubou.
+    mockRunConversationTurn.mockResolvedValue(turno(COM_POSOLOGIA));
+    mockRegenerateAnswer.mockResolvedValue(turno(COM_POSOLOGIA));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(r.texto).not.toContain(TEXTO_DE_ENCAMINHAMENTO);
+    expect(mockRegenerateAnswer).toHaveBeenCalled();
+  });
+
+  it('valor sem origem nao e costurado: R4 junto da R2 derruba', async () => {
+    // A costura vale para a AUSENCIA de um texto fixo, e so para ela. Um numero
+    // sem origem e presenca de algo proibido, e nenhum rodape conserta isso.
+    mockRunConversationTurn.mockResolvedValue(turno(SEM_ENCAMINHAMENTO, ['consultar_analito']));
+    mockRegenerateAnswer.mockResolvedValue(turno(SEM_ENCAMINHAMENTO, ['consultar_analito']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(mockRegenerateAnswer).toHaveBeenCalled();
+  });
+
+  it('a SEGUNDA geracao tambem pode ser costurada', async () => {
+    // Se a segunda so falha na R2, descarta-la seria repetir o defeito que
+    // esta decisao conserta -- so que uma geracao mais caro.
+    mockRunConversationTurn.mockResolvedValue(turno(COM_POSOLOGIA));
+    mockRegenerateAnswer.mockResolvedValue(
+      turno(SEM_ENCAMINHAMENTO, ['consultar_analito'], CITACAO_VALIDA),
+    );
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+    expect(r.texto).toBe(`${SEM_ENCAMINHAMENTO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('registra a costura no log, e NAO como reprovacao', async () => {
+    // A reprovacao por R2 deixaria de existir na contagem da L7 se a costura
+    // fosse silenciosa -- e foi por isso que "costurar sempre, sem registrar"
+    // (A3) foi recusada.
+    mockRunConversationTurn.mockResolvedValue(
+      turno(SEM_ENCAMINHAMENTO, ['consultar_analito'], CITACAO_VALIDA),
+    );
+
+    await responderComVerificacao(ENTRADA);
+
+    expect(registrado()).toContain('encaminhamento-costurado');
+    expect(registrado()).not.toContain('resposta-reprovada');
+  });
+
+  it('o log da costura NAO carrega o texto da resposta', async () => {
+    mockRunConversationTurn.mockResolvedValue(
+      turno(SEM_ENCAMINHAMENTO, ['consultar_analito'], CITACAO_VALIDA),
+    );
+
+    await responderComVerificacao(ENTRADA);
+
+    const linha = info.mock.calls
+      .map((c) => String(c[0]))
+      .find((l) => l.includes('encaminhamento-costurado'));
+    expect(linha).not.toContain('32,5');
+    expect(linha).not.toContain('março');
+  });
+
+  it('quando o MODELO escreve o encaminhamento, isso tambem e contado', async () => {
+    // Sob a C3 o prompt pede que ele NAO escreva. Quem mede se a instrucao
+    // pegou e este numero -- a costura virou o caminho normal, entao contar so
+    // ela nao diria mais nada sobre o comportamento do modelo.
+    mockRunConversationTurn.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+
+    await responderComVerificacao(ENTRADA);
+
+    expect(registrado()).toContain('encaminhamento-do-modelo');
+  });
+
+  it('a ORDEM: limpa, verifica, e so entao costura', async () => {
+    // A marcacao e removida ANTES da verificacao (U13) -- senao ela parte a
+    // palavra ao meio e a regra nao a reconhece. A costura vem DEPOIS da
+    // verificacao, sobre o texto ja limpo: o que a pessoa le sai sem marcacao
+    // E com o encaminhamento, e o texto costurado nao volta para a limpeza.
+    mockRunConversationTurn.mockResolvedValue(
+      turno('Seu registro mostra **32,5 ng/mL** em março.', ['consultar_analito'], CITACAO_VALIDA),
+    );
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.texto).not.toContain('**');
+    expect(r.texto.endsWith(TEXTO_DE_ENCAMINHAMENTO)).toBe(true);
+  });
+
+  it('pergunta operacional nao recebe encaminhamento nenhum', async () => {
+    // Repetir o aviso em pergunta de cadastro e o rodape mecanico que a R2
+    // manda evitar -- a tela ja carrega o aviso permanente.
+    mockRunConversationTurn.mockResolvedValue(
+      turno('Sua próxima consulta é 24 de outubro.', ['consultar_consultas']),
+    );
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).not.toContain(TEXTO_DE_ENCAMINHAMENTO);
   });
 });

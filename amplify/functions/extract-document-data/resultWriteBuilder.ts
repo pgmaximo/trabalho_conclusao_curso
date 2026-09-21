@@ -70,6 +70,7 @@ export function buildLabResultUpdate(row: LabResultRow, tableName: string): Upda
     rawUnit: row.rawUnit,
     referenceLow: row.referenceLow,
     referenceHigh: row.referenceHigh,
+    rawReferenceText: row.rawReferenceText,
     collectedAt: row.collectedAt,
     collectionMoment: row.collectionMoment,
     sourcePage: row.sourcePage,

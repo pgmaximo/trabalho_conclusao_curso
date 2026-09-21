@@ -96,6 +96,12 @@ export type DocumentRow = {
   owner?: string;
   documentType?: string | null;
   s3FileName?: string;
+  /**
+   * A chave completa que o upload gravou. Ausente nas linhas criadas antes de
+   * 2026-09-18 -- e a ausencia precisa ser tratada, nunca suprida por conta:
+   * ver `documentKey.ts`, que existe por causa disso.
+   */
+  s3Key?: string | null;
   documentDate?: string;
   // A validade da receita NAO entra aqui de proposito. Ela e do formulario, e
   // o jeito seguro de a extracao nunca a tocar e ela nem existir no tipo com
@@ -154,10 +160,13 @@ export const markSucceeded = (
     modelId: string;
     inputTokens: number;
     outputTokens: number;
+    /** Como esta escrito no papel. Ausente quando o laudo nao deixa claro. */
+    laboratorio?: string | null;
   },
 ) =>
   marcar(ddb, t, id, {
     extractionStatus: SUCCEEDED,
+    laboratorio: f.laboratorio ?? null,
     extractedAt: new Date().toISOString(),
     sourceChecksum: f.checksum,
     extractedTextKey: f.textKey,
@@ -174,10 +183,12 @@ export const markNoResults = (
   ddb: DynamoDBDocumentClient,
   t: string,
   id: string,
-  f: { checksum: string; textKey: string | null; warnings: string[] },
+  f: { checksum: string; textKey: string | null; warnings: string[]; laboratorio?: string | null },
 ) =>
   marcar(ddb, t, id, {
     extractionStatus: NO_RESULTS,
+    // Laudo em prosa tambem tem emissor, e saber de quem ele e continua util.
+    laboratorio: f.laboratorio ?? null,
     extractedAt: new Date().toISOString(),
     sourceChecksum: f.checksum,
     extractedTextKey: f.textKey,

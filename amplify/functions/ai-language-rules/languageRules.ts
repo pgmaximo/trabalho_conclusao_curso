@@ -46,6 +46,20 @@ export type QuestionKind = 'clinica' | 'operacional';
 export type OpcoesDeVerificacao = {
   questionKind: QuestionKind;
   temOrigem?: boolean;
+  /**
+   * As ferramentas foram chamadas e TODAS disseram que nao ha dado.
+   *
+   * Vem de quem chama, como os dois acima, e pela mesma razao: so ele viu o
+   * que as tools devolveram. Inferir isso da prosa criaria a segunda
+   * classificacao falivel que este arquivo inteiro evita.
+   *
+   * ATENCAO -- este campo NAO segue "na duvida, reprova", e a excecao e
+   * deliberada: ele e uma PRECONDICAO da R5, e nao uma desculpa dela. Ausente
+   * significa "a regra nao se aplica a este turno". Se significasse "reprova",
+   * toda resposta normal seria reprovada por nao dizer que falta algo, que e o
+   * oposto do que a R5 quer.
+   */
+  semDados?: boolean;
 };
 
 export type Violation = {
@@ -151,7 +165,44 @@ VERIFICADORES.push(verificarR1);
 const UNIDADES_DE_REMEDIO =
   'mg|mcg|g|ml|mL|ui|UI|comprimidos?|capsulas?|cápsulas?|gotas?|ampolas?|doses?';
 
-const PADROES_R3: Array<{ padrao: RegExp; motivo: string }> = [
+/**
+ * Substantivos do APLICATIVO. Depois de "voce tem", eles nao sao diagnostico --
+ * sao inventario. Sem esta lista, "Voce tem um exame de sangue guardado" era
+ * reprovado como afirmacao de condicao medica, e essa e a frase mais natural
+ * para responder "que exames eu tenho" (U3b, 2026-09-19).
+ */
+const COISAS_DO_APLICATIVO =
+  'exames?|documentos?|consultas?|receitas?|resultados?|registros?|compromissos?|vacinas?|laudos?|anexos?';
+
+/** Letra COM acento, para a fronteira de palavra que `\b` nao da. */
+const L_R3 = '[\\wÀ-ÿ]';
+const FIM_R3 = `(?!${L_R3})`;
+/**
+ * Comeco de palavra. NAO e enfeite: sem ele, o `[eé]` de `VERBO_DE_ESTADO` casa
+ * o "e" FINAL de qualquer palavra -- e foi o que aconteceu na primeira versao
+ * desta regra, que reprovou o proprio texto das regras em
+ * "sugestoes pequenas e **de** baixo risco": "d-e" + " " + "baixo".
+ *
+ * Pego pelo teste que exige que o bloco de regras passe na propria verificacao.
+ * Se esse teste nao existisse, o modelo leria um contraexemplo na primeira
+ * linha do que o instrui.
+ */
+const INI_R3 = `(?<!${L_R3})`;
+
+/** Verbo de estado: e ele que transforma um adjetivo em VEREDITO. */
+const VERBO_DE_ESTADO = 'est[aá]|est[aã]o|[eé]|s[aã]o|ficou|ficaram|veio|vieram|parece|parecem';
+
+/** O adjetivo que fecha a questao sobre um valor. */
+const JULGAMENTO_DE_VALOR =
+  'alterad[oa]s?|anormais|anormal|normais|normal|preocupantes?|elevad[oa]s?|alt[oa]s?|baix[oa]s?';
+
+/**
+ * A RECUSA de julgar nao e julgamento. "Nao posso dizer se esta alterado" e a
+ * resposta certa, e reprova-la ensinaria o modelo a nao dizer nem isso.
+ */
+const RECUSA_DE_JULGAR = /n[aã]o\s+(posso|cabe|consigo|sei|consegue|[eé]\s+poss[ií]vel|d[aá]\s+para)/i;
+
+const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = [
   {
     // "500 mg", "2 comprimidos", "1 cápsula" -- quantidade seguida de unidade
     // de medicamento.
@@ -191,8 +242,15 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string }> = [
     // JavaScript sem a flag `u`, "é" nao e caractere de palavra, entao `\bé`
     // nunca casa depois de um espaco. Era o que deixava "isso é um sinal claro
     // de diabetes" passar.
-    padrao:
-      /\b(voce|você)\s+(tem|esta\s+com|está\s+com|provavelmente\s+tem)\b|(?:^|\W)(e|é)\s+(um\s+)?(sinal\s+claro\s+de|caso\s+de|quadro\s+de)\b/i,
+    padrao: new RegExp(
+      '\\b(voce|você)\\s+(tem|esta\\s+com|está\\s+com|provavelmente\\s+tem)\\b' +
+        // A negativa exime o INVENTARIO do aplicativo, e so ele. Qualquer outro
+        // objeto -- "diabetes", "um quadro de tireoidite" -- continua reprovado,
+        // e ha caso de teste para cada um.
+        `(?!\\s+(?:\\d+\\s+)?(?:um|uma|uns|umas|o|a|os|as)?\\s*(?:${COISAS_DO_APLICATIVO})\\b)` +
+        '|(?:^|\\W)(e|é)\\s+(um\\s+)?(sinal\\s+claro\\s+de|caso\\s+de|quadro\\s+de)\\b',
+      'i',
+    ),
     motivo: 'A resposta afirma uma condição médica. Nenhuma resposta desta IA diagnostica.',
   },
   {
@@ -203,12 +261,42 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string }> = [
     motivo:
       'A resposta descarta gravidade. Descartar urgência é tão categórico quanto afirmá-la, e mais arriscado.',
   },
+  {
+    // INTERPRETACAO CATEGORICA DE RESULTADO. A definicao da R3 em
+    // `estudos-ia/01-estudos/regras-de-linguagem.md` proibe isso com todas as
+    // letras, e o implementado nao cobria: "Seu exame esta alterado" passava
+    // por R1, R2, R3 e R4 inteiras (U3c, 2026-09-19). Mesma classe de defeito
+    // da R4 antes de 2026-09-18 -- regra certa no papel, verificada pela metade.
+    //
+    // O verbo de estado e obrigatorio, e e ele que separa veredito de
+    // vocabulario: "esta alto" julga; "de baixo risco" nao.
+    padrao: new RegExp(
+      `${INI_R3}(${VERBO_DE_ESTADO})\\s+(um\\s+pouco\\s+)?(${JULGAMENTO_DE_VALOR})${FIM_R3}`,
+      'i',
+    ),
+    motivo:
+      'A resposta interpreta o resultado. Dizer se um valor está bom ou ruim é leitura clínica, e ela é de quem examina a pessoa.',
+    excecao: RECUSA_DE_JULGAR,
+  },
+  {
+    // Comparacao entre coletas. A EPIC de serie ja proibiu "melhorou/piorou" na
+    // TELA; aqui e a mesma proibicao aplicada ao texto que o modelo escreve.
+    padrao: new RegExp(`${INI_R3}(melhor(ou|aram|ando)|pior(ou|aram|ando))${FIM_R3}`, 'i'),
+    motivo:
+      'A resposta compara coletas dizendo que melhorou ou piorou. A evolução é mostrada; a leitura dela é de quem examina a pessoa.',
+    excecao: RECUSA_DE_JULGAR,
+  },
 ];
 
 const verificarR3: Verificador = (texto) => {
-  for (const { padrao, motivo } of PADROES_R3) {
+  for (const { padrao, motivo, excecao } of PADROES_R3) {
     const achado = padrao.exec(texto);
     if (achado) {
+      // A excecao olha so o que vem ANTES, e perto: uma recusa de julgar no fim
+      // do paragrafo nao absolve um veredito no comeco dele.
+      if (excecao && excecao.test(texto.slice(Math.max(0, achado.index - 60), achado.index))) {
+        continue;
+      }
       // Uma violacao de R3 por resposta: quem vai decidir o que fazer com a
       // reprovacao precisa do motivo, nao de um inventario.
       return [{ rule: 'R3', reason: motivo, excerpt: trecho(texto, achado.index, achado[0].length) }];
@@ -238,9 +326,21 @@ const PADRAO_ENCAMINHAMENTO =
  * avaliacao medica", que a spec da tela 4a declara obrigatorio e nao
  * dispensavel. Se esse aviso sair da tela, esta regra muda.
  */
+/**
+ * A resposta ja encaminha? PUBLICO de proposito, e reusado pela costura de
+ * `chat-assistant/encaminhamento.ts` (decisoes A2 e C3 do Bloco 9), pela mesma
+ * razao que `temMedidaDeExame` e publico: um segundo reconhecedor divergiria
+ * deste em silencio, e a divergencia apareceria como uma resposta costurada
+ * que a R2 continua reprovando -- ou como duas frases de encaminhamento
+ * coladas uma na outra.
+ */
+export function temEncaminhamento(texto: string): boolean {
+  return PADRAO_ENCAMINHAMENTO.test(texto);
+}
+
 const verificarR2: Verificador = (texto, { questionKind }) => {
   if (questionKind !== 'clinica') return [];
-  if (PADRAO_ENCAMINHAMENTO.test(texto)) return [];
+  if (temEncaminhamento(texto)) return [];
 
   return [
     {
@@ -379,6 +479,23 @@ const MOTIVO_R4 =
  * manda tentar uma vez mais com o motivo em maos. Como verificador, a R4 entra
  * no mesmo caminho da R1, da R2 e da R3, e a reprovacao rende um bilhete.
  */
+/**
+ * A resposta traz medida de exame? PUBLICO de proposito, e reusado pela
+ * classificacao clinica de `chat-assistant/verificacao.ts` (U2).
+ *
+ * Um segundo reconhecedor divergiria deste em silencio, e a divergencia
+ * apareceria como resposta com medida escapando da R2 enquanto a R4 a reprova
+ * -- duas regras discordando sobre o mesmo texto.
+ *
+ * Zera o `lastIndex` antes de usar: o padrao tem a flag `g`, que guarda estado
+ * entre chamadas, e sem isto a segunda chamada com o mesmo texto devolveria
+ * falso. Ha caso de teste exatamente sobre isso.
+ */
+export function temMedidaDeExame(texto: string): boolean {
+  PADRAO_R4.lastIndex = 0;
+  return PADRAO_R4.test(texto.replace(MICRO_R4, 'u'));
+}
+
 const verificarR4: Verificador = (texto, { temOrigem }) => {
   if (temOrigem === true) return [];
 
@@ -393,3 +510,47 @@ const verificarR4: Verificador = (texto, { temOrigem }) => {
 };
 
 VERIFICADORES.push(verificarR4);
+
+/**
+ * Como uma resposta RECONHECE que nao ha dado. A lista e de formas comuns em
+ * portugues do Brasil, e nao de todas as possiveis -- mesma aproximacao
+ * declarada do resto do arquivo.
+ *
+ * `[eé]` com fronteira a esquerda, e nao solto: sem ela o "e" final de
+ * qualquer palavra viraria comeco de padrao, que foi o defeito da primeira
+ * versao do julgamento de valor na R3.
+ */
+const PADRAO_AUSENCIA = new RegExp(
+  `${INI_R3}(n[aã]o\\s+(h[aá]|tenho|encontrei|existe|consta|foi\\s+encontrad|localizei)` +
+    `|nenhum[ao]?|ainda\\s+n[aã]o|sem\\s+registro|vazi[ao]s?)${FIM_R3}`,
+  'i',
+);
+
+/**
+ * A R5 no sentido que DA para verificar: as ferramentas disseram que nao ha
+ * dado, e a resposta nao reconhece isso.
+ *
+ * O outro sentido -- "a resposta inventou" em geral -- nao e verificavel aqui
+ * sem entender a prosa. O caso mais perigoso dele, o numero inventado, ja e
+ * coberto pela R4 nos dois sentidos: a omissao mora neste arquivo e a citacao
+ * que aponta para linha inexistente mora em `chat-assistant/verificacao.ts`,
+ * que e o unico lugar que sabe o que as tools entregaram.
+ *
+ * A resposta VAZIA continua sendo R5 tambem, e e tratada antes de qualquer
+ * verificador, em `checkLanguageRules`.
+ */
+const verificarR5: Verificador = (texto, { semDados }) => {
+  if (semDados !== true) return [];
+  if (PADRAO_AUSENCIA.test(texto)) return [];
+
+  return [
+    {
+      rule: 'R5',
+      reason:
+        'As ferramentas não encontraram dado, e a resposta não diz isso. Quando não houver registro, diga que não há — é uma resposta aceitável e desejável.',
+      excerpt: texto.slice(0, 80),
+    },
+  ];
+};
+
+VERIFICADORES.push(verificarR5);

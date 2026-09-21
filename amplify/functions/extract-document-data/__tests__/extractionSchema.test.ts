@@ -35,6 +35,37 @@ const linhaValida = {
 };
 
 describe('extractionSchema', () => {
+  it('aceita a faixa em TEXTO quando ela nao cabe em dois numeros (F1)', () => {
+    // O laudo do Delboni traz a faixa da vitamina D em tabela por faixa
+    // etaria, e a do colesterol em tabela por risco. Nenhuma das duas e um par
+    // de numeros, e reduzi-las a um seria escolher uma linha da tabela.
+    const result = parseExtraction({
+      documentKind: 'exam',
+      labResults: [
+        {
+          ...linhaValida,
+          rawReferenceLow: null,
+          rawReferenceHigh: null,
+          rawReferenceText:
+            'Deficiencia: menor que 20 ng/mL; Insuficiencia: 20 a 29 ng/mL; Suficiencia: 30 a 60 ng/mL',
+        },
+      ],
+      prescriptionItems: [],
+      warnings: [],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('a faixa em texto e opcional: vazia continua sendo extracao valida', () => {
+    const result = parseExtraction({
+      documentKind: 'exam',
+      labResults: [{ ...linhaValida, rawReferenceText: null }],
+      prescriptionItems: [],
+      warnings: [],
+    });
+    expect(result.ok).toBe(true);
+  });
+
   it('aceita uma extracao bem formada', () => {
     const result = parseExtraction({
       documentKind: 'exam',
@@ -173,5 +204,53 @@ describe('toStructuredOutputSchema', () => {
       warnings: [],
     };
     expect(parseExtraction(cheio).ok).toBe(false);
+  });
+});
+
+/**
+ * U11 -- o laboratorio.
+ *
+ * A pessoa perguntou duas vezes, de dois jeitos, onde o exame tinha sido feito.
+ * A resposta honesta ("o aplicativo nao guarda essa informacao") so foi honesta
+ * porque a descricao da tool foi corrigida horas antes -- ela prometia
+ * "laboratorio" e o campo nao existia.
+ *
+ * Mas a lacuna e central a tese: a S8 promete "faixa de CADA laboratorio". Sem
+ * o emissor, a pessoa ve duas faixas na tela de serie e nao sabe de quem e cada
+ * uma. E o nome ESTA no PDF.
+ */
+describe('laboratorio na extracao (U11)', () => {
+  it('aceita o laboratorio no nivel do DOCUMENTO', () => {
+    // No documento e nao na linha: o laboratorio e do laudo, nao do analito.
+    const r = extractionSchema.safeParse({
+      documentKind: 'exam',
+      laboratorio: 'Delboni Auriemo',
+      labResults: [],
+      prescriptionItems: [],
+      warnings: [],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('continua valido SEM o laboratorio', () => {
+    // Opcional de verdade: laudo que nao diz quem emitiu continua sendo lido.
+    const r = extractionSchema.safeParse({
+      documentKind: 'exam',
+      labResults: [],
+      prescriptionItems: [],
+      warnings: [],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('recusa um laboratorio que nao e texto curto', () => {
+    const r = extractionSchema.safeParse({
+      documentKind: 'exam',
+      laboratorio: 'x'.repeat(300),
+      labResults: [],
+      prescriptionItems: [],
+      warnings: [],
+    });
+    expect(r.success).toBe(false);
   });
 });

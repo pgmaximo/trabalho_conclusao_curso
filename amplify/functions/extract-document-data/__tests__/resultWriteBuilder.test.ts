@@ -30,6 +30,7 @@ const linha = {
   rawUnit: 'ng/mL',
   referenceLow: 30,
   referenceHigh: 100,
+  rawReferenceText: null,
   collectedAt: '2026-03-12',
   collectionMoment: null,
   sourcePage: 2,
@@ -38,6 +39,30 @@ const linha = {
 };
 
 describe('buildLabResultUpdate', () => {
+  it('grava a faixa em texto, e reprocessar PREENCHE linha antiga sem duplicar (F1)', () => {
+    // A linha gravada antes do campo existir tem `rawReferenceText` vazio. A
+    // segunda passagem do mesmo arquivo gera a MESMA chave -- o id e
+    // deterministico -- e o UpdateCommand completa o que faltava, em vez de
+    // criar uma linha nova ao lado. A idempotencia ja foi medida contra o
+    // servico real em 2026-09-19 (46 linhas -> 48, zero duplicadas).
+    const tabela = 'Desejavel: menor que 100 mg/dL; Limitrofe: 100 a 129 mg/dL';
+    const comTexto = { ...linha, referenceLow: null, referenceHigh: null, rawReferenceText: tabela };
+
+    const antes = buildLabResultUpdate(linha, 'tabela');
+    const depois = buildLabResultUpdate(comTexto, 'tabela');
+
+    expect(depois.ExpressionAttributeValues?.[':rawReferenceText']).toBe(tabela);
+    expect(depois.Key).toEqual(antes.Key);
+  });
+
+  it('faixa em texto ausente APAGA o campo, em vez de deixar texto velho (F1)', () => {
+    // Mesma regra do valor (D29): a segunda passagem manda o que leu agora. Um
+    // texto de faixa que sobrevivesse a uma releitura que nao o encontrou
+    // ficaria na tela parecendo atual.
+    const cmd = buildLabResultUpdate({ ...linha, rawReferenceText: null }, 'tabela');
+    expect(cmd.UpdateExpression).toMatch(/REMOVE .*#rawReferenceText/);
+  });
+
   it('usa UpdateCommand e nunca sobrescreve a linha inteira', () => {
     const cmd = buildLabResultUpdate(linha, 'tabela');
     expect(cmd.UpdateExpression).toMatch(/^SET /);

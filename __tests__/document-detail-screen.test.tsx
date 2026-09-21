@@ -114,7 +114,10 @@ function extracao(overrides: Partial<ExtractionState> = {}): UseDocumentExtracti
   };
 }
 
-function renderScreen(extracaoProp: UseDocumentExtractionResult) {
+function renderScreen(
+  extracaoProp: UseDocumentExtractionResult,
+  doc: typeof documento = documento,
+) {
   return render(
     <SafeAreaProvider
       initialMetrics={{
@@ -122,7 +125,7 @@ function renderScreen(extracaoProp: UseDocumentExtractionResult) {
         insets: { top: 0, left: 0, right: 0, bottom: 0 },
       }}
     >
-      <DocumentDetailScreen document={documento} extraction={extracaoProp} />
+      <DocumentDetailScreen document={doc} extraction={extracaoProp} />
     </SafeAreaProvider>,
   );
 }
@@ -170,6 +173,27 @@ describe('DocumentDetailScreen — o que a tela pode e nao pode dizer', () => {
     // interpretacao clinica, que a regra 4 proibe.
     renderScreen(extracao({ status: 'SUCCEEDED', results: [hemoglobina] }));
     expect(screen.getByText(/13 a 17,5/)).toBeTruthy();
+  });
+
+  it('mostra a faixa em TEXTO quando o laudo a escreveu em tabela (F1)', () => {
+    // Medido em 2026-09-19: o perfil lipidico inteiro e a vitamina D entraram
+    // sem faixa, porque o laudo as apresenta em tabela. O valor aparecia
+    // sozinho na tela justamente nos exames em que a faixa e a informacao que
+    // a pessoa procura.
+    renderScreen(
+      extracao({
+        status: 'SUCCEEDED',
+        results: [
+          {
+            ...hemoglobina,
+            referenceLow: null,
+            referenceHigh: null,
+            rawReferenceText: 'Desejável: menor que 100 mg/dL; Limítrofe: 100 a 129 mg/dL',
+          },
+        ],
+      }),
+    );
+    expect(screen.getByText(/Desejável: menor que 100 mg\/dL/)).toBeTruthy();
   });
 
   it('carrega o encaminhamento a um profissional de saude', () => {
@@ -277,5 +301,52 @@ describe('DocumentDetailScreen — o que veio da tela de referencia', () => {
       }),
     );
     expect(screen.getByText(/não estava legível/i)).toBeTruthy();
+  });
+});
+
+
+/**
+ * Decisao B2 do Bloco 9 -- a divergencia de data deixa de ser invisivel.
+ *
+ * O caso real: um laudo coletado em 04/10/2025 entrou como 18/09/2026, porque
+ * o formulario vem preenchido com hoje. A tela nao dizia nada, e o assistente
+ * acabou dizendo as duas datas em turnos diferentes.
+ */
+describe('DocumentDetailScreen — a data do formulario e a do laudo (B2)', () => {
+  const GUARDADO_COM_HOJE = { ...documento, documentDate: '2026-09-18' };
+
+  it('avisa quando a data guardada difere da coleta lida do laudo', () => {
+    renderScreen(
+      extracao({ status: 'SUCCEEDED', results: [{ ...hemoglobina, collectedAt: '2025-10-04' }] }),
+      GUARDADO_COM_HOJE,
+    );
+
+    // A frase inteira, e nao so as datas: "18/09/2026" tambem aparece no
+    // cartao de resumo, e uma assercao por data nao distinguiria o aviso do
+    // que a tela ja mostrava.
+    expect(
+      screen.getByText('O laudo indica coleta em 04/10/2025, e este documento está guardado com a data 18/09/2026.'),
+    ).toBeTruthy();
+  });
+
+  it('sem divergencia, nenhum aviso -- o silencio e o caso comum', () => {
+    renderScreen(
+      extracao({ status: 'SUCCEEDED', results: [{ ...hemoglobina, collectedAt: '2025-10-04' }] }),
+    );
+
+    expect(screen.queryByText(/está guardado com a data/i)).toBeNull();
+  });
+
+  it('o aviso NAO corrige nada sozinho: a data do documento continua a digitada', () => {
+    // A extracao nao escreve no que a pessoa digitou (D24). O aviso informa.
+    renderScreen(
+      extracao({ status: 'SUCCEEDED', results: [{ ...hemoglobina, collectedAt: '2025-10-04' }] }),
+      GUARDADO_COM_HOJE,
+    );
+
+    // O cartao de resumo continua mostrando a data digitada, E o aviso existe.
+    // Se a tela "consertasse" o campo sozinha, o resumo mostraria 04/10/2025.
+    expect(screen.getAllByText(/18\/09\/2026/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/04\/10\/2025/)).toBeTruthy();
   });
 });

@@ -742,6 +742,12 @@ condições de avaliar.
   documento de origem é exatamente o que ele se propôs a fazer. A prosa era o
   acréscimo; o dado rastreável era o produto.
 
+**Ressalva acrescentada em 2026-09-19 (D38):** quando a **única** violação for
+a R2 — a ausência do encaminhamento —, o aplicativo **acrescenta** a frase que
+falta e entrega a resposta, sem nova geração. A R2 é a única regra cuja
+violação é a ausência de um texto fixo; em todas as outras o problema está no
+que foi dito, e a ordem A → E → C continua valendo inteira.
+
 **Uma vez, não duas.** A terceira tentativa carrega a mesma informação que a
 segunda — se a segunda falhou, o problema não é falta de aviso.
 
@@ -1325,3 +1331,291 @@ arquivo versionado, `analyteCatalog.test.ts` **passa** e o teste novo reprova.
   `import.meta`, e o teste não conseguiria nem carregar o módulo.
 - `jest.config.js` ganhou uma entrada de `transform` para `.mjs`, que o preset do
   `jest-expo` não cobre.
+
+## D36 — Vitamina D é a soma D2+D3, e a conversão usa a massa da D3 por convenção declarada
+
+**Contexto.** A revisão da 0.2c (2026-09-18) conferiu as 22 massas molares da
+proposta contra PubChem, os pesos atômicos da CIAAW e fatores clínicos
+publicados. Vinte e uma fecharam. A vitamina D não: o valor da tabela, 400,64
+g/mol, é a massa da **25-OH-D3 sozinha**, enquanto o analito mapeado é a **soma
+25-OH-D3 + 25-OH-D2** — e a D2 tem 412,66. Diferença de 3%, a maior do
+levantamento, no analito que é o caso que originou o projeto.
+
+**Decisão do usuário, 2026-09-18:** seguir com **D2+D3**, que é a abordagem
+padrão, e manter **400,64** como convenção declarada para a conversão.
+
+**Por quê.** Não existe "a" massa molar de uma soma de duas espécies químicas,
+do mesmo jeito que não existe a de triglicerídeo — e aquele caso já entrou no
+projeto como aproximação registrada. Usar a da D3 é o que reproduz o fator
+publicado: 1000 ÷ 400,64 = **2,496**, o ~2,5 de `ng/mL` para `nmol/L` que
+laboratório e literatura usam. Escolher a da D2, ou uma média ponderada,
+produziria um número mais exato quimicamente e **que não bate com tabela
+publicada nenhuma** — trocaria conferibilidade por exatidão, na direção errada
+para um aplicativo cujo propósito é a pessoa reconhecer o próprio exame.
+
+**O que isso NÃO muda.** O código LOINC continua o da soma D3+D2 em
+`[Mass/volume]`, e a unidade canônica continua `ng/mL` (D17). A convenção afeta
+só a conversão para a escala molar, que é justamente o caminho menos usado no
+laudo brasileiro.
+
+**O erro que fica, e ele é aceito com nome:** 3% sobre a fração D2 da soma. A D2
+é a parcela pequena na maioria dos laudos, e a alternativa não seria mais
+correta — seria menos comparável.
+
+**Como não esquecer:** a convenção está escrita no próprio gerador do catálogo,
+em `scripts/gerar-catalogo-analitos.mjs`, ao lado do número. Aproximação que
+ninguém escreve vira, com o tempo, um valor que ninguém sabe de onde veio — foi
+o que quase aconteceu aqui, já que a proposta original registrava a ressalva dos
+triglicerídeos (0,04%) e calava sobre esta (3%).
+
+---
+
+## D37 — A faixa de referência também é texto, e ninguém escolhe qual linha da tabela vale
+**Data:** 2026-09-19 · **Estado:** decidida · **Fecha as decisões D e E do Bloco 9**
+
+**Contexto, e ele é uma medição.** O reprocessamento do laudo do Delboni contra
+o sandbox, em 2026-09-19, leu 48 linhas — e **14 entraram sem faixa de
+referência nenhuma**. Em duas delas a ausência é correta (VLDL e glicose média
+estimada não têm faixa no papel). Nas outras doze, **o laudo informou e o
+aplicativo não teve onde guardar**: HDL e `*eGFR` em prosa de um lado só, e o
+perfil lipídico, a hemoglobina glicada, a testosterona e **a vitamina D** em
+tabela — por risco, por jejum, por categoria, por idade, por sexo.
+
+O esquema esperava `referenceLow` e `referenceHigh`, dois números. O papel
+brasileiro apresenta faixa de seis formas, e quatro não cabem nesse par.
+
+**Não é defeito de leitura.** O modelo preferiu vazio a inventar, que é a regra
+desta feature inteira. É lacuna de esquema, e o estudo completo — com as opções
+e o que cada uma custa — está em
+`specs/08-ia-fechamento/lacunas-e-decisoes/spec.md` §5.4 e §5.5.
+
+### 1. A forma: híbrido, e não substituição (opção E3)
+
+`rawReferenceText` entra **ao lado** de `referenceLow`/`referenceHigh`, no nível
+da **linha**, opcional, com o que está escrito no papel e sem normalizar.
+
+- **Os dois números continuam** e continuam mandando: onde eles existem, a
+  banda de fundo do gráfico de série continua desenhada, e ela funciona.
+- **O texto entra onde eles não existem.** A precedência na tela é: número,
+  depois texto, depois a frase honesta.
+- **Aditivo, nunca destrutivo.** Linha gravada antes do campo continua válida,
+  e reprocessar o documento a completa — a idempotência foi medida contra o
+  serviço real na mesma passagem (46 linhas viraram 48, zero duplicadas).
+
+**Recusada — só texto (E1).** Jogaria fora a banda do gráfico, que funciona.
+
+**Recusada — união estruturada por forma de tabela (E2).** É a modelagem certa
+e o produto errado: constrói estrutura rica para um consumidor que não existe, e
+transfere ao modelo a tarefa de **classificar** a forma da tabela — trabalho
+novo, com erro novo, para uma tela que só precisa mostrar a frase.
+
+### 2. Quem escolhe a linha da tabela: ninguém (opção D3)
+
+Testosterona tem faixa por idade e sexo; vitamina D, por idade e grupo;
+colesterol, por risco. **Ninguém escolhe qual delas vale para esta pessoa** — a
+tabela é transcrita como está, e quem a lê é ela.
+
+**Recusada — o modelo escolhe.** É o que acontecia: um aviso real da extração
+dizia *"foi utilizado o intervalo masculino pois o paciente é do sexo
+masculino"*. A escolha era mecânica e declarada, e ainda assim é o modelo
+decidindo o que se aplica a uma pessoa — com a declaração em prosa, dentro de
+`warnings`, onde nenhuma tela lê e nenhum teste olhava.
+
+**Recusada — o aplicativo escolhe pelo perfil (sexo e idade).** É a opção sedutora, e é exatamente onde um aplicativo de saúde começa a tomar decisão
+clínica por conveniência de interface: no dia em que o perfil tiver o sexo
+errado ou a idade vencida, ele mostra a faixa errada **com a autoridade de um
+número**, e ninguém vai conferir. Fica registrada como caminho futuro, e exige
+decisão própria — destacar a linha aplicável **sem escondê-la**, com o critério
+visível ("faixa para 30–39 anos"), nunca substituindo o texto integral.
+
+### 3. A proibição é medida, não imposta por reprovação
+
+O prompt passou a proibir, com todas as letras, escolher linha de tabela por
+idade, sexo, grupo ou jejum. E `escolhaDeFaixa.ts` **conta** quantos avisos
+declaram uma escolha, e o handler registra o número no log — sem nada do
+conteúdo, porque o aviso nomeia analito, que é dado de saúde.
+
+**Contar, e não reprovar**, é a lição da U1 do Bloco 8 aplicada aqui:
+descartar uma extração boa por causa de uma palavra repetiria o erro que a R2
+cometia contra a conversa. A instrução está no prompt; o número diz se ela
+basta.
+
+### 4. O que isto conserta na tela, e é o motivo de tudo
+
+A tela dizia *"Este laboratório não informou faixa de referência."* em toda
+linha sem os dois números. Para doze das quatorze, **isso era falso** — o
+laboratório informou. A frase passou a dizer o que de fato se sabe: *"O laudo
+não trouxe faixa para este resultado."*
+
+### O que esta decisão NÃO autoriza
+
+- Não autoriza o aplicativo a comparar valor com faixa, em número ou em texto.
+  "Dentro da faixa" continua sendo leitura clínica, e a regra 4 continua a
+  proibindo.
+- Não autoriza converter o texto. Ele vem na unidade do **papel** e nunca passa
+  pelo conversor — por isso anda ao lado do `rawValue`, e não dos dois números.
+- Não autoriza reduzir tabela a par de números "quando for óbvio". Óbvio para
+  quem escreve o prompt não é óbvio para o laudo seguinte.
+
+---
+
+## D38 — O encaminhamento é escrito pelo aplicativo, e não pelo modelo
+**Data:** 2026-09-19 · **Estado:** decidida · **Fecha as decisões A e C do Bloco 9**
+**Altera a D31.**
+
+**Contexto, e ele é medido.** Na conversa real de 2026-09-18, **2 de 2
+reprovações foram da R2**, e as duas eram falso positivo. Uma delas custou a
+resposta inteira à pessoa — reprovada duas vezes, caiu no degradado — por
+faltar uma frase que o aplicativo sabe escrever.
+
+No mesmo exercício, quando o modelo **escreveu** o encaminhamento, ele escreveu
+assim: *"se tiver algum valor que te preocupa... o especialista que solicitou o
+exame"*. Não julgou nenhum valor — mas convidou a pessoa a julgar, e afirmou
+dois fatos que o aplicativo não sabe: que houve um pedido, e que quem pediu era
+especialista.
+
+**A R2 é a única das cinco regras cuja violação é a AUSÊNCIA de um texto
+fixo.** Nas outras quatro o problema está no que foi dito, e gerar de novo faz
+sentido: o modelo precisa escrever diferente. Aqui o aplicativo sabe qual é a
+frase que falta — e mesmo assim jogava fora a resposta.
+
+### 1. A costura (opção A2)
+
+Quando a **R2 for a única violação** e as citações conferirem, o aplicativo
+acrescenta o encaminhamento ao fim e entrega a resposta. Sem segunda geração.
+
+Com **qualquer outra regra junto**, o caminho continua **A → E → C**. Um número
+sem origem, uma posologia ou uma interpretação de resultado continuam
+derrubando a resposta: nenhum rodapé conserta a presença de algo proibido.
+
+**Recusada — costurar sempre, em silêncio (A3).** Ela é mais simples e cega a
+medição: ninguém saberia mais se o modelo obedece. A medição é o que este
+projeto tem de mais valioso, e nenhuma conveniência vale perdê-la.
+
+**Recusada — tirar a R2 da verificação e deixar o aviso da tela (A4).** A
+constituição pede encaminhamento **na resposta**; aviso de moldura não é a
+mesma coisa.
+
+### 2. O encaminhamento passa a ser SEMPRE do aplicativo (opção C3)
+
+O prompt deixou de pedir que o modelo escreva o encaminhamento. A frase é uma
+só, fixa, revisada por uma pessoa e **provada por teste contra as cinco
+regras**:
+
+> Para avaliar o que isso significa para você, procure um profissional de saúde.
+
+Cada palavra dela é uma recusa: "profissional de saúde" e não "seu médico" — o
+aplicativo não sabe se a pessoa tem um; "o que isso significa para você" e não
+"se algo está alterado" — não sugere que exista algo errado ali; e nenhuma
+menção a quem pediu o exame.
+
+**A R2 do bloco de regras mudou junto**, e tinha que mudar: ela mandava
+encaminhar *"de forma específica: qual especialidade, o que levar à consulta"*
+— a instrução que **produzia** o especialista inventado. Agora ela diz que a
+resposta precisa encaminhar, que o encaminhamento é do aplicativo, e que o
+modelo não deve indicar especialidade nem afirmar nada sobre quem pediu o
+exame.
+
+**Recusada — vetar a frase no prompt (C2).** Vetar *frase* em prosa gerada é
+jogo de gato e rato: o modelo escreve a próxima variação.
+
+**Recusada — deixar a fronteira onde estava (C1).** A frase continuaria
+inventando o especialista, e é o tipo de frase que uma banca lê com atenção.
+
+### 3. O que muda na garantia, e é o argumento central
+
+A R2 deixa de ser **probabilística** — o modelo lembra ou não — e passa a ser
+**determinística**. Isso é mais forte do que existia, e não mais fraco: antes,
+quando o modelo esquecia, a pessoa não recebia nem o encaminhamento nem a
+resposta.
+
+### 4. A medição muda de sinal, e o log muda junto
+
+Com a C3, a costura virou o caminho normal — então contar só ela não diria mais
+nada sobre o comportamento do modelo. O que passou a ser sinal é o inverso:
+**quantas vezes ele escreveu o encaminhamento mesmo tendo sido instruído a não
+escrever**. Os dois eventos são registrados, e nenhum carrega o texto:
+
+| Evento | O que ele diz |
+|---|---|
+| `encaminhamento-costurado` | o caminho esperado sob a C3 |
+| `encaminhamento-do-modelo` | o modelo escreveu por conta própria — é o desvio a medir na L7 |
+
+### A ressalva que a D31 ganha
+
+A ordem **A → E → C** continua valendo para tudo, **exceto quando a única
+violação for a R2**: nesse caso o encaminhamento é acrescentado pelo aplicativo
+e a resposta é entregue, sem nova geração. O gatilho de reabertura da D31
+(segunda geração salvando menos de um terço) continua de pé, e passa a medir um
+conjunto menor — as reprovações que sobraram são as que importam.
+
+### O que esta decisão NÃO autoriza
+
+- Não autoriza costurar sobre resposta que violou outra regra.
+- Não autoriza costurar em pergunta **operacional**: a tela já carrega o aviso
+  permanente, e repetir vira o rodapé mecânico que o estudo de linguagem manda
+  evitar.
+- Não autoriza costurar no meio do texto. Entender onde a frase caberia é
+  trabalho de modelo, e esta camada existe por ser determinística.
+
+---
+
+## D39 — O campo de data muda de nome, e a divergência com o laudo vira aviso
+**Data:** 2026-09-19 · **Estado:** decidida · **Fecha a decisão B do Bloco 9**
+
+**Contexto.** O campo de data do formulário vem preenchido com hoje. Um laudo
+coletado em **04/10/2025** entrou no aplicativo como **18/09/2026**, e dois
+turnos depois o assistente disse as duas datas — as duas corretas, e juntas
+mentindo. É a D24 aparecendo pelo lado que ela não previu: a decisão tratava da
+data do formulário como **reserva** da data de coleta; ninguém tratou do caso em
+que as duas existem e **discordam**.
+
+### 1. O defeito era o NOME do campo (opção B5)
+
+Ele se chamava "Data do documento", e a pessoa lia "data do exame" — então
+preenchia com hoje sem perceber que estava afirmando quando o exame foi feito.
+
+| Tipo | Rótulo |
+|---|---|
+| exame | **"Guardado em"** |
+| receita | **"Data da receita"** |
+
+**O valor continua vindo preenchido com hoje.** Mudou o nome, não o
+comportamento — e há teste fixando isso, para ninguém "consertar" o
+preenchimento depois achando que ele era o defeito. A data do exame vem do
+laudo, e desde o Bloco 8 o assistente já a prefere ao falar de "quando"; a tela
+é que tinha ficado para trás.
+
+**As duas telas mudaram**, e não só o formulário: o modo de edição do detalhe
+tinha o mesmo rótulo. Uma varredura de fonte cobre as duas, porque um teste por
+tela protegeria uma e deixaria a outra — que foi exatamente como as duas
+acabaram com o mesmo nome errado.
+
+### 2. A divergência vira aviso (opção B2)
+
+Quando a data guardada cai **fora da faixa de coleta** lida do laudo, o detalhe
+do documento diz as duas datas, em uma frase que não acusa ninguém e não manda
+corrigir:
+
+> O laudo indica coleta em 04/10/2025, e este documento está guardado com a
+> data 18/09/2026.
+
+**A regra é "fora da faixa", e não "diferente":** um PDF consolidado reúne
+coletas de vários dias, e uma data digitada entre elas é plausível. Avisar ali
+seria ruído, e ruído faz a pessoa parar de ler o aviso que às vezes importa.
+
+**Sem tolerância em dias.** Um limiar de "um dia" ou "três dias" seria um número
+que ninguém mediu, e este repositório já carrega um limiar provisório declarado
+como tal. Fora da faixa é fora da faixa.
+
+### O que esta decisão NÃO autoriza
+
+- **Não autoriza a extração escrever no campo do formulário** (opção B4
+  recusada). Contraria a D24 frontalmente, e um laudo consolidado não tem "a"
+  data de coleta para escrever ali — é a mesma razão pela qual a D24 pôs a data
+  na linha.
+- **Não autoriza esvaziar o campo** (B3 recusada): fricção em todo upload,
+  inclusive nos casos em que hoje está certo, e quem não sabe a data digita hoje
+  do mesmo jeito.
+- Não autoriza a tela corrigir sozinha. Ela informa; quem decide qual das duas
+  datas vale é a pessoa, que tem o papel na mão.

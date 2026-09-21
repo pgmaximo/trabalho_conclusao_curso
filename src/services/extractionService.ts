@@ -58,6 +58,9 @@ export type LabResultView = {
   rawUnit: string | null;
   referenceLow: number | null;
   referenceHigh: number | null;
+  /** A faixa como o laudo a escreveu, quando ela nao e um par de numeros.
+   *  Vem na unidade do PAPEL, e nunca foi convertida. */
+  rawReferenceText: string | null;
   collectedAt: string | null;
   collectionMoment: string | null;
   sourcePage: number | null;

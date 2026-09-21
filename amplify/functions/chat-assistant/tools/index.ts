@@ -20,6 +20,7 @@ import { consultasTool } from './consultas';
 import { examesTool } from './exames';
 import { medicamentosTool } from './medicamentos';
 import { perfilTool } from './perfil';
+import { resultadosTool } from './resultados';
 import type { ChatTool } from './tipos';
 import { vacinasTool } from './vacinas';
 import { wearableTool } from './wearable';
@@ -31,6 +32,10 @@ export type { ChatTool } from './tipos';
 export const CHAT_TOOLS: ChatTool[] = [
   perfilTool,
   examesTool,
+  // A ordem importa pouco para o funcionamento e muito para a escolha do
+  // modelo: `consultar_resultados` vem logo depois de `consultar_exames`
+  // porque e o passo natural depois de saber QUE documentos existem.
+  resultadosTool,
   analitosTool,
   consultasTool,
   medicamentosTool,

@@ -17,14 +17,20 @@
  * quem e recusado -- e isto e a decisao sobre o que pode ser dito. Sao duas
  * responsabilidades, e uma delas precisa ser testada sem HTTP no caminho.
  */
-import { checkLanguageRules, type QuestionKind } from '../ai-language-rules/languageRules';
+import {
+  checkLanguageRules,
+  temMedidaDeExame,
+  type QuestionKind,
+} from '../ai-language-rules/languageRules';
 
 import { regenerateAnswer, runConversationTurn, type TurnInput } from './conversationLoop';
+import { costurar } from './encaminhamento';
 import { enriquecerCitacoes, indexarLinhasCitaveis } from './citacoes';
 import { buildDegradedAnswer } from './degradedAnswer';
 import { validarProposta } from './memoria/propostaValida';
 import { lerMemoria, montarSystemPrompt } from './memoria/leitura';
 import type { AnswerCitation, ChatAnswer, MemoryProposal } from './chatSchema';
+import { limparFormatacao } from './textoLimpo';
 import type {
   ChatContext,
   ChatTurnRequest,
@@ -46,12 +52,22 @@ import type {
  *
  * Aproximacao declarada, calibrada na C10.
  */
-const TOOLS_CLINICAS = new Set([
-  'consultar_analito',
-  'consultar_exames',
-  'consultar_perfil',
-  'consultar_wearable',
-]);
+/**
+ * Tools que devolvem dado de saude SEM unidade de medida -- condicao cronica,
+ * alergia, sono, passos. Elas continuam tornando a pergunta clinica porque o
+ * texto sozinho nao as alcancaria: "voce tem asma registrado" nao casa com
+ * nenhuma unidade, e e dado de saude do mesmo jeito.
+ *
+ * `consultar_exames` SAIU desta lista em 2026-09-19 (U3), e a saida e
+ * deliberada: ela devolve nome, tipo e data de documento -- metadado, nao
+ * medida. Estar aqui fazia "faca uma visao de todos" ser classificada como
+ * clinica e ser descartada por nao trazer rodape. Foram 2 de 2 reprovacoes
+ * medidas em producao, as duas falso positivo.
+ *
+ * `consultar_resultados` NAO entra aqui de proposito: ela devolve medida, e
+ * medida e pega pelo texto, que e o eixo certo.
+ */
+const TOOLS_CLINICAS = new Set(['consultar_analito', 'consultar_perfil', 'consultar_wearable']);
 
 export type RespostaVerificada = {
   status: RuleCheckStatus;
@@ -91,8 +107,22 @@ export const INDISPONIVEL =
 const MOTIVO_CITACAO =
   'Você citou um resultado que não veio de nenhuma consulta. Cite apenas valores que as ferramentas devolveram nesta conversa, com o identificador exatamente como elas o entregaram.';
 
-function classificar(toolsUsadas: string[]): QuestionKind {
-  return toolsUsadas.some((t) => TOOLS_CLINICAS.has(t)) ? 'clinica' : 'operacional';
+/**
+ * O eixo e O QUE A RESPOSTA DIZ, e so em segundo lugar o que foi consultado.
+ *
+ * Isso APERTA num sentido e afrouxa noutro, e os dois sao intencionais:
+ * - aperta: resposta com medida exige encaminhamento venha de qual tool vier,
+ *   inclusive de uma que nao esta na lista;
+ * - afrouxa: resposta que lista nome e data de documento deixa de exigir.
+ *
+ * O reconhecedor de medida e o MESMO da R4, importado e nao reescrito. Dois
+ * reconhecedores divergiriam em silencio, e a divergencia apareceria como uma
+ * resposta que a R2 libera e a R4 reprova -- duas regras brigando pelo mesmo
+ * texto.
+ */
+function classificar(texto: string, toolsUsadas: string[]): QuestionKind {
+  if (toolsUsadas.some((t) => TOOLS_CLINICAS.has(t))) return 'clinica';
+  return temMedidaDeExame(texto) ? 'clinica' : 'operacional';
 }
 
 /**
@@ -167,6 +197,123 @@ function temOrigemDeclarada(answer: ChatAnswer, entrada: TurnInput): boolean {
   return entrada.anexo != null;
 }
 
+/**
+ * O rastro da reprovacao. SO o identificador da regra -- nunca o texto.
+ *
+ * Por que existe: sem ele, "nao consegui escrever uma resposta" e uma caixa
+ * preta, para quem usa e para quem mantem. E a C10 pede a distribuicao das
+ * reprovacoes por regra, que nao tem de onde sair se ninguem registra.
+ *
+ * Por que so o identificador: log e lido por gente e guardado por tempo
+ * indeterminado. O texto reprovado fala de saude de alguem, e a mesma razao
+ * que o mantem fora da tela o mantem fora daqui. `MOTIVO_CITACAO` ja segue
+ * essa regra ao nao devolver o id inventado.
+ */
+/**
+ * O custo da geracao. SO numero -- nada do que foi perguntado ou respondido.
+ *
+ * Uma linha POR GERACAO, e nao por turno: e a unica forma de saber o que a
+ * segunda custa, que e metade do gatilho de reabertura da D31 ("se a segunda
+ * geracao salvar menos de um terco, ela paga mais do que entrega").
+ *
+ * O dado ja vinha do Bedrock e era descartado. Sem ele, "quanto custa um turno"
+ * so se descobre pela fatura no fim do mes, que nao separa por pergunta.
+ */
+/**
+ * Tira a marcacao ANTES de qualquer verificacao.
+ *
+ * A ordem e a garantia: limpar depois de verificar abriria evasao -- a marcacao
+ * parte a palavra ao meio, a regra nao a reconhece, e a limpeza a remonta
+ * inteira na tela. Ha caso de teste sobre exatamente isso.
+ */
+function limparGeracao<T extends { ok: boolean }>(resultado: T): T {
+  const r = resultado as T & { ok: true; answer?: { texto?: string } };
+  if (!r.ok || typeof r.answer?.texto !== 'string') return resultado;
+  return { ...r, answer: { ...r.answer, texto: limparFormatacao(r.answer.texto) } } as T;
+}
+
+/**
+ * As ferramentas foram chamadas e TODAS disseram que nao ha dado?
+ *
+ * As duas metades da pergunta importam. Sem a primeira -- "foram chamadas" --
+ * um "ola" que nao consulta nada cairia como ausencia de dado e seria reprovado
+ * por nao dizer que falta algo, que e o oposto do que a R5 quer.
+ *
+ * Erro de tool conta como ausencia: para quem pergunta, "a consulta falhou" e
+ * "nao ha registro" produzem a mesma obrigacao -- dizer que nao se sabe.
+ */
+function nenhumDadoVeio(toolOutputs: { name: string; output: unknown }[]): boolean {
+  if (toolOutputs.length === 0) return false;
+  return toolOutputs.every((t) => {
+    const o = t.output as { disponivel?: unknown; erro?: unknown } | null;
+    return !o || o.disponivel === false || o.erro !== undefined;
+  });
+}
+
+function registrarCusto(
+  etapa: 'primeira' | 'segunda',
+  entrada: number | undefined,
+  saida: number | undefined,
+): void {
+  console.info(
+    JSON.stringify({
+      evento: 'geracao-concluida',
+      etapa,
+      entrada: entrada ?? 0,
+      saida: saida ?? 0,
+    }),
+  );
+}
+
+/**
+ * O rastro do encaminhamento, e ele tem DUAS formas de proposito.
+ *
+ * Sob a C3 o prompt pede que o modelo NAO escreva o encaminhamento -- entao a
+ * costura virou o caminho normal, e contar so ela nao diria mais nada sobre o
+ * comportamento dele. O que passou a ser sinal e o inverso: quantas vezes ele
+ * escreveu mesmo assim.
+ *
+ * Foi por causa desta contagem que "costurar sempre, em silencio" (A3) foi
+ * recusada. Sem ela, ninguem nunca mais sabe se a instrucao pegou -- e a
+ * medicao e o que este projeto tem de mais valioso.
+ *
+ * SO o fato, nunca o texto: a mesma regra do `resposta-reprovada`.
+ */
+function registrarEncaminhamento(costurado: boolean): void {
+  console.info(
+    JSON.stringify({
+      evento: costurado ? 'encaminhamento-costurado' : 'encaminhamento-do-modelo',
+    }),
+  );
+}
+
+/**
+ * A R2 e a UNICA violacao desta resposta?
+ *
+ * E a pergunta que autoriza a costura, e ela e estreita de proposito. A R2 e a
+ * unica regra cuja violacao e a AUSENCIA de um texto fixo; nas outras quatro o
+ * problema esta no que foi DITO, e nenhum rodape conserta isso. Com qualquer
+ * uma delas junto, o caminho continua A -> E -> C (D31).
+ */
+function somenteR2(check: ReturnType<typeof checkLanguageRules>): boolean {
+  return !check.ok && check.violations.every((v) => v.rule === 'R2');
+}
+
+function registrarReprovacao(
+  etapa: 'primeira' | 'segunda',
+  regras: string[],
+  citacoesOk: boolean,
+): void {
+  console.info(
+    JSON.stringify({
+      evento: 'resposta-reprovada',
+      etapa,
+      regras,
+      citacoes: citacoesOk ? 'conferem' : 'nao-conferem',
+    }),
+  );
+}
+
 export async function responderComVerificacao(entrada: TurnInput): Promise<RespostaVerificada> {
   // Comeca vazio e e preenchido depois do laco: as linhas citaveis so existem
   // depois que as ferramentas responderam. E por isso que a conferencia da R4
@@ -190,7 +337,31 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
       : { status: 'INDISPONIVEL', texto: INDISPONIVEL, citacoes: [], indice };
   };
 
-  const primeira = await runConversationTurn(entrada);
+  /**
+   * A entrega de uma resposta aprovada, e o unico lugar onde o encaminhamento
+   * entra (decisoes A2 e C3).
+   *
+   * Vale para os DOIS caminhos de aprovacao -- a resposta que passou limpa e a
+   * que so faltava o encaminhamento --, e e por isso que a costura nao precisa
+   * saber qual dos dois aconteceu: se o texto ja encaminha, `costurar` nao
+   * mexe nele e o log registra que o encaminhamento foi do modelo.
+   *
+   * Em pergunta OPERACIONAL nao encaminha: a tela ja carrega o aviso
+   * permanente, e repetir vira o rodape mecanico que a R2 manda evitar.
+   */
+  const entregar = (
+    answer: ChatAnswer,
+    status: RuleCheckStatus,
+    tipo: QuestionKind,
+  ): RespostaVerificada => {
+    if (tipo !== 'clinica') return aprovada(answer, status);
+
+    const costura = costurar(answer.texto);
+    registrarEncaminhamento(costura.costurado);
+    return aprovada({ ...answer, texto: costura.texto }, status);
+  };
+
+  const primeira = limparGeracao(await runConversationTurn(entrada));
 
   if (!primeira.ok) {
     // O bloqueio do filtro tem mensagem propria, e ela NAO e trocada pela copy
@@ -203,14 +374,26 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     return semResposta(primeira.transcript.toolOutputs);
   }
 
+  registrarCusto('primeira', primeira.inputTokens, primeira.outputTokens);
+
   indice = indexarLinhasCitaveis(primeira.transcript.toolOutputs);
 
+  const semDados = nenhumDadoVeio(primeira.transcript.toolOutputs);
+
+  const tipo = classificar(primeira.answer.texto, primeira.answer.toolsUsadas);
   const check = checkLanguageRules(primeira.answer.texto, {
-    questionKind: classificar(primeira.answer.toolsUsadas),
+    questionKind: tipo,
     temOrigem: temOrigemDeclarada(primeira.answer, entrada),
+    semDados,
   });
   const citacoesOk = citacoesConferem(primeira.answer, indice);
-  if (check.ok && citacoesOk) return aprovada(primeira.answer, 'APROVADA');
+
+  // A costura entra AQUI, e nao depois da segunda geracao: gastar uma geracao
+  // inteira para pedir ao modelo uma frase que o aplicativo sabe escrever era
+  // o desperdicio que a A2 conserta. Medido: 2 de 2 reprovacoes em producao.
+  if (citacoesOk && (check.ok || somenteR2(check))) {
+    return entregar(primeira.answer, 'APROVADA', tipo);
+  }
 
   // A: UMA nova geracao. Nao e remendo -- e pedir ao modelo que escreva de
   // novo sabendo o que errou. E ela NAO refaz o laco de ferramentas: recebe o
@@ -222,16 +405,37 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
   const motivos = check.ok ? [] : check.violations.map((v) => v.reason);
   if (!citacoesOk) motivos.push(MOTIVO_CITACAO);
 
-  const segunda = await regenerateAnswer(entrada, primeira.transcript, motivos.join(' '));
+  registrarReprovacao(
+    'primeira',
+    check.ok ? [] : check.violations.map((v) => v.rule),
+    citacoesOk,
+  );
+
+  const segunda = limparGeracao(
+    await regenerateAnswer(entrada, primeira.transcript, motivos.join(' ')),
+  );
   if (!segunda.ok) return semResposta(primeira.transcript.toolOutputs);
 
+  registrarCusto('segunda', segunda.inputTokens, segunda.outputTokens);
+
+  const tipoDaSegunda = classificar(segunda.answer.texto, segunda.answer.toolsUsadas);
   const recheck = checkLanguageRules(segunda.answer.texto, {
-    questionKind: classificar(segunda.answer.toolsUsadas),
+    questionKind: tipoDaSegunda,
     temOrigem: temOrigemDeclarada(segunda.answer, entrada),
+    // A segunda geracao NAO refaz o laco de ferramentas (D31), entao o que
+    // elas devolveram continua sendo o da primeira.
+    semDados,
   });
-  if (recheck.ok && citacoesConferem(segunda.answer, indice)) {
-    return aprovada(segunda.answer, 'APROVADA_NA_SEGUNDA');
+  const citacoesOkNaSegunda = citacoesConferem(segunda.answer, indice);
+  if (citacoesOkNaSegunda && (recheck.ok || somenteR2(recheck))) {
+    return entregar(segunda.answer, 'APROVADA_NA_SEGUNDA', tipoDaSegunda);
   }
+
+  registrarReprovacao(
+    'segunda',
+    recheck.ok ? [] : recheck.violations.map((v) => v.rule),
+    citacoesOkNaSegunda,
+  );
 
   // Reprovada duas vezes. O texto reprovado nao sai daqui de jeito nenhum.
   return semResposta(primeira.transcript.toolOutputs);

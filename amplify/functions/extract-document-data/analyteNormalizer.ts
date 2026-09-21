@@ -39,6 +39,13 @@ export type NormalizedLabResult = {
   rawUnit: string | null;
   referenceLow: number | null;
   referenceHigh: number | null;
+  /**
+   * A faixa como o papel a apresenta, quando ela nao cabe em dois numeros.
+   * NUNCA e convertida: texto nao tem escala, e a unidade dele e a do papel.
+   * Anda com o `rawValue`, e nao com o `value` -- e por isso sobrevive a linha
+   * que vai para revisao.
+   */
+  rawReferenceText: string | null;
   collectedAt: string | null;
   collectionMoment: string | null;
   sourcePage: number | null;
@@ -87,6 +94,10 @@ export function normalizeLabResult(
     valueQualifier: valorLido.ok ? valorLido.qualifier : null,
     rawValue: raw.rawValue,
     rawUnit: raw.rawUnit,
+    // Fica no `base`, junto do rawValue, e NAO ao lado dos numeros da faixa:
+    // e transcricao do papel, nao resultado de conta. Por isso atravessa a
+    // conversao intacto e sobrevive a `paraRevisao`.
+    rawReferenceText: raw.rawReferenceText ?? null,
     collectedAt: raw.collectedAt,
     collectionMoment: raw.collectionMoment,
     sourcePage: raw.sourcePage,

@@ -190,8 +190,12 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
               onChangeText={setDocumentName}
             />
 
+            {/* B5 do Bloco 9: o campo mudou de NOME, e nao de comportamento.
+                Ele continua vindo preenchido com hoje -- o que produzia o erro
+                era o rotulo antigo, lido pela pessoa como "data do exame".
+                A data do exame vem do laudo, e a leitura automatica a mostra. */}
             <DateInput
-              label="Data do documento"
+              label={documentType === 'prescription' ? 'Data da receita' : 'Guardado em'}
               value={documentDate}
               onChange={setDocumentDate}
               placeholder="DD/MM/YYYY"

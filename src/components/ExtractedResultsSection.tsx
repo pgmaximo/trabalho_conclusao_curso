@@ -25,11 +25,16 @@ import { ExtractedResultRow } from '@/components/ExtractedResultRow';
 import { InlineError } from '@/components/InlineError';
 import { useThemeColors } from '@/constants/theme';
 import type { UseDocumentExtractionResult } from '@/hooks/useDocumentExtraction';
+import { avisoDeDivergenciaDeData } from '@/services/divergenciaDeData';
 import type { LabResultView } from '@/services/extractionService';
 import { agruparPorExame, contarLinhas } from '@/utils/labResultGrouping';
 
 export interface ExtractedResultsSectionProps {
   extraction: UseDocumentExtractionResult;
+  /** A data que a pessoa digitou no formulario. Entra aqui so para ser
+   *  comparada com a data de coleta lida do laudo (decisao B2 do Bloco 9) --
+   *  esta secao nao a edita e nao a grava. */
+  documentDate?: string | null;
   onOpenSeries?: (analyteCode: string) => void;
   /** Avisa a tela que uma correcao entrou, para ela dar o retorno visivel. */
   onCorrigido?: () => void;
@@ -45,6 +50,7 @@ function Legenda({ children }: { children: React.ReactNode }) {
 
 export function ExtractedResultsSection({
   extraction,
+  documentDate,
   onOpenSeries,
   onCorrigido,
 }: ExtractedResultsSectionProps) {
@@ -58,6 +64,7 @@ export function ExtractedResultsSection({
 
   const linhas = state?.results ?? [];
   const contagem = contarLinhas(linhas);
+  const avisoDeDivergencia = avisoDeDivergenciaDeData(documentDate, linhas);
   const grupos = agruparPorExame(linhas);
 
   const emAndamento = state?.status === 'PENDING' || state?.status === 'PROCESSING';
@@ -201,6 +208,19 @@ export function ExtractedResultsSection({
       {errorMessage ? (
         <View className="mt-3">
           <InlineError message={errorMessage} />
+        </View>
+      ) : null}
+
+      {/* A divergencia entre a data digitada e a lida do laudo. Fica junto do
+          "o que ficou de fora" de proposito: as duas coisas sao o que a tela
+          sabe e a lista de valores nao mostra. Ela INFORMA -- a extracao nao
+          escreve no que a pessoa digitou (D24). */}
+      {avisoDeDivergencia ? (
+        <View className="mt-4 gap-1">
+          <Text className="text-[13px] font-semibold text-app-text dark:text-app-dark-text">
+            A data deste documento
+          </Text>
+          <Legenda>{avisoDeDivergencia}</Legenda>
         </View>
       ) : null}
 

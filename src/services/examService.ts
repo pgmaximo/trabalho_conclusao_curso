@@ -25,6 +25,12 @@ export interface FileMetadata {
   fileId: string;
   /** Nome do arquivo no S3 (UUID + timestamp) */
   s3FileName: string;
+  /**
+   * A chave COMPLETA no S3, como o Amplify Storage a resolveu — ela inclui a
+   * pasta do `identityId`, que NÃO dá para derivar do `owner` do lado do
+   * servidor. Só existe depois do upload, por isso é opcional aqui.
+   */
+  s3Key?: string;
   /** Nome original do arquivo enviado pelo usuário */
   originalFileName: string;
   /** ID do usuário proprietário do arquivo */
@@ -292,6 +298,10 @@ async function saveDocumentMetadata(
     const { data, errors } = await client.models.MedicalDocument.create({
       documentType: metadata.documentType as Schema['MedicalDocument']['type']['documentType'],
       s3FileName: metadata.s3FileName,
+      // Sem isto a Lambda de extração não tem como achar o arquivo: ela conhece
+      // o `owner` (sub do pool de usuários) e a pasta é nomeada pelo identityId
+      // (pool de identidades). Ver `amplify/.../documentKey.ts`.
+      s3Key: metadata.s3Key ?? null,
       originalFileName: metadata.originalFileName,
       documentName: metadata.documentName,
       documentDate: metadata.documentDate,
@@ -340,8 +350,9 @@ export async function createExamDocument(input: CreateExamDocumentInput) {
     );
     console.log('Arquivo enviado para S3:', s3Path);
 
-    // 3. Salvar metadados no DynamoDB
-    const savedMetadata = await saveDocumentMetadata(metadata);
+    // 3. Salvar metadados no DynamoDB, com a chave que o upload REALMENTE
+    //    gravou -- `s3Path` era registrado no console e descartado.
+    const savedMetadata = await saveDocumentMetadata({ ...metadata, s3Key: s3Path });
     console.log('Documento salvo:', savedMetadata);
 
     // 4. Invalidate cache so next fetch gets fresh data

@@ -18,6 +18,8 @@ roadmap que produz software passou a ter EPIC rastreável, no formato
 | 0.3 | `specs/07-ia-conversa/regras-de-linguagem/` | `docs/superpowers/plans/2026-09-16-regras-de-linguagem.md` |
 | 2.1 a 2.8, 3.1 | `specs/07-ia-conversa/assistente-conversacional/` | `docs/superpowers/plans/2026-09-16-assistente-conversacional.md` |
 | 2.9 (nova) | `specs/07-ia-conversa/memoria-do-usuario/` | `docs/superpowers/plans/2026-09-18-memoria-do-usuario.md` |
+| 2.10 (nova) | `specs/07-ia-conversa/conversa-sobre-o-exame/` | a escrever, quando a execução começar |
+| 2.11 (nova) | `specs/08-ia-fechamento/lacunas-e-decisoes/` | `specs/08-ia-fechamento/lacunas-e-decisoes/plan.md` |
 
 A **2.9 não estava neste roadmap** e foi acrescentada em 2026-09-18: ela nasce
 de um pedido direto do usuário — memória de curto e longo prazo — e da fronteira
@@ -26,6 +28,38 @@ três camadas de memória que o pedido descrevia, duas já existiam e só não t
 nome (a janela da conversa, na C4, e as tools sobre o dado registrado, na
 C2/C3); a EPIC entrega a terceira. Virou a **D34**, precedida da análise de LGPD
 em `01-estudos/memoria-do-usuario-e-lgpd.md`, que é pré-condição registrada.
+
+A **2.10 também não estava aqui**, e foi acrescentada em 2026-09-19. Ela é de
+uma espécie diferente de todas as anteriores: não nasce de design, nem de pedido
+de funcionalidade, nem de estudo prévio. **Nasce de cinco perguntas feitas por
+uma pessoa ao assistente**, com um laudo de verdade no histórico, em
+2026-09-18 — a primeira vez que o sistema foi exercitado fora de teste.
+
+O que ela corrige não dava para prever lendo o código, e não deu para achar com
+teste: a regra R2 descartando resposta correta por classificar pelo eixo errado,
+a ausência de qualquer caminho entre "tenho um documento" e "quais são os
+valores dele", o laboratório que está no papel e em lugar nenhum, e o markdown
+saindo cru na tela. Análise turno a turno em
+`01-estudos/conversa-real-2026-09-18.md`; as medições, em
+`04-implementacao/notas.md`.
+
+**Ela é também a primeira medição real da L7 e da C10**, e só existe porque o
+registro de reprovação entrou na verificação horas antes da conversa. Antes
+disso a reprovação não deixava rastro, e a distribuição por regra que a C10 pede
+não tinha de onde sair.
+
+A **2.11 foi acrescentada em 2026-09-19**, no mesmo dia da 2.10 e pela mesma
+razão de fundo: ela fecha o que dois exercícios contra o sistema rodando
+deixaram aberto. Da conversa, as duas decisões que sobraram; do
+**reprocessamento do laudo**, o achado que ninguém tinha visto — **14 das 48
+linhas entraram sem faixa de referência**, porque o esquema espera dois números
+e o laudo brasileiro apresenta faixa de seis formas diferentes. Não é defeito de
+leitura: o modelo preferiu vazio a inventar, que é a regra. É lacuna de esquema,
+e ela atinge o perfil lipídico inteiro e a vitamina D — o analito que originou o
+projeto.
+
+Ela carrega também **as cinco decisões do usuário** que as EPICs anteriores
+registraram sem resolver, cada uma com estudo de opções na própria spec.
 
 As tarefas 3.2, 4.1 e 4.2 continuam sem EPIC de propósito: elas produzem
 **texto do TCC**, não software, e criar spec para elas seria confundir

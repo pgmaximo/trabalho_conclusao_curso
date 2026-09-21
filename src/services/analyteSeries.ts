@@ -25,6 +25,10 @@ export type SeriesPoint = {
   value: number;
   referenceLow: number | null;
   referenceHigh: number | null;
+  /** A faixa como o laudo a escreveu, quando nao e um par de numeros. Vem na
+   *  unidade do PAPEL e nunca foi convertida -- por isso anda ao lado do
+   *  `rawValue`, e nao dos dois numeros acima. */
+  rawReferenceText: string | null;
   rawValue: string;
   rawUnit: string | null;
 };
@@ -153,6 +157,7 @@ export function buildAnalyteSeries(results: LabResultView[]): AnalyteSeries[] {
         value: linha.value,
         referenceLow: linha.referenceLow,
         referenceHigh: linha.referenceHigh,
+        rawReferenceText: linha.rawReferenceText ?? null,
         rawValue: linha.rawValue,
         rawUnit: linha.rawUnit,
       });

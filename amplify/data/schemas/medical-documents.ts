@@ -13,6 +13,19 @@ export const medicalDocumentsSchema = {
       // (UUID + timestamp usado como chave no S3). Opcional para não quebrar
       // documentos já persistidos antes deste campo existir (GAP_ANALYSIS.md #38).
       originalFileName: a.string(),
+      // A chave COMPLETA que o upload gravou no S3, como o Amplify Storage a
+      // devolveu. Opcional para nao quebrar documento ja persistido.
+      //
+      // Ela existe porque a pasta do S3 e nomeada pelo `identityId` (pool de
+      // IDENTIDADES) e a linha so conhece o `owner` (pool de USUARIOS) -- dois
+      // identificadores diferentes, da mesma pessoa, que nenhuma API converte
+      // um no outro do lado do servidor. Sem este campo a Lambda precisaria
+      // adivinhar a pasta, e adivinhar foi o defeito de 2026-09-18.
+      s3Key: a.string(),
+      // Quem emitiu o laudo, como esta escrito no papel. Opcional, preenchido
+      // pela extracao. Sustenta a promessa da S8 -- "faixa de CADA laboratorio"
+      // exige saber de quem e cada faixa.
+      laboratorio: a.string(),
       documentName: a.string().required(),
       documentDate: a.date().required(),
       expirationDate: a.date(),
@@ -59,6 +72,13 @@ export const medicalDocumentsSchema = {
       rawUnit: a.string(),
       referenceLow: a.float(),
       referenceHigh: a.float(),
+      // A faixa COMO O PAPEL A APRESENTA, para o que nao cabe em dois numeros:
+      // tabela por risco, por idade, por sexo, por jejum, ou categorica. Medido
+      // em 2026-09-19: 14 de 48 linhas de um laudo real ficaram sem faixa, e em
+      // doze delas o laudo tinha informado. Opcional e aditivo -- linha gravada
+      // antes deste campo continua valida, e reprocessar o documento a
+      // completa (Bloco 9, decisao E3).
+      rawReferenceText: a.string(),
       collectedAt: a.date(), // da LINHA (D24)
       collectionMoment: a.string(), // "jejum", "120 minutos" (D22)
       sourcePage: a.integer(),

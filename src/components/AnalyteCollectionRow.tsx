@@ -29,6 +29,16 @@ export function AnalyteCollectionRow({ point, unit }: AnalyteCollectionRowProps)
   const colors = useThemeColors();
   const faixa = formatarFaixa(point.referenceLow, point.referenceHigh);
 
+  // Tres estados, e a ordem e a decisao E3 do Bloco 9: o numero manda; o texto
+  // entra quando o laudo nao deu numero; e a frase honesta so quando nao ha
+  // nem um nem outro. O texto NAO leva `unit` junto -- ele ja traz a unidade
+  // como o papel a escreveu, e ele nunca foi convertido.
+  const textoDaFaixa = faixa
+    ? `Referência deste laboratório: ${faixa} ${unit}`
+    : point.rawReferenceText
+      ? `Referência deste laboratório: ${point.rawReferenceText}`
+      : 'O laudo não trouxe faixa para este resultado.';
+
   // So mostra o papel quando ele DIFERE do valor exibido -- repetir o mesmo
   // numero duas vezes e ruido, e ruido faz a pessoa parar de ler a linha que
   // as vezes importa.
@@ -47,9 +57,7 @@ export function AnalyteCollectionRow({ point, unit }: AnalyteCollectionRowProps)
       </View>
 
       <Text className="mt-1 text-[12px] text-app-textSecondary dark:text-app-dark-textSecondary">
-        {faixa
-          ? `Referência deste laboratório: ${faixa} ${unit}`
-          : 'Este laboratório não informou faixa de referência.'}
+        {textoDaFaixa}
       </Text>
 
       {papelDifere ? (

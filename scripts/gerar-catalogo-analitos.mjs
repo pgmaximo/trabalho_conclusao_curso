@@ -44,6 +44,19 @@ const MASSA_MOLAR = {
   Magnesio: 24.31,
   Fosforo: 30.97,
   'Ferro serico': 55.85,
+  // CONVENCAO DECLARADA (D36), e ela nao e um arredondamento: o analito e a
+  // SOMA 25-OH-D3 + 25-OH-D2, e as duas moleculas tem massas diferentes --
+  // 400,64 e 412,66. Nao existe "a" massa molar de uma soma de duas especies,
+  // do mesmo jeito que nao existe a de triglicerideo.
+  //
+  // Usamos a da D3, e o motivo e que ela e a convencao publicada: 1000/400,64
+  // = 2,496, o fator ~2,5 ng/mL -> nmol/L que laboratorio e literatura usam.
+  // Escolher a da D2, ou uma media, produziria numeros que nao batem com
+  // nenhuma tabela publicada -- seria mais exato e menos conferivel.
+  //
+  // O erro embutido e de 3% no pedaco D2 da soma, e a D2 e a fracao pequena na
+  // maioria dos laudos. Registrado por escrito porque aproximacao que ninguem
+  // escreve vira, com o tempo, um numero que ninguem sabe de onde veio.
   'Vitamina D (25-OH)': 400.64,
   'Vitamina B12': 1355.37,
   'Acido folico': 441.4,

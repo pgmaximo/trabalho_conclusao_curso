@@ -217,7 +217,7 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
               />
 
               <DateInput
-                label="Data do documento"
+                label={isPrescription ? 'Data da receita' : 'Guardado em'}
                 onChange={setDocumentDate}
                 placeholder="DD/MM/YYYY"
                 value={documentDate}
@@ -292,6 +292,7 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
                   que ja existia: os tres modos desta tela -- visualizacao,
                   edicao e exclusao -- nao mudaram (regra 5). */}
               <ExtractedResultsSection
+                documentDate={documentDate}
                 extraction={extraction}
                 onCorrigido={() => setSuccessMessage('Correção salva!')}
                 onOpenSeries={(analyteCode) =>

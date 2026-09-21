@@ -19,7 +19,7 @@ depois que as duas licenças foram lidas por inteiro — ver `licencas.md`.
 ├── licencas.md                  o estudo das duas licenças (tarefa 0.2a)
 ├── pendencias.md                os 5 analitos que precisam de decisão humana
 ├── loinc/
-│   ├── loinc-analitos-suasaude.csv   o extrato: 78 linhas, 24 colunas
+│   ├── loinc-analitos-suasaude.csv   o extrato: 79 linhas, 24 colunas
 │   ├── gerar-extrato.py              o script que o produziu, reproduzível
 │   ├── como-foi-gerado.md            o critério de escolha de cada código
 │   ├── LoincLicense_5.8.txt          licença completa (cláusula 9)
@@ -38,7 +38,7 @@ autoriza apagar registros para atender a requisito local; a do UCUM proíbe
 
 ## O extrato do LOINC
 
-78 linhas, uma por analito da cobertura definida em
+79 linhas, uma por analito da cobertura definida em
 `../03-esquemas/cobertura-analitos.md`. Cada linha carrega:
 
 - **o código e quatro nomes oficiais** — `LONG_COMMON_NAME`, `SHORTNAME`,
@@ -50,6 +50,14 @@ autoriza apagar registros para atender a requisito local; a do UCUM proíbe
   critério de desempate quando havia mais de um código plausível;
 - **o nome em português**, da variante linguística pt-BR do próprio release.
 
+> **Era 78 até 2026-09-18, e o número estava errado.** A origem é rastreável no
+> gerador: `ALVOS` tem 78 tuplas e `ALVOS_COM_METODO` tem 1 — a PCR
+> ultrassensível, acrescentada depois porque o laudo brasileiro escreve por
+> extenso qual das duas PCR é. Quem escreveu este arquivo contou a primeira
+> lista e não a segunda. `como-foi-gerado.md` e `cobertura-analitos.md` já
+> diziam 79; só este aqui ficou para trás. Conferido contando o CSV, e os 79
+> têm nome em pt-BR — a afirmação da seção sobre o pt-BR continua verdadeira.
+
 ### O pt-BR resolve um problema que o plano ia resolver errado
 
 O plano previa uma coluna `synonyms` que nós preencheríamos com as variações que
@@ -59,7 +67,7 @@ o laboratório brasileiro escreve. Duas razões para isso ter sido abandonado:
    de tradução, e tradução é obra derivada que exige aviso prévio ao Regenstrief
    e cessão de direitos (cláusula 12).
 2. **Não é preciso.** O release traz `ptBR11LinguisticVariant.csv`, com 58.468
-   termos traduzidos. **Os 78 analitos da nossa cobertura estão todos lá.**
+   termos traduzidos. **Os 79 analitos da nossa cobertura estão todos lá.**
    "Glicose", "Hemoglobina", "Tirotropina", "Ascorbato", "Cobalaminas",
    "25-Hidroxi vitamina D" — tudo oficial.
 

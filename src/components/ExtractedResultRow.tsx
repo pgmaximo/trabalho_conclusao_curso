@@ -52,8 +52,16 @@ export function ExtractedResultRow({
   const faixa = formatarFaixa(result.referenceLow, result.referenceHigh);
   const unidade = result.unit ?? result.rawUnit ?? '';
 
+  // A mesma precedencia da tela de serie (decisao E3): numero, depois texto.
+  // O texto NAO recebe `unidade` -- ele ja traz a do papel, e nunca converteu.
+  const referencia = faixa
+    ? `Referência do laboratório: ${faixa} ${unidade}`.trim()
+    : result.rawReferenceText
+      ? `Referência do laboratório: ${result.rawReferenceText}`
+      : null;
+
   const detalhes = [
-    faixa ? `Referência do laboratório: ${faixa} ${unidade}`.trim() : null,
+    referencia,
     result.collectionMoment,
     result.sourcePage ? `página ${result.sourcePage}` : null,
   ].filter(Boolean);

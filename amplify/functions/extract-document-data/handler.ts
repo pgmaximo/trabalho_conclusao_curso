@@ -18,7 +18,9 @@ import { candidatesForPrompt } from './analyteCatalog';
 import { CONFIDENCE_THRESHOLD, normalizeLabResult } from './analyteNormalizer';
 import { requestExtraction, type ExtractionSource } from './bedrockClient';
 import { fileChecksum, labResultId, prescriptionItemId } from './checksum';
+import { chaveDoDocumento, chaveDoTextoDoOcr } from './documentKey';
 import { chooseReadingPath } from './documentText';
+import { contarEscolhasDeFaixa } from './escolhaDeFaixa';
 import { normalizePrescriptionItem } from './prescriptionNormalizer';
 import {
   markFailed,
@@ -86,8 +88,19 @@ export async function handler(event: InvokeEvent): Promise<void> {
 
     // 2. Baixar e somar. A soma entra no id deterministico de cada linha, e e
     //    o que faz reenviar o mesmo arquivo atualizar em vez de duplicar.
-    const identityId = owner.split('::')[0];
-    const fileKey = `medical-documents/${identityId}/${doc.s3FileName}`;
+    const fileKey = chaveDoDocumento({ owner, s3FileName: doc.s3FileName, s3Key: doc.s3Key });
+    if (!fileKey) {
+      // Linha antiga, de antes de o upload registrar a chave. Nao da para
+      // descobrir a pasta a partir do `owner` -- foi tentar isso que produziu
+      // o defeito que `documentKey.ts` narra.
+      await markFailed(
+        ddb,
+        documentTable,
+        documentId,
+        'Este documento foi guardado antes de o aplicativo registrar onde o arquivo ficou. Envie o arquivo de novo para que ele possa ser lido.',
+      );
+      return;
+    }
     const { bytes, contentType } = await readDocument(bucketName, fileKey);
     const checksum = fileChecksum(bytes);
 
@@ -115,8 +128,9 @@ export async function handler(event: InvokeEvent): Promise<void> {
 
       // 4. Guardar o texto bruto. E o que permite reprocessar sem refazer o
       //    OCR se a tabela de conversao tiver erro (spec secao 6).
-      const textKey = `medical-documents/${identityId}/${documentId}/ocr.txt`;
+      const textKey = chaveDoTextoDoOcr(fileKey, documentId);
       try {
+        if (!textKey) throw new Error('Nao foi possivel derivar a chave do texto do OCR.');
         await writeTextArtifact(
           bucketName,
           textKey,
@@ -143,6 +157,18 @@ export async function handler(event: InvokeEvent): Promise<void> {
     }
 
     const avisos = [...saida.result.warnings];
+
+    // F4 -- a fronteira entre transcrever e interpretar, MEDIDA. O prompt
+    // proibe escolher uma linha da tabela de referencia; esta linha diz se a
+    // proibicao foi obedecida. Ela CONTA e nao reprova: descartar uma extracao
+    // boa por uma palavra seria o erro da R2 outra vez. Sem conteudo nenhum no
+    // log -- o aviso nomeia analito, que e dado de saude.
+    const escolhasDeFaixa = contarEscolhasDeFaixa(avisos);
+    if (escolhasDeFaixa > 0) {
+      console.log(
+        JSON.stringify({ evento: 'faixa-escolhida-pelo-modelo', quantidade: escolhasDeFaixa }),
+      );
+    }
 
     // 6. Normalizar. A data do formulario e a RESERVA da data de coleta, e
     //    quando ela e usada isso vira aviso -- nunca uma data inventada (D24).
@@ -187,6 +213,7 @@ export async function handler(event: InvokeEvent): Promise<void> {
         checksum,
         textKey: textKeyGravada,
         warnings: avisos,
+        laboratorio: saida.result.laboratorio ?? null,
       });
       return;
     }
@@ -201,6 +228,7 @@ export async function handler(event: InvokeEvent): Promise<void> {
       modelId,
       inputTokens: saida.usage.input,
       outputTokens: saida.usage.output,
+      laboratorio: saida.result.laboratorio ?? null,
     });
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : 'Erro desconhecido ao ler o documento.';

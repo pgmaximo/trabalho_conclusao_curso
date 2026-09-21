@@ -1,4 +1,4 @@
-import { checkLanguageRules } from '../languageRules';
+import { checkLanguageRules, temMedidaDeExame } from '../languageRules';
 
 const clinica = { questionKind: 'clinica' as const };
 
@@ -309,5 +309,173 @@ describe('R4 -- nenhum numero sem origem', () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.violations.some((v) => v.rule === 'R4')).toBe(true);
+  });
+});
+
+/**
+ * O reconhecedor de medida, exposto para ser REUSADO.
+ *
+ * Ele ja existia dentro da R4 e nao tinha nome publico. A EPIC "conversa sobre
+ * o exame" (U2) precisa exatamente dele: a classificacao clinica passa a olhar
+ * o que a RESPOSTA diz, e nao qual ferramenta rodou.
+ *
+ * Escrever um segundo reconhecedor divergiria do primeiro em silencio, e a
+ * divergencia apareceria como uma resposta com medida escapando da R2 enquanto
+ * a R4 a reprova -- duas regras discordando sobre o mesmo texto.
+ */
+describe('temMedidaDeExame', () => {
+  it('reconhece medida de exame em prosa', () => {
+    expect(temMedidaDeExame('sua vitamina D foi 27,92 ng/mL')).toBe(true);
+    expect(temMedidaDeExame('a glicose deu 86 mg/dL')).toBe(true);
+    expect(temMedidaDeExame('o TSH ficou em 2,1 mUI/L')).toBe(true);
+  });
+
+  it('reconhece o sinal de micro em qualquer das tres grafias', () => {
+    expect(temMedidaDeExame('ferritina de 120 µg/L')).toBe(true);
+    expect(temMedidaDeExame('ferritina de 120 μg/L')).toBe(true);
+    expect(temMedidaDeExame('ferritina de 120 ug/L')).toBe(true);
+  });
+
+  it('nao ve medida onde ha so nome e data de documento', () => {
+    // E o caso que motivou a U2: esta frase foi reprovada pela R2 em producao,
+    // por a tool consultada estar na lista clinica -- nao pelo que ela diz.
+    expect(temMedidaDeExame('Exame de sangue, de 18/09/2026.')).toBe(false);
+    expect(temMedidaDeExame('Voce tem 1 documento guardado.')).toBe(false);
+  });
+
+  it('nao confunde dose de remedio com medida de exame', () => {
+    // `mg` sozinho nao e concentracao. Quem cuida de dose e a R1, e confundir
+    // as duas faria a R2 exigir encaminhamento por causa de uma posologia.
+    expect(temMedidaDeExame('tome 500 mg')).toBe(false);
+  });
+
+  it('e imune ao estado do regex entre chamadas', () => {
+    // O padrao interno tem a flag `g`, que carrega `lastIndex`. Sem zera-lo, a
+    // segunda chamada com o mesmo texto devolveria falso.
+    const frase = 'sua vitamina D foi 27,92 ng/mL';
+    expect(temMedidaDeExame(frase)).toBe(true);
+    expect(temMedidaDeExame(frase)).toBe(true);
+    expect(temMedidaDeExame(frase)).toBe(true);
+  });
+});
+
+/**
+ * DUAS LACUNAS DA R3, achadas em 2026-09-19 ao executar a EPIC "conversa sobre
+ * o exame" -- e a segunda foi achada porque um caso de teste MEU estava errado.
+ *
+ * U3b -- FALSO POSITIVO. O padrao de diagnostico e "voce tem" sem exigir objeto
+ * nenhum, entao "Voce tem um exame de sangue guardado" e reprovado como se
+ * fosse diagnostico. E a frase mais natural para responder "que exames eu
+ * tenho", e a EPIC inteira depende de essa pergunta ter resposta.
+ *
+ * U3c -- BURACO. A definicao da R3 em `estudos-ia/01-estudos/regras-de-linguagem.md`
+ * proibe "interpretacao categorica de resultado" com todas as letras. O
+ * implementado cobre dose, posologia, intervalo, diagnostico nomeado e descarte
+ * de gravidade -- e NAO cobre o julgamento do valor. "Seu exame esta alterado"
+ * passava por R1, R2, R3 e R4 inteiras.
+ *
+ * E a mesma classe de defeito da R4 antes de 2026-09-18: a regra estava certa
+ * no papel e verificada pela metade.
+ */
+function reprovaPorR3(texto: string): boolean {
+  const r = checkLanguageRules(texto, { questionKind: 'operacional', temOrigem: true });
+  return !r.ok && r.violations.some((v) => v.rule === 'R3');
+}
+
+describe('R3 — U3b: "você tem" precisa de objeto clínico', () => {
+  it('nao reprova quando o objeto e coisa do aplicativo', () => {
+    expect(reprovaPorR3('Você tem um exame de sangue guardado.')).toBe(false);
+    expect(reprovaPorR3('Você tem 3 documentos guardados.')).toBe(false);
+    expect(reprovaPorR3('Você tem uma consulta marcada para amanhã.')).toBe(false);
+    expect(reprovaPorR3('Você tem uma receita registrada.')).toBe(false);
+  });
+
+  it('continua reprovando diagnostico -- e este e o teste que impede o afrouxamento', () => {
+    expect(reprovaPorR3('Você tem diabetes.')).toBe(true);
+    expect(reprovaPorR3('Você está com hipertensão.')).toBe(true);
+    expect(reprovaPorR3('Você provavelmente tem anemia.')).toBe(true);
+    expect(reprovaPorR3('Você tem um quadro de tireoidite.')).toBe(true);
+  });
+});
+
+describe('R3 — U3c: interpretação categórica de resultado', () => {
+  it('reprova julgamento sobre o valor', () => {
+    expect(reprovaPorR3('Seu exame está alterado.')).toBe(true);
+    expect(reprovaPorR3('Esse valor é normal.')).toBe(true);
+    expect(reprovaPorR3('O resultado está preocupante.')).toBe(true);
+    expect(reprovaPorR3('Seu colesterol está alto.')).toBe(true);
+    expect(reprovaPorR3('Sua vitamina D melhorou.')).toBe(true);
+    expect(reprovaPorR3('O quadro piorou.')).toBe(true);
+  });
+
+  it('nao reprova a RECUSA de julgar, que e a resposta certa', () => {
+    expect(reprovaPorR3('Não posso dizer se está alterado.')).toBe(false);
+    expect(reprovaPorR3('Não cabe a mim avaliar se o valor é normal.')).toBe(false);
+    expect(reprovaPorR3('Não consigo dizer se melhorou.')).toBe(false);
+  });
+
+  it('nao reprova a frase que a R2 exige', () => {
+    // O encaminhamento fala de "avaliar o que significa" sem julgar nada. Se
+    // este caso falhar, a R3 passa a brigar com a R2.
+    expect(reprovaPorR3('Leve seus exames ao seu médico para avaliar o que eles significam.')).toBe(
+      false,
+    );
+  });
+});
+
+/**
+ * R5 -- a regra que sobrou verificada pela metade.
+ *
+ * A auditoria de 2026-09-19 conferiu as cinco, uma a uma, e achou o mesmo
+ * padrao das outras duas: a R5 esta escrita por inteiro em
+ * `estudos-ia/01-estudos/regras-de-linguagem.md` ("o que voce nao sabe, voce
+ * diz; sem acesso ao dado, nao invente resposta") e implementada so no pedaco
+ * mais facil -- resposta VAZIA. Nao havia um `describe('R5')` no repositorio.
+ *
+ * O que da para verificar deterministicamente, e o que nao da:
+ *   DA     -- as ferramentas disseram que nao ha dado, e a resposta nao
+ *             reconhece a ausencia. Ou ela inventa, ou ela desconversa; as
+ *             duas sao o que a R5 proibe.
+ *   NAO DA -- "a resposta inventou" em geral. Numero inventado ja e pego pela
+ *             R4 nos dois sentidos; o resto exigiria entender a prosa, e a
+ *             camada 4 existe justamente por ser deterministica.
+ *
+ * `semDados` vem de QUEM CHAMA, como `questionKind` e `temOrigem`. Ele e uma
+ * PRECONDICAO da regra, e nao uma desculpa: ausente significa "nao se aplica",
+ * e nao "aprovado". Fazer o verificador inferir isso da prosa criaria a segunda
+ * classificacao falivel que este arquivo inteiro evita.
+ */
+function reprovaPorR5(texto: string, semDados: boolean): boolean {
+  const r = checkLanguageRules(texto, {
+    questionKind: 'operacional',
+    temOrigem: true,
+    semDados,
+  });
+  return !r.ok && r.violations.some((v) => v.rule === 'R5');
+}
+
+describe('R5 — o que a IA não sabe, ela diz', () => {
+  it('reprova quando não há dado e a resposta não reconhece a ausência', () => {
+    expect(reprovaPorR5('Seu acompanhamento está em dia.', true)).toBe(true);
+    expect(reprovaPorR5('Posso ajudar com outra coisa?', true)).toBe(true);
+  });
+
+  it('aprova quando a resposta DIZ que não há', () => {
+    expect(reprovaPorR5('Não encontrei nenhum exame registrado no aplicativo.', true)).toBe(false);
+    expect(reprovaPorR5('Você ainda não tem resultados guardados aqui.', true)).toBe(false);
+    expect(reprovaPorR5('Não há registro desse exame.', true)).toBe(false);
+    expect(reprovaPorR5('Nenhum documento foi encontrado.', true)).toBe(false);
+  });
+
+  it('NÃO se aplica quando as ferramentas trouxeram dado', () => {
+    // Sem esta guarda, toda resposta normal seria reprovada por nao dizer que
+    // falta algo -- o oposto do que a regra quer.
+    expect(reprovaPorR5('Seu acompanhamento está em dia.', false)).toBe(false);
+  });
+
+  it('resposta vazia continua sendo R5, como já era', () => {
+    const r = checkLanguageRules('   ', { questionKind: 'operacional' });
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.violations[0].rule).toBe('R5');
   });
 });

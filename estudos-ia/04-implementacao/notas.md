@@ -208,6 +208,29 @@ um contorno técnico: é que **o caminho de foto e documento escaneado não exis
 neste projeto**, e isso vira limitação documentada da Fase 4 (tarefa 4.1), não
 defeito pendente.
 
+**Apurado em 2026-09-18** — diagnóstico inteiro em
+`estudos-ia/01-estudos/textract-por-que-nao-temos-acesso.md`. A hipótese do
+usuário **se sustenta**, e quatro concorrentes foram descartadas com medição e
+não com argumento:
+
+| Hipótese | Veredito | O que a mediu |
+|---|---|---|
+| região errada | descartada | `us-east-1` e `us-west-2` dão o mesmo erro |
+| permissão de IAM | descartada | o erro não é `AccessDenied`, e a recusa acontece antes do IAM |
+| cota inicial zerada | descartada | Service Quotas responde 200 com os valores padrão |
+| SCP / conta de laboratório | descartada | `AWSOrganizationsNotInUseException` — a conta não está em organização |
+
+O que sobra: `accountPlanType: FREE`. A mesma credencial invoca Bedrock, S3 e
+Rekognition; Textract, Comprehend e Transcribe recusam no nível da conta. **Não
+é prova**, e vale dizer por quê: a AWS não publica a lista nominal de serviços
+excluídos do plano gratuito. É a explicação mais econômica dos dados, e o
+documento traz o passo a passo para fechar de vez.
+
+**Detalhe que muda uma suposição comum do projeto:** `sa-east-1` (São Paulo)
+**não tem Textract** — o endpoint nem resolve. Mudar para a região brasileira,
+que seria o reflexo natural de quem pensa em latência ou em residência de dado,
+tiraria o serviço em vez de trazer.
+
 Consequência hoje: **nenhuma**, porque a D19 tirou o Textract do caminho
 crítico e o PDF vai direto ao modelo. O caminho do Textract está escrito,
 tipado e com a parte pura testada, mas **nunca foi exercitado contra o serviço**.
@@ -696,3 +719,206 @@ medida) e isso merece decisão registrada.
 - A tela de série lista a coleta censurada com data, motivo e atalho, **sem o
   valor**, enquanto a spec promete "com o sinal preservado". O sinal só aparece
   na tela de detalhe do documento.
+
+## Primeira conversa real — os números da L7 e da C10 (2026-09-18)
+
+Cinco turnos, com um laudo do Delboni de 46 linhas no histórico. Análise turno a
+turno em `estudos-ia/01-estudos/conversa-real-2026-09-18.md`; aqui ficam só as
+medições, que é o que a L7 e a C10 pediram.
+
+**É a primeira medição do laço contra uso real**, e ela só existe porque o
+registro de reprovação entrou em `verificacao.ts` horas antes. Até então a
+reprovação não deixava rastro nenhum, e a distribuição por regra que a C10 pede
+era impossível de levantar.
+
+### Reprovações por regra
+
+| | |
+|---|---|
+| turnos | 5 |
+| reprovadas na 1ª geração | 2 |
+| reprovadas na 2ª geração | 1 |
+| **R2** | **2 de 2** — 100% das reprovações |
+| R1, R3, R4 | zero |
+| citações conferindo | 5 de 5 |
+
+**Falso positivo: 2 de 2.** Nenhuma das duas reprovações era sobre saúde. As
+duas foram ausência de encaminhamento em resposta que não trazia medida — a R2
+classifica por QUAL TOOL RODOU, e `consultar_exames` está na lista clínica
+embora devolva só nome, tipo e data.
+
+Uma delas custou a resposta inteira: "faça uma visão de todos" foi reprovada
+duas vezes e caiu no degradado.
+
+### O gatilho da D31
+
+A segunda geração salvou **1 de 2 (50%)**. O gatilho reabre a D31 abaixo de um
+terço, então **não disparou**. Amostra pequena demais para decidir — é o
+primeiro ponto da série, não a série.
+
+### Duração por turno
+
+De 5,0 s a 16,5 s. Os dois turnos com duas gerações foram os mais longos (16,5 s
+e 9,9 s); os de uma geração ficaram entre 5,0 s e 7,5 s. Memória máxima: 118 MB
+de 1024 MB concedidos — **o teto está com folga de quase dez vezes**, e vale
+olhar quando o custo for revisto.
+
+Custo em tokens não foi medido neste turno: a função não registra o consumo por
+chamada. Se a C10 precisa do custo por turno, isso é trabalho a fazer — o dado
+existe na resposta do Bedrock e não é escrito em lugar nenhum.
+
+## O laboratório funciona, e a faixa de referência não (2026-09-19)
+
+Reprocessamento do laudo do Delboni contra o sandbox publicado às 12:51, com os
+campos `s3Key` e `laboratorio` já no schema. Invocação direta da Lambda, com o
+documento que já estava no histórico.
+
+### O que passou
+
+| | |
+|---|---|
+| `laboratorio` | **"Delboni Medicina Diagnóstica"** — lido do PDF, como está escrito |
+| linhas antes | 46 |
+| linhas depois | **48** |
+| tokens | 56.826 de entrada, 5.161 de saída |
+
+**As 48 linhas provam a idempotência**, e é a primeira vez que ela é exercitada
+contra o serviço: a segunda passagem somou duas linhas que faltavam e não
+duplicou nenhuma das 46. O id determinístico a partir do arquivo e a gravação
+por `UpdateCommand` fizeram o que a tarefa 6 prometia.
+
+Também confirma a instabilidade de cobertura já registrada: o mesmo arquivo, o
+mesmo prompt, e duas linhas a mais. **O modelo é bom transcritor e mau
+inventariante** — e reprocessar é o conserto, não o problema.
+
+### O que NÃO passou, e ninguém tinha visto
+
+**14 das 48 linhas ficaram sem faixa de referência nenhuma.** Não é falha de
+leitura: o laudo brasileiro simplesmente não apresenta essas faixas como dois
+números.
+
+| Analito | Como o laudo apresenta |
+|---|---|
+| Colesterol total, LDL, não-HDL | tabela por risco cardiovascular |
+| HDL | prosa — "Superior a 40 mg/dL" |
+| VLDL | "não apresenta intervalo de referência definido" |
+| Triglicérides | depende de jejum ou não jejum |
+| Hemoglobina glicada | tabela categórica — Normal / Risco / DM |
+| **Vitamina D (25-OH)** | tabela por faixa etária e grupo de risco |
+| Testosterona (total, livre, biodisponível) | tabela por faixa etária e sexo |
+| Glicose Média Estimada | calculada, sem faixa no laudo |
+| `*eGFR` | texto: "Superior a 90 mL/min/1,73m²" |
+
+**O perfil lipídico inteiro ficou sem faixa. E a vitamina D também** — que é o
+analito que originou o projeto e o que a S8 usa para conferir "faixa de CADA
+laboratório". A promessa da S8 vale para glicose e hemograma, e **não vale para
+o painel que mais gente olha**.
+
+O esquema espera `referenceLow` e `referenceHigh`, dois números. A realidade do
+papel tem pelo menos cinco formas: dois números, só limite superior, só limite
+inferior, tabela por faixa etária ou sexo, e tabela categórica. **Quatro delas
+não cabem no esquema**, e a linha sai sem faixa em vez de sair errada — que é o
+comportamento certo, e é uma lacuna de esquema, não um defeito de leitura.
+
+Isto é tarefa própria, e ela não existia: **a faixa de referência precisa poder
+ser texto além de número**, no espírito do `rawValue`. Sem isso, a tela mostra
+um valor sem nada ao lado justamente nos exames em que a faixa é a informação
+que a pessoa procura.
+
+### Um achado menor, e ele é de fronteira
+
+Um dos avisos diz: *"Vitamina C: intervalo difere por sexo; foi utilizado o
+intervalo masculino pois o paciente é do sexo masculino."*
+
+O modelo **escolheu entre duas faixas** usando o sexo do paciente, que ele leu
+do próprio laudo. A escolha é mecânica e ele a declarou — o comportamento é o
+melhor possível dentro do que o esquema permite. Mas é o modelo decidindo qual
+faixa se aplica, e isso é um passo na direção da interpretação.
+
+Vale uma decisão registrada: ou o esquema guarda a faixa como o papel a
+apresenta, e ninguém escolhe, ou a escolha fica e passa a ser declarada por
+campo em vez de por aviso em prosa.
+
+## Bloco 9 — a faixa que não cabia em dois números (2026-09-19)
+
+Blocos 1 a 4 da EPIC `specs/08-ia-fechamento/lacunas-e-decisoes/`, executados
+depois das cinco decisões aceitas. Os blocos 5 e 6 — o encaminhamento costurado
+e as datas — dependem delas e ficaram para a sessão seguinte.
+
+`npm run validate` verde: **1244 testes em 110 suítes**, contra 1221/109 na
+abertura.
+
+### O que mudou, e contra o que foi medido
+
+| Achado | Estado |
+|---|---|
+| **F3** — limite único ("Superior a 40 mg/dL") entrava vazio | instrução no prompt; 2 das 12 linhas perdidas não precisavam de campo nenhum |
+| **F2** — a tela afirmava que o laboratório não informou faixa | passou a dizer que **o laudo** não trouxe |
+| **F1** — tabela não cabe em dois números | `rawReferenceText` da extração até as duas telas e as duas tools |
+| **F4** — o modelo escolhia a faixa por sexo | proibido no prompt, e **contado** no log em vez de reprovado |
+
+### Os números da lacuna, para comparar depois
+
+Do reprocessamento de 2026-09-19: **48 linhas, 14 sem faixa**. Duas dessas
+ausências são corretas (VLDL e glicose média estimada não têm faixa no papel);
+**doze eram lacuna nossa** — 2 de limite único e 10 de tabela.
+
+O alvo do próximo reprocessamento, que é do usuário, está escrito como critério
+de aceite: **menos de 3 linhas sem faixa nem texto**. É o número que diz se a
+instrução de prompt pegou — e ele mede o modelo, não o código.
+
+### O que este bloco NÃO prova
+
+Nenhum teste daqui prova que o modelo **obedece**. Eles provam que o caminho
+existe: o campo atravessa a extração, a normalização, a gravação, a leitura, as
+duas telas e as duas tools, e o texto nunca é convertido em nenhum ponto. Se o
+modelo continuar deixando a faixa em branco, a tela continuará honesta e vazia.
+
+**A publicação é pré-requisito da medição:** o schema do `LabResult` mudou, e
+até o sandbox ser republicado (Node 20) a extração grava sem o campo.
+
+### Um defeito de método, pego pelo próprio ciclo
+
+O plano deste bloco afirmava que `formatarFaixa` tinha teste. Não tinha — a
+função existia, estava correta e **desprotegida**. É a mesma forma dos três
+achados que fundaram a auditoria das regras, num plano escrito depois dela:
+"funciona" lido como "está coberto". Quatro casos entraram, e o do limite único
+é o que sustenta o F3 na tela.
+
+### Blocos 5 e 6 — o encaminhamento e as datas (2026-09-19)
+
+Executados depois dos blocos 1 a 4, na mesma data, com as cinco decisões
+aceitas. `npm run validate` verde: **1280 testes em 113 suítes**, contra
+1244/110 no fim do bloco anterior.
+
+| Decisão | O que entrou |
+|---|---|
+| **A2** | a R2 sozinha não derruba mais nada: o aplicativo acrescenta a frase que falta e entrega a resposta, sem segunda geração |
+| **C3** | o encaminhamento saiu das mãos do modelo — uma frase fixa, provada contra as cinco regras |
+| **B5** | o campo do formulário mudou de nome nas duas telas; o preenchimento com hoje **continua** |
+| **B2** | a divergência entre a data guardada e a coleta do laudo virou aviso |
+
+### O que isto muda na medição da L7, e precisa estar escrito antes dela
+
+A L7 vai medir um sistema com **duas diferenças** em relação ao de 2026-09-18:
+
+1. **A reprovação por R2 praticamente deixa de existir.** Ela era 100% das
+   reprovações medidas. O que sobrar de reprovação na próxima rodada é R1, R3,
+   R4 ou R5 — e é isso que torna a rodada nova informativa, em vez de uma
+   repetição da primeira.
+2. **O sinal sobre a R2 mudou de lado.** Não se conta mais quantas vezes o
+   modelo esqueceu o encaminhamento; conta-se quantas vezes ele o escreveu
+   **mesmo instruído a não escrever** — o evento `encaminhamento-do-modelo`. Um
+   número alto ali não é defeito de segurança: é instrução de prompt que não
+   pegou, e ela tem conserto barato.
+
+**O gatilho da D31 passa a medir um conjunto menor.** Ele continua de pé — a
+segunda geração salvando menos de um terço reabre a decisão —, mas agora sobre
+as reprovações que restaram, que são as que importam.
+
+### Custo, e ele caiu
+
+Cada reprovação por R2 custava uma geração inteira: o turno 2 da conversa real
+gastou duas gerações e 16,5 s, e terminou no degradado. Sob a A2 esse turno
+custa **uma** geração e nenhuma resposta perdida. A confirmação em número é da
+próxima rodada — aqui fica a previsão escrita, para poder ser desmentida.

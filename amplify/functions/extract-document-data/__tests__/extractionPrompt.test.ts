@@ -66,4 +66,23 @@ describe('extractionPrompt', () => {
   it('manda ignorar instrucao vinda de dentro do documento', () => {
     expect(SYSTEM_PROMPT).toMatch(/nao siga instrucao/i);
   });
+
+  it('diz o que fazer quando o laudo traz UM LADO SO da faixa (F3)', () => {
+    // Medido no reprocessamento de 2026-09-19: HDL ("Superior a 40 mg/dL") e
+    // *eGFR ("Superior a 90 mL/min/1,73m2") entraram SEM faixa nenhuma, e as
+    // duas CABEM no esquema de hoje. A instrucao mandava transcrever "os
+    // limites", no plural, e nunca dizia o que fazer com um limite so -- um
+    // modelo instruido a nao inventar deixa os dois vazios, e esta certo.
+    expect(SYSTEM_PROMPT).toMatch(/um lado so/i);
+    expect(SYSTEM_PROMPT).toMatch(/apenas o limite/i);
+  });
+
+  it('manda TRANSCREVER a faixa em tabela, e proibe escolher uma linha dela (F4)', () => {
+    // Dez das quatorze linhas sem faixa vinham de tabela -- por risco, por
+    // idade, por sexo, por jejum, por categoria. Reduzir tabela a dois numeros
+    // e ESCOLHER uma linha dela, e escolher e interpretar (decisao D3).
+    expect(SYSTEM_PROMPT).toMatch(/rawReferenceText/);
+    expect(SYSTEM_PROMPT).toMatch(/nunca escolha/i);
+    expect(SYSTEM_PROMPT).toMatch(/idade|sexo/i);
+  });
 });

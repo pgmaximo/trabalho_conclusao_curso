@@ -78,6 +78,38 @@ for publicado, o que ainda nao aconteceu.
 - [ ] T14 — Calibrar o limiar de confiança com o medido e trocar o comentário provisório.
 - [ ] T14 — Registrar medições e custo por documento em `estudos-ia/04-implementacao/notas.md`.
 
+**ADIADA por falta de insumo, 2026-09-18.** O usuário ainda não tem os três a
+cinco laudos. A expectativa dele é ter **três até o fim de 2026-09-18, sendo
+dois do Delboni** — e dois do mesmo laboratório contam como **um** para o
+critério "de laboratórios diferentes", que é o ponto inteiro desta tarefa: um
+laudo do Delboni já foi medido em 2026-09-17 (19 exames, 836 KB, em
+`notas.md`), então repetir o mesmo emissor não exercita nada de novo.
+
+A T14 não está bloqueada por código. Ela está esperando papel. Enquanto ele não
+chega, três coisas podem ser feitas sem ele e adiantam o dia da conferência:
+
+- [ ] Fechar as cinco pendências de vocabulário de
+      `estudos-ia/05-vocabularios/pendencias.md` (vitamina A, vitamina E, PCR,
+      albumina urinária, taxa de filtração glomerular). Elas não travam a T3,
+      mas travam a T14: conferir valor por valor contra um laudo exige que a
+      linha do laudo tenha para onde ir.
+- [ ] Ampliar a cobertura de analitos para o que um laudo brasileiro de rotina
+      de fato traz — estudo e tarefa própria em
+      `estudos-ia/05-vocabularios/cobertura-brasileira-lacunas.md`. Um analito
+      fora da cobertura não aparece como erro de leitura; aparece como linha
+      que não existe, que é o modo de falha mais difícil de contar à mão.
+- [ ] Montar a planilha de conferência **antes** de ter o laudo: uma linha por
+      valor do papel, com colunas para o que o papel diz, o que o aplicativo
+      leu, e o veredito. Sem ela, a conferência vira leitura por cima, e o
+      número que importa — quantas linhas passaram como corretas estando
+      erradas — não sai.
+
+**Limitação que vale saber antes de escolher os laudos:** o Textract não está
+habilitado na conta (`SubscriptionRequiredException`, registrado em
+`notas.md`), então **o aplicativo lê PDF e não lê foto**. Os laudos da amostra
+precisam ser PDF, e de preferência PDF digital, não PDF que é uma foto dentro
+de um envelope.
+
 ## Encerramento
 
 - [x] `npm run validate` passa.

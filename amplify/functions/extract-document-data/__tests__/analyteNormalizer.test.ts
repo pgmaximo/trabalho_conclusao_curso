@@ -38,6 +38,73 @@ describe('normalizeLabResult', () => {
     expect(linha.reviewStatus).toBe('AUTO');
   });
 
+  it('aceita faixa de UM LADO SO, sem mandar a linha para revisao (F3)', () => {
+    // O laudo do Delboni escreve a faixa do HDL em prosa: "Superior a 40
+    // mg/dL". Ela CABE no esquema de hoje -- um limite preenchido, o outro
+    // vazio --, e a tela ja sabe escrever "acima de 40". O que faltava era a
+    // instrucao no prompt; este teste fixa que o normalizador aceita o que o
+    // prompt passou a pedir, e que ausente continua diferente de ilegivel.
+    const hdl = {
+      ...vitaminaD,
+      analyteCodeGuess: codigoDe('HDL'),
+      analyteLabel: 'HDL',
+      rawValue: '52',
+      rawUnit: 'mg/dL',
+      rawReferenceLow: '40',
+      rawReferenceHigh: null,
+    };
+
+    const linha = normalizeLabResult(hdl, CONFIDENCE_THRESHOLD);
+
+    expect(linha.referenceLow).toBeCloseTo(40, 2);
+    expect(linha.referenceHigh).toBeNull();
+    expect(linha.reviewStatus).toBe('AUTO');
+  });
+
+  it('a faixa em TEXTO atravessa a normalizacao intacta, e nunca e convertida (F1)', () => {
+    // O valor converte de nmol/L para ng/mL; a faixa em texto NAO, porque
+    // texto nao tem escala. Ela e a faixa na unidade do papel, e e a tela que
+    // mostra as duas coisas lado a lado -- converter o numero e "converter" a
+    // frase seria inventar um laudo que nao existe.
+    const tabela =
+      'Deficiencia: menor que 20 ng/mL; Insuficiencia: 20 a 29 ng/mL; Suficiencia: 30 a 60 ng/mL';
+
+    const linha = normalizeLabResult(
+      {
+        ...vitaminaD,
+        rawValue: '79,87',
+        rawUnit: 'nmol/L',
+        rawReferenceLow: null,
+        rawReferenceHigh: null,
+        rawReferenceText: tabela,
+      },
+      CONFIDENCE_THRESHOLD,
+    );
+
+    expect(linha.value).toBeCloseTo(32.0, 1);
+    expect(linha.rawReferenceText).toBe(tabela);
+    expect(linha.referenceLow).toBeNull();
+    expect(linha.referenceHigh).toBeNull();
+    expect(linha.reviewStatus).toBe('AUTO');
+  });
+
+  it('a faixa em texto sobrevive a linha que vai para revisao (F1)', () => {
+    // Mesma razao do rawValue: o texto e o que estava no papel, e o papel nao
+    // muda porque a leitura do numero falhou. Quem revisa precisa dele.
+    const linha = normalizeLabResult(
+      {
+        ...vitaminaD,
+        rawValue: 'nao reagente',
+        rawReferenceText: 'Nao reagente',
+      },
+      CONFIDENCE_THRESHOLD,
+    );
+
+    expect(linha.reviewStatus).toBe('PENDENTE_DE_REVISAO');
+    expect(linha.value).toBeNull();
+    expect(linha.rawReferenceText).toBe('Nao reagente');
+  });
+
   it('preserva o sinal de censura e nao o trata como medida', () => {
     const tsh = {
       ...vitaminaD,

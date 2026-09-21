@@ -23,6 +23,13 @@ import { ANALYTE_CATALOG, findAnalyteByCode } from '../../extract-document-data/
 import type { DegradedBlock } from '../types';
 import { formatarData, formatarDecimal } from '../formatoPtBr';
 import { lerDoDono, texto } from './ownerScopedRead';
+import {
+  comoLinha,
+  motivoDaExclusao,
+  unidadeDaSerie,
+  MOTIVOS_DE_EXCLUSAO,
+  type LinhaDeResultado,
+} from './linhasDeResultado';
 import type { ChatTool } from './tipos';
 
 /**
@@ -31,78 +38,17 @@ import type { ChatTool } from './tipos';
  * duas listas: se a tela passar a excluir por um motivo que a conversa nao
  * conhece, a conversa citaria um numero que a tela esconde.
  */
-export const MOTIVOS_DE_EXCLUSAO = {
-  'pendente-de-revisao': 'aguarda conferência do usuário',
-  'sem-valor': 'não pôde ser lido com segurança',
-  'limite-de-deteccao': 'o laboratório informou um limite, não uma medida',
-  'unidade-divergente': 'está em outra unidade de medida',
-  'sem-data': 'está sem a data da coleta',
-} as const;
-
-export type MotivoDeExclusao = keyof typeof MOTIVOS_DE_EXCLUSAO;
-
-type LinhaDeResultado = {
-  id: string;
-  documentId: string;
-  analyteCode: string;
-  projectLabel: string | null;
-  analyteLabel: string | null;
-  value: number | null;
-  valueQualifier: string | null;
-  unit: string | null;
-  rawValue: string | null;
-  referenceLow: number | null;
-  referenceHigh: number | null;
-  collectedAt: string | null;
-  collectionMoment: string | null;
-  reviewStatus: string | null;
-};
-
-function numero(valor: unknown): number | null {
-  return typeof valor === 'number' && Number.isFinite(valor) ? valor : null;
-}
-
-function comoLinha(bruta: Record<string, unknown>): LinhaDeResultado {
-  return {
-    id: String(bruta.id ?? ''),
-    documentId: String(bruta.documentId ?? ''),
-    analyteCode: String(bruta.analyteCode ?? ''),
-    projectLabel: texto(bruta.projectLabel),
-    analyteLabel: texto(bruta.analyteLabel),
-    value: numero(bruta.value),
-    valueQualifier: texto(bruta.valueQualifier),
-    unit: texto(bruta.unit),
-    rawValue: texto(bruta.rawValue),
-    referenceLow: numero(bruta.referenceLow),
-    referenceHigh: numero(bruta.referenceHigh),
-    collectedAt: texto(bruta.collectedAt),
-    collectionMoment: texto(bruta.collectionMoment),
-    reviewStatus: texto(bruta.reviewStatus),
-  };
-}
-
-/**
- * A unidade da serie e a da coleta COMPARAVEL mais ANTIGA -- a mesma regra da
- * EPIC de serie, e pela mesma razao: a unidade da serie e a lingua que ela
- * sempre falou, e uma coleta nova em outra unidade e a anomalia. O contrario
- * faria uma unica coleta nova expulsar o historico inteiro.
- */
-function unidadeDaSerie(linhas: LinhaDeResultado[]): string {
-  const comparaveis = linhas
-    .filter((l) => l.unit && l.value !== null && l.reviewStatus !== 'PENDENTE_DE_REVISAO')
-    .sort((a, b) => (a.collectedAt ?? '9999').localeCompare(b.collectedAt ?? '9999'));
-  return comparaveis[0]?.unit ?? linhas[0]?.unit ?? '';
-}
-
-/** A ORDEM e a mesma da EPIC de serie, e cada degrau dela e uma decisao. */
-function motivoDaExclusao(linha: LinhaDeResultado, unidade: string): MotivoDeExclusao | null {
-  if (linha.reviewStatus === 'PENDENTE_DE_REVISAO') return 'pendente-de-revisao';
-  if (linha.value === null) return 'sem-valor';
-  if (linha.valueQualifier) return 'limite-de-deteccao';
-  if (linha.unit !== unidade) return 'unidade-divergente';
-  if (!linha.collectedAt) return 'sem-data';
-  return null;
-}
+// Os tipos e as regras de exclusao foram EXTRAIDOS para `linhasDeResultado.ts`
+// em 2026-09-19 (U5): `consultar_resultados` precisa das mesmas, e duas copias
+// divergiriam em silencio. Reexportados aqui porque quem ja importava daqui
+// continua valendo.
+export {
+  MOTIVOS_DE_EXCLUSAO,
+  motivoDaExclusao,
+  unidadeDaSerie,
+  type LinhaDeResultado,
+  type MotivoDeExclusao,
+} from './linhasDeResultado';
 
 /** Momento vazio e momento ausente sao o MESMO grupo. */
 function chaveDoMomento(momento: string | null): string {
@@ -236,7 +182,14 @@ export const analitosTool: ChatTool = {
             // O que estava no papel, ao lado do numero lido -- e o que permite
             // a pessoa conferir sem abrir o documento.
             comoEstavaNoPapel: l.rawValue,
-            faixaDoLaboratorio: { minimo: l.referenceLow, maximo: l.referenceHigh },
+            faixaDoLaboratorio: {
+              minimo: l.referenceLow,
+              maximo: l.referenceHigh,
+              // A faixa que o laudo escreveu em tabela, quando nao ha dois numeros
+              // (Bloco 9). Ela vem na unidade do PAPEL e nunca foi convertida --
+              // o modelo a repassa como esta, e nao escolhe linha dentro dela.
+              comoOLaudoEscreveu: l.rawReferenceText,
+            },
             documentoId: l.documentId,
           })),
         naoComparaveis,
