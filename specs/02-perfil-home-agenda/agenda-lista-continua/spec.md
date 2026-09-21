@@ -92,7 +92,7 @@ O histórico deixa de ser um modo: rolar para cima **é** ver o passado.
 De cima para baixo. **Não há nenhuma faixa de controle entre o cabeçalho e o conteúdo.**
 
 1. `ScreenHeader`: título "Agenda", subtítulo "Seus compromissos de saúde", e **duas** ações à direita — ícone de calendário (abre a camada de mês) e "+" (abre `/add-appointment`).
-2. Linha "Sincronizar com Google Agenda" (estado "Em breve"). **Preservada.**
+2. *(Não há mais linha "Sincronizar com Google Agenda".* O stub "Em breve" que a EPIC `agenda/` criou foi substituído pelo Brunno no commit `41b233b` por exportação real, **por compromisso**, via `onSyncPress` em cada card. A pendência deixou de existir; o que se preserva é o `handleGoogleCalendarSync` e o `onSyncPress` do card.)
 3. **Lista contínua**, seccionada por dia. Cada seção tem um cabeçalho de data e os compromissos daquele dia em ordem de horário.
    - Rótulos de data: "Hoje", "Amanhã", ou a data por extenso ("Sexta, 25 de setembro"). Itens de outro ano incluem o ano.
    - Itens passados são visualmente atenuados, mas legíveis e tocáveis.
@@ -139,7 +139,8 @@ Fonte real única, inalterada: `Appointment` no DynamoDB, via `useAppointmentsDa
 | `src/components/YearMonthsGrid.tsx` | Apagado — a visão de ano não serve a nenhum dos dois usos declarados |
 | `src/components/CalendarPicker.tsx` | Apagado — a faixa de dias desaparece |
 | `buildDayCells`, `buildWeekCells`, `buildYearCells` | Apagados de `agendaDateRange.ts` |
-| `AgendaScope`, `AgendaListOverride`, `shiftAnchor`, `formatPeriodLabel` | Apagados — sem escopo não há o que deslocar nem rotular |
+| `AgendaListOverride` | Apagado — fica sem consumidor |
+| `AgendaScope`, `shiftAnchor`, `formatPeriodLabel` | **Preservados.** A camada de mês navega entre meses e rotula o mês visível, e são estes três que fazem isso. A intuição inicial de que "sem escopo não há o que deslocar" estava errada: a camada tem escopo, só que um só |
 | `src/hooks/useAgendaNavigation.ts` | **Apagado.** O único estado que sobraria é o mês visível dentro da camada — e esse pertence à própria camada, não a um hook compartilhado. Um hook cujo único consumidor é um modal é indireção sem ganho |
 
 ### 5.2 O que sobrevive intacto
