@@ -141,7 +141,8 @@ recomendação.
 - [x] `npm run validate` passa — 1280 testes, 113 suítes, com os seis blocos.
 - [x] Os 19 critérios de aceite da `spec.md` §9 conferidos **um a um**, com o
       resultado escrito.
-- [ ] `react-doctor` nos arquivos React tocados.
+- [x] `react-doctor` nos arquivos React tocados — **12 achados, nenhum
+      procedente para esta EPIC.** Veredito escrito abaixo.
 - [ ] **[USUÁRIO]** Republicar o sandbox (Node 20) e **reprocessar o laudo do
       Delboni**: menos de 3 linhas sem faixa nem texto, contra as 14 de hoje.
 - [ ] **[USUÁRIO]** **L7** — nova rodada de pelo menos vinte perguntas, com a
@@ -240,6 +241,19 @@ O plano mandava renomear o campo em `AddExamScreen.tsx:194`. O modo de edição 
 `DocumentDetailScreen.tsx` tinha o mesmo campo com o mesmo rótulo. O teste é uma
 varredura de fonte sobre as duas telas, e não uma renderização de uma delas:
 foi um teste por tela que deixou as duas divergirem em silêncio no passado.
+
+### O react-doctor acusou 12 achados, e nenhum é desta EPIC
+
+O hook de commit apontou regressões. Conferidos um a um, com o arquivo aberto:
+
+| Achado | Veredito |
+|---|---|
+| 8 erros de "texto cru fora de `<Text>`" em `ExtractedResultsSection.tsx` | **falso positivo, confiança alta.** Todo o texto apontado está dentro de `<Legenda>`, um componente local do próprio arquivo que renderiza `<Text>`. A regra não segue componente próprio. As linhas são renderizadas por testes que passam — se crashassem, a suíte da tela de detalhe não rodaria |
+| 2 avisos de travessão em copy | **estilo, e deliberado.** As duas linhas são copy anterior a esta EPIC, e o travessão é a voz escrita do projeto inteiro. Nenhuma das frases novas usa travessão |
+| 2 avisos de `prefer-useReducer` | **pré-existente e fora de escopo.** As duas telas já tinham seis `useState` antes desta EPIC; agrupá-las em reducer é refatoração de comportamento em tela entregue, e a regra 5 da constituição pede o contrário |
+
+Nada foi suprimido e nenhuma configuração foi mexida — o veredito fica escrito
+aqui, que é onde a próxima pessoa vai procurar quando o hook acusar de novo.
 
 ### O que ficou sem teste, e está dito em vez de escondido
 
