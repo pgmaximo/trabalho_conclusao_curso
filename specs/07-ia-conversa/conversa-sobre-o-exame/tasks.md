@@ -42,10 +42,12 @@ reprovação) que ainda **não estão commitados**.
 - [x] **U3** — `consultar_exames` sai de `TOOLS_CLINICAS`; `consultar_perfil`
       fica. Teste sobre a lista, para a saída ser deliberada e não acidental.
 - [x] **U3** — Rodar as suítes de R1, R3 e R4 e confirmar contagem inalterada.
-- [ ] **U4** — **DECISÃO DO USUÁRIO, não implementar antes.** Acrescentar o
+- [x] **U4** — **Decidida e implementada no Bloco 9**, em 2026-09-19: a costura
+      entrou (opção A2) e virou a **D38**, que altera a D31 com a ressalva
+      escrita. Acrescentar o
       encaminhamento em vez de descartar a resposta, quando a R2 for a **única**
       violação. Muda o contrato da D31. Prós, contras e mitigação no `plan.md`.
-- [ ] **U4** — Se sim: vira decisão numerada, e a D31 ganha a ressalva escrita.
+- [x] **U4** — Virou a **D38**, e a D31 ganhou a ressalva escrita.
 
 ## Bloco 2 — A pergunta que o aplicativo não sabe responder
 
@@ -77,7 +79,11 @@ reprovação) que ainda **não estão commitados**.
 - [x] **U11** — Teste: laudo sem emissor legível não ganha nome inventado.
 - [x] **U12** — `handler.ts` grava; `exames.ts` devolve; a descrição da tool
       volta a mencionar laboratório — **desta vez verdadeira**.
-- [ ] **[USUÁRIO]** **U12** — Conferência contra laudo real, depois de publicar.
+- [~] **[USUÁRIO]** **U12** — **Meio feito.** O reprocessamento de 2026-09-20
+      provou que o modelo LÊ o emissor do papel: `laboratorio` voltou
+      "Delboni Medicina Diagnóstica". Falta o que a tarefa pedia de verdade —
+      laudos de emissores **diferentes**, que é o ponto da S8. Conferência
+      contra laudo real, depois de publicar.
       Vai junto com a T14. Nada aqui prova que o modelo LÊ o laboratório do
       papel — só que há onde guardá-lo.
 
@@ -105,7 +111,9 @@ reprovação) que ainda **não estão commitados**.
 - [x] **U16** — O prompt prefere a data de coleta ao falar de "quando".
 - [x] **U16** — Documento sem linha: a resposta diz que a data é de **registro**,
       e não do exame. Trocar uma pela outra em silêncio seria trocar de defeito.
-- [ ] **U17** — **DECISÃO DO USUÁRIO.** O formulário vem preenchido com hoje, e
+- [x] **U17** — **Decidida e implementada no Bloco 9** (D39): o rótulo do campo
+      mudou nas duas telas e a divergência com a data do laudo virou aviso. O
+      preenchimento com hoje **ficou**. O formulário vem preenchido com hoje, e
       foi assim que um laudo de outubro de 2025 entrou como setembro de 2026.
       Recomendação no `plan.md`: manter o preenchimento e **avisar** quando a
       data lida do laudo divergir. Escrever no formulário a data extraída
@@ -151,12 +159,15 @@ vez que isso é verdade.
 
 ## Decisões que são do usuário
 
-- [ ] **A fronteira da regra 4.** "Se tiver algum valor que te preocupa" não
+- [x] **A fronteira da regra 4** — fechada pela **D38** (opção C3): o
+      encaminhamento deixou de ser prosa do modelo e virou texto fixo do
+      aplicativo, o que elimina a frase inteira em vez de proibi-la. "Se tiver
+      algum valor que te preocupa" não
       julga, mas convida a julgar. Decidir se a fronteira fica onde está, e
       registrar **em qualquer dos dois sentidos** — é o tipo de frase que uma
       banca lê com atenção.
-- [ ] **U4** — o encaminhamento costurado.
-- [ ] **U17** — o preenchimento do formulário.
+- [x] **U4** — o encaminhamento costurado. **D38.**
+- [x] **U17** — o preenchimento do formulário. **D39.**
 
 ## Encerramento
 
@@ -165,7 +176,9 @@ vez que isso é verdade.
       resultado escrito — a conferência que as cinco EPICs anteriores só
       fizeram depois, e tarde. Esta é a primeira que a faz no encerramento.
       **Resultado abaixo.**
-- [ ] `react-doctor` nos arquivos React tocados, se houver algum.
+- [x] `react-doctor` — rodado no Bloco 9 sobre os arquivos React das duas
+      EPICs: 12 achados, nenhum procedente. Veredito em
+      `specs/08-ia-fechamento/lacunas-e-decisoes/tasks.md`.
 - [ ] **[USUÁRIO]** Nova rodada de pelo menos vinte perguntas (L7), com a
       distribuição por regra comparada com a medição que fundou esta EPIC.
       Roteiro em `estudos-ia/04-implementacao/roteiro-de-conferencia.md`.
