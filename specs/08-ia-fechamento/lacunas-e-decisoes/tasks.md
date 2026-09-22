@@ -136,15 +136,33 @@ recomendação.
 - [x] **A e C** registradas na **D38**, que altera a D31 com a ressalva escrita.
 - [x] **B** registrada na **D39**.
 
-## O que esta EPIC deixou para outra, com nome
+## O reparo da extração, consertado em 2026-09-22
 
-- [ ] **O reparo da extração não deixa rastro.** `bedrockClient.ts` tem uma
-      tentativa de reparo que não escreve log, e `usage` reporta só a **última**
-      chamada — então o custo de um documento que precisou de reparo é
-      subnotificado no próprio campo que existe para medi-lo. Descoberto por
-      acaso, comparando duas execuções lado a lado (2026-09-22). É a mesma forma
-      do defeito que a conversa tinha antes do Bloco 8: a reprovação acontecia e
-      não deixava rastro.
+Descoberto por acaso, comparando duas execuções lado a lado: a mais cara
+transcrevia MENOS, e a explicação era uma segunda chamada ao modelo que não
+aparecia em lugar nenhum. Mesma forma do defeito que a conversa tinha antes do
+Bloco 8 — a reprovação acontecia e não deixava rastro.
+
+- [x] **O reparo registra `reparo-de-extracao`**, com o motivo (`validacao` ou
+      `max_tokens`) e sem nada do conteúdo — a mesma regra do
+      `resposta-reprovada`.
+- [x] **O `usage` passou a SOMAR as duas chamadas.** O efeito do defeito era
+      perverso: o documento que precisou de reparo — o mais caro — aparecia
+      mais **barato** do que foi, porque a chamada de reparo sozinha não
+      carrega o custo da primeira. O campo que existe para medir o custo era o
+      que o escondia.
+- [x] **O fracasso também registra o custo** (`extracao-falhou`). No sucesso
+      quem grava é o `markSucceeded`, no documento; no fracasso não havia onde,
+      e um documento que falhou duas vezes é o mais caro de todos. Sem isso, a
+      média por documento sai otimista por ignorar os piores casos.
+- [x] `bedrockClient.ts` ganhou a **primeira suíte** — 6 casos, com o SDK
+      mockado em vez de importado, e a soma confirmada por mutação.
+- [x] O evento da escolha de faixa passou de `console.log` para `console.info`,
+      igual aos outros eventos do projeto.
+
+**Não medido em produção:** com o teto em 800 a resposta cabe, então o reparo
+não deve disparar no laudo do Delboni. A próxima vez que ele acontecer vai
+deixar rastro — que é exatamente o ponto.
 
 ## Encerramento
 

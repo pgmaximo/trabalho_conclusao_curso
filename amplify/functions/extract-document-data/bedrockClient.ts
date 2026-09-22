@@ -58,6 +58,38 @@ export type RequestExtractionOptions = {
   candidatos: string;
 };
 
+/**
+ * O rastro do reparo, e ele existe por um achado de 2026-09-22.
+ *
+ * Ate essa data o reparo acontecia em silencio. Ele so foi descoberto
+ * comparando duas execucoes do MESMO laudo lado a lado -- a mais cara
+ * transcrevia MENOS --, e a explicacao era uma segunda chamada ao modelo que
+ * nao aparecia em lugar nenhum. E a mesma forma do defeito que a conversa
+ * tinha antes do Bloco 8: a reprovacao acontecia e nao deixava rastro, e por
+ * isso a distribuicao por regra era impossivel de levantar.
+ *
+ * SO o motivo, nunca o conteudo: o log e lido por gente e guardado por tempo
+ * indeterminado, e o que esta sendo transcrito aqui e o laudo de alguem.
+ */
+function registrarReparo(motivo: 'validacao' | 'max_tokens'): void {
+  console.info(JSON.stringify({ evento: 'reparo-de-extracao', motivo }));
+}
+
+/**
+ * O custo de um documento que NAO deu certo.
+ *
+ * Em caso de sucesso, quem grava o custo e o `markSucceeded`, no proprio
+ * documento. No fracasso nao ha onde gravar -- e um documento que falhou duas
+ * vezes e o mais caro de todos. Sem esta linha, a media por documento sai
+ * otimista justamente por ignorar os piores casos.
+ */
+function registrarFalha(uso: { input: number; output: number }): void {
+  if (uso.input === 0 && uso.output === 0) return;
+  console.info(
+    JSON.stringify({ evento: 'extracao-falhou', entrada: uso.input, saida: uso.output }),
+  );
+}
+
 export type RequestExtractionResult =
   | { ok: true; result: RawExtraction; usage: { input: number; output: number } }
   | { ok: false; message: string };
@@ -133,12 +165,29 @@ export async function requestExtraction(
     }
   };
 
+  /**
+   * O uso das DUAS chamadas, somado.
+   *
+   * Antes de 2026-09-22 este campo reportava so a ultima, e o efeito era
+   * perverso: um documento que precisou de reparo -- ou seja, o mais caro --
+   * aparecia mais BARATO do que foi, porque a chamada de reparo sozinha nao
+   * carrega o custo da primeira. O campo que existe para medir o custo era o
+   * que o escondia.
+   */
+  const uso = { input: 0, output: 0 };
+  const somar = (r: { usage?: { inputTokens?: number; outputTokens?: number } }): void => {
+    uso.input += r.usage?.inputTokens ?? 0;
+    uso.output += r.usage?.outputTokens ?? 0;
+  };
+
   try {
     let resposta = await chamar(messages);
+    somar(resposta);
 
     // Documento bloqueado pelo filtro nao e erro do sistema: e o filtro
     // trabalhando, e a mensagem ao usuario precisa dizer isso.
     if (resposta.stopReason === 'guardrail_intervened') {
+      registrarFalha(uso);
       return { ok: false, message: 'O conteudo do documento foi bloqueado pelo filtro de seguranca.' };
     }
 
@@ -147,6 +196,7 @@ export async function requestExtraction(
     // UMA tentativa de reparo, e ela distingue os dois motivos de falha.
     if (!validado.ok) {
       const cortouPorTamanho = resposta.stopReason === 'max_tokens';
+      registrarReparo(cortouPorTamanho ? 'max_tokens' : 'validacao');
       const correcao = cortouPorTamanho
         ? 'A resposta foi cortada por tamanho. Transcreva menos linhas por vez, comecando pelas dos analitos com valor numerico.'
         : `A resposta nao passou na validacao: ${validado.message}. Corrija o formato e responda de novo.`;
@@ -156,20 +206,18 @@ export async function requestExtraction(
         { role: 'assistant', content: resposta.output?.message?.content ?? [] },
         { role: 'user', content: [{ text: correcao }] },
       ]);
+      somar(resposta);
       validado = parseExtraction(lerSaida(resposta.output?.message?.content));
     }
 
-    if (!validado.ok) return { ok: false, message: validado.message };
+    if (!validado.ok) {
+      registrarFalha(uso);
+      return { ok: false, message: validado.message };
+    }
 
-    return {
-      ok: true,
-      result: validado.value,
-      usage: {
-        input: resposta.usage?.inputTokens ?? 0,
-        output: resposta.usage?.outputTokens ?? 0,
-      },
-    };
+    return { ok: true, result: validado.value, usage: { ...uso } };
   } catch (error) {
+    registrarFalha(uso);
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
   }
 }

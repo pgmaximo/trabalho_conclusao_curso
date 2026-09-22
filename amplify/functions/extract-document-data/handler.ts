@@ -165,7 +165,7 @@ export async function handler(event: InvokeEvent): Promise<void> {
     // log -- o aviso nomeia analito, que e dado de saude.
     const escolhasDeFaixa = contarEscolhasDeFaixa(avisos);
     if (escolhasDeFaixa > 0) {
-      console.log(
+      console.info(
         JSON.stringify({ evento: 'faixa-escolhida-pelo-modelo', quantidade: escolhasDeFaixa }),
       );
     }
