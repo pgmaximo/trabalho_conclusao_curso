@@ -922,3 +922,116 @@ Cada reprovação por R2 custava uma geração inteira: o turno 2 da conversa re
 gastou duas gerações e 16,5 s, e terminou no degradado. Sob a A2 esse turno
 custa **uma** geração e nenhuma resposta perdida. A confirmação em número é da
 próxima rodada — aqui fica a previsão escrita, para poder ser desmentida.
+
+## O reprocessamento do laudo contra o código do Bloco 9 (2026-09-20)
+
+Sandbox republicado (deploy em 160,6 s) e a Lambda invocada diretamente com o
+mesmo documento do histórico — `28a15365-6094-4b41-a0c9-a8a4323da390`, o laudo
+do Delboni. **É a primeira medição do Bloco 9 contra o serviço real**, e ela
+existe para confrontar o que os testes NÃO provam: que o modelo obedece.
+
+Linha de base medida no banco antes da invocação, e não citada do estudo.
+
+### O número que a EPIC prometeu
+
+| | Antes | Depois |
+|---|---|---|
+| linhas | 48 | **48** |
+| com os dois números | 33 | 31 |
+| com um lado só | 1 | 1 |
+| com faixa em texto | 0 | **14** |
+| **sem faixa nenhuma** | **14** | **2** |
+
+**O critério de aceite pedia menos de 3. Deu 2.**
+
+As duas que sobraram são **Testosterona Livre Calculada** e **Glicose Média
+Estimada** — as duas são valores *calculados*, e o laudo não traz faixa para
+nenhuma delas. O modelo disse isso num aviso, em vez de deixar o vazio sem
+explicação: *"não há intervalo de referência definido no laudo para este
+analito calculado"*.
+
+**48 linhas de novo, zero duplicadas.** É a terceira passagem do mesmo arquivo,
+e a idempotência do id determinístico se sustentou.
+
+Custo: **62.893 tokens de entrada e 5.340 de saída** (era 56.826/5.161), 111,5 s
+de execução, 124 MB de 1024. O prompt cresceu ~10% de entrada — é o preço das
+instruções novas, e ele está medido em vez de suposto.
+
+### O F4 funcionou, e é o achado mais forte desta rodada
+
+**Zero eventos `faixa-escolhida-pelo-modelo` no CloudWatch, e nenhum dos quatro
+avisos declara escolha de faixa.**
+
+Na passagem de 2026-09-19 havia este aviso, que originou a decisão D37:
+
+> "Vitamina C: intervalo difere por sexo; foi utilizado o intervalo masculino
+> pois o paciente é do sexo masculino."
+
+Agora a mesma linha entra assim, com as duas faixas e sem ninguém escolher:
+
+> `Homens: 0,2 a 2,1 mg/dL | Mulheres: 0,3 a 2,7 mg/dL`
+
+**Duas linhas trocaram dois números por texto, e isso é a decisão funcionando —
+não um defeito.** Zinco Sanguíneo e Vitamina C tinham faixa numérica *porque o
+modelo escolhia uma linha da tabela*. Agora transcrevem a tabela inteira. O
+preço é real e está declarado: essas duas perderam a faixa de fundo do gráfico
+de série. Menos bonito, e verdadeiro.
+
+### A qualidade da transcrição, lida uma a uma
+
+O perfil lipídico inteiro e a vitamina D — os dois casos que motivaram a EPIC —
+entraram com a tabela do papel:
+
+- **Vitamina D:** *"População saudável abaixo de 60 anos: Superior a 20 ng/mL |
+  População acima de 60 anos e grupos de risco*: 30 a 60 ng/mL"*
+- **Hemoglobina glicada:** as três categorias, Normal / Risco / Diabetes
+- **Triglicérides e colesterol:** as linhas de jejum e não jejum, separadas
+
+**O melhor comportamento da rodada** foi no Zinco: o laudo tem um erro de
+digitação — *"70,0 a 120,"*, vírgula sem número depois. O modelo transcreveu
+exatamente assim **e registrou o aviso** dizendo que era possível erro
+tipográfico do laudo. Transcreveu o papel errado em vez de consertá-lo por
+conta própria, que é precisamente o contrato desta feature.
+
+### Dois achados desta medição, e nenhum estava previsto
+
+**1. A regra do limite único (F3) não pegou.** Ela existia para os dois casos
+que já cabiam no esquema, e os dois foram para o texto:
+
+| Caso | Esperado | O que veio |
+|---|---|---|
+| HDL | `rawReferenceLow: 40` | texto, com as linhas de jejum e não jejum |
+| `*eGFR` | `rawReferenceLow: 90` | texto: *"Superior a 90 mL/min/1,73m²"* |
+
+No HDL o texto é defensável — o laudo apresenta a faixa numa tabela por jejum, e
+tabela se transcreve. **No `*eGFR` não é:** é uma frase de um lado só, que era
+exatamente o alvo da instrução. A consequência é pequena e concreta: a banda de
+fundo do gráfico não aparece para ele, e apareceria.
+
+Não é urgente e não vale mexer no prompt por um caso. Fica registrado para a
+próxima rodada decidir com dois laudos, e não com um.
+
+**2. O teto de 400 caracteres produziu abreviação num caso.** A tabela da
+testosterona total é a maior do laudo, e o modelo a comprimiu em vez de copiar:
+
+> `Masc: 16-21a: 118,22-948,56; 22-49a: 164,94-753,38; >=50a: 86,49-788,22 ng/dL. Fem: ...`
+
+A informação está lá e é útil; a instrução dizia *"copie o trecho como está
+escrito"*, e isso não é uma cópia. **Nenhum dado foi inventado** — foi
+encurtado. Se a decisão for manter a cópia literal como contrato, o teto precisa
+subir; se for aceitar a compressão quando a tabela não couber, isso vira uma
+linha no prompt. **É decisão, e não conserto.**
+
+### Duas linhas em revisão, e as duas por motivo legítimo
+
+`*eGFR` tem `rawValue: "Superior a 90"` — valor textual, que o `parseDecimal`
+recusa e manda para revisão em vez de chutar um número (D29). `Testosterona
+livre` tem valor e unidade canônica batendo, então a revisão vem da confiança
+declarada pelo modelo abaixo do limiar. As duas já estavam assim antes desta
+EPIC, e nenhuma das duas é efeito dela.
+
+### O que esta medição NÃO mediu
+
+A conversa. As decisões A2, C3 e B só aparecem em turno de chat e em tela, e
+nenhuma delas foi exercitada aqui — **o encaminhamento costurado continua sem
+uma única medição contra o modelo real.** Isso é da L7, que continua aberta.

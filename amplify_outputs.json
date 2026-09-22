@@ -473,6 +473,13 @@
               "isRequired": false,
               "attributes": []
             },
+            "rawReferenceText": {
+              "name": "rawReferenceText",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
             "collectedAt": {
               "name": "collectedAt",
               "isArray": false,

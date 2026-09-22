@@ -19,10 +19,10 @@ abertura — 59 testes novos, 4 suítes novas.
 Fundada em duas medições contra o serviço real — a conversa de cinco turnos de
 2026-09-18 e o reprocessamento do laudo de 2026-09-19. Ver `spec.md` §2.
 
-**O que ainda NÃO está publicado:** o campo `rawReferenceText` mudou o schema
-do `LabResult`. Até o sandbox ser republicado (Node 20, `npx ampx sandbox`), a
-extração continua gravando sem ele — o caminho existe e está testado, e o dado
-só aparece depois da publicação e do reprocessamento.
+**Publicado em 2026-09-20**, e o laudo reprocessado contra o código novo: 14
+linhas sem faixa viraram **2**, e o `faixa-escolhida-pelo-modelo` não disparou
+nenhuma vez. O que continua sem medição real é a **conversa** — as decisões A2,
+C3 e B não foram exercitadas contra o modelo, e isso é da L7.
 
 ---
 
@@ -143,8 +143,11 @@ recomendação.
       resultado escrito.
 - [x] `react-doctor` nos arquivos React tocados — **12 achados, nenhum
       procedente para esta EPIC.** Veredito escrito abaixo.
-- [ ] **[USUÁRIO]** Republicar o sandbox (Node 20) e **reprocessar o laudo do
-      Delboni**: menos de 3 linhas sem faixa nem texto, contra as 14 de hoje.
+- [x] **Republicado e reprocessado em 2026-09-20.** Deploy em 160,6 s; a Lambda
+      invocada direto com o documento do histórico. **Deu 2 linhas sem faixa nem
+      texto, contra as 14 da base** — o critério pedia menos de 3. As duas que
+      sobraram são valores calculados, e o laudo não traz faixa para eles.
+      Medição inteira em `estudos-ia/04-implementacao/notas.md`.
 - [ ] **[USUÁRIO]** **L7** — nova rodada de pelo menos vinte perguntas, com a
       distribuição por regra. Roteiro em
       `estudos-ia/04-implementacao/roteiro-de-conferencia.md`.
@@ -254,6 +257,20 @@ O hook de commit apontou regressões. Conferidos um a um, com o arquivo aberto:
 
 Nada foi suprimido e nenhuma configuração foi mexida — o veredito fica escrito
 aqui, que é onde a próxima pessoa vai procurar quando o hook acusar de novo.
+
+### O que a medição real mostrou, e os testes não podiam mostrar
+
+Reprocessamento de 2026-09-20, contra o serviço:
+
+- **o F4 pegou:** zero eventos de escolha de faixa, e o aviso da Vitamina C que
+  originou a D37 sumiu — a linha agora traz as duas faixas, sem escolher;
+- **o F3 NÃO pegou:** os dois casos de limite único (`HDL` e `*eGFR`) foram
+  para o texto em vez de preencher o número. No HDL é defensável (o laudo os
+  apresenta em tabela por jejum); no `*eGFR` não é, e a banda do gráfico deixa
+  de aparecer para ele. Fica para a próxima rodada decidir com dois laudos;
+- **o teto de 400 caracteres comprimiu uma tabela** — a da testosterona total,
+  a maior do laudo. Nada foi inventado, mas não é a cópia literal que a
+  instrução pede. Subir o teto ou aceitar a compressão é decisão do usuário.
 
 ### O que ficou sem teste, e está dito em vez de escondido
 
