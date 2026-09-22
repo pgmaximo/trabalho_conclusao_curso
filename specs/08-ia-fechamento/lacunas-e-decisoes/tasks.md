@@ -136,6 +136,16 @@ recomendação.
 - [x] **A e C** registradas na **D38**, que altera a D31 com a ressalva escrita.
 - [x] **B** registrada na **D39**.
 
+## O que esta EPIC deixou para outra, com nome
+
+- [ ] **O reparo da extração não deixa rastro.** `bedrockClient.ts` tem uma
+      tentativa de reparo que não escreve log, e `usage` reporta só a **última**
+      chamada — então o custo de um documento que precisou de reparo é
+      subnotificado no próprio campo que existe para medi-lo. Descoberto por
+      acaso, comparando duas execuções lado a lado (2026-09-22). É a mesma forma
+      do defeito que a conversa tinha antes do Bloco 8: a reprovação acontecia e
+      não deixava rastro.
+
 ## Encerramento
 
 - [x] `npm run validate` passa — 1280 testes, 113 suítes, com os seis blocos.
@@ -270,7 +280,11 @@ Reprocessamento de 2026-09-20, contra o serviço:
   de aparecer para ele. Fica para a próxima rodada decidir com dois laudos;
 - **o teto de 400 caracteres comprimiu uma tabela** — a da testosterona total,
   a maior do laudo. Nada foi inventado, mas não é a cópia literal que a
-  instrução pede. Subir o teto ou aceitar a compressão é decisão do usuário.
+  instrução pede. **Resolvido em 2026-09-22: o teto subiu para 800**, e a
+  tabela passou a entrar inteira, com 507 caracteres e catorze faixas etárias
+  contra três. O reprocessamento também ficou **41 s e ~5.700 tokens mais
+  barato** — evidência forte de que, com 400, a resposta era recusada na
+  validação e o reparo gastava uma segunda chamada ao modelo.
 
 ### O que ficou sem teste, e está dito em vez de escondido
 

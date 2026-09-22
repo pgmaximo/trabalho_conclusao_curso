@@ -39,11 +39,20 @@ export const rawLabResultSchema = z
      *
      * `optional` e nao obrigatorio: a faixa que ja coube nos dois limites nao
      * se repete aqui, e linha lida antes deste campo existir continua valida.
-     * O teto de 400 e o mesmo do `rawText` da receita -- a tabela de perfil
-     * lipideo cabe, e o limite existe para o campo nao virar um despejo do
-     * laudo inteiro.
+     *
+     * O TETO E 800, e ele foi MEDIDO e nao escolhido. Com 400 -- o mesmo do
+     * `rawText` da receita -- o reprocessamento de 2026-09-20 mostrou o modelo
+     * COMPRIMINDO a maior tabela do laudo, a da testosterona total, em vez de
+     * copia-la: "Masc: 16-21a: 118,22-948,56; 22-49a: ...". Ele nao
+     * desobedeceu; o `maxLength` VAI no `output_config`, entao ele viu o teto
+     * e obedeceu a ele em vez da instrucao de copiar.
+     *
+     * Entre mudar a instrucao e subir o teto, subiu o teto: a copia literal e
+     * o contrato desta feature inteira, e uma tabela resumida pelo modelo e
+     * uma tabela que ele interpretou. O limite continua existindo para o campo
+     * nao virar despejo do laudo -- 800 cabe a maior tabela medida com folga.
      */
-    rawReferenceText: z.string().max(400).nullable().optional(),
+    rawReferenceText: z.string().max(800).nullable().optional(),
     /** ISO, da LINHA (D24). Vazio e resposta legitima: quem decide a reserva
      *  e o orquestrador, com a data do formulario e um aviso -- nunca o
      *  modelo com uma data inventada. */

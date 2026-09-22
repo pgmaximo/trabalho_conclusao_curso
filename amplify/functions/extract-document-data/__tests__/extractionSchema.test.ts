@@ -66,6 +66,37 @@ describe('extractionSchema', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('a faixa em texto cabe a maior tabela do laudo real (800)', () => {
+    // Medido no reprocessamento de 2026-09-20: com o teto em 400, o modelo
+    // COMPRIMIU a tabela da testosterona total -- a maior do laudo -- em vez
+    // de copia-la ("Masc: 16-21a: 118,22-948,56; ..."). Ele nao errou: o
+    // `maxLength` vai no output_config, entao ele viu o teto e obedeceu.
+    //
+    // A instrucao pede copia literal. Ou o teto sobe, ou a instrucao muda --
+    // e a copia literal e o contrato desta feature inteira.
+    const tabelaLonga = 'Masculino, 16 a 21 anos: 118,22 a 948,56 ng/dL | '.repeat(11);
+    expect(tabelaLonga.length).toBeGreaterThan(400);
+    expect(tabelaLonga.length).toBeLessThanOrEqual(800);
+
+    const result = parseExtraction({
+      documentKind: 'exam',
+      labResults: [{ ...linhaValida, rawReferenceText: tabelaLonga }],
+      prescriptionItems: [],
+      warnings: [],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('o teto continua existindo: o campo nao vira despejo do laudo inteiro', () => {
+    const result = parseExtraction({
+      documentKind: 'exam',
+      labResults: [{ ...linhaValida, rawReferenceText: 'x'.repeat(801) }],
+      prescriptionItems: [],
+      warnings: [],
+    });
+    expect(result.ok).toBe(false);
+  });
+
   it('aceita uma extracao bem formada', () => {
     const result = parseExtraction({
       documentKind: 'exam',

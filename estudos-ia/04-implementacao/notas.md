@@ -1035,3 +1035,77 @@ EPIC, e nenhuma das duas é efeito dela.
 A conversa. As decisões A2, C3 e B só aparecem em turno de chat e em tela, e
 nenhuma delas foi exercitada aqui — **o encaminhamento costurado continua sem
 uma única medição contra o modelo real.** Isso é da L7, que continua aberta.
+
+## O teto do texto de faixa: 400 custava uma chamada inteira (2026-09-22)
+
+O reprocessamento de 2026-09-20 mostrou a maior tabela do laudo — a da
+testosterona total — **comprimida** pelo modelo em vez de copiada. O teto subiu
+para **800** e o laudo foi reprocessado pela quarta vez, com tudo o mais igual.
+
+### O que a tabela virou
+
+Antes, com 400 (≈200 caracteres, três faixas por sexo):
+
+> `Masc: 16-21a: 118,22-948,56; 22-49a: 164,94-753,38; >=50a: 86,49-788,22 ng/dL. Fem: ...`
+
+Depois, com 800 (**507 caracteres, catorze faixas**):
+
+> `Sexo Masculino: 2 a 10 anos: até 25,91 ng/dL | 11 anos: até 341,53 ng/dL | 12
+> anos: até 562,59 ng/dL | 13 anos: 9,34 a 562,93 ng/dL | ... | Sexo Feminino:
+> ... | Pré Menopausa: 12,09 a 59,46 ng/dL | Pós Menopausa: até 48,93 ng/dL`
+
+**Onze faixas etárias que a pessoa não via, e que estão no papel dela.** Era
+compressão, e não resumo inofensivo: as faixas de criança e adolescente tinham
+sumido inteiras.
+
+### O que ninguém esperava: ficou mais BARATO
+
+| | Teto 400 | Teto 800 |
+|---|---|---|
+| tokens de entrada | 62.893 | **57.196** |
+| tokens de saída | 5.340 | 5.699 |
+| duração | 111,5 s | **70,4 s** |
+| linhas / sem faixa | 48 / 2 | 48 / 2 |
+| maior texto | ≤400 (comprimido) | 507 |
+
+**41 segundos e ~5.700 tokens de entrada a menos, transcrevendo MAIS.** A
+explicação que sustenta os dois números ao mesmo tempo é uma só: **com 400, a
+resposta do modelo não passava na validação e o reparo gastava uma segunda
+chamada.**
+
+A aritmética fecha. A passagem de 2026-09-19, antes desta EPIC, custou 56.826
+de entrada. Com 800, custou 57.196 — a diferença é o tamanho das instruções
+novas. Com 400, custou 62.893, e `bedrockClient.ts` reporta o uso **da última
+chamada apenas**: uma chamada de reparo carrega as mensagens originais mais a
+resposta recusada mais a correção, que é exatamente a ordem de grandeza dos
+6 mil tokens a mais. A duração pela metade é o segundo testemunho.
+
+**Isto é inferência forte, e não fato medido** — e a razão de não ser medido é
+o próximo achado.
+
+### O achado que esta rodada produziu: o reparo não deixa rastro
+
+`bedrockClient.ts` tem **uma** tentativa de reparo, e ela não escreve uma linha
+de log. Consequência: a diferença entre "uma chamada" e "duas chamadas" só
+aparece como um número de token estranho, e só se alguém estiver comparando
+duas execuções lado a lado — que foi o que aconteceu aqui por acaso.
+
+É a mesma forma do defeito que a conversa tinha antes do Bloco 8: **a
+reprovação acontecia e não deixava rastro**, e por isso a distribuição por
+regra que a C10 pede era impossível de levantar. Aqui é o reparo, e a pergunta
+que ele deixa sem resposta é "quanto custa de verdade um documento".
+
+Duas linhas de conserto, e nenhuma delas é desta EPIC:
+
+- registrar `{"evento":"reparo-de-extracao","motivo":"validacao|max_tokens"}`;
+- **somar** o uso das duas chamadas em vez de reportar só o da última — hoje o
+  custo de um documento que precisou de reparo é subnotificado no próprio campo
+  que existe para medi-lo.
+
+### O resto continua igual, e é isso que se queria
+
+48 linhas, zero duplicadas — **quarta passagem do mesmo arquivo**. As mesmas 2
+linhas sem faixa, os mesmos 14 textos. Zero eventos
+`faixa-escolhida-pelo-modelo`, e os cinco avisos são todos de transcrição:
+o erro de digitação do Zinco, o valor textual do eGFR, a GME sem faixa própria,
+a testosterona repetida em duas páginas, e o SHBG fora do catálogo.
