@@ -286,6 +286,53 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = 
       'A resposta compara coletas dizendo que melhorou ou piorou. A evolução é mostrada; a leitura dela é de quem examina a pessoa.',
     excecao: RECUSA_DE_JULGAR,
   },
+  {
+    // SITUAR O VALOR NA FAIXA (Bloco 10). "Fica dentro do intervalo", "esta
+    // acima da faixa" -- e a leitura do resultado dita sem nenhum dos adjetivos
+    // do padrao acima. Achado na rodada automatica da L7: a resposta sobre a
+    // testosterona terminava em "o valor fica dentro do intervalo indicado" e
+    // foi APROVADA. Mostrar o valor ao lado da faixa continua permitido -- e o
+    // que a tela faz; o que a regra reprova e a frase que conclui onde ele cai.
+    padrao: new RegExp(
+      `${INI_R3}(dentro|fora|acima|abaixo|al[eé]m)\\s+d[oae]s?\\s+` +
+        `(intervalo|faixa|limite|valores?\\s+de\\s+refer[eê]ncia|refer[eê]ncia)${FIM_R3}`,
+      'i',
+    ),
+    motivo:
+      'A resposta diz onde o valor cai em relação à faixa. Mostrar os dois números lado a lado é o que o aplicativo faz; concluir a comparação é leitura clínica.',
+    excecao: RECUSA_DE_JULGAR,
+  },
+  {
+    // ESCOLHER A LINHA DA TABELA PELA PESSOA (Bloco 10, D37). Na mesma resposta
+    // da testosterona o modelo calculou a idade da pessoa pela data de
+    // nascimento e escreveu "a faixa aplicavel seria a de 16 a 21 anos". A D37
+    // proibe isso na extracao; esta linha e a mesma proibicao no texto da
+    // conversa. Quem le a tabela e a pessoa.
+    padrao: new RegExp(
+      `(faixa|intervalo|refer[eê]ncia)[^.!?]{0,40}(aplic[aá]vel|que\\s+se\\s+aplica|que\\s+vale\\s+para\\s+voc[eê])` +
+        `|(para\\s+a\\s+sua\\s+idade|para\\s+o\\s+seu\\s+sexo|ao\\s+seu\\s+caso|no\\s+seu\\s+caso)[^.!?]{0,40}(faixa|intervalo|refer[eê]ncia)`,
+      'i',
+    ),
+    motivo:
+      'A resposta escolhe qual linha da tabela de referência vale para a pessoa. A tabela é mostrada inteira; quem a lê é a pessoa, com quem a examina.',
+    excecao: RECUSA_DE_JULGAR,
+  },
+  {
+    // A CATEGORIA DO LABORATORIO ATRIBUIDA AO VALOR (Bloco 10, rodada 4). A
+    // tabela da glicada tem tres categorias, e a resposta citou so a que
+    // enquadrava o valor: "o laboratorio indica como normal abaixo de 5,7%". E
+    // escolher a linha da tabela, dito como citacao. A tabela transcrita
+    // inteira ("Normal: ...; Pre-diabetes: ...") nao casa: nela nao ha o verbo
+    // que atribui.
+    padrao: new RegExp(
+      `(indica|considera|classifica|define|aponta)\\s+como\\s+` +
+        `(normal|alterad[oa]|desej[aá]vel|[oó]tim[oa]|adequad[oa]|lim[ií]trofe|ideal)${FIM_R3}`,
+      'i',
+    ),
+    motivo:
+      'A resposta atribui ao valor uma categoria da tabela do laboratório. A tabela é mostrada inteira; enquadrar o valor nela é leitura clínica.',
+    excecao: RECUSA_DE_JULGAR,
+  },
 ];
 
 const verificarR3: Verificador = (texto) => {

@@ -20,6 +20,8 @@ import { useThemeColors } from '@/constants/theme';
 import type { LabResultView } from '@/services/extractionService';
 import { formatarDecimal, formatarFaixa } from '@/utils/decimalDisplay';
 
+import { unidadeLegivel } from '../../amplify/functions/extract-document-data/unidadeLegivel';
+
 /**
  * Token de AVISO, nunca o de erro. Uma linha pendente nao e uma falha: e uma
  * pergunta. Pintar de vermelho ensinaria a pessoa a ignora-la -- e ela e
@@ -50,7 +52,8 @@ export function ExtractedResultRow({
   const colors = useThemeColors();
   const pendente = result.reviewStatus === 'PENDENTE_DE_REVISAO';
   const faixa = formatarFaixa(result.referenceLow, result.referenceHigh);
-  const unidade = result.unit ?? result.rawUnit ?? '';
+  // So exibicao: o banco guarda o token ("10*3/uL"), a pessoa le "mil/µL".
+  const unidade = unidadeLegivel(result.unit ?? result.rawUnit ?? '');
 
   // A mesma precedencia da tela de serie (decisao E3): numero, depois texto.
   // O texto NAO recebe `unidade` -- ele ja traz a do papel, e nunca converteu.

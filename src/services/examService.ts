@@ -15,6 +15,7 @@ import { getUserId } from '@/services/auth';
 import { invalidateExamsCache } from '@/hooks/useExamsData';
 import { uploadFileToS3 } from '@/services/upload';
 import { startExtraction } from '@/services/extractionService';
+import { prepararArquivoParaEnvio } from '@/services/imagemParaEnvio';
 
 const client = generateClient<Schema>();
 
@@ -82,8 +83,12 @@ export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
  * `DocumentPicker` (`application/pdf`, `image/*`) da tela 3a, mas restrito a
  * um conjunto explícito de imagens em vez do `image/*` genérico.
  * Ver specs/03-exames-receitas/adicionar-documento/plan.md §2 e §5.
+ *
+ * `webp`, `heic` e `heif` entraram no Bloco 10: toda imagem é convertida em
+ * JPEG antes de subir (`imagemParaEnvio.ts`), então o formato de origem deixou
+ * de importar — e HEIC é o formato padrão da câmera do iPhone.
  */
-const ALLOWED_FILE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
+const ALLOWED_FILE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
 
 /**
  * Revalida o tipo de arquivo pela extensão do nome, como segunda camada de
@@ -328,7 +333,16 @@ async function saveDocumentMetadata(
  * Cria um novo documento de exame/receita no backend
  * Processa: validação -> upload para S3 -> salvar metadados no DynamoDB
  */
-export async function createExamDocument(input: CreateExamDocumentInput) {
+export async function createExamDocument(entrada: CreateExamDocumentInput) {
+  // 0. A foto encolhe e vira JPEG ANTES de tudo (G2, Bloco 10): e o arquivo
+  //    preparado que e validado, sobe e fica guardado. PDF passa intacto.
+  const preparado = await prepararArquivoParaEnvio({
+    filePath: entrada.filePath,
+    fileName: entrada.fileName,
+    fileSize: entrada.fileSize,
+  });
+  const input: CreateExamDocumentInput = { ...entrada, ...preparado };
+
   // Validar dados
   const validationErrors = validateExamDocument(input);
   if (validationErrors.length > 0) {

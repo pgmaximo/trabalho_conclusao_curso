@@ -1,6 +1,6 @@
 # Como o extrato foi gerado
 
-`loinc-analitos-suasaude.csv` — 79 linhas, 24 colunas, LOINC 2.83.
+`loinc-analitos-suasaude.csv` — 154 linhas, 24 colunas, LOINC 2.83.
 
 ## A regra que este arquivo existe para sustentar
 
@@ -10,7 +10,8 @@ depois, quando dois exames do mesmo analito não se encontram.
 
 Por isso o extrato é produzido por script, e o script está aqui do lado:
 `gerar-extrato.py`. Ele não contém um único código LOINC. O que ele contém é uma
-tabela de **critérios de busca** — 79 linhas de `(COMPONENT, SYSTEM, PROPERTY)` —
+tabela de **critérios de busca** — 140 alvos de `(COMPONENT, SYSTEM, PROPERTY)`, com
+`TIME_ASPCT` opcional, e 14 com método — 
 e o LOINC responde qual código atende cada uma.
 
 ## Como cada código é escolhido
@@ -57,11 +58,11 @@ zero resultados — o componente do VCM é literalmente `Observation`.
 
 - **Direito de terceiro** (cláusula 10.2 da licença): qualquer termo com
   `EXTERNAL_COPYRIGHT_NOTICE` preenchido derruba a geração com `assert`. Nenhum
-  dos 79 tem.
+  dos 154 tem.
 - **Código repetido**: dois alvos caindo no mesmo código viram aviso. Dois
   rótulos diferentes apontando para um código só significa que um dos dois
   critérios está frouxo.
-- **Cobertura pt-BR**: alvo sem tradução vira aviso. Os 79 têm.
+- **Cobertura pt-BR**: alvo sem tradução vira aviso. Os 154 têm.
 - **Alvo sem candidato**: vira aviso em vez de linha faltando em silêncio.
 
 A geração atual passa sem nenhum aviso.
@@ -105,3 +106,31 @@ This material contains content from LOINC (http://loinc.org). LOINC is copyright
 Names and Codes (LOINC) Committee and is available at no cost under the license
 at http://loinc.org/license. LOINC® is a registered United States trademark of
 Regenstrief Institute, Inc.
+
+## O eixo do tempo e a ampliação (2026-09-22, Bloco 10)
+
+**O que mudou no gerador.** A tupla de busca ganhou um quarto eixo opcional,
+`TIME_ASPCT`, com padrão `Pt` (pontual). Sem ele, urina de 24 horas e urina de
+amostra isolada caíam na mesma tripla — o `SYSTEM` é `Urine` nas duas — e o alvo
+resolvia para o termo de maior ranqueamento, fosse qual fosse.
+
+**A prova de que nada mudou para os 79 existentes.** Os 79 eram todos `Pt` (lido
+do próprio CSV antes da mudança). A regeneração com o eixo novo produziu um CSV
+**byte a byte idêntico** ao versionado — conferido por `diff`, não por leitura.
+
+**A ampliação.** 75 alvos novos, de 79 para 154, todos com a tripla conferida
+contra o release **antes** de ser escrita, por uma consulta ao `Loinc.csv`. A
+conferência corrigiu o estudo que os originou em seis pontos, registrados em
+`../pendencias.md` (seção 7). A geração terminou com **"Sem avisos"**: nenhum
+`SEM CANDIDATO`, nenhum `CODIGO REPETIDO`, nenhum `SEM pt-BR`, e o `assert` do
+`EXTERNAL_COPYRIGHT_NOTICE` não disparou.
+
+**A varredura da D27, feita no mesmo dia.** Uma busca por cada um dos 154
+códigos do extrato em todos os arquivos versionados e novos de `estudos-ia/`,
+`specs/`, `docs/`, `amplify/`, `src/`, `scripts/` e `__tests__/`. Resultado:
+nenhum código em arquivo criado ou alterado no Bloco 10. As ocorrências que
+existem são anteriores e permitidas — o teste que proíbe códigos digitados, a
+discussão do erro histórico da vitamina D, e os resultados de execução em
+`../pendencias.md`. O gerador continua sem nenhum código escrito à mão,
+inclusive nos comentários.
+

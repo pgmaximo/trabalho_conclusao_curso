@@ -25,6 +25,38 @@ describe('parseDecimal', () => {
     expect(parseDecimal('> 1000')).toEqual({ ok: true, value: 1000, qualifier: '>' });
   });
 
+  // G5 (Bloco 10). Medido no laudo real: a TFG do Delboni veio como
+  // "Superior a 90", e a linha entrou sem valor e pendente. O laudo brasileiro
+  // escreve censura em palavra com frequencia.
+  it('le a censura escrita por extenso, nas seis formas do laudo brasileiro', () => {
+    expect(parseDecimal('Superior a 90')).toEqual({ ok: true, value: 90, qualifier: '>' });
+    expect(parseDecimal('Inferior a 0,01')).toEqual({ ok: true, value: 0.01, qualifier: '<' });
+    expect(parseDecimal('maior que 1.000')).toEqual({ ok: true, value: 1000, qualifier: '>' });
+    expect(parseDecimal('Menor que 5')).toEqual({ ok: true, value: 5, qualifier: '<' });
+    expect(parseDecimal('acima de 200')).toEqual({ ok: true, value: 200, qualifier: '>' });
+    expect(parseDecimal('ABAIXO DE 2,5')).toEqual({ ok: true, value: 2.5, qualifier: '<' });
+  });
+
+  it('a censura por extenso tolera acento, caixa e espaco a mais', () => {
+    expect(parseDecimal('  inferior   a  10 ')).toEqual({ ok: true, value: 10, qualifier: '<' });
+  });
+
+  it('censura NAO estrita vai para revisao, e nunca vira numero exato', () => {
+    // O qualificador do projeto e ESTRITO (D21). "≤ 5" nao e "5", e tambem
+    // nao e "<5". Antes do Bloco 10, o "≤" era descartado em silencio e a
+    // linha entrava como 5 exato -- um numero que o papel nao disse.
+    expect(parseDecimal('≤ 5').ok).toBe(false);
+    expect(parseDecimal('≥90').ok).toBe(false);
+    expect(parseDecimal('<= 5').ok).toBe(false);
+    expect(parseDecimal('>=90').ok).toBe(false);
+    expect(parseDecimal('Igual ou superior a 90').ok).toBe(false);
+    expect(parseDecimal('igual ou inferior a 5').ok).toBe(false);
+  });
+
+  it('faixa escrita como valor nao e censura', () => {
+    expect(parseDecimal('entre 10 e 20').ok).toBe(false);
+  });
+
   it('tolera espaco e numero ja tipado', () => {
     expect(parseDecimal('  12,3 ')).toEqual({ ok: true, value: 12.3, qualifier: null });
     expect(parseDecimal(32.5)).toEqual({ ok: true, value: 32.5, qualifier: null });

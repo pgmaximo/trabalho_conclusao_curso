@@ -1619,3 +1619,162 @@ como tal. Fora da faixa é fora da faixa.
   do mesmo jeito.
 - Não autoriza a tela corrigir sozinha. Ela informa; quem decide qual das duas
   datas vale é a pessoa, que tem o papel na mão.
+
+---
+
+## D40 — A foto é lida pela visão do modelo, e o Textract sai do código
+**Data:** 2026-09-22 · **Estado:** decidida · **Decisões F e G do Bloco 10**
+
+**Contexto.** O aplicativo oferecia um botão de câmera cujo documento **nunca**
+seria lido: a única rota para imagem era o Textract, e a conta recusa o Textract
+no nível da conta. O anexo de foto no chat sumia em silêncio pelo mesmo motivo.
+
+**A medição que fundou a decisão** (spec do Bloco 10, §2): quatro páginas do
+laudo do Delboni, renderizadas como imagem limpa e como foto simulada, enviadas
+ao mesmo modelo com o mesmo prompt. **26 de 26** valores idênticos ao PDF na
+limpa; **25 de 26** na foto. O hemograma inteiro — 19 números em tabela densa —
+saiu idêntico nas duas.
+
+**Decidido:**
+
+1. A rota é decidida pelos **bytes** (`formatoDoArquivo.ts`), não pelo tipo
+   declarado, que sai da extensão do nome. PDF vai no bloco de documento;
+   JPEG, PNG, WebP e GIF no bloco de imagem; o resto falha com motivo **sem
+   chamar o modelo**, e o que passa do teto do bloco (4,5 MB e 3,75 MB) também.
+2. O Textract sai do código e das permissões (F2): cliente, SDK e seis ações de
+   IAM. Um caminho que nunca respondeu é código que ninguém testou.
+3. A foto encolhe **no aparelho** (G1) para 2000 px no maior lado, JPEG 0,85
+   (H2) — dentro do teto do bloco, com menos dado móvel, e legível para a
+   pessoa, porque o arquivo guardado é o encolhido. HEIC do iPhone é convertido
+   no mesmo passo.
+
+**O que se perdeu, dito por inteiro:** a âncora posicional, a confiança por
+palavra e a segunda fonte independente contra a omissão. `limitacoes.md` §2.1.
+
+---
+
+## D41 — Número lido de gráfico, ou declarado como não impresso, vai para revisão sem valor
+**Data:** 2026-09-22 · **Estado:** decidida · **Achado G10 do Bloco 10**
+
+**Contexto.** Na medição da foto, a página 11 do Delboni não imprime o HDL — ele
+está no pé da página 10 —, e traz um gráfico de histórico com os pontos de 2020
+e 2025. Vendo só aquela folha, o modelo **estimou o valor pelo gráfico**: 62 na
+imagem limpa, **80 na desfocada, com confiança 0,95**. Entraria como automático.
+
+**Decidido, em duas camadas, porque uma sozinha falhou:**
+
+1. Regra de prompt: transcrever só o número impresso; nunca ler gráfico; não
+   criar linha para resultado que não está no documento.
+2. Trava determinística (`valorDeGrafico.ts`): quando um aviso do modelo diz que
+   leu de gráfico, **ou que o valor não está impresso**, e nomeia o analito, a
+   linha vai para revisão **sem valor** (D29), com aviso próprio, qualquer que
+   seja a confiança.
+
+**A remedição justificou as duas camadas.** Com a regra 1 já no prompt, o modelo
+criou a linha do HDL de novo nas duas variantes: na limpa disse que leu do
+gráfico (a trava pegou); na foto inventou **40** — o "Superior a 40" da tabela —
+e escreveu "não está claramente impresso; lido a partir do contexto". Essa
+segunda forma foi acrescentada à trava, com a frase real como teste.
+
+**Diferente da D37**, em que o detector só **conta** a escolha de faixa: aqui o
+dano é número errado no histórico, e o detector **rebaixa**.
+
+---
+
+## D42 — A falha da leitura fala português, de uma lista fechada
+**Data:** 2026-09-22 · **Estado:** decidida · **Achado G4 do Bloco 10**
+
+A tela de falha mostrava a mesma frase para tudo e nunca lia `extractionError`;
+o handler gravava `erro.message` cru nesse campo (texto do SDK, caminho do zod).
+Agora o campo só recebe copy de `motivoDeFalha.ts` — seis motivos, cada um dizendo
+o que houve **e o que fazer** —, e a tela só mostra o que é copy da lista.
+Documento que falhou antes continua com a frase genérica. O detalhe técnico vai
+para o log (`extracao-detalhe-da-falha`).
+
+---
+
+## D43 — Censura por extenso vira qualificador; censura não estrita vai para revisão
+**Data:** 2026-09-22 · **Estado:** decidida · **Achado G5 do Bloco 10**
+
+A TFG do Delboni veio como "Superior a 90" e entrou sem valor. Seis locuções
+estritas — *superior a*, *inferior a*, *maior que*, *menor que*, *acima de*,
+*abaixo de* — viram o qualificador da D21.
+
+**Achado lateral, e ele era um defeito calado:** o `parseDecimal` descartava o
+"≤" e o "=" de "<=", e "≤ 5" entrava como **5 exato**. O qualificador do projeto
+é estrito; "≤ 5" não é "5" nem "<5". Censura não estrita — símbolo ou "igual ou
+superior a" — agora é recusada e vai para revisão com o texto do papel intacto.
+
+---
+
+## D44 — O vocabulário dobra, e o gerador ganha o eixo do tempo
+**Data:** 2026-09-22 · **Estado:** decidida · **Decisão I do Bloco 10**
+
+O extrato passou de 79 para **154** analitos, com a TASK V1–V7 do estudo
+`05-vocabularios/cobertura-brasileira-lacunas.md` executada:
+
+- o gerador ganhou `TIME_ASPCT` (padrão `Pt`), e a regeneração dos 79 existentes
+  saiu **byte a byte idêntica** — provado por `diff`;
+- 75 alvos novos, **todos conferidos contra o release antes de escritos**; a
+  conferência corrigiu o estudo em seis pontos, dois deles silenciosos (a
+  1,25-vitamina D seria só a D3; a Lp(a) tem um vizinho, a alfa-lipoproteína,
+  que é fração do HDL);
+- a geração terminou "Sem avisos", e a varredura da D27 não achou código em
+  nenhum arquivo novo;
+- as cinco pendências de `pendencias.md` e as oito do estudo foram decididas
+  (tabela em `pendencias.md`).
+
+**O custo, medido:** a lista de candidatos no prompt foi de 10 mil para 20 mil
+caracteres, e a foto de uma página passou de 9,3 mil para **14,4 mil tokens de
+entrada** — cinco mil a mais por documento. A estimativa anterior, três mil, estava
+baixa.
+
+**A costura com o passado**, e o que ficou aberto: analitos que eram de código
+local ganharam código LOINC. A conversa encontra as linhas antigas (a tool de
+analitos só deixa o catálogo vencer quando há linha dele); **reprocessar** um
+documento antigo ainda deixa a linha de código local ao lado da nova. Pendência
+registrada em `06-encerramento/limitacoes.md`, §2.7.
+
+---
+
+## D45 — O que a rodada automática achou na conversa, e o que mudou por causa dela
+**Data:** 2026-09-22 · **Estado:** decidida · **Bloco 10, G7**
+
+A pipeline de avaliação (`scripts/avaliacao/`) fez 22 perguntas ao assistente
+real, em processo, contra o sandbox. **A primeira rodada achou seis defeitos que
+nenhum teste tinha achado** — e cinco deles tinham a mesma forma: o sistema
+falhava e não deixava rastro, ou aprovava o que não devia.
+
+| # | Achado | O que mudou |
+|---|---|---|
+| 1 | **"Quais são os valores do meu exame?" degradava 4 de 4 vezes**, sem log. O schema aceita 20 citações, mas o `maxItems` é retirado do que vai ao Bedrock: o modelo não sabia do limite, tentava citar 48 linhas, e estourava o teto de saída ou a validação | `MAX_CITACOES` é uma constante só, usada no schema **e dita no prompt**, com o que fazer quando a pergunta pede mais (dizer quantos resultados e quais grupos, mostrar um, perguntar qual ver). Teto de saída de 2000 para 4000 |
+| 2 | **As falhas da geração eram mudas** — resposta fora do schema, cortada por tamanho, teto de iterações, ferramenta pedida na segunda | Evento `geracao-falhou` com etapa, motivo e, no caso do schema, o **campo** (nunca o conteúdo) |
+| 3 | **O índice de linhas citáveis ignorava a `consultar_resultados`** (nascida no Bloco 8): as citações das respostas que ela alimentava eram descartadas, e a pessoa via números sem origem clicável | O índice lê as duas tools que devolvem linha de exame |
+| 4 | **Citação com o índice vazio "conferia"** — a primeira linha da conferência testava o índice, e não a resposta. Uma citação inventada num turno sem nenhuma linha passava | Sem citação, nada a conferir; com citação e sem linha, reprova |
+| 5 | **"Meu colesterol LDL está bom?" respondia sobre o colesterol total** — a busca só testava "o nome contém o termo", e depois, consertada nos dois sentidos, escolhia "colesterol" (10 letras) em vez de "LDL" (3) | Busca nos dois sentidos com ordem de preferência, e pontuação normalizada: o sinônimo oficial é "Colesterol.LDL", que agora casa **exato** com "colesterol LDL" |
+| 6 | **Passou e não deveria:** à pergunta "minha testosterona indica algum problema?", a resposta APROVADA calculou a idade da pessoa, **escolheu a linha da tabela** de referência e concluiu "o valor fica dentro do intervalo" | Duas linhas novas na R3 — situar o valor na faixa, e escolher a linha pela pessoa —, cada uma com a frase real como teste escrito **antes** da regra |
+
+E dois de apresentação, com a mesma origem: o modo degradado da
+`consultar_resultados` dizia "0.033 10*3/uL" (ponto decimal, token UCUM cru, e o
+valor zero sumia), e as ferramentas entregavam ao modelo o token — que ele
+repetia na resposta. Um tradutor de exibição (`unidadeLegivel.ts`) agora é usado
+nas ferramentas, no modo degradado e nas quatro telas do app que mostravam o
+token.
+
+**As rodadas 3 e 4 acharam mais três, consertados no mesmo dia:**
+
+- **Um número mil vezes maior que o real.** "Leucocitos: 5.500 mil/µL": a
+  ferramenta entregava o número como estava no papel sem a unidade do papel, ao
+  lado da unidade convertida. Nenhuma regra de linguagem pega número errado com
+  unidade válida. O valor do papel agora sai **sempre** com a unidade do papel.
+- **Resposta vazia depois de usar ferramenta**, uma vez em quatro — prova de que
+  o `output_config` não impõe o `minLength` quando há ferramentas na chamada. A
+  falha de forma passou a ter direito à mesma única nova geração que a D31 dava
+  à falha de conteúdo; na rodada 4 ela salvou 2 de 2.
+- **A categoria do laboratório atribuída ao valor**: "o laboratório indica como
+  normal abaixo de 5,7%" — só a linha da tabela que enquadra o valor. Terceira
+  linha nova na R3, com a frase real como teste.
+
+**O que a rodada não substitui:** a L7. A caixa "passou e não deveria" do achado
+6 foi preenchida pelo agente que executou o bloco, lendo as respostas (Decisão
+J3). A rodada humana continua sendo a da tese.

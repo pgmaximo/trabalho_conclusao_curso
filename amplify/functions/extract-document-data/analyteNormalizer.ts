@@ -141,7 +141,11 @@ export function normalizeLabResult(
   //    unidades diferentes nao se comparam, e quem exclui esse ponto, com
   //    motivo registrado, e a EPIC de serie.
   const alvo = analyte?.canonicalUnit ?? unidadeDeComparacao;
-  const de = raw.rawUnit ?? alvo;
+  // Unidade VAZIA e ausencia de unidade (Bloco 10): o modelo as vezes devolve
+  // "" em vez de null para "o papel nao traz unidade" -- o INR e a densidade
+  // urinaria nunca trazem. Tratar "" como unidade mandava a linha para revisao
+  // por "unidade desconhecida" a toa.
+  const de = raw.rawUnit?.trim() ? raw.rawUnit : alvo;
   const converter = (n: number | null): number | null | 'falhou' => {
     if (n === null) return null;
     if (!analyte) return n;

@@ -23,6 +23,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ANALYTE_CATALOG } from '../amplify/functions/extract-document-data/analyteCatalog';
 import { checkLanguageRules } from '../amplify/functions/ai-language-rules/languageRules';
+import { COPY_DA_FALHA } from '../amplify/functions/extract-document-data/motivoDeFalha';
 import { CLASSE_LINHA_PENDENTE } from '@/components/ExtractedResultRow';
 import { DocumentDetailScreen } from '@/screens/DocumentDetailScreen';
 import type { ExtractionState, LabResultView } from '@/services/extractionService';
@@ -156,6 +157,25 @@ describe('DocumentDetailScreen — os cinco estados da leitura', () => {
     expect(screen.getByText(/continua guardado/i)).toBeTruthy();
   });
 
+  // G4 (Bloco 10): a tela mostrava sempre a mesma frase e nunca lia o motivo.
+  it('falha com motivo da lista fechada MOSTRA o motivo, que diz o que fazer', () => {
+    renderScreen(extracao({ status: 'FAILED', errorMessage: COPY_DA_FALHA['grande-demais'] }));
+    expect(screen.getByText(COPY_DA_FALHA['grande-demais'])).toBeTruthy();
+    // A frase generica sai: duas explicacoes para a mesma falha confundem.
+    expect(screen.queryByText(/Não conseguimos ler o conteúdo deste documento/)).toBeNull();
+    expect(screen.getByText(/tentar de novo/i)).toBeTruthy();
+  });
+
+  it('falha com texto TECNICO gravado antes do Bloco 10 continua escondida', () => {
+    // Documentos que falharam antes da lista fechada podem ter o erro do SDK
+    // gravado no campo. Ele nao aparece; a frase generica aparece.
+    renderScreen(
+      extracao({ status: 'FAILED', errorMessage: 'ValidationException: Input is too long' }),
+    );
+    expect(screen.queryByText(/ValidationException/)).toBeNull();
+    expect(screen.getByText(/Não conseguimos ler o conteúdo deste documento/)).toBeTruthy();
+  });
+
   it('nunca extraido e um estado proprio, e nao uma falha', () => {
     // Todo documento gravado antes desta EPIC cai aqui. Se ele aparecesse
     // como "sem resultado" ou como erro, a tela mentiria sobre 7 documentos
@@ -163,6 +183,34 @@ describe('DocumentDetailScreen — os cinco estados da leitura', () => {
     renderScreen(extracao({ status: 'NUNCA_EXTRAIDO' }));
     expect(screen.getByText(/antes da leitura automática existir/i)).toBeTruthy();
     expect(screen.getByText(/ler agora/i)).toBeTruthy();
+  });
+});
+
+describe('DocumentDetailScreen — a unidade que a pessoa le (Bloco 10)', () => {
+  it('mostra "mil/µL", e nao o token interno "10*3/uL"', () => {
+    const LEUCOCITOS = doCatalogo('Leucocitos');
+    renderScreen(
+      extracao({
+        status: 'SUCCEEDED',
+        results: [
+          {
+            ...hemoglobina,
+            id: 'linha-leuco',
+            analyteCode: LEUCOCITOS.code,
+            projectLabel: LEUCOCITOS.projectLabel,
+            analyteLabel: LEUCOCITOS.label,
+            value: 5.5,
+            unit: '10*3/uL',
+            rawValue: '5.500',
+            rawUnit: '/mm³',
+            referenceLow: 3.5,
+            referenceHigh: 10.5,
+          },
+        ],
+      }),
+    );
+    expect(screen.queryByText(/10\*3\/uL/)).toBeNull();
+    expect(screen.getAllByText(/mil\/µL/).length).toBeGreaterThan(0);
   });
 });
 
@@ -219,8 +267,12 @@ describe('DocumentDetailScreen — o que a tela pode e nao pode dizer', () => {
     // `<0,01` exibido como `0,01` afirma uma medida que o laboratorio
     // declarou NAO ter feito (D21). O sinal nao e enfeite tipografico: e a
     // diferenca entre um numero e um limite.
+    //
+    // A unidade esperada mudou no Bloco 10: este caso fixava, de carona, o
+    // token interno "u[IU]/mL" na tela -- que era justamente o defeito. A
+    // intencao do teste (o sinal colado no valor) continua a mesma.
     renderScreen(extracao({ status: 'SUCCEEDED', results: [tshAbaixoDoLimite] }));
-    expect(screen.getByText('<0,01 u[IU]/mL')).toBeTruthy();
+    expect(screen.getByText('<0,01 µUI/mL')).toBeTruthy();
   });
 
   it('explica que um limite nao entra na comparacao entre coletas', () => {

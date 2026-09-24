@@ -7,7 +7,7 @@ jest.mock('../auth', () => ({
   resolveIdentity: (...a: unknown[]) => mockResolveIdentity(...a),
 }));
 
-// O handler passou a ler o anexo pontual, e isso puxa o S3 e o Textract --
+// O handler passou a ler o anexo pontual, e isso puxa o S3 --
 // valores do AWS SDK, que o jest-expo nao carrega. O duplo devolve "sem
 // anexo", que e o caso de toda requisicao destes testes.
 const mockLerAnexo = jest.fn();

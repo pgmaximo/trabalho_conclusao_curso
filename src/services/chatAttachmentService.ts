@@ -12,6 +12,8 @@
  */
 import { uploadData } from 'aws-amplify/storage';
 
+import { prepararArquivoParaEnvio } from '@/services/imagemParaEnvio';
+
 export type AnexoDoChat = {
   /** A chave completa no bucket, que e o que vai para a funcao. */
   key: string;
@@ -29,19 +31,26 @@ export async function uploadAnexoDoChat(
   fileName: string,
   contentType?: string,
 ): Promise<AnexoDoChat> {
-  const resposta = await fetch(uri);
+  // A foto encolhe e vira JPEG antes de subir (G2, Bloco 10): o anexo vai ao
+  // mesmo bloco de imagem da extracao, com o mesmo teto de 3,75 MB. PDF passa
+  // intacto.
+  const preparado = await prepararArquivoParaEnvio({ filePath: uri, fileName, fileSize: 0 });
+  const virouJpeg = preparado.fileName !== fileName;
+
+  const resposta = await fetch(preparado.filePath);
   const blob = await resposta.blob();
 
   // Nome unico por envio: dois anexos com o mesmo nome em conversas
   // diferentes nao podem se sobrescrever.
-  const nomeNoBucket = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extensao(fileName)}`;
+  const nomeNoBucket = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extensao(preparado.fileName)}`;
+  const tipo = virouJpeg ? 'image/jpeg' : (contentType ?? blob.type ?? 'application/octet-stream');
 
   const enviado = await uploadData({
     // `{entity_id}` e substituido pelo identityId de quem esta autenticado --
     // e o que mantem o anexo de cada pessoa na propria pasta.
     path: ({ identityId }) => `chat-attachments/${identityId}/${nomeNoBucket}`,
     data: blob,
-    options: { contentType: contentType ?? blob.type ?? 'application/octet-stream' },
+    options: { contentType: tipo },
   }).result;
 
   return { key: enviado.path, fileName };

@@ -71,6 +71,27 @@ const MASSA_MOLAR = {
   'Testosterona livre': 288.42,
   Cortisol: 362.46,
   Estradiol: 272.38,
+  // Bloco 10. So entram analitos para os quais a conversao massa <-> mol e
+  // plausivel num laudo brasileiro -- esteroides, minerais-traco, e os dois
+  // que o laudo ja escreve em unidade molar. Proteina, enzima e anticorpo nao
+  // tem massa molar util aqui (D18 vale para eles pela mesma razao).
+  Progesterona: 314.46,
+  '17-OH-progesterona': 330.46,
+  // Como sal de sulfato, que e a forma dosada: C19H28O5S.
+  'DHEA-S': 368.49,
+  DHEA: 288.42,
+  Androstenediona: 286.41,
+  Estrona: 270.37,
+  'Di-hidrotestosterona (DHT)': 290.44,
+  'Cortisol salivar': 362.46,
+  'Creatinina urinaria': 113.12,
+  Homocisteina: 135.18,
+  Zinco: 65.38,
+  Cobre: 63.546,
+  Selenio: 78.971,
+  // Mesma convencao declarada da D36, um andar acima: o analito e a SOMA
+  // 1,25-(OH)2 D2 + D3, e a massa usada e a da D3 (calcitriol, C27H44O3).
+  '1,25-di-hidroxivitamina D': 416.64,
 };
 
 // Analitos proibidos de converter para unidade molar MESMO se algum dia
@@ -91,6 +112,25 @@ const UNIDADE_CANONICA = {
   'Vitamina E': 'mg/L', // pendencia 2 -- o LOINC exemplifica "mg/L;mg/dL"
   'Albumina urinaria': 'mg/L', // pendencia 4 -- o LOINC exemplifica g/dL
   TSH: 'u[IU]/mL', // uUI/mL e identico a mIU/L (conversao-unidades.md)
+  // Bloco 10 -- onde o exemplo do LOINC nao e a unidade do laudo brasileiro.
+  'Proteinuria de 24 horas': 'mg/(24.h)', // o LOINC exemplifica g/24h
+  'Relacao albumina/creatinina': 'mg/g{creat}', // o LOINC exemplifica ug/mg -- mesmo numero
+  'IgE total': '[IU]/mL', // o LOINC exemplifica [IU]/L; o laudo escreve UI/mL (= kU/L)
+  Tireoglobulina: 'ng/mL', // o LOINC exemplifica ng/dL
+  // UI/L: o tradutor de grafia ja trata "UI/L" como U/L (o mesmo token das
+  // enzimas). A unidade canonica segue o tradutor, e nao o contrario.
+  TRAb: 'U/L',
+  'T3 reverso': 'ng/dL', // o LOINC exemplifica pg/mL
+  '17-OH-progesterona': 'ng/mL', // o LOINC exemplifica ng/dL
+  DHEA: 'ng/mL', // o LOINC lista duas ("ng/dL;ng/mL"), e a escolha e obrigatoriamente nossa
+  'Apolipoproteina A1': 'mg/dL', // o LOINC lista duas ("mg/dL;g/L")
+  Zinco: 'ug/dL', // o LOINC exemplifica ug/mL
+  Selenio: 'ug/L', // identico a ng/mL, que e o exemplo do LOINC
+  // Marcadores tumorais: o LOINC exemplifica unidade arbitraria; o laudo
+  // escreve U/mL.
+  'CA 125': 'U/mL',
+  'CA 15-3': 'U/mL',
+  'CA 19-9': 'U/mL',
 };
 
 // RELATEDNAMES2 traz de 10 a 40 termos por analito, varios deles nome de

@@ -4,7 +4,7 @@
  *
  * Parte PURA, separada do handler para poder ser testada: o `handler.ts` monta
  * clientes da AWS no topo do modulo, e nenhum teste deste repositorio importa
- * o SDK. Mesma separacao que `documentText.ts` pratica.
+ * o SDK. Mesma separacao que `formatoDoArquivo.ts` pratica.
  *
  * A REGRA DESTE ARQUIVO, e ela nasceu de um defeito real (2026-09-18): a chave
  * e LIDA do que o upload gravou, nunca REMONTADA. A versao anterior fazia
@@ -55,19 +55,4 @@ export function chaveDoDocumento(doc: LinhaComArquivo): string | null {
   if (chave.includes('..')) return null;
 
   return chave;
-}
-
-/**
- * Onde guardar o texto do OCR deste documento.
- *
- * A pasta de identidade sai da CHAVE DO ARQUIVO, e nao de um identificador
- * remontado -- e a mesma licao acima aplicada ao artefato. Escrever o texto
- * numa pasta e ler o arquivo de outra deixaria a rastreabilidade apontando
- * para o lugar errado, que e pior do que nao ter rastreabilidade.
- */
-export function chaveDoTextoDoOcr(chaveDoArquivo: string, documentId: string): string | null {
-  if (!chaveDoArquivo.startsWith(PREFIXO)) return null;
-  const identityId = chaveDoArquivo.slice(PREFIXO.length).split('/')[0];
-  if (!identityId) return null;
-  return `${PREFIXO}${identityId}/${documentId}/ocr.txt`;
 }

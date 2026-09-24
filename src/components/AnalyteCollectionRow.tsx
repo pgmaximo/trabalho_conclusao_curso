@@ -15,6 +15,8 @@ import { useThemeColors } from '@/constants/theme';
 import type { SeriesPoint } from '@/services/analyteSeries';
 import { formatarDecimal, formatarFaixa } from '@/utils/decimalDisplay';
 
+import { unidadeLegivel } from '../../amplify/functions/extract-document-data/unidadeLegivel';
+
 export interface AnalyteCollectionRowProps {
   point: SeriesPoint;
   unit: string;
@@ -34,7 +36,7 @@ export function AnalyteCollectionRow({ point, unit }: AnalyteCollectionRowProps)
   // nem um nem outro. O texto NAO leva `unit` junto -- ele ja traz a unidade
   // como o papel a escreveu, e ele nunca foi convertido.
   const textoDaFaixa = faixa
-    ? `Referência deste laboratório: ${faixa} ${unit}`
+    ? `Referência deste laboratório: ${faixa} ${unidadeLegivel(unit)}`
     : point.rawReferenceText
       ? `Referência deste laboratório: ${point.rawReferenceText}`
       : 'O laudo não trouxe faixa para este resultado.';
@@ -52,7 +54,7 @@ export function AnalyteCollectionRow({ point, unit }: AnalyteCollectionRowProps)
           {dataLonga(point.collectedAt)}
         </Text>
         <Text className="text-[16px] font-semibold text-app-text dark:text-app-dark-text">
-          {formatarDecimal(point.value)} {unit}
+          {formatarDecimal(point.value)} {unidadeLegivel(unit)}
         </Text>
       </View>
 

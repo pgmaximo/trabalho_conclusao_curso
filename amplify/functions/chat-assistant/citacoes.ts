@@ -25,10 +25,41 @@ type ColetaDaTool = {
   documentoId?: unknown;
 };
 
+type LinhaDeResultados = {
+  id?: unknown;
+  analito?: unknown;
+  valor?: unknown;
+  unidade?: unknown;
+  dataDaColeta?: unknown;
+  documentoId?: unknown;
+};
+
+function comoCitacao(
+  id: unknown,
+  rotulo: string,
+  l: { valor?: unknown; unidade?: unknown; dataDaColeta?: unknown; documentoId?: unknown },
+): Citation | null {
+  if (typeof id !== 'string' || id === '') return null;
+  return {
+    resultId: id,
+    documentId: typeof l.documentoId === 'string' ? l.documentoId : '',
+    analyteLabel: rotulo,
+    value: typeof l.valor === 'number' ? formatarDecimal(l.valor) : '—',
+    unit: typeof l.unidade === 'string' ? l.unidade : '',
+    collectedAt: typeof l.dataDaColeta === 'string' ? l.dataDaColeta : null,
+  };
+}
+
 /**
- * Le a saida da tool de analitos e monta o indice. As outras tools nao entram:
- * citacao aponta para a LINHA de onde um valor de exame saiu, e nenhuma outra
- * tool devolve linha de exame.
+ * Le a saida das tools que devolvem LINHA DE EXAME e monta o indice: a
+ * `consultar_analito` (serie de um analito) e a `consultar_resultados` (as
+ * linhas de um documento, ou as mais recentes). As outras nao entram -- uma
+ * consulta agendada nao e uma linha de exame.
+ *
+ * A `consultar_resultados` so entrou no Bloco 10. Ela nasceu no Bloco 8, e ate
+ * aqui o comentario deste arquivo dizia que nenhuma outra tool alem da de
+ * analitos devolvia linha: as citacoes das respostas que ela alimentava eram
+ * descartadas no enriquecimento, e a pessoa via o numero sem origem.
  */
 export function indexarLinhasCitaveis(
   toolOutputs: { name: string; output: unknown }[],
@@ -36,6 +67,15 @@ export function indexarLinhasCitaveis(
   const indice = new Map<string, Citation>();
 
   for (const { name, output } of toolOutputs) {
+    if (name === 'consultar_resultados') {
+      const linhas = (output as { resultados?: unknown } | null)?.resultados;
+      if (!Array.isArray(linhas)) continue;
+      for (const l of linhas as LinhaDeResultados[]) {
+        const c = comoCitacao(l.id, typeof l.analito === 'string' ? l.analito : '', l);
+        if (c) indice.set(c.resultId, c);
+      }
+      continue;
+    }
     if (name !== 'consultar_analito') continue;
 
     const saida = output as {
@@ -48,16 +88,8 @@ export function indexarLinhasCitaveis(
 
     for (const serie of saida.series) {
       for (const coleta of serie.coletas ?? []) {
-        const id = typeof coleta.id === 'string' ? coleta.id : null;
-        if (!id) continue;
-        indice.set(id, {
-          resultId: id,
-          documentId: typeof coleta.documentoId === 'string' ? coleta.documentoId : '',
-          analyteLabel: rotulo,
-          value: typeof coleta.valor === 'number' ? formatarDecimal(coleta.valor) : '—',
-          unit: typeof coleta.unidade === 'string' ? coleta.unidade : '',
-          collectedAt: typeof coleta.dataDaColeta === 'string' ? coleta.dataDaColeta : null,
-        });
+        const c = comoCitacao(coleta.id, rotulo, coleta);
+        if (c) indice.set(c.resultId, c);
       }
     }
   }

@@ -97,3 +97,59 @@ entrar quando houver laudo real mostrando se a equação é informada.
 | 3 | PCR | confirmar a distinção em laudo real | não |
 | 4 | Albumina urinária | decidir as apresentações | não |
 | 5 | TFG estimada | decidir se entra | não |
+
+---
+
+## Decididas em 2026-09-22 (Bloco 10, Decisão I)
+
+As cinco acima e as oito da seção 6 de `cobertura-brasileira-lacunas.md`,
+numeradas na sequência (S1–S8). O estudo de cada uma está em
+`specs/08-ia-fechamento/fechamento-funcional/spec.md`, §5.4.
+
+| # | Pendência | Decisão |
+|---|---|---|
+| 1 | Vitamina A em `µg/dL` | **fechada** — já estava em `UNIDADE_CANONICA` do gerador do catálogo |
+| 2 | Vitamina E em `mg/L` | **fechada** — idem |
+| 3 | PCR convencional × ultrassensível | **mantidas as duas**; a confirmação contra papel continua sendo da T14 (o laudo do Delboni não tem PCR) |
+| 4 | Albumina urinária: três apresentações | **as três entraram**, cada uma com código próprio, depois que o gerador ganhou o eixo do tempo: concentração (`Pt`), 24 horas (`24H`, `MRat`) e relação com a creatinina (`MRto`) |
+| 5 | TFG estimada | **fica fora do catálogo** e vive como código local (D32). O único laudo real a escreve como `*eGFR`, com a equação num rodapé |
+| S1 | Atividade de protrombina em `%` | **achado no release**: `Prothrombin.activity actual/normal`, em plasma pobre em plaquetas. Entrou |
+| S2 | Relação TTPA paciente/controle | **sem termo quantitativo inequívoco** no 2.83; fica em código local |
+| S3 | Troponina ultrassensível | **fora** — é exame de pronto-socorro, não de acompanhamento |
+| S4 | Sedimento urinário | **por volume entra, por campo não**: contagem por campo depende do microscópio e não compara entre laboratórios |
+| S5 | Frações da eletroforese | **as duas**, `g/dL` e `%`, como no diferencial de leucócitos |
+| S6 | "O canônico é em massa" | **frase reescrita** em `cobertura-analitos.md`: o canônico é a convenção brasileira (D17) |
+| S7 | Anti-HBs quantitativo | **fora** — comparabilidade entre ensaios discutível |
+| S8 | Painel `Inflamacao` com PSA | **PSA foi para `Tumoral`** junto dos cinco marcadores novos |
+
+## 7. O que a conferência contra o release corrigiu no estudo
+
+Cada tripla nova foi consultada no `Loinc.csv` **antes** de ser escrita no
+gerador. Seis delas estavam erradas no estudo, e quatro dos seis erros teriam
+falhado em silêncio — não com `SEM CANDIDATO`, mas casando outro termo:
+
+1. **Reticulócitos (%)** é `Reticulocytes/Erythrocytes`, e não
+   `Reticulocytes/100 erythrocytes`. Esse falharia alto.
+2. **TP, TTPA e INR** têm, no 2.83, o **mesmo componente** — `Coagulation` — em
+   plasma pobre em plaquetas. O que os separa é a propriedade (`Time` ×
+   `RelTime`) e o **método** (via extrínseca × intrínseca). Foram para
+   `ALVOS_COM_METODO`; sem o método, TP e TTPA cairiam no mesmo código.
+3. **Densidade urinária** é `Observation` / `Urine` / `SpGrav` — a armadilha do
+   VCM outra vez, prevista pelo estudo e confirmada.
+4. **1,25-di-hidroxivitamina D** é `1,25-Dihydroxyvitamin D`, a **soma** D2+D3.
+   O estudo propunha `Calcitriol`, que no 2.83 é **só a D3**. Casaria um termo
+   real — e seria a armadilha da D36 um andar acima.
+5. **Lipoproteína (a)** é `Lipoprotein (little a)`. O perigo aqui é o vizinho:
+   `Lipoprotein.alpha` existe, é a **alfa-lipoproteína** (a fração do HDL), e um
+   alvo escrito às pressas casaria com ela. O comentário no gerador fica para o
+   próximo que mexer.
+6. **Di-hidrotestosterona** é `Androstanolone` no 2.83.
+
+E duas escolhas que o gerador fez por ranqueamento, porque não havia termo
+neutro de método, e que merecem olhada humana na T14:
+
+- **LDH**: os dois termos têm método de reação (piruvato→lactato e o inverso);
+  o de menor ranqueamento foi o escolhido. O laudo brasileiro raramente diz qual.
+- **Eletroforese**: o termo neutro de método das frações existe, mas em `mg/L` e
+  sem ranqueamento — não é o exame que o laudo reporta. Foi escolhido o termo
+  por eletroforese, em `g/dL`, que é o que o laudo nomeia.

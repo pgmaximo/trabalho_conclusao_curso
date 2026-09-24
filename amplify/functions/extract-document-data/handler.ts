@@ -18,9 +18,10 @@ import { candidatesForPrompt } from './analyteCatalog';
 import { CONFIDENCE_THRESHOLD, normalizeLabResult } from './analyteNormalizer';
 import { requestExtraction, type ExtractionSource } from './bedrockClient';
 import { fileChecksum, labResultId, prescriptionItemId } from './checksum';
-import { chaveDoDocumento, chaveDoTextoDoOcr } from './documentKey';
-import { chooseReadingPath } from './documentText';
+import { chaveDoDocumento } from './documentKey';
 import { contarEscolhasDeFaixa } from './escolhaDeFaixa';
+import { avaliarArquivo } from './formatoDoArquivo';
+import { copyDaFalha } from './motivoDeFalha';
 import { normalizePrescriptionItem } from './prescriptionNormalizer';
 import {
   markFailed,
@@ -32,8 +33,8 @@ import {
   readDocumentRow,
   separarLinhasGravaveis,
 } from './resultRepository';
-import { readDocument, writeTextArtifact } from './s3Reader';
-import { extractText } from './textractClient';
+import { readDocument } from './s3Reader';
+import { rebaixarLidasDeGrafico } from './valorDeGrafico';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient());
 
@@ -93,57 +94,27 @@ export async function handler(event: InvokeEvent): Promise<void> {
       // Linha antiga, de antes de o upload registrar a chave. Nao da para
       // descobrir a pasta a partir do `owner` -- foi tentar isso que produziu
       // o defeito que `documentKey.ts` narra.
-      await markFailed(
-        ddb,
-        documentTable,
-        documentId,
-        'Este documento foi guardado antes de o aplicativo registrar onde o arquivo ficou. Envie o arquivo de novo para que ele possa ser lido.',
-      );
+      await markFailed(ddb, documentTable, documentId, copyDaFalha('arquivo-sem-chave'));
       return;
     }
-    const { bytes, contentType } = await readDocument(bucketName, fileKey);
+    const { bytes } = await readDocument(bucketName, fileKey);
     const checksum = fileChecksum(bytes);
 
-    // 3. Escolher a rota de leitura (D19). PDF vai direto ao modelo; o resto
-    //    passa pelo Textract.
-    let source: ExtractionSource;
-    let textKeyGravada: string | null = null;
-
-    if (chooseReadingPath(contentType) === 'modelo-direto') {
-      // Nao ha texto de OCR para guardar neste caminho, porque nao houve OCR.
-      // A rastreabilidade passa a ser rawValue e rawUnit por linha.
-      source = { kind: 'pdf', bytes };
-    } else {
-      const ocr = await extractText(bucketName, fileKey, contentType, bytes);
-      if (ocr.pages.length === 0 || ocr.pages.every((p) => p.text.trim() === '')) {
-        await markFailed(
-          ddb,
-          documentTable,
-          documentId,
-          'Não conseguimos ler o texto deste arquivo. Se ele for uma foto, uma imagem mais nítida costuma resolver.',
-        );
-        return;
-      }
-      source = { kind: 'texto', text: ocr };
-
-      // 4. Guardar o texto bruto. E o que permite reprocessar sem refazer o
-      //    OCR se a tabela de conversao tiver erro (spec secao 6).
-      const textKey = chaveDoTextoDoOcr(fileKey, documentId);
-      try {
-        if (!textKey) throw new Error('Nao foi possivel derivar a chave do texto do OCR.');
-        await writeTextArtifact(
-          bucketName,
-          textKey,
-          ocr.pages.map((p) => `--- pagina ${p.page} ---\n${p.text}`).join('\n\n'),
-        );
-        textKeyGravada = textKey;
-      } catch (erro) {
-        // Nao fatal: o texto e rastreabilidade, nao resultado.
-        console.error('Falha ao gravar o texto do OCR (nao fatal):', erro);
-      }
+    // 3. A rota sai dos BYTES, e nao do tipo declarado (G1, Bloco 10). O tipo
+    //    declarado vem da extensao do nome, e o nome e da pessoa. PDF vai no
+    //    bloco de documento (D19); foto, no bloco de imagem. O que nao for
+    //    nenhum dos dois, ou nao couber, falha AQUI -- sem gastar um token.
+    const arquivo = avaliarArquivo(bytes);
+    if (!arquivo.ok) {
+      await markFailed(ddb, documentTable, documentId, copyDaFalha(arquivo.motivo));
+      return;
     }
+    const source: ExtractionSource =
+      arquivo.formato.tipo === 'pdf'
+        ? { kind: 'pdf', bytes }
+        : { kind: 'imagem', formato: arquivo.formato.formato, bytes };
 
-    // 5. Modelo.
+    // 4. Modelo.
     const kind = doc.documentType === 'prescription' ? 'prescription' : 'exam';
     const saida = await requestExtraction(source, kind, {
       modelId,
@@ -152,7 +123,7 @@ export async function handler(event: InvokeEvent): Promise<void> {
       candidatos: montarCandidatos(),
     });
     if (!saida.ok) {
-      await markFailed(ddb, documentTable, documentId, saida.message);
+      await markFailed(ddb, documentTable, documentId, copyDaFalha(saida.motivo));
       return;
     }
 
@@ -183,9 +154,24 @@ export async function handler(event: InvokeEvent): Promise<void> {
       return linha;
     });
 
+    // 6b. G10 -- o numero lido de grafico. O modelo declara em `warnings`
+    //     quando tirou um valor do grafico de historico em vez do numero
+    //     impresso (medido: 80 no lugar de 62, com confianca 0,95). A linha
+    //     perde o valor e vai para revisao, qualquer que seja a confianca. O
+    //     log leva so a quantidade: o aviso nomeia analito, que e dado de saude.
+    const grafico = rebaixarLidasDeGrafico(
+      normalizadas,
+      saida.result.labResults.map((bruta) => [bruta.analyteLabel]),
+      saida.result.warnings,
+    );
+    avisos.push(...grafico.avisos);
+    if (grafico.quantidade > 0) {
+      console.info(JSON.stringify({ evento: 'valor-de-grafico', quantidade: grafico.quantidade }));
+    }
+
     // 7. O porteiro: tira o que colidiria em silencio e diz o que tirou.
     const { gravaveis, avisos: avisosDaGravacao } = separarLinhasGravaveis(
-      normalizadas.map((linha) => ({
+      grafico.linhas.map((linha) => ({
         ...linha,
         documentId,
         owner,
@@ -211,7 +197,7 @@ export async function handler(event: InvokeEvent): Promise<void> {
     if (gravaveis.length === 0 && itensReceita.length === 0) {
       await markNoResults(ddb, documentTable, documentId, {
         checksum,
-        textKey: textKeyGravada,
+        textKey: null,
         warnings: avisos,
         laboratorio: saida.result.laboratorio ?? null,
       });
@@ -223,7 +209,7 @@ export async function handler(event: InvokeEvent): Promise<void> {
 
     await markSucceeded(ddb, documentTable, documentId, {
       checksum,
-      textKey: textKeyGravada,
+      textKey: null,
       warnings: avisos,
       modelId,
       inputTokens: saida.usage.input,
@@ -231,10 +217,11 @@ export async function handler(event: InvokeEvent): Promise<void> {
       laboratorio: saida.result.laboratorio ?? null,
     });
   } catch (erro) {
-    const mensagem = erro instanceof Error ? erro.message : 'Erro desconhecido ao ler o documento.';
+    // O detalhe tecnico fica no log; o campo que a tela le recebe copy da
+    // lista fechada (G4). Antes, `erro.message` ia cru para a pessoa.
     console.error(`Falha ao extrair o documento ${documentId}:`, erro);
     try {
-      await markFailed(ddb, documentTable, documentId, mensagem);
+      await markFailed(ddb, documentTable, documentId, copyDaFalha('leitura-falhou'));
     } catch (erroAoMarcar) {
       console.error(`Falha ao marcar o documento ${documentId} como FAILED:`, erroAoMarcar);
     }

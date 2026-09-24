@@ -29,6 +29,8 @@ import { avisoDeDivergenciaDeData } from '@/services/divergenciaDeData';
 import type { LabResultView } from '@/services/extractionService';
 import { agruparPorExame, contarLinhas } from '@/utils/labResultGrouping';
 
+import { ehCopyDeFalha } from '../../amplify/functions/extract-document-data/motivoDeFalha';
+
 export interface ExtractedResultsSectionProps {
   extraction: UseDocumentExtractionResult;
   /** A data que a pessoa digitou no formulario. Entra aqui so para ser
@@ -176,10 +178,17 @@ export function ExtractedResultsSection({
 
       {state?.status === 'FAILED' ? (
         <View className="mt-3">
-          <Legenda>
-            Não conseguimos ler o conteúdo deste documento. Ele continua guardado e você pode
-            abri-lo normalmente.
-          </Legenda>
+          {/* O motivo so aparece quando e copy da lista fechada (G4, Bloco 10).
+              Documento que falhou antes dela pode ter erro tecnico gravado no
+              campo, e esse continua escondido atras da frase generica. */}
+          {ehCopyDeFalha(state.errorMessage) ? (
+            <Legenda>{state.errorMessage}</Legenda>
+          ) : (
+            <Legenda>
+              Não conseguimos ler o conteúdo deste documento. Ele continua guardado e você pode
+              abri-lo normalmente.
+            </Legenda>
+          )}
           <Button
             disabled={isRetrying}
             onPress={extraction.retry}

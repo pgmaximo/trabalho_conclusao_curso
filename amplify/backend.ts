@@ -308,25 +308,11 @@ backend.extractDocumentData.addEnvironment(
 // nunca lanca; isto e a segunda camada.
 extractDocumentDataLambda.configureAsyncInvoke({ retryAttempts: 0 });
 
-// As QUATRO acoes do Textract, e sao quatro por um motivo: as operacoes
-// SINCRONAS processam uma pagina so de PDF. Laudo de laboratorio tem tres,
-// quatro, as vezes dez. O caminho assincrono nao e refinamento, e o caminho
-// normal de um laudo de verdade -- conceder so as duas sincronas daria
-// AccessDenied no primeiro documento multipagina.
-//
-// O Textract assincrono le o objeto do S3 com as credenciais de quem chamou,
-// entao o grant do bucket acima ja cobre o acesso ao arquivo.
-extractDocumentDataLambda.addToRolePolicy(
-  new iam.PolicyStatement({
-    actions: [
-      'textract:DetectDocumentText', // sincrona: imagem, e PDF de 1 pagina
-      'textract:AnalyzeDocument', // sincrona com tabela/formulario
-      'textract:StartDocumentTextDetection', // assincrona: PDF multipagina
-      'textract:GetDocumentTextDetection', // consulta do resultado assincrono
-    ],
-    resources: ['*'], // o Textract nao tem recurso por ARN nestas acoes
-  }),
-);
+// NENHUMA acao do Textract, e isso e decisao (Decisao F2 do Bloco 10). A conta
+// recusa o Textract no nivel da conta (SubscriptionRequiredException, estudo
+// estudos-ia/01-estudos/textract-por-que-nao-temos-acesso.md), e o PDF e a foto
+// vao ao modelo, cada um no seu bloco do Converse. Permissao para um servico que
+// nenhum codigo chama e privilegio sem uso -- e ate o Bloco 10 havia quatro.
 
 // Guardrail PROPRIO da extracao (D20). Reusar o da wearable quebra a feature:
 // a primeira chamada real contra um laudo voltou guardrail_intervened, e o
@@ -617,28 +603,9 @@ backend.chatAssistant.addEnvironment(
   backend.storage.resources.bucket.bucketName,
 );
 
-// As duas acoes SINCRONAS do Textract bastam aqui, e a lista curta e
-// DELIBERADA: o anexo do chat e um papel que a pessoa quer perguntar sobre
-// agora, e o caminho assincrono do Textract tem teto de 5 minutos -- tempo que
-// nao cabe dentro de um turno de conversa.
-//
-// O que torna essa lista suficiente e que o PDF NAO passa por Textract nenhum:
-// ele vai direto ao modelo, no bloco de documento do Converse (D19). Quem
-// garante isso e `chat-assistant/anexoPontual.ts`, que consulta
-// `chooseReadingPath` antes de decidir a rota, e o teste que confere que PDF
-// nao chama `extractText`.
-//
-// Ja custou uma vez: chamar `extractText` para todo formato mandava o PDF ao
-// caminho assincrono, e a falha aparecia aqui como AccessDenied. Conceder
-// StartDocumentTextDetection/GetDocumentTextDetection seria tratar o sintoma e
-// trazer de volta a espera de 5 minutos dentro da conversa. PDF grande pertence
-// a porta que registra, que tem a pipeline inteira.
-chatAssistantLambda.addToRolePolicy(
-  new iam.PolicyStatement({
-    actions: ['textract:DetectDocumentText', 'textract:AnalyzeDocument'],
-    resources: ['*'], // o Textract nao tem recurso por ARN nestas acoes
-  }),
-);
+// Nenhuma acao do Textract aqui tambem (Decisao F2 do Bloco 10): o anexo do
+// chat le PDF e foto pela visao do modelo, com a mesma decisao de formato da
+// extracao (`extract-document-data/formatoDoArquivo.ts`).
 
 // O endereco vai para o aplicativo pelo mesmo caminho que os demais valores de
 // configuracao, para nao virar constante digitada em duas casas.

@@ -19,9 +19,13 @@
  */
 import { z } from 'zod';
 
+import { unidadeLegivel } from '../../extract-document-data/unidadeLegivel';
+import { formatarData, formatarDecimal } from '../formatoPtBr';
+
 import type { ChatIdentity } from '../auth';
 import type { DegradedBlock } from '../types';
 import {
+  comoEstavaNoPapel,
   comoLinha,
   motivoDeExclusaoPontual,
   MOTIVOS_DE_EXCLUSAO,
@@ -102,7 +106,7 @@ export const resultadosTool: ChatTool = {
         naoComparaveis.push({
           id: l.id,
           analito: l.projectLabel,
-          comoEstavaNoPapel: l.rawValue,
+          comoEstavaNoPapel: comoEstavaNoPapel(l),
           motivo: MOTIVOS_DE_EXCLUSAO[motivo],
           documentoId: l.documentId,
         });
@@ -125,12 +129,14 @@ export const resultadosTool: ChatTool = {
         analito: l.projectLabel,
         nomeOficial: l.analyteLabel,
         valor: l.value,
-        unidade: l.unit,
+        // Legivel ja na saida (Bloco 10): o modelo repete a unidade como a
+        // recebe, e "10*3/uL" e token interno, nao o que o laudo escreve.
+        unidade: unidadeLegivel(l.unit),
         dataDaColeta: l.collectedAt,
         momento: chaveDoMomento(l.collectionMoment) === '' ? null : l.collectionMoment,
         // O que estava no papel, ao lado do numero lido: e o que permite a
         // pessoa conferir sem abrir o documento.
-        comoEstavaNoPapel: l.rawValue,
+        comoEstavaNoPapel: comoEstavaNoPapel(l),
         faixaDoLaboratorio: {
           minimo: l.referenceLow,
           maximo: l.referenceHigh,
@@ -159,9 +165,16 @@ export const resultadosTool: ChatTool = {
     if (!saida?.resultados?.length) return null;
     return {
       titulo: 'Resultados guardados',
+      // Como o laudo escreve (Bloco 10): virgula decimal, unidade legivel, data
+      // brasileira. Antes saia "0.033 10*3/uL · 2025-10-04" -- e o valor zero
+      // sumia, porque `filter(Boolean)` descartava o 0.
       linhas: saida.resultados.map((r) =>
-        [r.analito ?? 'sem nome', [r.valor, r.unidade].filter(Boolean).join(' '), r.dataDaColeta]
-          .filter((parte): parte is string => Boolean(parte))
+        [
+          r.analito ?? 'sem nome',
+          r.valor === null ? '' : `${formatarDecimal(r.valor)} ${unidadeLegivel(r.unidade)}`.trim(),
+          r.dataDaColeta ? formatarData(r.dataDaColeta) : '',
+        ]
+          .filter((parte) => parte !== '')
           .join(' · '),
       ),
       // No degradado o numero sai do BANCO e nao do modelo, entao a origem e a

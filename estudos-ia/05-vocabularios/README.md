@@ -19,7 +19,7 @@ depois que as duas licenças foram lidas por inteiro — ver `licencas.md`.
 ├── licencas.md                  o estudo das duas licenças (tarefa 0.2a)
 ├── pendencias.md                os 5 analitos que precisam de decisão humana
 ├── loinc/
-│   ├── loinc-analitos-suasaude.csv   o extrato: 79 linhas, 24 colunas
+│   ├── loinc-analitos-suasaude.csv   o extrato: 154 linhas, 24 colunas
 │   ├── gerar-extrato.py              o script que o produziu, reproduzível
 │   ├── como-foi-gerado.md            o critério de escolha de cada código
 │   ├── LoincLicense_5.8.txt          licença completa (cláusula 9)
@@ -38,7 +38,7 @@ autoriza apagar registros para atender a requisito local; a do UCUM proíbe
 
 ## O extrato do LOINC
 
-79 linhas, uma por analito da cobertura definida em
+154 linhas, uma por analito da cobertura definida em
 `../03-esquemas/cobertura-analitos.md`. Cada linha carrega:
 
 - **o código e quatro nomes oficiais** — `LONG_COMMON_NAME`, `SHORTNAME`,
@@ -57,6 +57,12 @@ autoriza apagar registros para atender a requisito local; a do UCUM proíbe
 > lista e não a segunda. `como-foi-gerado.md` e `cobertura-analitos.md` já
 > diziam 79; só este aqui ficou para trás. Conferido contando o CSV, e os 79
 > têm nome em pt-BR — a afirmação da seção sobre o pt-BR continua verdadeira.
+>
+> **Passou de 79 para 154 em 2026-09-22 (Bloco 10)**, com a ampliação do estudo
+> `cobertura-brasileira-lacunas.md`. A contagem aparece em três arquivos — este,
+> `loinc/como-foi-gerado.md` e `../03-esquemas/cobertura-analitos.md` — e foi o
+> descasamento entre eles que produziu o erro acima; os três foram atualizados
+> juntos.
 
 ### O pt-BR resolve um problema que o plano ia resolver errado
 
@@ -67,7 +73,8 @@ o laboratório brasileiro escreve. Duas razões para isso ter sido abandonado:
    de tradução, e tradução é obra derivada que exige aviso prévio ao Regenstrief
    e cessão de direitos (cláusula 12).
 2. **Não é preciso.** O release traz `ptBR11LinguisticVariant.csv`, com 58.468
-   termos traduzidos. **Os 79 analitos da nossa cobertura estão todos lá.**
+   termos traduzidos. **Os 154 analitos da nossa cobertura estão todos lá** (conferido pelo gerador,
+   que avisa `SEM pt-BR` — a geração de 2026-09-22 terminou sem aviso nenhum).
    "Glicose", "Hemoglobina", "Tirotropina", "Ascorbato", "Cobalaminas",
    "25-Hidroxi vitamina D" — tudo oficial.
 

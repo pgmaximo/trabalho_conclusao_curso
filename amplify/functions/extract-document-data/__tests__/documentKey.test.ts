@@ -23,7 +23,7 @@
  * documento" -- uma mensagem sobre o CONTEUDO para um arquivo que nunca foi
  * aberto.
  */
-import { chaveDoDocumento, chaveDoTextoDoOcr } from '../documentKey';
+import { chaveDoDocumento } from '../documentKey';
 
 /** Pool de IDENTIDADES: e o que nomeia a pasta. Repare no prefixo de regiao. */
 const IDENTITY_ID = 'us-east-1:5648ad4c-7d8f-c7c3-0980-fe0fc91139f5';
@@ -67,22 +67,5 @@ describe('chaveDoDocumento', () => {
         s3Key: `medical-documents/${IDENTITY_ID}/../../outro/x.pdf`,
       }),
     ).toBeNull();
-  });
-});
-
-describe('chaveDoTextoDoOcr', () => {
-  const DOC = '4c0ba91a-ce34-4ff3-8812-45b2683367c1';
-
-  it('guarda o texto na MESMA pasta de identidade do arquivo lido', () => {
-    // A pasta sai da chave que o upload gravou, e nao de um identificador
-    // remontado -- e a mesma licao do defeito acima, aplicada ao artefato.
-    expect(chaveDoTextoDoOcr(CHAVE_REAL, DOC)).toBe(
-      `medical-documents/${IDENTITY_ID}/${DOC}/ocr.txt`,
-    );
-  });
-
-  it('devolve nulo quando a chave de origem nao tem a forma esperada', () => {
-    expect(chaveDoTextoDoOcr('medical-documents/', DOC)).toBeNull();
-    expect(chaveDoTextoDoOcr('outro-prefixo/x/y.pdf', DOC)).toBeNull();
   });
 });

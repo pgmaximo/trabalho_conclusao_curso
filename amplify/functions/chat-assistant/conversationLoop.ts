@@ -38,8 +38,13 @@ export const HISTORY_WINDOW = 12;
  * SEMPRE explicito. Em branco reserva a cota maxima do modelo e e a causa
  * principal de estrangulamento sem motivo aparente -- armadilha ja documentada
  * na feature de wearable.
+ *
+ * Era 2000 ate o Bloco 10. A rodada automatica da L7 mostrou a resposta a
+ * "quais sao os valores do meu exame?" cortada no meio do JSON das citacoes:
+ * cada citacao carrega um id de 64 caracteres, e 20 delas mais o texto de 20
+ * linhas passam de 2000. 4000 cabe o maximo de citacoes com folga.
  */
-export const MAX_OUTPUT_TOKENS = 2000;
+export const MAX_OUTPUT_TOKENS = 4000;
 
 const TEMPERATURE = 0.3;
 
@@ -55,7 +60,7 @@ export type TurnInput = {
   guardrailId: string;
   guardrailVersion: string;
   /** O anexo pontual ja lido. PDF chega em bytes e vai ao modelo no bloco de
-   *  documento; o resto chega como texto de OCR (D19). */
+   *  documento (D19); foto, em bytes, no bloco de imagem (Bloco 10). */
   anexo?: AnexoLido | null;
   /**
    * O interruptor da memoria (D34). Vem do aplicativo, que e quem le a linha de
@@ -103,6 +108,10 @@ export type TurnOutcome =
       ok: false;
       message: string;
       transcript: TurnTranscript;
+      /** Por que a resposta nao teve forma (Bloco 10). Presente so quando o
+       *  modelo RESPONDEU e a resposta nao passou no schema -- e o que da a ela
+       *  direito a uma nova geracao. */
+      motivo?: 'formato' | 'max_tokens';
       /** Distingue "o filtro barrou a pergunta" de "nao consegui responder".
        *  Sem essa marca, quem chama trocaria a mensagem honesta do filtro pela
        *  copy generica -- e a pessoa nao saberia que houve um bloqueio. */
@@ -113,6 +122,43 @@ const BLOQUEADO_PELO_FILTRO =
   'Não consigo responder a essa mensagem. Se for sobre um sintoma ou um resultado, vale levar a pergunta a um profissional de saúde.';
 const NAO_REUNI_TUDO = 'Não consegui reunir tudo o que essa pergunta pede.';
 const NAO_MONTEI = 'Não consegui montar uma resposta agora.';
+
+/**
+ * O rastro de uma geracao que nao virou resposta. Existe por um achado do Bloco
+ * 10: os tres caminhos de falha abaixo devolviam a copy generica SEM uma linha
+ * de log, e a resposta a "quais sao os valores do meu exame?" caia no modo
+ * degradado 4 vezes em 4 sem que nada dissesse por que. E a mesma forma do
+ * defeito que o reparo da extracao tinha ate o dia 22.
+ *
+ * So o motivo e, no caso do formato, o CAMPO que falhou -- nunca o conteudo,
+ * que e a resposta sobre o exame de alguem.
+ */
+type MotivoDaFalha = 'max_tokens' | 'formato' | 'teto-de-iteracoes' | 'ferramenta-na-segunda';
+
+function registrarFalhaDaGeracao(
+  etapa: 'primeira' | 'segunda',
+  motivo: MotivoDaFalha,
+  campos?: string[],
+): void {
+  console.info(
+    JSON.stringify({ evento: 'geracao-falhou', etapa, motivo, ...(campos ? { campos } : {}) }),
+  );
+}
+
+/** O motivo de uma resposta que nao passou no schema: cortada pelo teto, ou
+ *  fora do formato -- e, nesse caso, QUAIS campos. */
+function registrarRespostaInvalida(
+  etapa: 'primeira' | 'segunda',
+  stopReason: string | undefined,
+  issues: { path: PropertyKey[] }[],
+): void {
+  if (stopReason === 'max_tokens') registrarFalhaDaGeracao(etapa, 'max_tokens');
+  else {
+    registrarFalhaDaGeracao(etapa, 'formato', [
+      ...new Set(issues.map((i) => i.path.map(String).join('.') || '(raiz)')),
+    ]);
+  }
+}
 
 /** O esquema de entrada de cada tool, no formato que o Converse espera. Sai do
  *  MESMO objeto zod que valida a chamada, entao os dois nunca divergem. */
@@ -219,7 +265,13 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
       if (chamadas.length === 0) {
         const validado = chatAnswerSchema.safeParse(extrairResposta(textoDosBlocos(blocos)));
         if (!validado.success) {
-          return { ok: false, transcript, message: NAO_MONTEI };
+          registrarRespostaInvalida('primeira', resposta.stopReason, validado.error.issues);
+          return {
+            ok: false,
+            transcript,
+            message: NAO_MONTEI,
+            motivo: resposta.stopReason === 'max_tokens' ? 'max_tokens' : 'formato',
+          };
         }
         return {
           ok: true,
@@ -259,6 +311,7 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
   //
   // O transcript volta mesmo assim: as ferramentas que ja responderam tem
   // dado, e o modo degradado (C5b) consegue mostra-lo.
+  registrarFalhaDaGeracao('primeira', 'teto-de-iteracoes');
   return { ok: false, transcript, message: NAO_REUNI_TUDO };
 }
 
@@ -305,11 +358,15 @@ export async function regenerateAnswer(
     const blocos = resposta.output?.message?.content ?? [];
     // Chamou tool de novo em vez de responder: nao ha terceira tentativa.
     if (blocos.some((b) => b.toolUse)) {
+      registrarFalhaDaGeracao('segunda', 'ferramenta-na-segunda');
       return { ok: false, transcript, message: NAO_MONTEI };
     }
 
     const validado = chatAnswerSchema.safeParse(extrairResposta(textoDosBlocos(blocos)));
-    if (!validado.success) return { ok: false, transcript, message: NAO_MONTEI };
+    if (!validado.success) {
+      registrarRespostaInvalida('segunda', resposta.stopReason, validado.error.issues);
+      return { ok: false, transcript, message: NAO_MONTEI };
+    }
 
     return {
       ok: true,

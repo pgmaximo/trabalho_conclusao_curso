@@ -23,7 +23,12 @@ import {
   type QuestionKind,
 } from '../ai-language-rules/languageRules';
 
-import { regenerateAnswer, runConversationTurn, type TurnInput } from './conversationLoop';
+import {
+  regenerateAnswer,
+  runConversationTurn,
+  type TurnInput,
+  type TurnTranscript,
+} from './conversationLoop';
 import { costurar } from './encaminhamento';
 import { enriquecerCitacoes, indexarLinhasCitaveis } from './citacoes';
 import { buildDegradedAnswer } from './degradedAnswer';
@@ -107,6 +112,14 @@ export const INDISPONIVEL =
 const MOTIVO_CITACAO =
   'Você citou um resultado que não veio de nenhuma consulta. Cite apenas valores que as ferramentas devolveram nesta conversa, com o identificador exatamente como elas o entregaram.';
 
+/** O bilhete da resposta sem forma. Diz o que fazer, e nao o que deu errado
+ *  por dentro. */
+const MOTIVO_DA_FORMA: Record<'formato' | 'max_tokens', string> = {
+  formato: 'A resposta veio vazia ou fora do formato combinado.',
+  max_tokens:
+    'A resposta ficou longa demais e foi cortada. Escreva uma resposta mais curta: mostre menos valores e pergunte se a pessoa quer ver os outros.',
+};
+
 /**
  * O eixo e O QUE A RESPOSTA DIZ, e so em segundo lugar o que foi consultado.
  *
@@ -168,7 +181,10 @@ function propostaAceitavel(
  * escrevesse nesse caso e exatamente o que o verificador de R4 pega.
  */
 function citacoesConferem(answer: ChatAnswer, indice: Map<string, Citation>): boolean {
-  if (indice.size === 0) return true;
+  // Sem citacao, nada a conferir. COM citacao e sem linha nenhuma no turno, a
+  // citacao e inventada por definicao -- ate o Bloco 10 este caso devolvia
+  // "confere", porque a primeira linha testava o indice vazio e nao a resposta.
+  if (answer.citacoes.length === 0) return true;
   return answer.citacoes.every((c) => indice.has(c.resultId));
 }
 
@@ -361,6 +377,44 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     return aprovada({ ...answer, texto: costura.texto }, status);
   };
 
+  /**
+   * A UMA nova geracao da D31, compartilhada pelos dois motivos que a pedem: a
+   * resposta que quebrou uma regra, e -- desde o Bloco 10 -- a resposta que
+   * nem chegou a ter forma (vazia, ou cortada pelo teto de saida).
+   */
+  const tentarSegunda = async (
+    transcript: TurnTranscript,
+    motivo: string,
+  ): Promise<RespostaVerificada> => {
+    const semDados = nenhumDadoVeio(transcript.toolOutputs);
+    const segunda = limparGeracao(await regenerateAnswer(entrada, transcript, motivo));
+    if (!segunda.ok) return semResposta(transcript.toolOutputs);
+
+    registrarCusto('segunda', segunda.inputTokens, segunda.outputTokens);
+
+    const tipoDaSegunda = classificar(segunda.answer.texto, segunda.answer.toolsUsadas);
+    const recheck = checkLanguageRules(segunda.answer.texto, {
+      questionKind: tipoDaSegunda,
+      temOrigem: temOrigemDeclarada(segunda.answer, entrada),
+      // A segunda geracao NAO refaz o laco de ferramentas (D31), entao o que
+      // elas devolveram continua sendo o da primeira.
+      semDados,
+    });
+    const citacoesOkNaSegunda = citacoesConferem(segunda.answer, indice);
+    if (citacoesOkNaSegunda && (recheck.ok || somenteR2(recheck))) {
+      return entregar(segunda.answer, 'APROVADA_NA_SEGUNDA', tipoDaSegunda);
+    }
+
+    registrarReprovacao(
+      'segunda',
+      recheck.ok ? [] : recheck.violations.map((v) => v.rule),
+      citacoesOkNaSegunda,
+    );
+
+    // Reprovada duas vezes. O texto reprovado nao sai daqui de jeito nenhum.
+    return semResposta(transcript.toolOutputs);
+  };
+
   const primeira = limparGeracao(await runConversationTurn(entrada));
 
   if (!primeira.ok) {
@@ -370,6 +424,15 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     // barrou a PERGUNTA, e responde-la com dados seria contorna-lo.
     if ('bloqueadoPeloFiltro' in primeira && primeira.bloqueadoPeloFiltro) {
       return { status: 'INDISPONIVEL', texto: primeira.message, citacoes: [], indice };
+    }
+    // Resposta sem FORMA -- vazia, ou cortada pelo teto de saida (Bloco 10).
+    // Uma vez em quatro, nas rodadas da avaliacao, o modelo devolveu texto
+    // vazio depois de usar uma ferramenta. A forma ruim tem direito a mesma
+    // UMA nova geracao que o conteudo ruim ja tinha; o teto de iteracoes, nao
+    // -- ele e a pergunta grande demais, e uma nova geracao nao a encolhe.
+    if ('motivo' in primeira && primeira.motivo) {
+      indice = indexarLinhasCitaveis(primeira.transcript.toolOutputs);
+      return tentarSegunda(primeira.transcript, MOTIVO_DA_FORMA[primeira.motivo]);
     }
     return semResposta(primeira.transcript.toolOutputs);
   }
@@ -411,34 +474,7 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     citacoesOk,
   );
 
-  const segunda = limparGeracao(
-    await regenerateAnswer(entrada, primeira.transcript, motivos.join(' ')),
-  );
-  if (!segunda.ok) return semResposta(primeira.transcript.toolOutputs);
-
-  registrarCusto('segunda', segunda.inputTokens, segunda.outputTokens);
-
-  const tipoDaSegunda = classificar(segunda.answer.texto, segunda.answer.toolsUsadas);
-  const recheck = checkLanguageRules(segunda.answer.texto, {
-    questionKind: tipoDaSegunda,
-    temOrigem: temOrigemDeclarada(segunda.answer, entrada),
-    // A segunda geracao NAO refaz o laco de ferramentas (D31), entao o que
-    // elas devolveram continua sendo o da primeira.
-    semDados,
-  });
-  const citacoesOkNaSegunda = citacoesConferem(segunda.answer, indice);
-  if (citacoesOkNaSegunda && (recheck.ok || somenteR2(recheck))) {
-    return entregar(segunda.answer, 'APROVADA_NA_SEGUNDA', tipoDaSegunda);
-  }
-
-  registrarReprovacao(
-    'segunda',
-    recheck.ok ? [] : recheck.violations.map((v) => v.rule),
-    citacoesOkNaSegunda,
-  );
-
-  // Reprovada duas vezes. O texto reprovado nao sai daqui de jeito nenhum.
-  return semResposta(primeira.transcript.toolOutputs);
+  return tentarSegunda(primeira.transcript, motivos.join(' '));
 }
 
 /**

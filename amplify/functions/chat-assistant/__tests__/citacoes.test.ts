@@ -58,3 +58,52 @@ describe('enriquecerCitacoes', () => {
     expect(enriquecerCitacoes([{ resultId: 'inventada' }], indice)).toEqual([]);
   });
 });
+
+/**
+ * Bloco 10 -- achado da rodada automatica da L7, reproduzido contra o modelo
+ * real: "quais sao os valores do meu exame?" citou 20 linhas, e o indice estava
+ * VAZIO. A `consultar_resultados` nasceu no Bloco 8 e devolve linha de exame,
+ * mas o indice continuava lendo so a `consultar_analito` -- o comentario dele
+ * dizia que nenhuma outra tool devolvia linha. As 20 citacoes eram descartadas
+ * no enriquecimento, e a pessoa via os numeros sem origem nenhuma.
+ */
+describe('indexarLinhasCitaveis -- a consultar_resultados (Bloco 10)', () => {
+  const saidaDeResultados = {
+    name: 'consultar_resultados',
+    output: {
+      disponivel: true,
+      resultados: [
+        {
+          id: 'r-7',
+          analito: 'Hemoglobina',
+          valor: 16.1,
+          unidade: 'g/dL',
+          dataDaColeta: '2025-10-04',
+          documentoId: 'doc-9',
+        },
+      ],
+    },
+  };
+
+  it('indexa cada linha que ela devolve', () => {
+    expect(indexarLinhasCitaveis([saidaDeResultados]).get('r-7')).toEqual({
+      resultId: 'r-7',
+      documentId: 'doc-9',
+      analyteLabel: 'Hemoglobina',
+      value: '16,1',
+      unit: 'g/dL',
+      collectedAt: '2025-10-04',
+    });
+  });
+
+  it('as duas tools no mesmo turno somam, e nao se sobrescrevem', () => {
+    const indice = indexarLinhasCitaveis([saidaDeAnalito, saidaDeResultados]);
+    expect(indice.has('l-1')).toBe(true);
+    expect(indice.has('r-7')).toBe(true);
+  });
+
+  it('nao quebra com saida fora do formato esperado', () => {
+    expect(indexarLinhasCitaveis([{ name: 'consultar_resultados', output: null }]).size).toBe(0);
+    expect(indexarLinhasCitaveis([{ name: 'consultar_resultados', output: { resultados: 'x' } }]).size).toBe(0);
+  });
+});

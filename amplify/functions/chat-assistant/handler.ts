@@ -80,7 +80,7 @@ function lerCorpo(body: string | null | undefined): ChatTurnRequest | null {
 
   // O aplicativo manda a CHAVE do arquivo no bucket, nunca o texto: aceitar
   // texto pronto deixaria o chamador escrever qualquer coisa como se tivesse
-  // saido de um documento, e o OCR e o que garante que saiu.
+  // saido de um documento, e ler o arquivo do bucket e o que garante que saiu.
   const attachmentKey =
     typeof objeto.attachmentKey === 'string' && objeto.attachmentKey !== ''
       ? objeto.attachmentKey
@@ -125,8 +125,8 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
     const pedido = lerCorpo(event.body);
     if (!pedido) return resposta(400, { error: 'Requisicao invalida.' });
 
-    // O anexo pontual (D15): ele entra NAQUELA conversa e nada e gravado. PDF
-    // vai ao modelo em bytes, o resto vira texto de OCR (D19).
+    // O anexo pontual (D15): ele entra NAQUELA conversa e nada e gravado. O PDF
+    // e a foto vao ao modelo em bytes, cada um no seu bloco (D19, Bloco 10).
     // Ler falhar nao derruba o turno -- a pergunta continua valendo sem ele.
     const anexo = await lerAnexo(
       pedido.attachmentKey ? { key: pedido.attachmentKey } : null,

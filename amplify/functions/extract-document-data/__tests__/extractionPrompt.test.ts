@@ -1,10 +1,10 @@
 import { checkLanguageRules } from '../../ai-language-rules/languageRules';
-import { SYSTEM_PROMPT, buildUserText, EXTRACTION_OUTPUT_NAME } from '../extractionPrompt';
-
-const texto = {
-  pages: [{ page: 1, text: 'Vitamina D 32 ng/mL VR 30-100' }],
-  fullText: 'Vitamina D 32 ng/mL VR 30-100',
-};
+import {
+  SYSTEM_PROMPT,
+  buildUserAsk,
+  buildUserAskDeFoto,
+  EXTRACTION_OUTPUT_NAME,
+} from '../extractionPrompt';
 
 describe('extractionPrompt', () => {
   it('proibe o termo vetado pelo projeto na propria instrucao', () => {
@@ -21,13 +21,16 @@ describe('extractionPrompt', () => {
     expect(SYSTEM_PROMPT).toMatch(/nao interprete|nao classifique/i);
   });
 
-  it('inclui o numero da pagina no texto enviado, para o modelo poder citar a origem', () => {
-    expect(buildUserText(texto, 'exam')).toContain('[pagina 1]');
-  });
+  // O teste "inclui o numero da pagina no texto enviado" saiu no Bloco 10
+  // junto com o caminho do OCR que ele cobria: nao ha mais texto montado por
+  // nos. No PDF e na foto quem ve a pagina e o modelo, e `sourcePage` continua
+  // no schema.
 
-  it('pede analitos para exame e medicamentos para receita', () => {
-    expect(buildUserText(texto, 'exam')).toMatch(/analito/i);
-    expect(buildUserText(texto, 'prescription')).toMatch(/medicamento/i);
+  it('pede analitos para exame e medicamentos para receita, nos dois caminhos', () => {
+    expect(buildUserAsk('exam')).toMatch(/analito/i);
+    expect(buildUserAsk('prescription')).toMatch(/medicamento/i);
+    expect(buildUserAskDeFoto('exam')).toMatch(/analito/i);
+    expect(buildUserAskDeFoto('prescription')).toMatch(/medicamento/i);
   });
 
   it('a saida estruturada tem nome estavel usado tambem no reparo', () => {
@@ -84,5 +87,13 @@ describe('extractionPrompt', () => {
     expect(SYSTEM_PROMPT).toMatch(/rawReferenceText/);
     expect(SYSTEM_PROMPT).toMatch(/nunca escolha/i);
     expect(SYSTEM_PROMPT).toMatch(/idade|sexo/i);
+  });
+  it('proibe ler valor de grafico, e manda nao criar linha sem numero impresso (G10)', () => {
+    // Medido em 2026-09-22: numa foto da pagina 11 do Delboni, que nao imprime
+    // o HDL, o modelo leu 80 do grafico de historico em vez do 62 do papel --
+    // com confianca 0,95. A trava deterministica rebaixa a linha; esta regra
+    // e a camada que tenta nao produzi-la.
+    expect(SYSTEM_PROMPT).toMatch(/NUNCA leia valor de grafico/);
+    expect(SYSTEM_PROMPT).toMatch(/nao esta impresso[^.]*NAO crie a linha/i);
   });
 });

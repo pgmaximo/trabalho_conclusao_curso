@@ -6,8 +6,6 @@
  * TEM onde colocar leitura clinica; a instrucao diz para nao tentar. As duas
  * juntas sao duas das cinco camadas da D11.
  */
-import type { ExtractedText } from './documentText';
-
 /** Nome do objeto de saida, estavel porque o reparo se refere a ele. */
 export const EXTRACTION_OUTPUT_NAME = 'registrar_extracao';
 
@@ -37,6 +35,7 @@ ${REGRAS_COMUNS}
 REGRAS DO LAUDO
 - Transcrever cada analito com valor numerico: rotulo como esta escrito, valor, unidade, limites da faixa de referencia e o numero da pagina.
 - Transcrever os limites da faixa tambem como texto, pela mesma regra do valor.
+- Transcreva SOMENTE o numero impresso como resultado. NUNCA leia valor de grafico, curva, barra ou historico: esses numeros sao desenho, ou sao de outras datas. Se o resultado de um analito nao esta impresso neste documento -- por exemplo, porque ficou em outra pagina --, NAO crie a linha.
 - Faixa com UM LADO SO: preencher APENAS O LIMITE que o laudo deu, e deixar o outro vazio. "Superior a 40 mg/dL" preenche so o inferior; "Ate 200 mg/dL" e "Inferior a 150" preenchem so o superior. Os DOIS vazios e so para laudo que nao traz faixa nenhuma.
 - Faixa em TABELA -- por idade, por sexo, por risco cardiovascular, por jejum, ou em categorias como Normal/Risco/Diabetes -- nao cabe em dois numeros. Deixe os dois limites vazios e copie o trecho da faixa para "rawReferenceText", em uma linha so, como esta escrito no papel.
 - NUNCA escolha uma linha da tabela, por criterio nenhum: nem por idade, nem por sexo, nem por grupo, nem por jejum. Quem le a tabela e a pessoa. Escolher por ela e interpretar, e interpretar nao e sua tarefa.
@@ -72,22 +71,24 @@ export function systemPromptPara(documentType: 'exam' | 'prescription'): string 
   return documentType === 'prescription' ? SYSTEM_PROMPT_RECEITA : SYSTEM_PROMPT;
 }
 
-export function buildUserText(
-  text: ExtractedText,
-  documentType: 'exam' | 'prescription',
-): string {
-  const pedido =
-    documentType === 'exam'
-      ? 'Transcreva os analitos deste laudo.'
-      : 'Transcreva os medicamentos e a posologia desta receita.';
-  const paginas = text.pages.map((p) => `[pagina ${p.page}]\n${p.text}`).join('\n\n');
-  return `${pedido}\n\n${paginas}`;
-}
-
 /** O pedido para o caminho de PDF nativo, em que o documento vai como bloco
  *  proprio e nao ha texto de OCR para montar (D19). */
 export function buildUserAsk(documentType: 'exam' | 'prescription'): string {
   return documentType === 'exam'
     ? 'Transcreva TODOS os analitos com valor numerico deste laudo, do inicio ao fim do documento.'
     : 'Transcreva os medicamentos e a posologia desta receita.';
+}
+
+/**
+ * O pedido para a FOTO (G1, Bloco 10). E o pedido do PDF mais o que so a foto
+ * tem: inclinacao, sombra, borda cortada -- e a folha isolada de um laudo maior.
+ *
+ * A ultima frase repete a regra do grafico de proposito. Ela esta no sistema,
+ * mas foi na foto que o erro foi medido: vendo so a folha em que o resultado nao
+ * estava impresso, o modelo foi busca-lo no grafico de historico.
+ */
+export function buildUserAskDeFoto(documentType: 'exam' | 'prescription'): string {
+  return `${buildUserAsk(documentType)}
+
+O documento e uma FOTO ou imagem de uma pagina. Ela pode estar inclinada, com sombra, desfocada ou com parte fora do quadro, e pode ser so uma das folhas de um documento maior. O que nao estiver legivel, NAO transcreva: registre em warnings. Resultado que nao esta impresso nesta folha nao e transcrito, nem a partir de grafico.`;
 }

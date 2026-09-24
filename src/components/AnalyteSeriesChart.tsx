@@ -18,6 +18,8 @@ import { useThemeColors } from '@/constants/theme';
 import type { AnalyteSeries } from '@/services/analyteSeries';
 import { formatarDecimal } from '@/utils/decimalDisplay';
 
+import { unidadeLegivel } from '../../amplify/functions/extract-document-data/unidadeLegivel';
+
 export interface AnalyteSeriesChartProps {
   series: AnalyteSeries;
   referenceRange: { low: number | null; high: number | null } | null;
@@ -63,7 +65,7 @@ export function AnalyteSeriesChart({ series, referenceRange }: AnalyteSeriesChar
   // ouve. Uma palavra de interpretacao aqui seria a mais invisivel de todas.
   const resumo = `Evolução de ${series.projectLabel}${
     series.collectionMoment ? ` (${series.collectionMoment})` : ''
-  }, em ${series.unit}: ${series.points
+  }, em ${unidadeLegivel(series.unit)}: ${series.points
     .map((p) => `${dataCurta(p.collectedAt)}, ${formatarDecimal(p.value)}`)
     .join('; ')}.`;
 
@@ -77,7 +79,7 @@ export function AnalyteSeriesChart({ series, referenceRange }: AnalyteSeriesChar
         {series.projectLabel}
       </Text>
       <Text className="text-[12px] text-app-textSecondary dark:text-app-dark-textSecondary">
-        {series.unit}
+        {unidadeLegivel(series.unit)}
         {series.collectionMoment ? ` · ${series.collectionMoment}` : ''}
       </Text>
 
@@ -98,7 +100,7 @@ export function AnalyteSeriesChart({ series, referenceRange }: AnalyteSeriesChar
               showDots: true,
             },
           ]}
-          yUnit={series.unit}
+          yUnit={unidadeLegivel(series.unit)}
         />
       </View>
 

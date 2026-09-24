@@ -15,6 +15,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "amplify/**/*.ts",
+    "scripts/**/*.ts",
     "nativewind-env.d.ts"
   ]
 }

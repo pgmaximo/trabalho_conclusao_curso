@@ -10,6 +10,7 @@
  * suite confere que a instrucao continua no prompt.
  */
 import { SYSTEM_PROMPT, buildUserMessage } from '../chatPrompt';
+import { MAX_CITACOES, chatAnswerSchema } from '../chatSchema';
 
 const PERGUNTA = 'o que diz este papel?';
 
@@ -46,17 +47,49 @@ describe('buildUserMessage', () => {
     expect(textos.some((t) => t.includes('anexou') && t.includes('não foi salvo'))).toBe(true);
   });
 
-  it('texto de OCR continua entrando como bloco protegido, separado da pergunta', () => {
-    const msg = buildUserMessage(PERGUNTA, { kind: 'texto', texto: 'HEMOGRAMA COMPLETO' });
+  // G3 (Bloco 10): o anexo de foto ia ao Textract, que a conta recusa, e
+  // sumia da conversa em silencio. O ramo de texto de OCR saiu junto.
+  it('foto entra como bloco de IMAGEM, com o formato detectado, e com a mesma nota', () => {
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff]);
+    const msg = buildUserMessage(PERGUNTA, { kind: 'imagem', formato: 'jpeg', bytes });
 
+    const imagem = msg.content.find((b) => 'image' in b) as
+      | { image: { format: string; source: { bytes: Uint8Array } } }
+      | undefined;
+    expect(imagem?.image.format).toBe('jpeg');
+    expect(imagem?.image.source.bytes).toBe(bytes);
     expect(msg.content.some((b) => 'document' in b)).toBe(false);
-    const anexo = msg.content
-      .map((b) => (b as any).guardContent?.text?.text as string | undefined)
-      .find((t) => t?.includes('HEMOGRAMA COMPLETO'));
-    expect(anexo).toBeDefined();
-    // Duas origens, dois blocos: juntar as duas faria o filtro avaliar como se
-    // a pessoa tivesse escrito o documento.
-    expect(anexo).not.toContain(PERGUNTA);
+
+    const textos = msg.content
+      .map((b) => (b as any).guardContent?.text?.text)
+      .filter(Boolean) as string[];
+    expect(textos).toContain(PERGUNTA);
+    expect(textos.some((t) => t.includes('anexou') && t.includes('não foi salvo'))).toBe(true);
+  });
+});
+
+describe('o limite de citacoes e dito ao modelo (Bloco 10)', () => {
+  it('o prompt diz o limite, que o schema nao consegue dizer', () => {
+    // O `maxItems` e retirado do schema que vai ao Bedrock (ele o recusa). Sem
+    // esta frase, o modelo nao sabe do limite e tenta citar o laudo inteiro.
+    expect(SYSTEM_PROMPT).toContain(`no máximo ${MAX_CITACOES} resultados`);
+  });
+
+  it('e diz o que fazer quando a pergunta pede mais do que isso', () => {
+    expect(SYSTEM_PROMPT).toMatch(/quantos resultados/i);
+    expect(SYSTEM_PROMPT).toMatch(/pergunte qual grupo/i);
+  });
+
+  it('o numero do prompt e o do schema, e nao dois numeros', () => {
+    const r = chatAnswerSchema.safeParse({
+      texto: 'x',
+      citacoes: Array.from({ length: MAX_CITACOES + 1 }, (_, i) => ({
+        resultId: `r${i}`,
+        documentId: 'd',
+        collectedAt: '2025-10-04',
+      })),
+    });
+    expect(r.success).toBe(false);
   });
 });
 

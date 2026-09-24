@@ -6,6 +6,7 @@
  */
 import type { AnswerCitation, MemoryProposal } from './chatSchema';
 import type { ChatIdentity } from './auth';
+import type { FormatoDeImagem } from '../extract-document-data/formatoDoArquivo';
 
 /**
  * Qual dos quatro caminhos da D31 aconteceu. E o dado que calibra a secao 7 da
@@ -31,20 +32,18 @@ export type Citation = {
 
 /**
  * O anexo pontual ja lido, na forma em que ele entra na conversa. Duas formas
- * porque sao DUAS ROTAS, e qual delas vale foi medido na D19:
+ * porque sao os dois blocos do Converse que o projeto usa:
  *
- *   - `pdf`   -> os bytes vao direto ao modelo, no bloco de documento do
- *                Converse. Sem OCR no caminho.
- *   - `texto` -> o que o bloco de documento nao aceita passou pelo Textract
- *                SINCRONO, e o que sobra dele e texto.
+ *   - `pdf`    -> bloco de documento (D19).
+ *   - `imagem` -> bloco de imagem (Bloco 10). Substituiu a forma `texto`, que
+ *                 era o OCR do Textract -- um caminho que a conta nunca teve.
  *
- * O tipo e uniao, e nao um objeto com os dois campos opcionais, porque as duas
- * rotas sao exclusivas: um anexo lido dos dois jeitos seria o mesmo papel
- * entrando duas vezes na janela do modelo.
+ * Uniao, e nao um objeto com campos opcionais: um anexo lido dos dois jeitos
+ * seria o mesmo papel entrando duas vezes na janela do modelo.
  */
 export type AnexoLido =
   | { kind: 'pdf'; bytes: Uint8Array }
-  | { kind: 'texto'; texto: string };
+  | { kind: 'imagem'; formato: FormatoDeImagem; bytes: Uint8Array };
 
 export type ChatTurnResult = {
   answer: string;
@@ -69,8 +68,8 @@ export type ChatTurnRequest = {
    *  como se tivesse saido de um documento. */
   attachmentKey?: string | null;
   /** O anexo ja lido. Preenchido pelo handler, nunca pelo cliente, e vive so
-   *  nesta conversa (C7, D15). Nao e mais "o texto do OCR": PDF chega aqui em
-   *  bytes, porque a rota dele e o modelo e nao o OCR (D19). */
+   *  nesta conversa (C7, D15). Chega em bytes, PDF ou foto, porque a rota dos
+   *  dois e o modelo (D19, Bloco 10). */
   anexo?: AnexoLido | null;
   /** Se a pessoa deixou a memoria ligada. Ausente significa ligada -- ver
    *  `TurnInput.memoriaAtiva`. */

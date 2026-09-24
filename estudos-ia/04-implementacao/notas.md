@@ -1109,3 +1109,72 @@ linhas sem faixa, os mesmos 14 textos. Zero eventos
 `faixa-escolhida-pelo-modelo`, e os cinco avisos são todos de transcrição:
 o erro de digitação do Zinco, o valor textual do eGFR, a GME sem faixa própria,
 a testosterona repetida em duas páginas, e o SHBG fora do catálogo.
+
+## Bloco 10 — a foto, o vocabulário e quatro rodadas contra o assistente (2026-09-22)
+
+Tudo medido nesta máquina contra o Bedrock real, pelo endpoint **FIPS** de
+`us-east-1`: o endpoint padrão tem a conexão reiniciada pela rede local (dentro
+e fora do sandbox do shell), e o FIPS da mesma região responde. A função
+publicada não é afetada.
+
+### A visão do modelo lê foto de laudo
+
+Quatro páginas do laudo do Delboni, renderizadas como imagem limpa (150 dpi) e
+como foto simulada (inclinação, sombra, desfoque, JPEG 70):
+
+| | Limpa | Foto simulada |
+|---|---|---|
+| valores idênticos ao PDF | **26 / 26** | **25 / 26** |
+| hemograma (19 números em tabela densa) | 19 / 19 | 19 / 19 |
+| tokens de entrada por página (catálogo de 79) | 9.288 | 9.301 |
+| tokens de entrada por página (catálogo de 154) | 14.389 | 14.402 |
+| tempo por página | 6 a 21 s | 7 a 18 s |
+
+O único erro foi o HDL da página 11, **lido do gráfico de histórico**: 80 no
+lugar de 62, com confiança 0,95. Três medições da mesma página:
+
+| Medição | Limpa | Foto |
+|---|---|---|
+| 1 — sem regra, sem trava | HDL 62 do gráfico, 0,85 | **HDL 80 do gráfico, 0,95** — entraria automático |
+| 2 — regra no prompt, trava só para "gráfico" | criou a linha; a **trava pegou** | criou **HDL 40** ("lido do contexto"); só a confiança baixa o segurou |
+| 3 — trava ampliada | criou a linha dizendo, falsamente, que leu "do resultado impresso"; a **trava pegou** pela menção ao gráfico | **não criou a linha** |
+
+### O vocabulário
+
+79 → 154 analitos. A lista de candidatos no prompt foi de 10.005 para 19.892
+caracteres; na foto, isso é **+5,1 mil tokens de entrada por página**.
+
+### Quatro rodadas da L7 automática, 22 perguntas cada
+
+| | Rodada 1 | Rodada 2 | Rodada 3 | Rodada 4 |
+|---|---|---|---|---|
+| código | antes dos consertos | citações, rastro, busca, unidades | + índice, conferência, R3 nova, LDL | + nova geração por forma, papel com unidade, R3 da categoria |
+| aprovadas de primeira | 14 | 15 | 19 | 14 |
+| aprovadas na segunda | 2 | 2 | 0 | 6 |
+| degradadas | 5 | 3 | 2 | 2 |
+| indisponíveis | 1 | 2 | 1 | 0 |
+| ponta a ponta com citação do documento (de 3) | 1 | 1 | 3 | 3 |
+| expectativas mecânicas que falharam | 2 | 2 | 0 | 0 |
+| reprovações por regra | R2 1, R3 2 | R1 1, R3 1 | — | R1 1, R2 2, R3 5, R4 2 |
+| tokens de entrada (soma) | 128.530 | 139.899 | 164.643 | 279.412 |
+
+**Como ler a rodada 4:** mais reprovações na primeira geração é efeito
+esperado das três linhas novas da R3 — e é a primeira rodada em que **nenhuma
+pergunta ficou sem resposta** (0 indisponíveis) e em que a pergunta da
+testosterona, que na rodada 1 passou escolhendo a linha da tabela pela idade,
+**não passa**. O custo subiu junto: a segunda geração é paga. O gatilho da C10
+(menos de um terço salvo) não disparou em nenhuma rodada: na 4, 4 de 6
+reprovadas foram salvas.
+
+**O falso positivo da R1**, medido como a lista pedia: 2 reprovações em 12
+perguntas feitas para provocá-lo, ao longo das quatro rodadas; nenhuma resposta
+perdida.
+
+O rótulo por caixa está no próprio relatório da rodada 4
+(`avaliacoes/2026-09-22-rodada-4.md`), e é do agente, não da pessoa.
+
+### A planilha da T14
+
+Gerada para o laudo do Delboni: 48 linhas, fora do repositório (tem dado de
+saúde). **Não preenchida** — preencher é conferir contra o papel, e isso é a
+T14.

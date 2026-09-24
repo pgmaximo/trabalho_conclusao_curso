@@ -24,14 +24,15 @@ import {
   type Message,
 } from '@aws-sdk/client-bedrock-runtime';
 
-import type { ExtractedText } from './documentText';
-import { buildUserAsk, buildUserText, systemPromptPara } from './extractionPrompt';
+import { buildUserAsk, buildUserAskDeFoto, systemPromptPara } from './extractionPrompt';
 import {
   extractionSchema,
   parseExtraction,
   toStructuredOutputSchema,
   type RawExtraction,
 } from './extractionSchema';
+import type { FormatoDeImagem } from './formatoDoArquivo';
+import type { MotivoDeFalha } from './motivoDeFalha';
 
 
 const client = new BedrockRuntimeClient({ maxAttempts: 5, retryMode: 'adaptive' });
@@ -47,9 +48,14 @@ const MAX_OUTPUT_TOKENS = 8000;
 // faltou em vez de duplicar o que ja existe.
 const TEMPERATURE = 0;
 
+/**
+ * As duas fontes sao os dois blocos do Converse, e nada mais. A fonte de TEXTO
+ * (o OCR do Textract) saiu no Bloco 10 (Decisao F2): a conta recusa o Textract
+ * no nivel da conta, e um caminho que nunca respondeu nao e caminho.
+ */
 export type ExtractionSource =
   | { kind: 'pdf'; bytes: Uint8Array }
-  | { kind: 'texto'; text: ExtractedText };
+  | { kind: 'imagem'; formato: FormatoDeImagem; bytes: Uint8Array };
 
 export type RequestExtractionOptions = {
   modelId: string;
@@ -90,9 +96,20 @@ function registrarFalha(uso: { input: number; output: number }): void {
   );
 }
 
+/**
+ * A falha sai como MOTIVO da lista fechada, e nunca como texto (G4, Bloco 10).
+ * Antes saia `message`, com o `error.message` do SDK ou o caminho de campo do
+ * zod, e o handler gravava isso no campo que a tela le.
+ */
 export type RequestExtractionResult =
   | { ok: true; result: RawExtraction; usage: { input: number; output: number } }
-  | { ok: false; message: string };
+  | { ok: false; motivo: Extract<MotivoDeFalha, 'bloqueado-pelo-filtro' | 'leitura-falhou'> };
+
+/** O detalhe tecnico da falha, para quem pode agir sobre ele. Sem conteudo do
+ *  documento: a mensagem do zod nomeia CAMPO, e a do SDK nomeia a requisicao. */
+function registrarDetalhe(detalhe: string): void {
+  console.error(JSON.stringify({ evento: 'extracao-detalhe-da-falha', detalhe }));
+}
 
 /** O conteudo do documento vai dentro de `guardContent`, e so ele. E o que faz
  *  o filtro de ataque de prompt avaliar exatamente o que veio do arquivo do
@@ -113,7 +130,13 @@ function blocosDoDocumento(
       { guardContent: { text: { text: buildUserAsk(documentType) } } },
     ];
   }
-  return [{ guardContent: { text: { text: buildUserText(source.text, documentType) } } }];
+  // A foto (G1). Mesma protecao do PDF: o bloco de imagem tambem nao passa
+  // por guardContent, e a defesa contra instrucao plantada e a instrucao de
+  // sistema mais o schema de saida.
+  return [
+    { image: { format: source.formato, source: { bytes: source.bytes } } },
+    { guardContent: { text: { text: buildUserAskDeFoto(documentType) } } },
+  ];
 }
 
 export async function requestExtraction(
@@ -188,7 +211,7 @@ export async function requestExtraction(
     // trabalhando, e a mensagem ao usuario precisa dizer isso.
     if (resposta.stopReason === 'guardrail_intervened') {
       registrarFalha(uso);
-      return { ok: false, message: 'O conteudo do documento foi bloqueado pelo filtro de seguranca.' };
+      return { ok: false, motivo: 'bloqueado-pelo-filtro' };
     }
 
     let validado = parseExtraction(lerSaida(resposta.output?.message?.content));
@@ -212,12 +235,14 @@ export async function requestExtraction(
 
     if (!validado.ok) {
       registrarFalha(uso);
-      return { ok: false, message: validado.message };
+      registrarDetalhe(validado.message);
+      return { ok: false, motivo: 'leitura-falhou' };
     }
 
     return { ok: true, result: validado.value, usage: { ...uso } };
   } catch (error) {
     registrarFalha(uso);
-    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    registrarDetalhe(error instanceof Error ? error.message : String(error));
+    return { ok: false, motivo: 'leitura-falhou' };
   }
 }

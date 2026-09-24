@@ -41,7 +41,13 @@ csv.field_size_limit(10_000_000)
 
 SER = r'Ser/Plas|Ser|Plas'
 
-# (painel, rotulo do projeto, COMPONENT, SYSTEM, PROPERTY)
+# O EIXO DO TEMPO (TIME_ASPCT), acrescentado no Bloco 10. Sem ele, urina de 24
+# horas e urina de amostra isolada caem na mesma tripla -- o SYSTEM e `Urine`
+# nas duas -- e o alvo resolve para o termo de maior ranqueamento, que pode ser
+# qualquer um dos dois. Todo alvo sem tempo explicito e PONTUAL.
+TEMPO_PADRAO = 'Pt'
+
+# (painel, rotulo do projeto, COMPONENT, SYSTEM, PROPERTY[, TIME_ASPCT])
 ALVOS = [
     ('Hemograma', 'Hemoglobina',            r'Hemoglobin',                 r'Bld', 'MCnc'),
     ('Hemograma', 'Hematocrito',            r'Erythrocyte/Blood',          r'Bld', 'VFr'),
@@ -122,8 +128,11 @@ ALVOS = [
 
     ('Inflamacao', 'Proteina C reativa',    r'C reactive protein',         SER, 'MCnc'),
     ('Inflamacao', 'VHS',                   r'Erythrocyte',                r'Bld', 'Sedimentation Rate'),
-    ('Inflamacao', 'PSA total',             r'Prostate specific Ag',       SER, 'MCnc'),
-    ('Inflamacao', 'PSA livre',             r'Prostate specific Ag\.free', SER, 'MCnc'),
+    # PSA saiu de `Inflamacao` no Bloco 10 (pendencia S8): com os marcadores
+    # tumorais no extrato, o painel virou `Tumoral`. Rotulo nosso -- o codigo
+    # nao muda.
+    ('Tumoral', 'PSA total',                r'Prostate specific Ag',       SER, 'MCnc'),
+    ('Tumoral', 'PSA livre',                r'Prostate specific Ag\.free', SER, 'MCnc'),
 
     ('Hormonios', 'Testosterona total',     r'Testosterone',               SER, 'MCnc'),
     ('Hormonios', 'Testosterona livre',     r'Testosterone\.free',         SER, 'MCnc'),
@@ -133,12 +142,125 @@ ALVOS = [
     ('Hormonios', 'LH',                     r'Lutropin',                   SER, 'ACnc'),
     ('Hormonios', 'Prolactina',             r'Prolactin',                  SER, 'MCnc'),
     ('Hormonios', 'Beta-HCG',               r'Choriogonadotropin',         SER, 'ACnc'),
+    # --- Bloco 10: a ampliacao do estudo cobertura-brasileira-lacunas.md. -----
+    # Toda tripla abaixo foi CONFERIDA contra o release 2.83 antes de ser
+    # escrita, e varias divergiram do estudo -- as divergencias estao
+    # registradas em ../pendencias.md, secao "O que a conferencia corrigiu".
+
+    ('Hemograma', 'Reticulocitos (%)',      r'Reticulocytes/Erythrocytes', r'Bld', 'NFr'),
+    ('Hemograma', 'Reticulocitos (absoluto)', r'Reticulocytes',            r'Bld', 'NCnc'),
+    ('Hemograma', 'Segmentados (absoluto)', r'Neutrophils\.segmented',     r'Bld', 'NCnc'),
+    ('Hemograma', 'Segmentados (%)',        r'Neutrophils\.segmented/Leukocytes', r'Bld', 'NFr'),
+    ('Hemograma', 'Bastonetes (absoluto)',  r'Neutrophils\.band form',     r'Bld', 'NCnc'),
+    ('Hemograma', 'Bastonetes (%)',         r'Neutrophils\.band form/Leukocytes', r'Bld', 'NFr'),
+    # A armadilha do VCM de novo: a informacao esta na PROPRIEDADE.
+    ('Hemograma', 'VPM',                    r'Platelet',                   r'Bld', 'EntMeanVol'),
+
+    # Coagulograma: plasma pobre em plaquetas, nunca a constante SER. TP, TTPA e
+    # INR estao no ALVOS_COM_METODO, porque no 2.83 os tres sao `Coagulation`.
+    ('Coagulacao', 'Fibrinogenio',          r'Fibrinogen',                 r'PPP', 'MCnc'),
+    ('Coagulacao', 'Atividade de protrombina', r'Prothrombin\.activity actual/normal', r'PPP', 'RelTime'),
+
+    ('Enzimas', 'Amilase',                  r'Amylase',                    SER, 'CCnc'),
+    ('Enzimas', 'Lipase',                   r'Triacylglycerol lipase',     SER, 'CCnc'),
+    ('Enzimas', 'CK total (CPK)',           r'Creatine kinase',            SER, 'CCnc'),
+    ('Enzimas', 'CK-MB atividade',          r'Creatine kinase\.MB',        SER, 'CCnc'),
+    ('Enzimas', 'CK-MB massa',              r'Creatine kinase\.MB',        SER, 'MCnc'),
+    ('Enzimas', 'LDH',                      r'Lactate dehydrogenase',      SER, 'CCnc'),
+
+    # Urina tipo I: so o que e numero COMPARAVEL. Contagem por volume entra;
+    # por campo nao (pendencia S4). Densidade: a armadilha do VCM outra vez.
+    ('Urina', 'Densidade urinaria',         r'Observation',                r'Urine', 'SpGrav'),
+    ('Urina', 'Leucocitos na urina',        r'Leukocytes',                 r'Urine', 'NCnc'),
+    ('Urina', 'Hemacias na urina',          r'Erythrocytes',               r'Urine', 'NCnc'),
+
+    # Urina de 24 horas e relacoes -- o motivo de o eixo do tempo existir.
+    ('Renal', 'Creatinina urinaria',        r'Creatinine',                 r'Urine', 'MCnc'),
+    ('Renal', 'Proteinuria de 24 horas',    r'Protein',                    r'Urine', 'MRat', '24H'),
+    ('Renal', 'Albumina urinaria de 24 horas', r'Albumin',                 r'Urine', 'MRat', '24H'),
+    ('Renal', 'Relacao albumina/creatinina', r'Albumin/Creatinine',        r'Urine', 'MRto'),
+    ('Renal', 'Clearance de creatinina',    r'Creatinine renal clearance', r'Urine\+Ser/Plas', 'VRat', '24H'),
+    ('Renal', 'Calcio urinario de 24 horas', r'Calcium',                   r'Urine', 'MRat', '24H'),
+
+    ('Imunologia', 'IgA',                   r'IgA',                        SER, 'MCnc'),
+    ('Imunologia', 'IgG',                   r'IgG',                        SER, 'MCnc'),
+    ('Imunologia', 'IgM',                   r'IgM',                        SER, 'MCnc'),
+    ('Imunologia', 'IgE total',             r'IgE',                        SER, 'ACnc'),
+    ('Imunologia', 'Complemento C3',        r'Complement C3',              SER, 'MCnc'),
+    ('Imunologia', 'Complemento C4',        r'Complement C4',              SER, 'MCnc'),
+    ('Imunologia', 'Fator reumatoide',      r'Rheumatoid factor',          SER, 'ACnc'),
+
+    ('Tireoide', 'Anti-tireoglobulina',     r'Thyroglobulin Ab',           SER, 'ACnc'),
+    ('Tireoide', 'Tireoglobulina',          r'Thyroglobulin',              SER, 'MCnc'),
+    ('Tireoide', 'TRAb',                    r'Thyrotropin receptor Ab',    SER, 'ACnc'),
+    ('Tireoide', 'T3 reverso',              r'Triiodothyronine\.reverse',  SER, 'MCnc'),
+
+    ('Hormonios', 'Progesterona',           r'Progesterone',               SER, 'MCnc'),
+    ('Hormonios', '17-OH-progesterona',     r'17-Hydroxyprogesterone',     SER, 'MCnc'),
+    ('Hormonios', 'DHEA-S',                 r'Dehydroepiandrosterone sulfate', SER, 'MCnc'),
+    ('Hormonios', 'DHEA',                   r'Dehydroepiandrosterone',     SER, 'MCnc'),
+    ('Hormonios', 'Androstenediona',        r'Androstenedione',            SER, 'MCnc'),
+    ('Hormonios', 'SHBG',                   r'Sex hormone binding globulin', SER, 'SCnc'),
+    ('Hormonios', 'ACTH',                   r'Corticotropin',              SER, 'MCnc'),
+    ('Hormonios', 'IGF-1',                  r'Insulin-like growth factor-I', SER, 'MCnc'),
+    ('Hormonios', 'GH',                     r'Somatotropin',               SER, 'MCnc'),
+    ('Hormonios', 'Paratormonio (PTH)',     r'Parathyrin\.intact',         SER, 'MCnc'),
+    ('Hormonios', 'Estrona',                r'Estrone',                    SER, 'MCnc'),
+    # O 2.83 chama a di-hidrotestosterona de "Androstanolone".
+    ('Hormonios', 'Di-hidrotestosterona (DHT)', r'Androstanolone',         SER, 'MCnc'),
+    ('Hormonios', 'Hormonio antimulleriano', r'Mullerian inhibiting substance', SER, 'MCnc'),
+    ('Hormonios', 'Cortisol salivar',       r'Cortisol',                   r'Saliva', 'MCnc'),
+
+    ('Lipidico', 'Apolipoproteina A1',      r'Apolipoprotein A-I',         SER, 'MCnc'),
+    ('Lipidico', 'Apolipoproteina B',       r'Apolipoprotein B',           SER, 'MCnc'),
+    # ATENCAO: `Lipoprotein.alpha` e a ALFA-lipoproteina (a fracao do HDL), e
+    # nao a Lp(a). O termo certo no 2.83 e `Lipoprotein (little a)`. Um alvo
+    # frouxo aqui mapearia a Lp(a) para o HDL em silencio.
+    ('Lipidico', 'Lipoproteina (a)',        r'Lipoprotein \(little a\)',   SER, 'MCnc'),
+    ('Lipidico', 'Homocisteina',            r'Homocysteine',               SER, 'SCnc'),
+
+    ('Minerais', 'Zinco',                   r'Zinc',                       SER, 'MCnc'),
+    ('Minerais', 'Cobre',                   r'Copper',                     SER, 'MCnc'),
+    ('Minerais', 'Selenio',                 r'Selenium',                   SER, 'MCnc'),
+
+    ('Tumoral', 'CEA',                      r'Carcinoembryonic Ag',        SER, 'MCnc'),
+    ('Tumoral', 'Alfa-fetoproteina',        r'Alpha-1-Fetoprotein',        SER, 'MCnc'),
+    ('Tumoral', 'CA 125',                   r'Cancer Ag 125',              SER, 'ACnc'),
+    ('Tumoral', 'CA 15-3',                  r'Cancer Ag 15-3',             SER, 'ACnc'),
+    ('Tumoral', 'CA 19-9',                  r'Cancer Ag 19-9',             SER, 'ACnc'),
+
+    # A SOMA 1,25-(OH)2 D2 + D3, e nao `Calcitriol`, que no 2.83 e so a D3. E a
+    # armadilha da D36 um andar acima: o laudo brasileiro reporta a soma.
+    ('Vitaminas', '1,25-di-hidroxivitamina D', r'1,25-Dihydroxyvitamin D', SER, 'MCnc'),
 ]
 
 # Termos de metodo especifico que o laudo brasileiro nomeia por escrito, e que
 # por isso ganham linha propria em vez de serem absorvidos pelo termo neutro.
 ALVOS_COM_METODO = [
     ('Inflamacao', 'Proteina C reativa ultrassensivel', r'C reactive protein', SER, 'MCnc', r'High Sensitivity'),
+
+    # Coagulograma. No 2.83, TP, TTPA e INR tem o MESMO componente
+    # (`Coagulation`) em plasma pobre em plaquetas; o que os separa e a
+    # propriedade e o metodo -- via extrinseca ("tissue factor") para TP e INR,
+    # intrinseca ("surface induced") para o TTPA. Nao ha termo neutro de metodo.
+    ('Coagulacao', 'Tempo de protrombina',  r'Coagulation', r'PPP', 'Time',    r'Coag\.tissue factor'),
+    ('Coagulacao', 'INR',                   r'Coagulation', r'PPP', 'RelTime', r'Coag\.tissue factor'),
+    ('Coagulacao', 'TTPA',                  r'Coagulation', r'PPP', 'Time',    r'Coag\.surface induced'),
+
+    # Eletroforese de proteinas. O termo NEUTRO de metodo das fracoes existe,
+    # mas em mg/L e sem ranqueamento -- nao e o exame que o laudo brasileiro
+    # reporta. O exame e a eletroforese, e o laudo a nomeia. A albumina
+    # PRECISA do metodo: sem ele, cai no codigo da albumina do painel hepatico.
+    ('Eletroforese', 'Albumina (eletroforese)', r'Albumin',          SER, 'MCnc', r'Electrophoresis'),
+    ('Eletroforese', 'Alfa-1-globulina',        r'Alpha 1 globulin', SER, 'MCnc', r'Electrophoresis'),
+    ('Eletroforese', 'Alfa-2-globulina',        r'Alpha 2 globulin', SER, 'MCnc', r'Electrophoresis'),
+    ('Eletroforese', 'Beta-globulina',          r'Beta globulin',    SER, 'MCnc', r'Electrophoresis'),
+    ('Eletroforese', 'Gama-globulina',          r'Gamma globulin',   SER, 'MCnc', r'Electrophoresis'),
+    ('Eletroforese', 'Albumina (eletroforese, %)', r'Albumin/Protein\.total',          SER, 'MFr', r'Electrophoresis'),
+    ('Eletroforese', 'Alfa-1-globulina (%)',    r'Alpha 1 globulin/Protein\.total', SER, 'MFr', r'Electrophoresis'),
+    ('Eletroforese', 'Alfa-2-globulina (%)',    r'Alpha 2 globulin/Protein\.total', SER, 'MFr', r'Electrophoresis'),
+    ('Eletroforese', 'Beta-globulina (%)',      r'Beta globulin/Protein\.total',    SER, 'MFr', r'Electrophoresis'),
+    ('Eletroforese', 'Gama-globulina (%)',      r'Gamma globulin/Protein\.total',   SER, 'MFr', r'Electrophoresis'),
 ]
 
 CAMPOS = [
@@ -202,22 +324,28 @@ def main():
 
     saida, vistos, avisos = [], {}, []
 
-    for painel, rotulo, comp, sysx, prop in ALVOS:
-        cand = [r for r in linhas
-                if re.fullmatch(comp, r['COMPONENT'], re.I)
-                and re.fullmatch(sysx, r['SYSTEM'], re.I)
-                and r['PROPERTY'] == prop]
-        if not cand:
-            avisos.append('SEM CANDIDATO: %s (%s / %s / %s)' % (rotulo, comp, sysx, prop))
-            continue
-        cand.sort(key=lambda r: (r['METHOD_TYP'] != '', rank(r)))
-        saida.append(linha_de(cand[0], ptbr, painel, rotulo))
-
-    for painel, rotulo, comp, sysx, prop, met in ALVOS_COM_METODO:
+    for alvo in ALVOS:
+        painel, rotulo, comp, sysx, prop = alvo[:5]
+        tempo = alvo[5] if len(alvo) > 5 else TEMPO_PADRAO
         cand = [r for r in linhas
                 if re.fullmatch(comp, r['COMPONENT'], re.I)
                 and re.fullmatch(sysx, r['SYSTEM'], re.I)
                 and r['PROPERTY'] == prop
+                and r['TIME_ASPCT'] == tempo]
+        if not cand:
+            avisos.append('SEM CANDIDATO: %s (%s / %s / %s / %s)' % (rotulo, comp, sysx, prop, tempo))
+            continue
+        cand.sort(key=lambda r: (r['METHOD_TYP'] != '', rank(r)))
+        saida.append(linha_de(cand[0], ptbr, painel, rotulo))
+
+    for alvo in ALVOS_COM_METODO:
+        painel, rotulo, comp, sysx, prop, met = alvo[:6]
+        tempo = alvo[6] if len(alvo) > 6 else TEMPO_PADRAO
+        cand = [r for r in linhas
+                if re.fullmatch(comp, r['COMPONENT'], re.I)
+                and re.fullmatch(sysx, r['SYSTEM'], re.I)
+                and r['PROPERTY'] == prop
+                and r['TIME_ASPCT'] == tempo
                 and re.search(met, r['METHOD_TYP'], re.I)]
         if not cand:
             avisos.append('SEM CANDIDATO (metodo): %s' % rotulo)

@@ -200,10 +200,17 @@ describe('tool de analitos -- ausencia e busca', () => {
     expect(typeof saida.explicacao).toBe('string');
   });
 
-  it('acha tambem o analito de codigo LOCAL, que nao esta no catalogo (D32)', async () => {
+  it('acha tambem o analito de codigo LOCAL, mesmo depois de ele entrar no catalogo (D32)', async () => {
     // Com a D32, 100% do laudo vira linha -- e a parte que nao tem codigo
     // LOINC recebe um codigo derivado do rotulo. Se a busca so olhasse o
     // catalogo, a conversa nao alcancaria justamente o que a tela ja mostra.
+    //
+    // Bloco 10: este caso usava o zinco como exemplo de analito FORA do
+    // catalogo, e a ampliacao o pos para dentro -- o teste falhou, e a falha
+    // era real. As linhas gravadas antes da ampliacao continuam com o codigo
+    // local, e "zinco" passou a resolver para o codigo LOINC, que ninguem tem.
+    // A busca agora so deixa o catalogo vencer quando ha linha com o codigo
+    // dele.
     comLinhas([
       linha({ id: 'x1', analyteCode: 'X-ZINCO', projectLabel: 'Zinco', unit: 'ug/dL', value: 80 }),
     ]);
@@ -213,6 +220,18 @@ describe('tool de analitos -- ausencia e busca', () => {
     };
     expect(saida.disponivel).toBe(true);
     expect(saida.analyteCode).toBe('X-ZINCO');
+  });
+});
+
+describe('tool de analitos -- o catalogo continua vencendo quando ha linha dele', () => {
+  it('com linha LOINC e linha local do mesmo nome, a de codigo LOINC vence', async () => {
+    const ZINCO = ANALYTE_CATALOG.find((a) => a.projectLabel === 'Zinco')!;
+    comLinhas([
+      linha({ id: 'x1', analyteCode: 'X-ZINCO', projectLabel: 'Zinco', unit: 'ug/dL', value: 80 }),
+      linha({ id: 'x2', analyteCode: ZINCO.code, projectLabel: 'Zinco', unit: 'ug/dL', value: 85 }),
+    ]);
+    const saida = (await analitosTool.run({ termo: 'zinco' }, IDENTIDADE)) as { analyteCode: string };
+    expect(saida.analyteCode).toBe(ZINCO.code);
   });
 });
 
@@ -228,5 +247,52 @@ describe('tool de analitos -- o que ela nao pode devolver', () => {
     await analitosTool.run({ analyteCode: VITAMINA_D }, IDENTIDADE);
     const entrada = (mockSend.mock.calls[0][0] as { input: Record<string, unknown> }).input;
     expect(JSON.stringify(entrada.ExpressionAttributeValues)).toContain('s-1::u-1');
+  });
+});
+
+/**
+ * Bloco 10 -- a rodada automatica da L7: "Meu colesterol LDL esta bom?" teve
+ * como resposta que nao havia LDL registrado. Havia. A busca so testava "o
+ * rotulo CONTEM o termo", e "colesterol LDL" nao esta contido em "LDL".
+ */
+describe('tool de analitos -- a busca nos dois sentidos (Bloco 10)', () => {
+  const LDL = doCatalogo('LDL').code;
+  const GLICADA = doCatalogo('Hemoglobina glicada').code;
+  const HEMOGLOBINA = doCatalogo('Hemoglobina').code;
+
+  it('"colesterol LDL" acha o LDL, e NAO o colesterol total', async () => {
+    // A rodada 2 mostrou a primeira versao deste conserto escolhendo o
+    // colesterol TOTAL: "colesterol LDL" contem "colesterol" (sinonimo do total,
+    // 10 letras) e "LDL" (3), e o mais longo vencia. Este caso, com so a linha
+    // do LDL no historico, passava assim mesmo -- a volta para o historico
+    // escondia a escolha errada. Com as duas linhas, ele discrimina.
+    const TOTAL = doCatalogo('Colesterol total').code;
+    comLinhas([
+      linha({ id: 'c1', analyteCode: TOTAL, projectLabel: 'Colesterol total', unit: 'mg/dL', value: 167 }),
+      linha({ id: 'l1', analyteCode: LDL, projectLabel: 'LDL', unit: 'mg/dL', value: 90 }),
+    ]);
+    const saida = (await analitosTool.run({ termo: 'colesterol LDL' }, IDENTIDADE)) as { analyteCode: string };
+    expect(saida.analyteCode).toBe(LDL);
+  });
+
+  it('"minha hemoglobina glicada" acha a glicada, e NAO a hemoglobina -- o rotulo mais longo vence', async () => {
+    comLinhas([
+      linha({ id: 'h1', analyteCode: HEMOGLOBINA, projectLabel: 'Hemoglobina', unit: 'g/dL', value: 16 }),
+      linha({ id: 'h2', analyteCode: GLICADA, projectLabel: 'Hemoglobina glicada', unit: '%', value: 5.1 }),
+    ]);
+    const saida = (await analitosTool.run({ termo: 'minha hemoglobina glicada' }, IDENTIDADE)) as { analyteCode: string };
+    expect(saida.analyteCode).toBe(GLICADA);
+  });
+
+  it('"vitamina D" continua achando a 25-OH, e nao a 1,25 que entrou no catalogo', async () => {
+    // As DUAS no historico: com so a 25-OH, a volta para o historico mascarava
+    // uma ordem errada no catalogo -- a mutacao que invertia a ordem sobreviveu.
+    const UM_VINTE_E_CINCO = doCatalogo('1,25-di-hidroxivitamina D').code;
+    comLinhas([
+      linha(),
+      linha({ id: 'v2', analyteCode: UM_VINTE_E_CINCO, projectLabel: '1,25-di-hidroxivitamina D', unit: 'pg/mL', value: 40 }),
+    ]);
+    const saida = (await analitosTool.run({ termo: 'vitamina D' }, IDENTIDADE)) as { analyteCode: string };
+    expect(saida.analyteCode).toBe(VITAMINA_D);
   });
 });

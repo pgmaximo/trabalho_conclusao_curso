@@ -20,6 +20,7 @@ roadmap que produz software passou a ter EPIC rastreável, no formato
 | 2.9 (nova) | `specs/07-ia-conversa/memoria-do-usuario/` | `docs/superpowers/plans/2026-09-18-memoria-do-usuario.md` |
 | 2.10 (nova) | `specs/07-ia-conversa/conversa-sobre-o-exame/` | a escrever, quando a execução começar |
 | 2.11 (nova) | `specs/08-ia-fechamento/lacunas-e-decisoes/` | `specs/08-ia-fechamento/lacunas-e-decisoes/plan.md` |
+| 2.12 (nova) | `specs/08-ia-fechamento/fechamento-funcional/` | `specs/08-ia-fechamento/fechamento-funcional/plan.md` |
 
 A **2.9 não estava neste roadmap** e foi acrescentada em 2026-09-18: ela nasce
 de um pedido direto do usuário — memória de curto e longo prazo — e da fronteira
@@ -60,6 +61,16 @@ projeto.
 
 Ela carrega também **as cinco decisões do usuário** que as EPICs anteriores
 registraram sem resolver, cada uma com estudo de opções na própria spec.
+
+A **2.12 foi acrescentada em 2026-09-22** e é a última desta lista. Ela nasce
+do pedido de fechar o sistema para uso aberto, e a leitura do código acrescentou
+à lista do que faltava o item que mudou a prioridade de todos: **foto de laudo
+não era lida** — a única rota para imagem era o Textract, que a conta não tem.
+A EPIC mediu a visão do modelo antes de ligá-la (26 de 26 valores idênticos ao
+PDF em página limpa, 25 de 26 em foto simulada), achou na mesma medição o modo
+de falha mais perigoso do projeto — **número lido de gráfico, com confiança
+0,95** — e o travou antes de abrir a porta. Levou junto a ampliação do
+vocabulário (79 → 154 analitos), a pipeline de avaliação automática, e a Fase 4.
 
 As tarefas 3.2, 4.1 e 4.2 continuam sem EPIC de propósito: elas produzem
 **texto do TCC**, não software, e criar spec para elas seria confundir
@@ -224,7 +235,7 @@ quer registrar o documento é mandado para a porta que registra.
 | # | Tarefa | P | Depende de |
 |---|---|---|---|
 | 3.1 | Cruzamento entre exame, wearable e perfil numa mesma resposta — **absorvida** pela EPIC do assistente (tarefas C3 e C10): com as duas tools existindo, o cruzamento não é código novo, é uma pergunta que passa a ter resposta | P2 | 2.5, 2.6 |
-| 3.2 | Avaliação de qualidade das respostas e medição de custo por conversa | P2 | 2.7 |
+| 3.2 | Avaliação de qualidade das respostas e medição de custo por conversa — **instrumento pronto em 2026-09-22** (`scripts/avaliacao/`), primeira rodada automática em `04-implementacao/avaliacoes/`; a rodada humana (L7) continua pendente | P2 | 2.7 |
 
 **Duas comparações mensais diferentes, e elas não são intercambiáveis.**
 
@@ -244,8 +255,8 @@ substitui a outra e não deve ser apresentada como se fosse.
 
 | # | Tarefa | P | Depende de |
 |---|---|---|---|
-| 4.1 | Documentação de limitações e do que a IA deliberadamente não faz | P1 | — |
-| 4.2 | Registro escrito da avaliação de provedores e do porquê de cada recusa | P1 | — |
+| 4.1 | Documentação de limitações e do que a IA deliberadamente não faz — **escrita em 2026-09-22**, `06-encerramento/limitacoes.md` | P1 | — |
+| 4.2 | Registro escrito da avaliação de provedores e do porquê de cada recusa — **escrita em 2026-09-22**, `06-encerramento/avaliacao-de-provedores.md` | P1 | — |
 
 4.2 existe porque a avaliação foi feita de verdade — servidor da instituição,
 AgentCore, agentes clássicos do Bedrock, adapter de dois provedores, LangChain e

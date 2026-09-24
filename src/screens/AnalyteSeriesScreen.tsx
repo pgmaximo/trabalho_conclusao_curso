@@ -30,6 +30,8 @@ import type { ExclusionReason } from '@/services/analyteSeries';
 import type { LabResultView } from '@/services/extractionService';
 import { formatarDecimal } from '@/utils/decimalDisplay';
 
+import { unidadeLegivel } from '../../amplify/functions/extract-document-data/unidadeLegivel';
+
 /**
  * O motivo de cada exclusao, em portugues. Sao FRASES DE FATO, nunca de
  * julgamento: dizem o que aconteceu com a leitura, e nao o que o valor
@@ -60,7 +62,7 @@ const MOTIVOS: Record<ExclusionReason, string> = {
  * conversao que ninguem fez.
  */
 function valorComSinal(result: LabResultView): string {
-  const unidade = result.unit ?? result.rawUnit ?? '';
+  const unidade = unidadeLegivel(result.unit ?? result.rawUnit ?? '');
   return `${result.valueQualifier ?? ''}${formatarDecimal(result.value)} ${unidade}`.trim();
 }
 

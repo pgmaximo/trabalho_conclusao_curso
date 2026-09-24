@@ -56,6 +56,22 @@ const UNIT_ALIASES: Record<string, string> = {
   '10*6/ul': '10*6/uL',
   'g%': 'g/dL',
   'mg%': 'mg/dL',
+  // Bloco 10 -- os paineis novos, na grafia do laudo brasileiro.
+  seg: 's',
+  'seg.': 's',
+  segundos: 's',
+  inr: '{INR}',
+  'mg/24h': 'mg/(24.h)',
+  'mg/24hs': 'mg/(24.h)',
+  'mg/24horas': 'mg/(24.h)',
+  'g/24h': 'g/(24.h)',
+  'mg/g': 'mg/g{creat}',
+  'mg/gdecreatinina': 'mg/g{creat}',
+  'mg/gcreatinina': 'mg/g{creat}',
+  'ml/min': 'mL/min',
+  '/ml': '/mL',
+  'p/ml': '/mL',
+  'u/ml': 'U/mL',
 };
 
 /**
@@ -75,7 +91,22 @@ export function normalizeUnitToken(raw: string | null | undefined): string {
     // eritrocitos -- vai para revisao por "unidade desconhecida", que e o
     // oposto do proposito da revisao (D28).
     .replace(/^10\^(\d+)/, '10*$1');
-  return UNIT_ALIASES[compacto.toLowerCase()] ?? compacto;
+  return UNIT_ALIASES[compacto.toLowerCase()] ?? conhecidaSemCaixa(compacto) ?? compacto;
+}
+
+/**
+ * "mg/dl" e "mg/dL" sao a mesma unidade; so a caixa difere. Sem este passo, o
+ * laudo que escreve em minuscula manda a linha para revisao por "unidade
+ * desconhecida" a toa -- o modo de falha da D28 (Bloco 10).
+ *
+ * So devolve uma unidade que o modulo JA conhece. Nao inventa grafia.
+ */
+function conhecidaSemCaixa(compacto: string): string | null {
+  const alvo = compacto.toLowerCase();
+  for (const conhecida of KNOWN_UNITS) {
+    if (conhecida.toLowerCase() === alvo) return conhecida;
+  }
+  return null;
 }
 
 /** Unidades que sao a mesma grandeza com nomes diferentes. */
@@ -86,6 +117,9 @@ const IDENTITIES: Record<string, string> = {
   'ng/L': 'pg/mL',
   'm[IU]/L': 'u[IU]/mL',
   'u[IU]/mL': 'm[IU]/L',
+  // Relacao albumina/creatinina: ug por mg e mg por g sao o mesmo numero.
+  'ug/mg{creat}': 'mg/g{creat}',
+  'mg/g{creat}': 'ug/mg{creat}',
 };
 
 /**
@@ -103,6 +137,8 @@ const MOLAR_NUMERATOR: Record<string, number> = {
   'ng/mL->nmol/L': 1_000,
   'pg/mL->pmol/L': 1_000,
   'mg/L->umol/L': 1_000,
+  'ug/L->umol/L': 1,
+  'ug/L->nmol/L': 1_000,
 };
 
 /** Conversoes de escala pura, sem quimica. */
@@ -118,6 +154,21 @@ const SCALE_FACTOR: Record<string, number> = {
   '10*3/uL->/uL': 1000,
   '/uL->10*6/uL': 0.000001,
   '10*6/uL->/uL': 1000000,
+  // Bloco 10. Urina de 24 horas: o LOINC exemplifica g/24h, o laudo escreve
+  // mg/24h.
+  'g/(24.h)->mg/(24.h)': 1000,
+  'mg/(24.h)->g/(24.h)': 0.001,
+  // Contagem na urina: parte dos laboratorios reporta por mL.
+  '/mL->/uL': 0.001,
+  '/uL->/mL': 1000,
+  // Hormonios e minerais em que o exemplo do LOINC e a grafia brasileira
+  // diferem so por potencia de dez.
+  'ng/dL->ng/mL': 0.01,
+  'ng/mL->ng/dL': 100,
+  'pg/mL->ng/dL': 0.1,
+  'ng/dL->pg/mL': 10,
+  'ug/mL->ug/dL': 100,
+  'ug/dL->ug/mL': 0.01,
 };
 
 const KNOWN_UNITS = new Set<string>([
@@ -143,6 +194,14 @@ const KNOWN_UNITS = new Set<string>([
   'fL',
   'pg',
   'mm/h',
+  // Bloco 10.
+  's',
+  '{INR}',
+  'mg/(24.h)',
+  'g/(24.h)',
+  'mL/min',
+  '/mL',
+  'U/mL',
 ]);
 
 function invertMolar(from: string, to: string): number | null {

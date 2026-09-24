@@ -21,7 +21,8 @@ exames que um aplicativo de acompanhamento pessoal vê.
 Este documento continua sendo a **lista de intenção** — quais exames a
 normalização cobre e por quê. Os códigos LOINC de cada um já foram resolvidos
 contra o arquivo oficial e vivem em
-`../05-vocabularios/loinc/loinc-analitos-suasaude.csv`: 79 linhas, com nome
+`../05-vocabularios/loinc/loinc-analitos-suasaude.csv`: 154 linhas desde
+2026-09-22 (eram 79; a ampliação está no fim deste documento), com nome
 oficial, nome em português e ranqueamento de uso.
 
 Eles continuam **não estando escritos aqui**, e a razão abaixo é a mesma.
@@ -55,9 +56,11 @@ Duas armadilhas de mapeamento que valem atenção na hora de preencher:
   "Glicose no soro" e "glicose no sangue capilar" são códigos distintos. Para o
   nosso caso, soro ou plasma é o padrão.
 - **Massa e mol têm códigos diferentes.** O LOINC distingue `[Mass/volume]` de
-  `[Moles/volume]` no próprio código. Como o nosso valor canônico é em massa
-  (ver `conversao-unidades.md`), a escolha é a variante de massa — e o valor
-  convertido para mol, quando existir, não muda o código da linha.
+  `[Moles/volume]` no próprio código. Como o nosso valor canônico é a unidade
+  convencional brasileira (D17) — em massa quase sempre, molar em SHBG e
+  homocisteína —, a escolha é a variante que o laudo brasileiro usa, e o valor
+  convertido, quando existir, não muda o código da linha. (Frase corrigida em
+  2026-09-22: antes dizia "o nosso valor canônico é em massa", sem exceção.)
 
 ## Os painéis
 
@@ -114,8 +117,8 @@ concentração, e a conversão para a escala alternativa não é molar. Detalhe 
 | Creatinina | Creatinine [Mass/volume] in Serum or Plasma |
 | Ureia | Urea [Mass/volume] in Serum or Plasma |
 | Ácido úrico | Urate [Mass/volume] in Serum or Plasma |
-| Taxa de filtração glomerular estimada | Glomerular filtration rate/1.73 sq M.predicted |
-| Microalbuminúria | Albumin [Mass/volume] in Urine |
+| Taxa de filtração glomerular estimada | **fora do extrato** — ver `../05-vocabularios/pendencias.md`, item 5: o LOINC tem um código por equação, e o laudo nem sempre diz qual. Vive como código local (D32) |
+| Albumina urinária (era "Microalbuminúria") | Albumin [Mass/volume] in Urine |
 
 **Ureia e nitrogênio ureico não são a mesma medida.** O laudo brasileiro traz
 ureia; o americano costuma trazer nitrogênio ureico. Os dois têm código
@@ -230,9 +233,44 @@ entram nesta. Entram no texto extraído do documento, que a Fase 1 já guarda.
 
 - [x] Preencher o código LOINC de cada linha a partir do arquivo oficial —
       **feito em 2026-09-16**, por script, em `../05-vocabularios/`
-- [ ] Resolver as cinco pendências de `../05-vocabularios/pendencias.md`
-      (vitamina A, vitamina E, PCR, albumina urinária, taxa de filtração)
+- [x] Resolver as cinco pendências de `../05-vocabularios/pendencias.md`
+      (vitamina A, vitamina E, PCR, albumina urinária, taxa de filtração) —
+      **decididas em 2026-09-22** (Bloco 10, Decisão I); a PCR continua com a
+      confirmação contra papel pendente na T14
 - [ ] Conferir contra um laudo brasileiro real quantos analitos desta lista
       aparecem de fato, e se algum recorrente ficou de fora
-- [ ] Decidir se o diferencial de leucócitos guarda percentual, absoluto ou os
-      dois
+- [x] Decidir se o diferencial de leucócitos guarda percentual, absoluto ou os
+      dois — **os dois**, e a decisão já estava tomada na prática: o extrato tem
+      as cinco populações em `NCnc` e em `NFr`. Registrado em 2026-09-22, e a
+      mesma resposta vale para as frações da eletroforese (pendência S5)
+
+## A ampliação de 2026-09-22 (Bloco 10)
+
+A lista acima é a de 2026-09-16. O estudo `../05-vocabularios/cobertura-brasileira-lacunas.md`
+mostrou que ela não dava conta do laudo brasileiro, e a EPIC
+`specs/08-ia-fechamento/fechamento-funcional/` a ampliou. Os termos de busca de
+cada linha nova estão em `../05-vocabularios/loinc/gerar-extrato.py`; os
+motivos de cada inclusão e exclusão, no estudo e em `../05-vocabularios/pendencias.md`.
+
+| Painel | Analitos novos |
+|---|---|
+| Hemograma | reticulócitos (% e absoluto), segmentados e bastonetes (% e absoluto), VPM |
+| Coagulação | tempo de protrombina, atividade de protrombina, INR, TTPA, fibrinogênio |
+| Enzimas | amilase, lipase, CK total, CK-MB atividade, CK-MB massa, LDH |
+| Urina | densidade, leucócitos e hemácias **por volume** (por campo fica de fora: não é comparável entre laboratórios) |
+| Renal | creatinina urinária, proteinúria de 24 h, albumina urinária de 24 h, relação albumina/creatinina, clearance de creatinina, cálcio urinário de 24 h |
+| Eletroforese | albumina, alfa-1, alfa-2, beta e gama-globulina, em `g/dL` **e** em `%` |
+| Imunologia | IgA, IgG, IgM, IgE total, complemento C3 e C4, fator reumatoide |
+| Tireoide | anti-tireoglobulina, tireoglobulina, TRAb, T3 reverso |
+| Hormônios | progesterona, 17-OH-progesterona, DHEA-S, DHEA, androstenediona, SHBG, ACTH, IGF-1, GH, PTH, estrona, DHT, hormônio antimülleriano, cortisol salivar |
+| Lipídico | apolipoproteínas A1 e B, lipoproteína (a), homocisteína |
+| Minerais | zinco, cobre, selênio |
+| Tumoral | CEA, alfa-fetoproteína, CA 125, CA 15-3, CA 19-9 — e o PSA total e livre, que saíram de `Inflamacao` |
+| Vitaminas | 1,25-di-hidroxivitamina D |
+
+**Uma correção de frase que a ampliação obrigou (pendência S6).** Este documento
+dizia, em outro ponto, que "o nosso valor canônico é em massa". A regra certa é
+a da D17: **o canônico é a unidade convencional brasileira**, que é massa quase
+sempre — e molar em SHBG e homocisteína, porque é assim que o laboratório
+brasileiro as escreve.
+

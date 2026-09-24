@@ -7,40 +7,25 @@
  * este exame faca parte do meu historico", que e a tela de exames. As duas
  * portas continuam existindo, e o botao que leva a `/add-exam` nao some.
  *
- * A ROTA e a mesma da Fase 1, e ela e CONSULTADA aqui em vez de presumida:
+ * A ROTA e a mesma da Fase 1, e ela sai dos BYTES (Bloco 10):
  *
- *   - PDF   -> os bytes vao direto ao modelo (D19). Sem OCR no caminho.
- *   - resto -> `extractText`, que para estes tipos usa o Textract SINCRONO.
+ *   - PDF    -> bloco de documento (D19).
+ *   - imagem -> bloco de imagem. Ate o Bloco 10 a foto ia ao Textract, que a
+ *               conta recusa no nivel da conta; o anexo voltava `null` e sumia
+ *               da conversa sem aviso. A visao do modelo foi medida antes de
+ *               ser ligada (spec do Bloco 10, secao 2).
+ *   - resto  -> ausencia. O modelo nunca recebe bytes de formato desconhecido.
  *
- * Presumir custou caro uma vez. Chamar `extractText` para tudo mandava o PDF
- * para o caminho ASSINCRONO do Textract -- o oposto da D19, e uma chamada que
- * a politica do `chatAssistantLambda` recusa de proposito, porque o teto de
- * cinco minutos daquele caminho nao cabe dentro de um turno de conversa.
- *
- * REUSA `extract-document-data`, e isso e verificado por teste. Uma segunda
+ * REUSA a decisao de formato de `extract-document-data`, e isso e verificado
+ * por teste. Uma segunda
  * implementacao de leitura divergiria da primeira em silencio, e a divergencia
  * apareceria para a pessoa como o mesmo papel lido de dois jeitos.
  */
-import { chooseReadingPath } from '../extract-document-data/documentText';
+import { avaliarArquivo } from '../extract-document-data/formatoDoArquivo';
 import { readDocument } from '../extract-document-data/s3Reader';
-import { extractText } from '../extract-document-data/textractClient';
 
 import type { ChatIdentity } from './auth';
 import type { AnexoLido } from './types';
-
-/**
- * Teto do texto que entra na conversa. Um laudo de dez paginas cabe folgado;
- * o teto existe para que um documento enorme nao consuma a janela inteira do
- * modelo e empurre para fora o historico e os resultados das ferramentas.
- */
-const MAX_CARACTERES = 20_000;
-
-/**
- * Teto dos bytes do PDF, que e o limite do bloco de documento do Converse.
- * Passar disso nao e "quase funciona": o servico recusa a requisicao inteira,
- * e com ela a pergunta da pessoa.
- */
-export const MAX_BYTES_PDF = 4_500_000;
 
 /**
  * A pasta do anexo carrega o identityId de quem subiu, e a chave precisa
@@ -81,22 +66,18 @@ export async function lerAnexo(
   if (!bucket) return null;
 
   try {
-    const { bytes, contentType } = await readDocument(bucket, anexo.key);
+    const { bytes } = await readDocument(bucket, anexo.key);
 
-    if (chooseReadingPath(contentType) === 'modelo-direto') {
-      // Grande demais e AUSENCIA, e nao motivo para cair no OCR: o caminho
-      // assincrono esta fora por politica e por tempo, e o sincrono le uma
-      // pagina so -- devolveria a primeira folha como se fosse o laudo.
-      if (bytes.byteLength > MAX_BYTES_PDF) {
-        console.error('Anexo da conversa maior que o bloco de documento aceita:', bytes.byteLength);
-        return null;
-      }
-      return { kind: 'pdf', bytes };
+    // Formato e tamanho saem da MESMA funcao que decide a extracao. Grande
+    // demais e ausencia, e nao motivo para derrubar a pergunta.
+    const arquivo = avaliarArquivo(bytes);
+    if (!arquivo.ok) {
+      console.error('Anexo da conversa recusado antes do modelo:', arquivo.motivo);
+      return null;
     }
-
-    const ocr = await extractText(bucket, anexo.key, contentType, bytes);
-    const texto = ocr.fullText.trim();
-    return texto === '' ? null : { kind: 'texto', texto: texto.slice(0, MAX_CARACTERES) };
+    return arquivo.formato.tipo === 'pdf'
+      ? { kind: 'pdf', bytes }
+      : { kind: 'imagem', formato: arquivo.formato.formato, bytes };
   } catch (erro) {
     console.error('Nao foi possivel ler o anexo da conversa:', erro);
     return null;

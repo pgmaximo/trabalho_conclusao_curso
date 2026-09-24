@@ -47,6 +47,14 @@ jest.mock('@/hooks/useExamsData', () => ({
 
 jest.mock('uuid', () => ({ v4: () => 'uuid-fixo' }));
 
+// O preparo da foto (G2, Bloco 10) e testado por conta propria em
+// imagemParaEnvio.test.ts. Aqui o dublê so troca a foto por uma versao
+// "preparada", para o teste ver QUAL arquivo sobe e com que nome ele e guardado.
+const mockPreparar = jest.fn();
+jest.mock('@/services/imagemParaEnvio', () => ({
+  prepararArquivoParaEnvio: (...a: unknown[]) => mockPreparar(...a),
+}));
+
 import { createExamDocument } from '@/services/examService';
 
 /** Como o Amplify Storage resolve a pasta: pelo identityId, com a regiao. */
@@ -75,6 +83,7 @@ beforeEach(() => {
   );
   mockCreate.mockResolvedValue({ data: { id: 'doc-1' }, errors: undefined });
   mockStartExtraction.mockResolvedValue(undefined);
+  mockPreparar.mockImplementation(async (a: unknown) => a);
 });
 
 describe('createExamDocument', () => {
@@ -105,5 +114,46 @@ describe('createExamDocument', () => {
     const chamada = mockCreate.mock.calls[0][0] as { s3Key: string; s3FileName: string };
     expect(chamada.s3FileName).toMatch(/^exams\//);
     expect(chamada.s3Key.endsWith(chamada.s3FileName)).toBe(true);
+  });
+});
+
+describe('createExamDocument -- a foto (G2, Bloco 10)', () => {
+  const FOTO = {
+    ...ENTRADA,
+    fileName: 'IMG_0001.HEIC',
+    filePath: 'file:///DCIM/IMG_0001.HEIC',
+    // Maior que o teto de 10 MB do formulario: a foto original seria recusada.
+    fileSize: 12_000_000,
+  };
+
+  beforeEach(() => {
+    mockPreparar.mockResolvedValue({
+      filePath: 'file:///cache/pronta.jpg',
+      fileName: 'IMG_0001.jpg',
+      fileSize: 520_000,
+    });
+  });
+
+  it('sobe a foto PREPARADA, e nao a original', async () => {
+    await createExamDocument(FOTO);
+
+    expect(mockPreparar).toHaveBeenCalledWith({
+      filePath: FOTO.filePath,
+      fileName: FOTO.fileName,
+      fileSize: FOTO.fileSize,
+    });
+    expect(mockUploadFileToS3.mock.calls[0]![0]).toBe('file:///cache/pronta.jpg');
+  });
+
+  it('valida o tamanho do arquivo preparado -- a foto de 12 MB nao e recusada', async () => {
+    await expect(createExamDocument(FOTO)).resolves.toBeDefined();
+  });
+
+  it('guarda com a extensao do que subiu: o HEIC virou JPEG', async () => {
+    await createExamDocument(FOTO);
+
+    const linha = mockCreate.mock.calls[0]![0] as { s3FileName: string; originalFileName: string };
+    expect(linha.s3FileName).toMatch(/\.jpg$/);
+    expect(linha.originalFileName).toBe('IMG_0001.jpg');
   });
 });

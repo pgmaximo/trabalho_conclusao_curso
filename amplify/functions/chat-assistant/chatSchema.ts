@@ -45,6 +45,15 @@ export const citationSchema = z
  * O `tipo` e a lista fechada do art. 6º, I; o teto do texto vem do mesmo modulo
  * que o aplicativo le, para os dois recusarem exatamente as mesmas coisas.
  */
+/**
+ * Quantas linhas uma resposta pode citar. O numero mora AQUI e e o mesmo que o
+ * prompt diz ao modelo (`chatPrompt.ts`), porque o `maxItems` do schema e
+ * retirado do que vai ao Bedrock -- o servico o recusa. Ate o Bloco 10 o limite
+ * existia so na validacao, e o modelo, sem saber dele, tentava citar um laudo
+ * inteiro de 48 linhas: a resposta era reprovada em silencio, 4 de 4 vezes.
+ */
+export const MAX_CITACOES = 20;
+
 export const memoryProposalSchema = z
   .object({
     texto: z.string().min(1).max(MAX_CARACTERES_FATO),
@@ -60,7 +69,7 @@ export const chatAnswerSchema = z
      * exame no texto e o que o verificador de R4 reprova -- aqui e campo, la e
      * regra.
      */
-    citacoes: z.array(citationSchema).max(20),
+    citacoes: z.array(citationSchema).max(MAX_CITACOES),
     /**
      * Ausente na esmagadora maioria dos turnos. Nao existe campo de citacao
      * aqui, e a ausencia e a garantia: um fato nao consegue ser fonte de

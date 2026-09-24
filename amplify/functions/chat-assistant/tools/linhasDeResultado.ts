@@ -34,6 +34,10 @@ export type LinhaDeResultado = {
   valueQualifier: string | null;
   unit: string | null;
   rawValue: string | null;
+  /** A unidade como o PAPEL a escreveu. Anda com `rawValue` e nunca sem ele:
+   *  o numero do papel ao lado da unidade convertida produziu "5.500 mil/µL"
+   *  na rodada 3 da avaliacao -- mil vezes o valor real (Bloco 10). */
+  rawUnit: string | null;
   referenceLow: number | null;
   referenceHigh: number | null;
   /** A faixa como o laudo a escreveu, quando ela nao e um par de numeros --
@@ -60,6 +64,7 @@ export function comoLinha(bruta: Record<string, unknown>): LinhaDeResultado {
     valueQualifier: texto(bruta.valueQualifier),
     unit: texto(bruta.unit),
     rawValue: texto(bruta.rawValue),
+    rawUnit: texto(bruta.rawUnit),
     referenceLow: numero(bruta.referenceLow),
     referenceHigh: numero(bruta.referenceHigh),
     rawReferenceText: texto(bruta.rawReferenceText),
@@ -109,4 +114,15 @@ export function motivoDeExclusaoPontual(linha: LinhaDeResultado): MotivoDeExclus
   if (linha.value === null) return 'sem-valor';
   if (linha.valueQualifier) return 'limite-de-deteccao';
   return null;
+}
+
+/**
+ * O valor como estava no papel, COM a unidade do papel. Os dois nunca saem
+ * separados para o modelo: na rodada 3 da avaliacao, o numero do papel
+ * ("5.500", em /mm³) foi repetido ao lado da unidade convertida ("mil/µL"), e a
+ * resposta disse um valor mil vezes maior que o real (Bloco 10).
+ */
+export function comoEstavaNoPapel(l: Pick<LinhaDeResultado, 'rawValue' | 'rawUnit'>): string | null {
+  if (!l.rawValue) return null;
+  return l.rawUnit ? `${l.rawValue} ${l.rawUnit}` : l.rawValue;
 }

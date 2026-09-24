@@ -219,3 +219,51 @@ describe('consultar_resultados', () => {
     expect(resultadosTool.description).toMatch(/NÃO grava|não grava/i);
   });
 });
+
+/**
+ * Bloco 10 -- a rodada automatica da L7 mostrou o modo degradado desta tool
+ * dizendo "Basofilos (absoluto) · 0.033 10*3/uL": ponto decimal e o token UCUM
+ * cru, enquanto o da tool de analitos ja dizia "27,9 ng/mL".
+ */
+describe('o modo degradado fala como o laudo (Bloco 10)', () => {
+  const saida = {
+    resultados: [
+      { id: 'r1', analito: 'Basofilos (absoluto)', valor: 0.033, unidade: '10*3/uL', dataDaColeta: '2025-10-04', documentoId: 'd1' },
+      { id: 'r2', analito: 'Contagem zerada', valor: 0, unidade: '/uL', dataDaColeta: '2025-10-04', documentoId: 'd1' },
+    ],
+  };
+
+  it('virgula decimal, unidade legivel e data brasileira', () => {
+    const bloco = resultadosTool.renderDegraded!(saida)!;
+    expect(bloco.linhas[0]).toBe('Basofilos (absoluto) · 0,033 mil/µL · 04/10/2025');
+  });
+
+  it('o valor zero aparece -- zero e resultado, nao ausencia', () => {
+    const bloco = resultadosTool.renderDegraded!(saida)!;
+    expect(bloco.linhas[1]).toContain('0 /µL');
+  });
+});
+
+describe('a unidade que o modelo repete e a que a pessoa le (Bloco 10)', () => {
+  it('entrega "mil/µL", e nao o token "10*3/uL" -- o modelo copia o que recebe', async () => {
+    // Na reproducao do ponta a ponta, a resposta dizia "Plaquetas: 199 10*3/uL":
+    // o modelo repete a unidade exatamente como a ferramenta a entrega.
+    mockSend.mockResolvedValue({ Items: [linha({ projectLabel: 'Plaquetas', value: 199, unit: '10*3/uL' })] });
+    const saida = (await resultadosTool.run({}, IDENTIDADE)) as Saida;
+    expect(saida.resultados[0]!.unidade).toBe('mil/µL');
+  });
+});
+
+describe('o que estava no papel vem inteiro (Bloco 10)', () => {
+  it('"como estava no papel" traz a unidade DO PAPEL junto do numero do papel', async () => {
+    // Rodada 3 da avaliacao: a resposta disse "Leucocitos: 5.500 mil/µL" -- mil
+    // vezes o valor real. A ferramenta entregava o numero do papel ("5.500")
+    // sem a unidade do papel ("/mm³"), ao lado da unidade convertida ("mil/µL"),
+    // e o modelo juntou os dois.
+    mockSend.mockResolvedValue({
+      Items: [linha({ projectLabel: 'Leucocitos', value: 5.5, unit: '10*3/uL', rawValue: '5.500', rawUnit: '/mm³' })],
+    });
+    const saida = (await resultadosTool.run({}, IDENTIDADE)) as Saida;
+    expect(saida.resultados[0]!.comoEstavaNoPapel).toBe('5.500 /mm³');
+  });
+});

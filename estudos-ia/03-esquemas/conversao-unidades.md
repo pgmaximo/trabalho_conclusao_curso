@@ -91,6 +91,43 @@ Triglicerídeos usam a massa da trioleína por convenção — não existe "a" m
 molar de triglicerídeo, porque é uma classe de moléculas. É uma aproximação
 aceita, e vale registrá-la como tal.
 
+### A ampliação de 2026-09-22 (Bloco 10)
+
+Quatorze massas novas, e todas conferidas contra a fórmula molecular — não
+contra uma tabela de fatores, que é onde erro de cópia se esconde. O fator que
+cada uma produz foi conferido contra o fator publicado quando ele existe.
+
+| Analito | Fórmula | g/mol | Fator conferido |
+|---|---|---|---|
+| Progesterona | C21H30O2 | 314,46 | ng/mL → nmol/L = 3,18 |
+| 17-OH-progesterona | C21H30O3 | 330,46 | ng/dL → nmol/L = 0,0303 |
+| DHEA-S (como sulfato, a forma dosada) | C19H28O5S | 368,49 | µg/dL → µmol/L = 0,0271 |
+| DHEA | C19H28O2 | 288,42 | ng/mL → nmol/L = 3,47 |
+| Androstenediona | C19H26O2 | 286,41 | ng/mL → nmol/L = 3,49 |
+| Estrona | C18H22O2 | 270,37 | pg/mL → pmol/L = 3,70 |
+| Di-hidrotestosterona | C19H30O2 | 290,44 | — |
+| Cortisol salivar | C21H30O5 | 362,46 | a mesma do cortisol sérico |
+| Creatinina urinária | C4H7N3O | 113,12 | a mesma da sérica |
+| Homocisteína | C4H9NO2S | 135,18 | o canônico já é µmol/L |
+| Zinco | Zn | 65,38 | µg/dL → µmol/L = 0,153 |
+| Cobre | Cu | 63,546 | µg/dL → µmol/L = 0,157 |
+| Selênio | Se | 78,971 | µg/L → µmol/L = 0,0127 |
+| 1,25-di-hidroxivitamina D | C27H44O3 (a D3) | 416,64 | pg/mL → pmol/L = 2,40 |
+
+A última segue a **convenção declarada da D36**: o analito é a soma D2+D3, e a
+massa é a da D3.
+
+**Quem NÃO ganhou massa molar, e por quê:** proteína, enzima e anticorpo
+(imunoglobulinas, complemento, CK-MB, apolipoproteínas, marcadores tumorais,
+fatores de coagulação). A D18 vale para eles pela mesma razão da hemoglobina: a
+massa de uma proteína depende da forma em que ela é contada, e o laudo
+brasileiro não os escreve em mol.
+
+**As conversões de escala novas** no `unitConverter.ts`, todas potência de dez
+sem química: `g/24h ↔ mg/24h`, `/mL ↔ /µL`, `ng/dL ↔ ng/mL`, `pg/mL ↔ ng/dL`,
+`µg/mL ↔ µg/dL` — e uma identidade, `µg/mg ≡ mg/g` na relação
+albumina/creatinina.
+
 ## Os casos que a fórmula não cobre
 
 Estes são o trabalho de verdade, e cada um erra de um jeito diferente.
@@ -174,7 +211,8 @@ Três propriedades que os testes precisam sustentar:
 
 ## Pendências desta tarefa
 
-- [ ] Conferir as 22 massas molares contra referência publicada
+- [ ] Conferir as 22 massas molares contra referência publicada (as 14 do
+      Bloco 10 foram conferidas contra a fórmula molecular, acima)
 - [ ] Confirmar a convenção de triglicerídeos com o orientador
 - [ ] Levantar quais unidades alternativas de fato aparecem em laudo brasileiro
       — pode ser que boa parte da tabela nunca seja exercitada, e saber disso

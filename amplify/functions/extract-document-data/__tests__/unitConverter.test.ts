@@ -80,3 +80,82 @@ describe('convertConcentration', () => {
     expect(result).toEqual({ ok: true, value: 5.19 });
   });
 });
+
+/**
+ * Bloco 10 -- as unidades dos painéis novos (coagulograma, urina de 24 horas,
+ * relacoes, hormonios, minerais, marcadores tumorais). Cada caso e a grafia que
+ * o laudo brasileiro usa, contra a unidade canonica do catalogo.
+ */
+describe('as unidades dos paineis novos (Bloco 10)', () => {
+  const identico = (de: string, para: string, valor = 12.5) =>
+    expect(convertConcentration(valor, de, para, null)).toEqual({ ok: true, value: valor });
+
+  it('tempo de coagulacao: "seg" e "segundos" sao segundos', () => {
+    identico('seg', 's');
+    identico('segundos', 's');
+    identico('s', 's');
+  });
+
+  it('INR escrito como unidade e o INR', () => {
+    identico('INR', '{INR}', 1.02);
+  });
+
+  it('urina de 24 horas nas grafias do laudo', () => {
+    identico('mg/24h', 'mg/(24.h)');
+    identico('mg/24 h', 'mg/(24.h)');
+    identico('mg/24hs', 'mg/(24.h)');
+    const g = convertConcentration(0.15, 'g/24h', 'mg/(24.h)', null);
+    expect(g.ok && g.value).toBeCloseTo(150, 6);
+  });
+
+  it('relacao albumina/creatinina: mg/g e ug/mg sao o mesmo numero', () => {
+    identico('mg/g', 'mg/g{creat}');
+    identico('mg/g de creatinina', 'mg/g{creat}');
+    identico('ug/mg{creat}', 'mg/g{creat}');
+  });
+
+  it('contagem na urina: por mL vira por microlitro', () => {
+    const r = convertConcentration(3000, '/mL', '/uL', null);
+    expect(r.ok && r.value).toBeCloseTo(3, 9);
+    const r2 = convertConcentration(3000, 'p/mL', '/uL', null);
+    expect(r2.ok && r2.value).toBeCloseTo(3, 9);
+  });
+
+  it('escalas de massa dos hormonios', () => {
+    // 17-OH-progesterona e tireoglobulina: o LOINC exemplifica ng/dL, o laudo
+    // brasileiro escreve ng/mL.
+    const a = convertConcentration(120, 'ng/dL', 'ng/mL', null);
+    expect(a.ok && a.value).toBeCloseTo(1.2, 9);
+    // T3 reverso: 1 ng/dL = 10 pg/mL.
+    const b = convertConcentration(150, 'pg/mL', 'ng/dL', null);
+    expect(b.ok && b.value).toBeCloseTo(15, 9);
+    // Zinco: o LOINC exemplifica ug/mL, o laudo escreve ug/dL.
+    const c = convertConcentration(0.9, 'ug/mL', 'ug/dL', null);
+    expect(c.ok && c.value).toBeCloseTo(90, 9);
+  });
+
+  it('selenio em ug/L para umol/L usa a massa molar', () => {
+    const r = convertConcentration(78.971, 'ug/L', 'umol/L', 78.971);
+    expect(r.ok && r.value).toBeCloseTo(1, 9);
+  });
+
+  it('mL/min e U/mL nas grafias em minuscula', () => {
+    identico('ml/min', 'mL/min');
+    identico('U/mL', 'U/mL');
+    identico('u/ml', 'U/mL');
+  });
+
+  it('caixa diferente de uma unidade conhecida nao e unidade desconhecida', () => {
+    // "mg/dl" e "mg/dL" sao a mesma coisa; so a caixa difere. Sem isto, um
+    // laudo que escreve em minuscula manda a linha para revisao a toa (D28).
+    identico('mg/dl', 'mg/dL');
+    identico('G/DL', 'g/dL');
+  });
+
+  it('continua recusando o que nao conhece', () => {
+    expect(convertConcentration(1, 'mg/semana', 'mg/(24.h)', null)).toEqual({
+      ok: false,
+      reason: 'unidade-desconhecida',
+    });
+  });
+});

@@ -312,3 +312,48 @@ describe('normalizeLabResult', () => {
     expect(faixaConvertida).toBe(true);
   });
 });
+
+/**
+ * Bloco 10 -- os analitos novos que o papel escreve SEM unidade (INR, densidade
+ * urinaria) e a censura por extenso (G5), atravessando o normalizador inteiro.
+ */
+describe('normalizeLabResult -- paineis novos (Bloco 10)', () => {
+  const linhaDe = (rotulo: string, rawValue: string, rawUnit: string | null) => ({
+    ...vitaminaD,
+    analyteLabel: rotulo,
+    analyteCodeGuess: codigoDe(rotulo),
+    rawValue,
+    rawUnit,
+    rawReferenceLow: null,
+    rawReferenceHigh: null,
+  });
+
+  it('INR sem unidade no papel entra automatico, na unidade canonica', () => {
+    const linha = normalizeLabResult(linhaDe('INR', '1,02', null), CONFIDENCE_THRESHOLD);
+    expect(linha).toMatchObject({ value: 1.02, unit: '{INR}', reviewStatus: 'AUTO' });
+  });
+
+  it('unidade VAZIA e ausencia de unidade, e nao uma unidade desconhecida', () => {
+    // O modelo as vezes devolve "" em vez de null para "o papel nao traz
+    // unidade". Tratar "" como unidade mandava a linha para revisao a toa.
+    const linha = normalizeLabResult(linhaDe('INR', '1,02', ''), CONFIDENCE_THRESHOLD);
+    expect(linha).toMatchObject({ value: 1.02, reviewStatus: 'AUTO' });
+  });
+
+  it('proteinuria de 24 horas em g/24h converte para mg/24h', () => {
+    const linha = normalizeLabResult(
+      linhaDe('Proteinuria de 24 horas', '0,15', 'g/24h'),
+      CONFIDENCE_THRESHOLD,
+    );
+    expect(linha.unit).toBe('mg/(24.h)');
+    expect(linha.value).toBeCloseTo(150, 6);
+  });
+
+  it('"Superior a 90" entra com o valor e o qualificador (G5)', () => {
+    const linha = normalizeLabResult(
+      linhaDe('Clearance de creatinina', 'Superior a 90', 'mL/min'),
+      CONFIDENCE_THRESHOLD,
+    );
+    expect(linha).toMatchObject({ value: 90, valueQualifier: '>', reviewStatus: 'AUTO' });
+  });
+});

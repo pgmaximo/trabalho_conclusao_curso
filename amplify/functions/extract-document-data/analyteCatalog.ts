@@ -1389,7 +1389,7 @@ export const ANALYTE_CATALOG: CanonicalAnalyte[] = [
     "code": "2857-1",
     "label": "Prostate specific Ag [Mass/volume] in Serum or Plasma",
     "projectLabel": "PSA total",
-    "panel": "Inflamacao",
+    "panel": "Tumoral",
     "canonicalUnit": "ng/mL",
     "loincExampleUnit": "ng/mL",
     "molarMass": null,
@@ -1409,7 +1409,7 @@ export const ANALYTE_CATALOG: CanonicalAnalyte[] = [
     "code": "10886-0",
     "label": "Prostate Specific Ag Free [Mass/volume] in Serum or Plasma",
     "projectLabel": "PSA livre",
-    "panel": "Inflamacao",
+    "panel": "Tumoral",
     "canonicalUnit": "ng/mL",
     "loincExampleUnit": "ng/mL",
     "molarMass": null,
@@ -1586,6 +1586,1232 @@ export const ANALYTE_CATALOG: CanonicalAnalyte[] = [
     "convertsToMolar": false
   },
   {
+    "code": "4679-7",
+    "label": "Reticulocytes/Erythrocytes in Blood",
+    "projectLabel": "Reticulocitos (%)",
+    "panel": "Hemograma",
+    "canonicalUnit": "%",
+    "loincExampleUnit": "%",
+    "molarMass": null,
+    "synonyms": [
+      "Reticulócitos/100 eritrócitos",
+      "Retics/100 RBC Fr",
+      "Retics",
+      "Retic",
+      "Reticulocyte",
+      "Polychromatophilic red cells",
+      "Red blood corpusles",
+      "Red blood corpuscle"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "14196-0",
+    "label": "Reticulocytes [#/volume] in Blood",
+    "projectLabel": "Reticulocitos (absoluto)",
+    "panel": "Hemograma",
+    "canonicalUnit": "10*3/uL",
+    "loincExampleUnit": "10*3/uL",
+    "molarMass": null,
+    "synonyms": [
+      "Reticulócitos",
+      "Retics #",
+      "Retics",
+      "Retic",
+      "Reticulocyte",
+      "Polychromatophilic red cells",
+      "#",
+      "Number concentration"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "30451-9",
+    "label": "Segmented neutrophils [#/volume] in Blood",
+    "projectLabel": "Segmentados (absoluto)",
+    "panel": "Hemograma",
+    "canonicalUnit": "10*3/uL",
+    "loincExampleUnit": "10*3/uL",
+    "molarMass": null,
+    "synonyms": [
+      "Neutrófilos.segmentados",
+      "Neuts Seg # Sg",
+      "Neuts Seg",
+      "Segs",
+      "N-Seg",
+      "PNM",
+      "Neutrophil",
+      "Neutr"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "26505-8",
+    "label": "Segmented neutrophils/Leukocytes in Blood",
+    "projectLabel": "Segmentados (%)",
+    "panel": "Hemograma",
+    "canonicalUnit": "%",
+    "loincExampleUnit": "%",
+    "molarMass": null,
+    "synonyms": [
+      "Neutrófilos.segmentados/100 leucócitos",
+      "Neuts Seg Fr Sg",
+      "Neuts Seg",
+      "Segs",
+      "N-Seg",
+      "PNM",
+      "Neutrophil",
+      "Neutr"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "26507-4",
+    "label": "Band form neutrophils [#/volume] in Blood",
+    "projectLabel": "Bastonetes (absoluto)",
+    "panel": "Hemograma",
+    "canonicalUnit": "10*3/uL",
+    "loincExampleUnit": "10*3/uL",
+    "molarMass": null,
+    "synonyms": [
+      "Neutrófilos.bastonetes",
+      "Neuts Band # Sg",
+      "Neuts Band",
+      "N-Band",
+      "PNM",
+      "Neutrophil",
+      "Neutr",
+      "PMN"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "26508-2",
+    "label": "Band form neutrophils/Leukocytes in Blood",
+    "projectLabel": "Bastonetes (%)",
+    "panel": "Hemograma",
+    "canonicalUnit": "%",
+    "loincExampleUnit": "%",
+    "molarMass": null,
+    "synonyms": [
+      "Neutrófilos.bastonetes/100 leucócitos",
+      "Neuts Band Fr Sg",
+      "Neuts Band",
+      "N-Band",
+      "PNM",
+      "Neutrophil",
+      "Neutr",
+      "PMN"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "28542-9",
+    "label": "Platelet [Entitic mean volume] in Blood",
+    "projectLabel": "VPM",
+    "panel": "Hemograma",
+    "canonicalUnit": "fL",
+    "loincExampleUnit": "fL",
+    "molarMass": null,
+    "synonyms": [
+      "Volume plaquetário Médio (MPV)",
+      "PMV Sg",
+      "Vol",
+      "PMV",
+      "MPV",
+      "Plt",
+      "Pl",
+      "Platelets"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "3255-7",
+    "label": "Fibrinogen [Mass/volume] in Platelet poor plasma by Coagulation assay",
+    "projectLabel": "Fibrinogenio",
+    "panel": "Coagulacao",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Fibrinogênio",
+      "Fibrinogen PPP-mCnc",
+      "FGN",
+      "Coagulation factor I",
+      "Platelet poor plasma",
+      "Plas",
+      "Coagulation assay",
+      "Clot"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "3289-6",
+    "label": "Prothrombin activity actual/normal in Platelet poor plasma by Coagulation assay",
+    "projectLabel": "Atividade de protrombina",
+    "panel": "Coagulacao",
+    "canonicalUnit": "%",
+    "loincExampleUnit": "%",
+    "molarMass": null,
+    "synonyms": [
+      "Protrombina atividade verdadeira/Normal",
+      "Prothrom Act/Nor PPP",
+      "Prothrom",
+      "Prothombin",
+      "Factor 2",
+      "Factor II",
+      "Prothromb",
+      "Prothrm"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "1798-8",
+    "label": "Amylase [Enzymatic activity/volume] in Serum or Plasma",
+    "projectLabel": "Amilase",
+    "panel": "Enzimas",
+    "canonicalUnit": "U/L",
+    "loincExampleUnit": "U/L",
+    "molarMass": null,
+    "synonyms": [
+      "Amilase",
+      "Amylase SerPl-cCnc",
+      "k87",
+      "Ams",
+      "Diastase",
+      "Alpha amylase",
+      "Catalytic Concentration",
+      "SerPl"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "3040-3",
+    "label": "Lipase [Enzymatic activity/volume] in Serum or Plasma",
+    "projectLabel": "Lipase",
+    "panel": "Enzimas",
+    "canonicalUnit": "U/L",
+    "loincExampleUnit": "U/L",
+    "molarMass": null,
+    "synonyms": [
+      "Lipase",
+      "Lipase SerPl-cCnc",
+      "Steapsin",
+      "Tributyrase",
+      "Tributyrinase",
+      "Pancreatic lipase",
+      "LPS",
+      "Catalytic Concentration"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2157-6",
+    "label": "Creatine kinase [Enzymatic activity/volume] in Serum or Plasma",
+    "projectLabel": "CK total (CPK)",
+    "panel": "Enzimas",
+    "canonicalUnit": "U/L",
+    "loincExampleUnit": "U/L",
+    "molarMass": null,
+    "synonyms": [
+      "Creatinoquinase",
+      "CK SerPl-cCnc",
+      "CK",
+      "Creatine phosphokinase",
+      "CPK",
+      "Catalytic Concentration",
+      "SerPl",
+      "SerPlas"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "32673-6",
+    "label": "Creatine kinase.MB [Enzymatic activity/volume] in Serum or Plasma",
+    "projectLabel": "CK-MB atividade",
+    "panel": "Enzimas",
+    "canonicalUnit": "U/L",
+    "loincExampleUnit": "U/L",
+    "molarMass": null,
+    "synonyms": [
+      "Creatinoquinase.Fração MB",
+      "CK MB SerPl-cCnc",
+      "CK MB",
+      "CKMB",
+      "CK 2",
+      "Creatine phosphokinase",
+      "CPK",
+      "Catalytic Concentration"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "13969-1",
+    "label": "Creatine kinase.MB [Mass/volume] in Serum or Plasma",
+    "projectLabel": "CK-MB massa",
+    "panel": "Enzimas",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Creatinoquinase.Fração MB",
+      "CK MB SerPl-mCnc",
+      "CK MB",
+      "CKMB",
+      "CK 2",
+      "Creatine phosphokinase",
+      "CPK",
+      "SerPl"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "14805-6",
+    "label": "Lactate dehydrogenase [Enzymatic activity/volume] in Serum or Plasma by Pyruvate to lactate reaction",
+    "projectLabel": "LDH",
+    "panel": "Enzimas",
+    "canonicalUnit": "U/L",
+    "loincExampleUnit": "U/L",
+    "molarMass": null,
+    "synonyms": [
+      "Desidrogenase Láctica",
+      "LDH SerPl P to L-cCnc",
+      "LDH",
+      "L.D.H",
+      "Lactic acid dehydrogenase",
+      "LD",
+      "L-lactate dehydrogenase",
+      "Lact"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2965-2",
+    "label": "Specific gravity of Urine",
+    "projectLabel": "Densidade urinaria",
+    "panel": "Urina",
+    "canonicalUnit": "",
+    "loincExampleUnit": "",
+    "molarMass": null,
+    "synonyms": [
+      "Densidade",
+      "Sp Gr Ur",
+      "Sp Gr",
+      "Spec grav",
+      "Den",
+      "SG",
+      "Conc",
+      "Sp Grav"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "30405-5",
+    "label": "Leukocytes [#/volume] in Urine",
+    "projectLabel": "Leucocitos na urina",
+    "panel": "Urina",
+    "canonicalUnit": "/uL",
+    "loincExampleUnit": "/uL",
+    "molarMass": null,
+    "synonyms": [
+      "Leucócitos",
+      "Leucoc # Ur",
+      "Leucoc",
+      "White blood cell",
+      "Leuc",
+      "Leuk",
+      "Leukocyte",
+      "Lkcs"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "30391-7",
+    "label": "Erythrocytes [#/volume] in Urine",
+    "projectLabel": "Hemacias na urina",
+    "panel": "Urina",
+    "canonicalUnit": "/uL",
+    "loincExampleUnit": "/uL",
+    "molarMass": null,
+    "synonyms": [
+      "Eritrócitos",
+      "RBC # Ur",
+      "RBC",
+      "Red blood corpusles",
+      "Red blood corpuscle",
+      "Erthrocyte",
+      "Erythrocyte",
+      "Red blood cell"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2161-8",
+    "label": "Creatinine [Mass/volume] in Urine",
+    "projectLabel": "Creatinina urinaria",
+    "panel": "Renal",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL",
+    "molarMass": 113.12,
+    "synonyms": [
+      "Creatinina",
+      "Creat Ur-mCnc",
+      "Creat",
+      "CR",
+      "Ur",
+      "Urn",
+      "UA",
+      "Chemistry"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "2889-4",
+    "label": "Protein [Mass/time] in 24 hour Urine",
+    "projectLabel": "Proteinuria de 24 horas",
+    "panel": "Renal",
+    "canonicalUnit": "mg/(24.h)",
+    "loincExampleUnit": "g/(24.h)",
+    "molarMass": null,
+    "synonyms": [
+      "Proteína",
+      "Prot 24H Ur-mRate",
+      "Prot",
+      "PR",
+      "mRate",
+      "Mass rate",
+      "1 day",
+      "24 hours"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "1755-8",
+    "label": "Albumin [Mass/time] in 24 hour Urine",
+    "projectLabel": "Albumina urinaria de 24 horas",
+    "panel": "Renal",
+    "canonicalUnit": "mg/(24.h)",
+    "loincExampleUnit": "mg/(24.h)",
+    "molarMass": null,
+    "synonyms": [
+      "Albumina",
+      "Albumin 24H Ur-mRate",
+      "Protein.albumin",
+      "Alb",
+      "mRate",
+      "Mass rate",
+      "1 day",
+      "24 hours"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "9318-7",
+    "label": "Albumin/Creatinine [Mass Ratio] in Urine",
+    "projectLabel": "Relacao albumina/creatinina",
+    "panel": "Renal",
+    "canonicalUnit": "mg/g{creat}",
+    "loincExampleUnit": "ug/mg{creat}",
+    "molarMass": null,
+    "synonyms": [
+      "Albumin/creat Ur-mRto",
+      "Protein.albumin",
+      "Alb",
+      "Creat",
+      "CR",
+      "mRto",
+      "Mass concentration ratio",
+      "Ur"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2164-2",
+    "label": "Creatinine renal clearance in 24 hour Urine and Serum or Plasma",
+    "projectLabel": "Clearance de creatinina",
+    "panel": "Renal",
+    "canonicalUnit": "mL/min",
+    "loincExampleUnit": "mL/min",
+    "molarMass": null,
+    "synonyms": [
+      "Clearance Renal de Creatinina",
+      "Creat Cl 24H Ur+SerPl-vRate",
+      "CrCl",
+      "Creat",
+      "CR",
+      "vRate",
+      "Volume rate",
+      "Flow"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "6874-2",
+    "label": "Calcium [Mass/time] in 24 hour Urine",
+    "projectLabel": "Calcio urinario de 24 horas",
+    "panel": "Renal",
+    "canonicalUnit": "mg/(24.h)",
+    "loincExampleUnit": "mg/(24.h)",
+    "molarMass": null,
+    "synonyms": [
+      "Cálcio",
+      "Cálcio 24H Ur-mRate",
+      "Cal",
+      "Ca",
+      "mRate",
+      "Mass rate",
+      "1 day",
+      "24 hours"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2458-8",
+    "label": "IgA [Mass/volume] in Serum or Plasma",
+    "projectLabel": "IgA",
+    "panel": "Imunologia",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL",
+    "molarMass": null,
+    "synonyms": [
+      "IgA",
+      "IgA Ser-mCnc",
+      "Immune globulin A",
+      "Immunoglobulin A",
+      "SR",
+      "Chemistry"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2465-3",
+    "label": "IgG [Mass/volume] in Serum or Plasma",
+    "projectLabel": "IgG",
+    "panel": "Imunologia",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL",
+    "molarMass": null,
+    "synonyms": [
+      "IgG",
+      "IgG Ser-mCnc",
+      "Immune globulin G",
+      "Immunoglobulin G",
+      "SR",
+      "Chemistry"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2472-9",
+    "label": "IgM [Mass/volume] in Serum or Plasma",
+    "projectLabel": "IgM",
+    "panel": "Imunologia",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL",
+    "molarMass": null,
+    "synonyms": [
+      "IgM",
+      "IgM Ser-mCnc",
+      "Immune globulin M",
+      "Immunoglobulin M",
+      "SR",
+      "Chemistry"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "19113-0",
+    "label": "IgE [Units/volume] in Serum or Plasma",
+    "projectLabel": "IgE total",
+    "panel": "Imunologia",
+    "canonicalUnit": "[IU]/mL",
+    "loincExampleUnit": "[IU]/L",
+    "molarMass": null,
+    "synonyms": [
+      "IgE",
+      "IgE Ser-aCnc",
+      "Immune globulin E",
+      "Immunoglobulin E",
+      "Arbitrary concentration",
+      "SR",
+      "Chemistry"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "4485-9",
+    "label": "Complement C3 [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Complemento C3",
+    "panel": "Imunologia",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Complemento C3",
+      "C3 SerPl-mCnc",
+      "Beta 1 C-globulin",
+      "Comp",
+      "Complmt",
+      "SerPl",
+      "SerPlas",
+      "SerP"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "4498-2",
+    "label": "Complement C4 [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Complemento C4",
+    "panel": "Imunologia",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Complemento C4",
+      "C4 SerPl-mCnc",
+      "Beta 1 E-globulin",
+      "Comp",
+      "Complmt",
+      "SerPl",
+      "SerPlas",
+      "SerP"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "11572-5",
+    "label": "Rheumatoid factor [Units/volume] in Serum or Plasma",
+    "projectLabel": "Fator reumatoide",
+    "panel": "Imunologia",
+    "canonicalUnit": "[IU]/mL",
+    "loincExampleUnit": "[IU]/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Fator reumatóide",
+      "Rheumatoid fact Ser-aCnc",
+      "Rheumatoid fact",
+      "RF",
+      "Arbitrary concentration",
+      "SR",
+      "Fac",
+      "Fact"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "8098-6",
+    "label": "Thyroglobulin Ab [Units/volume] in Serum or Plasma",
+    "projectLabel": "Anti-tireoglobulina",
+    "panel": "Tireoide",
+    "canonicalUnit": "[IU]/mL",
+    "loincExampleUnit": "[IU]/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Tireoglobulina Ac",
+      "Tiroglob Ac Ser-aCnc",
+      "AntiTiroglob",
+      "TgAcs",
+      "Tiroglob",
+      "Thyglobulin",
+      "Thyroglbn",
+      "Tg"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "3013-0",
+    "label": "Thyroglobulin [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Tireoglobulina",
+    "panel": "Tireoide",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Tireoglobulina",
+      "Tiroglob SerPl-mCnc",
+      "Tiroglob",
+      "Thyglobulin",
+      "Thyroglbn",
+      "Tg",
+      "SerPl",
+      "SerPlas"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "5385-0",
+    "label": "Thyrotropin receptor Ab [Units/volume] in Serum",
+    "projectLabel": "TRAb",
+    "panel": "Tireoide",
+    "canonicalUnit": "U/L",
+    "loincExampleUnit": "[IU]/L",
+    "molarMass": null,
+    "synonyms": [
+      "Receptor de Tirotropina Ac",
+      "TSH Recep Ac Ser-aCnc",
+      "TSH Recep",
+      "TRAc",
+      "Thyrotropic hormone",
+      "Thyroid stimulating hormone",
+      "Arbitrary concentration",
+      "SR"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "3052-8",
+    "label": "Triiodothyronine (T3).reverse [Mass/volume] in Serum or Plasma",
+    "projectLabel": "T3 reverso",
+    "panel": "Tireoide",
+    "canonicalUnit": "ng/dL",
+    "loincExampleUnit": "pg/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Triiodotironina.reversa",
+      "T3Reverse SerPl-mCnc",
+      "T3Reverse",
+      "Reverse T3",
+      "rT3",
+      "Triodothyrne",
+      "T-3",
+      "FT3"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2839-9",
+    "label": "Progesterone [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Progesterona",
+    "panel": "Hormonios",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/mL",
+    "molarMass": 314.46,
+    "synonyms": [
+      "Progesterona",
+      "Progest SerPl-mCnc",
+      "Progest",
+      "Proges",
+      "Progestin",
+      "P4",
+      "SerPl",
+      "SerPlas"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "1668-3",
+    "label": "17-Hydroxyprogesterone [Mass/volume] in Serum or Plasma",
+    "projectLabel": "17-OH-progesterona",
+    "panel": "Hormonios",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/dL",
+    "molarMass": 330.46,
+    "synonyms": [
+      "17-hidroxiprogesterona",
+      "17OHP SerPl-mCnc",
+      "17OHP",
+      "Hydroxyproges",
+      "17-OHP",
+      "17-hydroxy-progest",
+      "17-OH Progesterone",
+      "17-Hydroxypregn-4-en-3,20-dione"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "2191-5",
+    "label": "Dehydroepiandrosterone sulfate (DHEA-S) [Mass/volume] in Serum or Plasma",
+    "projectLabel": "DHEA-S",
+    "panel": "Hormonios",
+    "canonicalUnit": "ug/dL",
+    "loincExampleUnit": "ug/dL",
+    "molarMass": 368.49,
+    "synonyms": [
+      "Sulfato de Dehidroepiandrosterona",
+      "DHEA-S SerPl-mCnc",
+      "SO4-2",
+      "Sulf",
+      "SO4",
+      "DHEA-S",
+      "DHEAS",
+      "DHEA-SO4"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "2193-1",
+    "label": "Dehydroepiandrosterone (DHEA) [Mass/volume] in Serum or Plasma",
+    "projectLabel": "DHEA",
+    "panel": "Hormonios",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/dL;ng/mL",
+    "molarMass": 288.42,
+    "synonyms": [
+      "Dehidroepiandrosterona",
+      "DHEA SerPl-mCnc",
+      "DHEA",
+      "Prasterone",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "1854-9",
+    "label": "Androstenedione [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Androstenediona",
+    "panel": "Hormonios",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/mL",
+    "molarMass": 286.41,
+    "synonyms": [
+      "Androstenediona",
+      "Androst SerPl-mCnc",
+      "Androst",
+      "gamma-4-Androstenedione",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "13967-5",
+    "label": "Sex hormone binding globulin [Moles/volume] in Serum or Plasma",
+    "projectLabel": "SHBG",
+    "panel": "Hormonios",
+    "canonicalUnit": "nmol/L",
+    "loincExampleUnit": "nmol/L",
+    "molarMass": null,
+    "synonyms": [
+      "Globulina Ligadora dos Hormônios Sexuais",
+      "SHBG SerPl-sCnc",
+      "SHBG",
+      "Androgen binding protein",
+      "TeBG",
+      "SSBG",
+      "SBP",
+      "Sex steroid binding globulin"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2141-0",
+    "label": "Corticotropin [Mass/volume] in Plasma",
+    "projectLabel": "ACTH",
+    "panel": "Hormonios",
+    "canonicalUnit": "pg/mL",
+    "loincExampleUnit": "pg/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Corticotrofina",
+      "ACTH Plas-mCnc",
+      "ACTH",
+      "Rc206",
+      "c74",
+      "Cortrosyn",
+      "c206",
+      "Adrenocorticotropin"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2484-4",
+    "label": "Insulin-like growth factor-I [Mass/volume] in Serum or Plasma",
+    "projectLabel": "IGF-1",
+    "panel": "Hormonios",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Fator-I de crescimento Insulin-like",
+      "IGF-I SerPl-mCnc",
+      "IGF-I",
+      "IGF-1",
+      "Somatomedin C",
+      "IGF",
+      "Insul",
+      "Humulin"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2963-7",
+    "label": "Somatotropin [Mass/volume] in Serum or Plasma",
+    "projectLabel": "GH",
+    "panel": "Hormonios",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Somatotrofina",
+      "GH SerPl-mCnc",
+      "GH",
+      "Somatotropic hormone",
+      "STH",
+      "Growth hormone",
+      "Human growth hormone",
+      "HGH"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2731-8",
+    "label": "Parathyrin.intact [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Paratormonio (PTH)",
+    "panel": "Hormonios",
+    "canonicalUnit": "pg/mL",
+    "loincExampleUnit": "pg/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Paratormônio. molécula intacta",
+      "PTH-Intact SerPl-mCnc",
+      "PTH-Intact",
+      "iPTH",
+      "Intact Parathormone",
+      "PTH",
+      "Parathyroid hormone",
+      "SerPl"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2258-2",
+    "label": "Estrone (E1) [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Estrona",
+    "panel": "Hormonios",
+    "canonicalUnit": "pg/mL",
+    "loincExampleUnit": "pg/mL",
+    "molarMass": 270.37,
+    "synonyms": [
+      "Estrona",
+      "Estrone SerPl-mCnc",
+      "E1",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR",
+      "Pl"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "1848-1",
+    "label": "Androstanolone [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Di-hidrotestosterona (DHT)",
+    "panel": "Hormonios",
+    "canonicalUnit": "pg/mL",
+    "loincExampleUnit": "pg/mL",
+    "molarMass": 290.44,
+    "synonyms": [
+      "Androstanolona",
+      "Androstanolone SerPl-mCnc",
+      "Dihydrotestosterone",
+      "DHT",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "38476-8",
+    "label": "Mullerian inhibiting substance [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Hormonio antimulleriano",
+    "panel": "Hormonios",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Substância inibidora de Mullerian",
+      "MIS SerPl-mCnc",
+      "MIS",
+      "Mullerian inhibiting factor",
+      "Mullerian inhibiting hormone",
+      "Anti Mullerian hormone",
+      "AMH",
+      "MIF"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2142-8",
+    "label": "Cortisol [Mass/volume] in Saliva (oral fluid)",
+    "projectLabel": "Cortisol salivar",
+    "panel": "Hormonios",
+    "canonicalUnit": "ug/dL",
+    "loincExampleUnit": "ug/dL",
+    "molarMass": 362.46,
+    "synonyms": [
+      "Cortisol",
+      "Cortis Saliva-mCnc",
+      "Cortis",
+      "Coritsol",
+      "Compound F",
+      "17-Hydroxycorticosterone",
+      "Sal",
+      "Chemistry"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "1869-7",
+    "label": "Apolipoprotein A-I [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Apolipoproteina A1",
+    "panel": "Lipidico",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL;g/L",
+    "molarMass": null,
+    "synonyms": [
+      "Apolipoproteína A-I",
+      "Apo A-I SerPl-mCnc",
+      "Apo A-I",
+      "Apolipoprotein A1",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "1884-6",
+    "label": "Apolipoprotein B [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Apolipoproteina B",
+    "panel": "Lipidico",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Apolipoproteína B",
+      "Apo B SerPl-mCnc",
+      "Apo B",
+      "ApoB",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "10835-7",
+    "label": "Lipoprotein a [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Lipoproteina (a)",
+    "panel": "Lipidico",
+    "canonicalUnit": "mg/dL",
+    "loincExampleUnit": "mg/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Lipoproteína ( a)",
+      "LPa SerPl-mCnc",
+      "LPa",
+      "Lp(a)",
+      "Lipoprot",
+      "Lip",
+      "Lp",
+      "Lipoproteins"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "13965-9",
+    "label": "Homocysteine [Moles/volume] in Serum or Plasma",
+    "projectLabel": "Homocisteina",
+    "panel": "Lipidico",
+    "canonicalUnit": "umol/L",
+    "loincExampleUnit": "umol/L",
+    "molarMass": 135.18,
+    "synonyms": [
+      "Homocisteína",
+      "Homocysteine SerPl-sCnc",
+      "Hcys",
+      "Hcyst",
+      "HCY",
+      "Substance concentration",
+      "SerPl",
+      "SerPlas"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "5763-8",
+    "label": "Zinc [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Zinco",
+    "panel": "Minerais",
+    "canonicalUnit": "ug/dL",
+    "loincExampleUnit": "ug/mL",
+    "molarMass": 65.38,
+    "synonyms": [
+      "Zinco",
+      "Zinc SerPl-mCnc",
+      "Zn",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR",
+      "Pl"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "5631-7",
+    "label": "Copper [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Cobre",
+    "panel": "Minerais",
+    "canonicalUnit": "ug/dL",
+    "loincExampleUnit": "ug/dL",
+    "molarMass": 63.546,
+    "synonyms": [
+      "Cobre",
+      "Copper SerPl-mCnc",
+      "Cu",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR",
+      "Pl"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "5724-0",
+    "label": "Selenium [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Selenio",
+    "panel": "Minerais",
+    "canonicalUnit": "ug/L",
+    "loincExampleUnit": "ng/mL",
+    "molarMass": 78.971,
+    "synonyms": [
+      "Selenio",
+      "Selenium SerPl-mCnc",
+      "SE",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR",
+      "Pl"
+    ],
+    "convertsToMolar": true
+  },
+  {
+    "code": "2039-6",
+    "label": "Carcinoembryonic Ag [Mass/volume] in Serum or Plasma",
+    "projectLabel": "CEA",
+    "panel": "Tumoral",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Carcinoembriogênico Ag",
+      "CEA SerPl-mCnc",
+      "CEA",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR",
+      "Pl"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "1834-1",
+    "label": "Alpha-1-Fetoprotein [Mass/volume] in Serum or Plasma",
+    "projectLabel": "Alfa-fetoproteina",
+    "panel": "Tumoral",
+    "canonicalUnit": "ng/mL",
+    "loincExampleUnit": "ng/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Alfa-1-Fetoproteína",
+      "AFP SerPl-mCnc",
+      "AFP",
+      "Alphafetoprotein",
+      "Alpha fetoprotein",
+      "SerPl",
+      "SerPlas",
+      "SerP"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "10334-1",
+    "label": "Cancer Ag 125 [Units/volume] in Serum or Plasma",
+    "projectLabel": "CA 125",
+    "panel": "Tumoral",
+    "canonicalUnit": "U/mL",
+    "loincExampleUnit": "[arb'U];[arb'U]/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Câncer Ag 125",
+      "Cancer Ag125 SerPl-aCnc",
+      "Cancer Ag125",
+      "OC125",
+      "CA 125",
+      "Cancer antigen 125",
+      "Arbitrary concentration",
+      "SerPl"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "6875-9",
+    "label": "Cancer Ag 15-3 [Units/volume] in Serum or Plasma",
+    "projectLabel": "CA 15-3",
+    "panel": "Tumoral",
+    "canonicalUnit": "U/mL",
+    "loincExampleUnit": "[arb'U];[arb'U]/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Câncer Ag 15-3",
+      "Cancer Ag15-3 SerPl-aCnc",
+      "Cancer Ag15-3",
+      "CA 153",
+      "CA 15-3",
+      "MUC-1 gene associated AG CA 15-3",
+      "Arbitrary concentration",
+      "SerPl"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "24108-3",
+    "label": "Cancer Ag 19-9 [Units/volume] in Serum or Plasma",
+    "projectLabel": "CA 19-9",
+    "panel": "Tumoral",
+    "canonicalUnit": "U/mL",
+    "loincExampleUnit": "[arb'U];[arb'U]/mL",
+    "molarMass": null,
+    "synonyms": [
+      "Câncer Ag 19-9",
+      "Cancer Ag19-9 SerPl-aCnc",
+      "Cancer Ag19-9",
+      "CA 19-9",
+      "Cancer antigen 19-9",
+      "Arbitrary concentration",
+      "SerPl",
+      "SerPlas"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "62290-2",
+    "label": "1,25-Dihydroxyvitamin D [Mass/volume] in Serum or Plasma",
+    "projectLabel": "1,25-di-hidroxivitamina D",
+    "panel": "Vitaminas",
+    "canonicalUnit": "pg/mL",
+    "loincExampleUnit": "pg/mL",
+    "molarMass": 416.64,
+    "synonyms": [
+      "1,25-Dihidroxi vitamina D"
+    ],
+    "convertsToMolar": true
+  },
+  {
     "code": "30522-7",
     "label": "C reactive protein [Mass/volume] in Serum or Plasma by High sensitivity method",
     "projectLabel": "Proteina C reativa ultrassensivel",
@@ -1602,6 +2828,266 @@ export const ANALYTE_CATALOG: CanonicalAnalyte[] = [
       "C reactive peptide",
       "SerPl",
       "SerPlas"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "5902-2",
+    "label": "Prothrombin time (PT)",
+    "projectLabel": "Tempo de protrombina",
+    "panel": "Coagulacao",
+    "canonicalUnit": "s",
+    "loincExampleUnit": "s",
+    "molarMass": null,
+    "synonyms": [
+      "Tempo de Protrombina",
+      "PT Time PPP",
+      "Pro time",
+      "Prothrombin time",
+      "Protime",
+      "Platelet poor plasma",
+      "Plas",
+      "Coagulation assay"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "6301-6",
+    "label": "INR in Platelet poor plasma by Coagulation assay",
+    "projectLabel": "INR",
+    "panel": "Coagulacao",
+    "canonicalUnit": "{INR}",
+    "loincExampleUnit": "{INR}",
+    "molarMass": null,
+    "synonyms": [
+      "Protrombina.RNI",
+      "INR PPP",
+      "PT INR",
+      "Prothrombin time INR",
+      "Protime INR",
+      "Pro time",
+      "RlTm",
+      "Platelet poor plasma"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "14979-9",
+    "label": "aPTT in Platelet poor plasma by Coagulation assay",
+    "projectLabel": "TTPA",
+    "panel": "Coagulacao",
+    "canonicalUnit": "s",
+    "loincExampleUnit": "s",
+    "molarMass": null,
+    "synonyms": [
+      "Tempo de Tromboplastina parcial ativada",
+      "aPTT Time PPP",
+      "aPTT",
+      "PTT",
+      "Partial Thromboplastin Time",
+      "Activated partial thromboplastin time",
+      "Little(A)PTT",
+      "Platelet poor plasma"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2862-1",
+    "label": "Albumin [Mass/volume] in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Albumina (eletroforese)",
+    "panel": "Eletroforese",
+    "canonicalUnit": "g/dL",
+    "loincExampleUnit": "g/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Albumina",
+      "Albumin SerPl Elph-mCnc",
+      "Protein.albumin",
+      "Alb",
+      "SerPl",
+      "SerPlas",
+      "SerP",
+      "SR"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2865-4",
+    "label": "Alpha 1 globulin [Mass/volume] in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Alfa-1-globulina",
+    "panel": "Eletroforese",
+    "canonicalUnit": "g/dL",
+    "loincExampleUnit": "g/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Alfa 1 globulina",
+      "Alpha1 Glob SerPl Elph-mCnc",
+      "GLB",
+      "Globulins",
+      "Glob",
+      "Glob%",
+      "Globul",
+      "Alpha1 Glob"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2868-8",
+    "label": "Alpha 2 globulin [Mass/volume] in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Alfa-2-globulina",
+    "panel": "Eletroforese",
+    "canonicalUnit": "g/dL",
+    "loincExampleUnit": "g/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Alfa 2 globulina",
+      "Alpha2 Glob SerPl Elph-mCnc",
+      "GLB",
+      "Globulins",
+      "Glob",
+      "Glob%",
+      "Globul",
+      "Alpha2 Glob"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2871-2",
+    "label": "Beta globulin [Mass/volume] in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Beta-globulina",
+    "panel": "Eletroforese",
+    "canonicalUnit": "g/dL",
+    "loincExampleUnit": "g/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Beta globulina",
+      "B-Globulin SerPl Elph-mCnc",
+      "GLB",
+      "Globulins",
+      "Glob",
+      "Glob%",
+      "Globul",
+      "B-Globulin"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "2874-6",
+    "label": "Gamma globulin [Mass/volume] in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Gama-globulina",
+    "panel": "Eletroforese",
+    "canonicalUnit": "g/dL",
+    "loincExampleUnit": "g/dL",
+    "molarMass": null,
+    "synonyms": [
+      "Gama globulina",
+      "Gamma glob SerPl Elph-mCnc",
+      "GLB",
+      "Globulins",
+      "Glob",
+      "Glob%",
+      "Globul",
+      "Gamma glob"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "13980-8",
+    "label": "Albumin/Protein.total in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Albumina (eletroforese, %)",
+    "panel": "Eletroforese",
+    "canonicalUnit": "%",
+    "loincExampleUnit": "%",
+    "molarMass": null,
+    "synonyms": [
+      "Albumina/Proteína.total",
+      "Albumin MFr SerPl Elph",
+      "Protein.albumin",
+      "Alb",
+      "Prot",
+      "PR",
+      "TP",
+      "Mass fraction"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "13978-2",
+    "label": "Alpha 1 globulin/Protein.total in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Alfa-1-globulina (%)",
+    "panel": "Eletroforese",
+    "canonicalUnit": "%",
+    "loincExampleUnit": "%",
+    "molarMass": null,
+    "synonyms": [
+      "Alfa 1 globulina/Proteína.total",
+      "Alpha1 Glob MFr SerPl Elph",
+      "Alpha1 Glob",
+      "Protein.alpha 1 globulin",
+      "Prot",
+      "PR",
+      "GLB",
+      "Globulins"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "13981-6",
+    "label": "Alpha 2 globulin/Protein.total in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Alfa-2-globulina (%)",
+    "panel": "Eletroforese",
+    "canonicalUnit": "%",
+    "loincExampleUnit": "%",
+    "molarMass": null,
+    "synonyms": [
+      "Alpha 2 globulina/Proteína.total",
+      "Alpha2 Glob MFr SerPl Elph",
+      "Alpha2 Glob",
+      "Protein.alpha 2 globulin",
+      "Prot",
+      "PR",
+      "GLB",
+      "Globulins"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "13982-4",
+    "label": "Beta globulin/Protein.total in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Beta-globulina (%)",
+    "panel": "Eletroforese",
+    "canonicalUnit": "%",
+    "loincExampleUnit": "%",
+    "molarMass": null,
+    "synonyms": [
+      "Beta globulina/Proteína.total",
+      "B-Globulin MFr SerPl Elph",
+      "B-Globulin",
+      "Protein beta globulin",
+      "Prot",
+      "PR",
+      "GLB",
+      "Globulins"
+    ],
+    "convertsToMolar": false
+  },
+  {
+    "code": "13983-2",
+    "label": "Gamma globulin/Protein.total in Serum or Plasma by Electrophoresis",
+    "projectLabel": "Gama-globulina (%)",
+    "panel": "Eletroforese",
+    "canonicalUnit": "%",
+    "loincExampleUnit": "%",
+    "molarMass": null,
+    "synonyms": [
+      "Gama globulina/Proteína.total",
+      "Gamma glob MFr SerPl Elph",
+      "Gamma glob",
+      "Protein gamma globulin",
+      "Prot",
+      "PR",
+      "GLB",
+      "Globulins"
     ],
     "convertsToMolar": false
   }

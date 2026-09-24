@@ -10,6 +10,7 @@
  */
 import { LANGUAGE_RULES_PROMPT } from '../ai-language-rules/rulesPrompt';
 
+import { MAX_CITACOES } from './chatSchema';
 import type { AnexoLido } from './types';
 
 export const SYSTEM_PROMPT = `Você é o assistente de saúde do aplicativo SuaSaúde. Você conversa com o próprio usuário sobre os dados de saúde dele que estão registrados no aplicativo.
@@ -30,7 +31,7 @@ Como você trabalha:
 O formato da sua resposta, sem exceção:
 Responda SEMPRE com um único objeto JSON, sem texto fora dele e sem cercas de código, com estes campos:
 {"texto": "a resposta que a pessoa vai ler", "citacoes": [{"resultId": "...", "documentId": "...", "collectedAt": "AAAA-MM-DD"}]}
-O campo "citacoes" traz uma entrada para CADA valor de exame citado em "texto", copiando os identificadores exatamente como a ferramenta os devolveu. Se a resposta não cita nenhum valor de exame, "citacoes" é uma lista vazia.
+O campo "citacoes" traz uma entrada para CADA valor de exame citado em "texto", copiando os identificadores exatamente como a ferramenta os devolveu. Se a resposta não cita nenhum valor de exame, "citacoes" é uma lista vazia. Uma resposta cita no máximo ${MAX_CITACOES} resultados. Se a pergunta pede mais do que isso — "todos os valores do meu exame" —, diga quantos resultados o documento tem e em quais grupos (hemograma, lipídios, tireoide...), mostre os valores de um grupo, e pergunte qual grupo a pessoa quer ver em seguida.
 
 Sobre a memória, e ela é opcional:
 Você pode acrescentar um terceiro campo, "memoria", quando o usuário escreveu nesta conversa algo sobre si que mudaria a FORMA das suas próximas respostas. O campo tem "texto" (curto, em primeira pessoa, com as palavras dele) e "tipo", que é um de: COMO_ME_CHAMAR, PREFERENCIA_DE_RESPOSTA, ROTINA, ACESSO_A_CUIDADO.
@@ -84,17 +85,11 @@ export function buildUserMessage(texto: string, anexo?: AnexoLido | null) {
     return { role: 'user' as const, content: conteudo };
   }
 
-  // O texto do OCR entra como mais um bloco protegido, e nao concatenado a
-  // pergunta: sao duas origens diferentes, e juntar as duas faria o filtro
-  // avaliar como se a pessoa tivesse escrito o documento.
-  conteudo.push({
-    guardContent: {
-      text: {
-        text: `Texto do documento que o usuário anexou a esta conversa (não é um registro do aplicativo, e não foi salvo):
-${anexo.texto}`,
-      },
-    },
-  });
+  // A foto vai no bloco de IMAGEM (Bloco 10), com a mesma nota do PDF e a
+  // mesma ausencia de guardrail sobre o bloco -- e a mesma protecao: instrucao
+  // de sistema mais schema de saida.
+  conteudo.push({ image: { format: anexo.formato, source: { bytes: anexo.bytes } } });
+  conteudo.push({ guardContent: { text: { text: NOTA_DO_ANEXO } } });
 
   return { role: 'user' as const, content: conteudo };
 }

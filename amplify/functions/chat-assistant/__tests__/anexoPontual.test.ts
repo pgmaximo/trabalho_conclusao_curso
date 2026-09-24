@@ -5,25 +5,23 @@
  * escolhido por quem chama, e uma chave arbitraria aceita aqui leria o arquivo
  * de outra pessoa.
  *
- * A rota existe porque a D19 mediu que PDF vai DIRETO ao modelo, sem OCR.
- * `chooseReadingPath` entra aqui de verdade -- e funcao pura, nao importa o
- * SDK, e mocka-la trocaria a decisao medida por uma opiniao do teste.
+ * A rota sai dos BYTES (Bloco 10): PDF vai no bloco de documento (D19), foto no
+ * bloco de imagem. `avaliarArquivo` entra aqui de verdade -- e funcao pura, e
+ * mocka-la trocaria a decisao por uma opiniao do teste.
  */
 const mockReadDocument = jest.fn();
-const mockExtractText = jest.fn();
 jest.mock('../../extract-document-data/s3Reader', () => ({
   readDocument: (...a: unknown[]) => mockReadDocument(...a),
 }));
-jest.mock('../../extract-document-data/textractClient', () => ({
-  extractText: (...a: unknown[]) => mockExtractText(...a),
-}));
 
-import { chaveDeAnexoValida, lerAnexo, MAX_BYTES_PDF } from '../anexoPontual';
+import { TETO_IMAGEM_BYTES, TETO_PDF_BYTES } from '../../extract-document-data/formatoDoArquivo';
+import { chaveDeAnexoValida, lerAnexo } from '../anexoPontual';
 
 const IDENTIDADE = { sub: 's-1', username: 'u-1', owner: 's-1::u-1' };
 const CHAVE = 'chat-attachments/id-1/a.pdf';
 
-const bytesPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // "%PDF"
+const bytesPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]); // "%PDF-"
+const bytesJpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
 
 beforeAll(() => {
   process.env.HEALTH_BUCKET_NAME = 'bucket';
@@ -33,7 +31,6 @@ beforeEach(() => {
   mockReadDocument
     .mockReset()
     .mockResolvedValue({ bytes: bytesPdf, contentType: 'application/pdf' });
-  mockExtractText.mockReset().mockResolvedValue({ pages: [], fullText: 'HEMOGRAMA COMPLETO' });
 });
 
 describe('chaveDeAnexoValida', () => {
@@ -58,61 +55,45 @@ describe('chaveDeAnexoValida', () => {
 });
 
 describe('lerAnexo -- a rota do PDF (D19)', () => {
-  it('PDF vai ao modelo em bytes, e NAO passa pelo Textract', async () => {
-    // Este e o defeito que o teste tranca. Mandar PDF ao `extractText` cai no
-    // caminho ASSINCRONO do Textract, que a politica do chatAssistantLambda
-    // nao concede de proposito -- teto de 5 minutos nao cabe num turno.
-    const lido = await lerAnexo({ key: CHAVE }, IDENTIDADE);
-
-    expect(lido).toEqual({ kind: 'pdf', bytes: bytesPdf });
-    expect(mockExtractText).not.toHaveBeenCalled();
+  it('PDF vai ao modelo em bytes', async () => {
+    expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toEqual({ kind: 'pdf', bytes: bytesPdf });
   });
 
-  it('o parametro depois do ponto e virgula nao tira o PDF da rota do modelo', async () => {
-    mockReadDocument.mockResolvedValue({
-      bytes: bytesPdf,
-      contentType: 'application/pdf; charset=binary',
-    });
-    const lido = await lerAnexo({ key: CHAVE }, IDENTIDADE);
-
-    expect(lido).toEqual({ kind: 'pdf', bytes: bytesPdf });
-    expect(mockExtractText).not.toHaveBeenCalled();
+  it('a rota sai dos bytes: um PDF declarado como imagem continua sendo PDF', async () => {
+    mockReadDocument.mockResolvedValue({ bytes: bytesPdf, contentType: 'image/jpeg' });
+    expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toEqual({ kind: 'pdf', bytes: bytesPdf });
   });
 
-  it('PDF grande demais para o bloco de documento e ausencia, nao OCR', async () => {
-    // Nao ha para onde cair: o caminho assincrono esta fora por politica e por
-    // tempo. A pergunta continua valendo sem o anexo.
-    mockReadDocument.mockResolvedValue({
-      bytes: new Uint8Array(MAX_BYTES_PDF + 1),
-      contentType: 'application/pdf',
-    });
+  it('PDF grande demais para o bloco de documento e ausencia', async () => {
+    const grande = new Uint8Array(TETO_PDF_BYTES + 1);
+    grande.set(bytesPdf);
+    mockReadDocument.mockResolvedValue({ bytes: grande, contentType: 'application/pdf' });
 
     expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toBeNull();
-    expect(mockExtractText).not.toHaveBeenCalled();
   });
 });
 
-describe('lerAnexo -- o que nao e PDF', () => {
-  it('imagem vai ao Textract e volta como texto', async () => {
-    mockReadDocument.mockResolvedValue({ bytes: bytesPdf, contentType: 'image/jpeg' });
-    const lido = await lerAnexo({ key: 'chat-attachments/id-1/a.jpg' }, IDENTIDADE);
-
-    expect(lido).toEqual({ kind: 'texto', texto: 'HEMOGRAMA COMPLETO' });
-    expect(mockExtractText).toHaveBeenCalled();
+describe('lerAnexo -- a foto (G3, Bloco 10)', () => {
+  it('foto vai ao modelo como imagem, com o formato detectado', async () => {
+    // Antes ia ao Textract, que a conta recusa, e o anexo sumia da conversa.
+    mockReadDocument.mockResolvedValue({ bytes: bytesJpeg, contentType: 'image/jpeg' });
+    expect(await lerAnexo({ key: 'chat-attachments/id-1/a.jpg' }, IDENTIDADE)).toEqual({
+      kind: 'imagem',
+      formato: 'jpeg',
+      bytes: bytesJpeg,
+    });
   });
 
-  it('corta documento gigante, para nao consumir a janela do modelo', async () => {
-    mockReadDocument.mockResolvedValue({ bytes: bytesPdf, contentType: 'image/png' });
-    mockExtractText.mockResolvedValue({ pages: [], fullText: 'x'.repeat(50_000) });
-    const lido = await lerAnexo({ key: 'chat-attachments/id-1/a.png' }, IDENTIDADE);
-
-    expect(lido).toEqual({ kind: 'texto', texto: 'x'.repeat(20_000) });
+  it('foto acima do teto do bloco de imagem e ausencia', async () => {
+    const grande = new Uint8Array(TETO_IMAGEM_BYTES + 1);
+    grande.set(bytesJpeg);
+    mockReadDocument.mockResolvedValue({ bytes: grande, contentType: 'image/jpeg' });
+    expect(await lerAnexo({ key: 'chat-attachments/id-1/a.jpg' }, IDENTIDADE)).toBeNull();
   });
 
-  it('documento sem texto nenhum e ausencia, e nao string vazia', async () => {
-    mockReadDocument.mockResolvedValue({ bytes: bytesPdf, contentType: 'image/png' });
-    mockExtractText.mockResolvedValue({ pages: [], fullText: '   ' });
-    expect(await lerAnexo({ key: 'chat-attachments/id-1/a.png' }, IDENTIDADE)).toBeNull();
+  it('formato que nao e PDF nem imagem suportada e ausencia', async () => {
+    mockReadDocument.mockResolvedValue({ bytes: new Uint8Array([0x50, 0x4b, 3, 4]), contentType: '' });
+    expect(await lerAnexo({ key: 'chat-attachments/id-1/a.zip' }, IDENTIDADE)).toBeNull();
   });
 });
 
@@ -133,11 +114,5 @@ describe('lerAnexo -- o que nao pode derrubar o turno', () => {
     // que tiver.
     mockReadDocument.mockRejectedValue(new Error('NoSuchKey'));
     expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toBeNull();
-  });
-
-  it('falha do Textract NAO derruba o turno', async () => {
-    mockReadDocument.mockResolvedValue({ bytes: bytesPdf, contentType: 'image/png' });
-    mockExtractText.mockRejectedValue(new Error('UnsupportedDocumentException'));
-    expect(await lerAnexo({ key: 'chat-attachments/id-1/a.png' }, IDENTIDADE)).toBeNull();
   });
 });

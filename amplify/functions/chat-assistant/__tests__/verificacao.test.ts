@@ -279,6 +279,26 @@ describe('a R4 conferida depois do fato', () => {
     expect(r.status).toBe('APROVADA');
   });
 
+  it('citacao sem NENHUMA linha no turno tambem e reprovada (Bloco 10)', async () => {
+    // O defeito que a rodada automatica da L7 expos: com o indice vazio, a
+    // conferencia devolvia "confere" -- nao havia nada contra o que conferir. Uma
+    // citacao feita num turno em que nenhuma tool devolveu linha de exame e
+    // inventada por definicao, e passava.
+    mockRunConversationTurn.mockResolvedValue(
+      turno(LIMPA, ['consultar_consultas'], [
+        { resultId: 'linha-inventada', documentId: 'd', collectedAt: '2026-03-12' },
+      ]),
+    );
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).not.toBe('APROVADA');
+  });
+
+  it('resposta sem citacao e sem linha no turno continua passando', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno('Você não tem consultas marcadas.', ['consultar_consultas']));
+    expect((await responderComVerificacao(ENTRADA)).status).toBe('APROVADA');
+  });
+
   it('o bilhete da citacao inventada tambem fala da regra', async () => {
     mockRunConversationTurn.mockResolvedValue(
       turno(LIMPA, ['consultar_analito'], [
@@ -300,6 +320,41 @@ describe('quando o laco nem chega a produzir texto', () => {
     const r = await responderComVerificacao(ENTRADA);
     expect(r.status).toBe('DEGRADADA');
     expect(mockRegenerateAnswer).not.toHaveBeenCalled();
+  });
+
+  // Bloco 10 -- rodadas 1 a 3 da avaliacao: uma vez em quatro, o modelo devolve
+  // texto VAZIO depois de usar uma ferramenta (o `output_config` nao impoe o
+  // `minLength` quando ha tools na chamada). Ia direto ao degradado. A resposta
+  // ruim de FORMA tem direito a mesma UMA nova geracao que a resposta ruim de
+  // CONTEUDO ja tinha (D31).
+  it('resposta fora do formato ganha UMA nova geracao antes do degradado', async () => {
+    // A ferramenta respondeu de verdade: a citacao da segunda geracao e
+    // conferida contra o que a PRIMEIRA consultou (D31 nao refaz o laco).
+    mockRunConversationTurn.mockResolvedValue({
+      ok: false,
+      message: 'Não consegui montar uma resposta agora.',
+      motivo: 'formato',
+      transcript: { messages: [], toolOutputs: [{ name: 'consultar_analito', output: SAIDA_DE_ANALITO }] },
+    });
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(mockRegenerateAnswer).toHaveBeenCalledTimes(1);
+    expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+  });
+
+  it('resposta cortada por tamanho tambem, e o bilhete pede para encurtar', async () => {
+    mockRunConversationTurn.mockResolvedValue({ ...turnoQueFalhou('Não consegui montar uma resposta agora.'), motivo: 'max_tokens' });
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, ['consultar_analito'], CITACAO_VALIDA));
+    await responderComVerificacao(ENTRADA);
+    const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
+    expect(motivo).toMatch(/curta|menos/i);
+  });
+
+  it('se a nova geracao tambem falhar, o degradado continua sendo o destino', async () => {
+    mockBuildDegradedAnswer.mockReturnValue({ texto: 'o dado', citacoes: [] });
+    mockRunConversationTurn.mockResolvedValue({ ...turnoQueFalhou('Não consegui montar uma resposta agora.'), motivo: 'formato' });
+    mockRegenerateAnswer.mockResolvedValue(turnoQueFalhou('Não consegui montar uma resposta agora.'));
+    expect((await responderComVerificacao(ENTRADA)).status).toBe('DEGRADADA');
   });
 
   it('o bloqueio do guardrail NAO vira degradado nem indisponibilidade generica', async () => {
@@ -364,8 +419,8 @@ describe('a R4 no sentido da OMISSAO', () => {
   const COM_NUMERO_DO_PAPEL =
     'No papel que você enviou, a hemoglobina está 12,1 g/dL. Vale levar ao seu médico.';
 
-  it('com anexo pontual no turno, o numero do papel TEM origem', async () => {
-    // D15: o anexo passa pelo OCR e NAO grava dado clinico, entao nao existe
+  it('com anexo de FOTO no turno, o numero do papel TEM origem', async () => {
+    // D15: o anexo NAO grava dado clinico, entao nao existe
     // linha citavel para ele. Exigir citacao aqui faria "me explica este papel
     // aqui" cair no degradado toda vez -- a EPIC nova quebrando a entregue
     // (regra 5 da constituicao). O papel esta na mao de quem perguntou, e foi
@@ -377,7 +432,7 @@ describe('a R4 no sentido da OMISSAO', () => {
 
     const r = await responderComVerificacao({
       ...ENTRADA,
-      anexo: { kind: 'texto', texto: 'Hemoglobina 12,1 g/dL' },
+      anexo: { kind: 'imagem', formato: 'jpeg', bytes: new Uint8Array([0xff, 0xd8, 0xff]) },
     });
     expect(r.status).toBe('APROVADA');
     expect(mockRegenerateAnswer).not.toHaveBeenCalled();

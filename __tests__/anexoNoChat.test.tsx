@@ -84,11 +84,13 @@ beforeEach(() => {
 });
 
 describe('a funcao, com anexo', () => {
-  it('REUSA o OCR da Fase 1, sem uma segunda implementacao', () => {
-    // Uma segunda implementacao de OCR divergiria da primeira em silencio, e
-    // a divergencia apareceria como "o mesmo papel lido de dois jeitos".
+  it('REUSA a decisao de formato da Fase 1, sem uma segunda implementacao', () => {
+    // Uma segunda implementacao divergiria da primeira em silencio, e a
+    // divergencia apareceria como "o mesmo papel lido de dois jeitos". Ate o
+    // Bloco 10 o que se reusava era o OCR; o OCR saiu, e o que se reusa agora
+    // e a leitura do formato pelos bytes.
     const fonte = readFileSync(`${DIR_FUNCAO}/anexoPontual.ts`, 'utf8');
-    expect(fonte).toMatch(/extract-document-data\/textractClient/);
+    expect(fonte).toMatch(/extract-document-data\/formatoDoArquivo/);
   });
 
   it('NADA da funcao do chat grava em tabela nenhuma', () => {

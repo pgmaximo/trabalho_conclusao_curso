@@ -69,10 +69,9 @@ function resposta(payload: unknown, uso: [number, number], stopReason = 'end_tur
   };
 }
 
-const FONTE: ExtractionSource = {
-  kind: 'texto',
-  text: { pages: [{ page: 1, text: 'Vitamina D 32,5 ng/mL' }], fullText: 'Vitamina D 32,5 ng/mL' },
-};
+// O Textract saiu do caminho no Bloco 10 (Decisao F2), e com ele a fonte de
+// texto. As duas fontes que existem sao os dois blocos do Converse.
+const FONTE: ExtractionSource = { kind: 'pdf', bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46]) };
 
 const OPCOES = { modelId: 'm', guardrailId: 'g', guardrailVersion: '1', candidatos: 'lista' };
 
@@ -161,5 +160,83 @@ describe('requestExtraction — com reparo', () => {
     expect(r.ok).toBe(false);
     expect(reparos()).toHaveLength(1);
     expect(linhasDeLog().some((l) => l.includes('"entrada":50000'))).toBe(true);
+  });
+});
+
+/**
+ * G1 -- a foto vai ao modelo como BLOCO DE IMAGEM.
+ *
+ * Medido antes de escrever o codigo (spec do Bloco 10, secao 2): 26 de 26
+ * valores identicos ao PDF nas paginas renderizadas limpas, 25 de 26 nas fotos
+ * simuladas -- e o unico erro virou a trava do grafico.
+ */
+describe('requestExtraction -- imagem', () => {
+  const FOTO: ExtractionSource = {
+    kind: 'imagem',
+    formato: 'png',
+    bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+  };
+
+  const conteudoEnviado = () =>
+    (mockSend.mock.calls[0]![0] as { input: { messages: { content: Record<string, unknown>[] }[] } })
+      .input.messages[0]!.content;
+
+  it('monta o bloco de imagem com o formato detectado, e nao um bloco de documento', async () => {
+    mockSend.mockResolvedValueOnce(resposta(EXTRACAO_VALIDA, [9301, 1858]));
+
+    const r = await requestExtraction(FOTO, 'exam', OPCOES);
+
+    expect(r.ok).toBe(true);
+    const conteudo = conteudoEnviado();
+    const imagem = conteudo.find((b) => 'image' in b) as { image: { format: string } } | undefined;
+    expect(imagem?.image.format).toBe('png');
+    expect(conteudo.some((b) => 'document' in b)).toBe(false);
+  });
+
+  it('avisa o modelo de que e FOTO, e do que fazer com o que nao esta legivel', async () => {
+    mockSend.mockResolvedValueOnce(resposta(EXTRACAO_VALIDA, [10, 5]));
+
+    await requestExtraction(FOTO, 'exam', OPCOES);
+
+    const pedido = JSON.stringify(conteudoEnviado());
+    expect(pedido).toMatch(/FOTO/);
+    expect(pedido).toMatch(/nao estiver legivel/i);
+  });
+});
+
+/**
+ * G4 -- a falha sai como MOTIVO, e o texto tecnico fica no log.
+ *
+ * Antes, `message` levava `error.message` do SDK ou o caminho de campo do zod,
+ * e o handler gravava isso onde a tela le.
+ */
+describe('requestExtraction -- falha', () => {
+  let erro: jest.SpyInstance;
+  beforeEach(() => {
+    erro = jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => erro.mockRestore());
+
+  it('excecao do SDK vira leitura-falhou, e a mensagem dela vai so para o log', async () => {
+    mockSend.mockRejectedValueOnce(new Error('ValidationException: Input is too long'));
+
+    const r = await pedir();
+
+    expect(r).toEqual({ ok: false, motivo: 'leitura-falhou' });
+    expect(erro.mock.calls.map((c) => String(c[0])).join(' ')).toContain('ValidationException');
+  });
+
+  it('validacao que falha duas vezes vira leitura-falhou, sem o caminho do zod', async () => {
+    mockSend
+      .mockResolvedValueOnce(resposta({ lixo: true }, [1, 1]))
+      .mockResolvedValueOnce(resposta({ lixo: true }, [1, 1]));
+
+    expect(await pedir()).toEqual({ ok: false, motivo: 'leitura-falhou' });
+  });
+
+  it('bloqueio do filtro tem motivo proprio', async () => {
+    mockSend.mockResolvedValueOnce(resposta({}, [1, 1], 'guardrail_intervened'));
+
+    expect(await pedir()).toEqual({ ok: false, motivo: 'bloqueado-pelo-filtro' });
   });
 });

@@ -318,3 +318,84 @@ describe('a segunda geracao (D31)', () => {
     expect(r.transcript.toolOutputs).toHaveLength(1);
   });
 });
+
+/**
+ * Bloco 10 -- a rodada automatica da L7 achou que "quais sao os valores do meu
+ * exame?" NUNCA recebe resposta com prosa: 4 de 4 tentativas cairam no modo
+ * degradado. Tres causas empilhadas, e nenhuma deixava rastro:
+ *
+ * 1. o schema aceita no maximo 20 citacoes, mas o `maxItems` e retirado do que
+ *    vai ao Bedrock -- o modelo nao sabe do limite e tenta citar as 48 linhas;
+ * 2. o teto de saida (2000) estoura no meio do JSON de 48 citacoes;
+ * 3. as duas falhas voltavam `NAO_MONTEI` sem uma linha de log.
+ */
+describe('a falha da geracao deixa rastro (Bloco 10)', () => {
+  let info: jest.SpyInstance;
+  beforeEach(() => {
+    info = jest.spyOn(console, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => info.mockRestore());
+  const eventos = () => info.mock.calls.map((c) => String(c[0])).filter((l) => l.includes('geracao-falhou'));
+
+  it('resposta cortada pelo teto de saida registra o motivo max_tokens', async () => {
+    mockSend.mockResolvedValue({
+      stopReason: 'max_tokens',
+      usage: { inputTokens: 1, outputTokens: 1 },
+      output: { message: { content: [{ text: '{"citacoes":[{"resultId":"abc' }] } },
+    });
+    const r = await runConversationTurn(ENTRADA);
+    expect(r.ok).toBe(false);
+    expect(eventos()).toHaveLength(1);
+    expect(eventos()[0]).toContain('"motivo":"max_tokens"');
+  });
+
+  it('resposta fora do schema registra o motivo formato, com o CAMPO e sem o conteudo', async () => {
+    mockSend.mockResolvedValue(respondeTexto(''));
+    await runConversationTurn(ENTRADA);
+    expect(eventos()[0]).toContain('"motivo":"formato"');
+    expect(eventos()[0]).toContain('texto');
+  });
+
+  it('teto de iteracoes registra o motivo teto-de-iteracoes', async () => {
+    mockSend.mockResolvedValue(pedeTool('consultar_analito'));
+    await runConversationTurn(ENTRADA);
+    expect(eventos()[0]).toContain('"motivo":"teto-de-iteracoes"');
+  });
+
+  it('o teto de saida cabe uma resposta com o maximo de citacoes', () => {
+    // 20 citacoes de ~45 tokens cada, mais o texto de 20 linhas.
+    expect(MAX_OUTPUT_TOKENS).toBeGreaterThanOrEqual(4000);
+  });
+});
+
+describe('a falha da SEGUNDA geracao tambem deixa rastro (Bloco 10)', () => {
+  let info: jest.SpyInstance;
+  beforeEach(() => {
+    info = jest.spyOn(console, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => info.mockRestore());
+  const eventos = () => info.mock.calls.map((c) => String(c[0])).filter((l) => l.includes('geracao-falhou'));
+
+  const primeiraTranscricao = async () => {
+    mockSend
+      .mockResolvedValueOnce(pedeTool('consultar_analito'))
+      .mockResolvedValueOnce(respondeTexto('Uma resposta.'));
+    return (await runConversationTurn(ENTRADA)).transcript;
+  };
+
+  it('resposta fora do formato na segunda registra formato, na etapa segunda', async () => {
+    const t = await primeiraTranscricao();
+    mockSend.mockReset().mockResolvedValue(respondeTexto(''));
+    await regenerateAnswer(ENTRADA, t, 'motivo');
+    expect(eventos()).toHaveLength(1);
+    expect(eventos()[0]).toContain('"motivo":"formato"');
+    expect(eventos()[0]).toContain('"etapa":"segunda"');
+  });
+
+  it('pedir ferramenta de novo na segunda registra o motivo proprio', async () => {
+    const t = await primeiraTranscricao();
+    mockSend.mockReset().mockResolvedValue(pedeTool('consultar_analito'));
+    await regenerateAnswer(ENTRADA, t, 'motivo');
+    expect(eventos()[0]).toContain('"motivo":"ferramenta-na-segunda"');
+  });
+});

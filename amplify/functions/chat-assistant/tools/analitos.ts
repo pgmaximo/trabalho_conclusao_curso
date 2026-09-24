@@ -21,9 +21,11 @@ import { z } from 'zod';
 import type { ChatIdentity } from '../auth';
 import { ANALYTE_CATALOG, findAnalyteByCode } from '../../extract-document-data/analyteCatalog';
 import type { DegradedBlock } from '../types';
+import { unidadeLegivel } from '../../extract-document-data/unidadeLegivel';
 import { formatarData, formatarDecimal } from '../formatoPtBr';
 import { lerDoDono, texto } from './ownerScopedRead';
 import {
+  comoEstavaNoPapel,
   comoLinha,
   motivoDaExclusao,
   unidadeDaSerie,
@@ -58,8 +60,13 @@ function chaveDoMomento(momento: string | null): string {
 function semAcento(texto_: string): string {
   return texto_
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    // Pontuacao vira espaco (Bloco 10): o sinonimo oficial do LDL e
+    // "Colesterol.LDL", e quem pergunta escreve "colesterol LDL". Sem isto, o
+    // termo casava com "colesterol" -- o total -- e a pessoa ouvia sobre o exame
+    // errado.
+    .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
 
@@ -75,27 +82,54 @@ function semAcento(texto_: string): string {
  * esta no catalogo. Sem a segunda fonte, a conversa nao alcancaria justamente
  * o que a tela de serie ja mostra.
  */
-function resolverPeloCatalogo(termo: string): string | null {
+/**
+ * Quao bem um nome casa com o termo, ou null se nao casa. Menor e melhor.
+ *
+ * Os DOIS sentidos contam, e isso e do Bloco 10: a rodada automatica da L7
+ * perguntou "meu colesterol LDL esta bom?" e ouviu que nao havia LDL
+ * registrado. Havia. A busca so testava "o nome CONTEM o termo", e "colesterol
+ * LDL" nao esta contido em "LDL".
+ *
+ * A ordem existe porque os dois sentidos juntos casam demais:
+ *   0. nome igual ao termo;
+ *   1. o nome contem o termo -- o nome MAIS CURTO vence ("vitamina D" e a 25-OH,
+ *      e nao a 1,25-di-hidroxivitamina D);
+ *   2. o termo contem o nome -- o nome MAIS LONGO vence ("hemoglobina glicada"
+ *      e a glicada, e nao a hemoglobina). Nome de menos de 3 letras nao entra
+ *      aqui: "D" esta dentro de quase tudo.
+ */
+function afinidade(nome: string, alvo: string): number | null {
+  const n = semAcento(nome);
+  if (n === '') return null;
+  if (n === alvo) return 0;
+  if (n.includes(alvo)) return 1_000 + n.length;
+  if (n.length >= 3 && alvo.includes(n)) return 100_000 - n.length;
+  return null;
+}
+
+function melhor<T>(itens: T[], nomesDe: (item: T) => (string | null | undefined)[], termo: string): T | null {
   const alvo = semAcento(termo);
   if (alvo === '') return null;
-  const achado = ANALYTE_CATALOG.find(
-    (a) =>
-      semAcento(a.projectLabel).includes(alvo) ||
-      a.synonyms.some((s) => semAcento(s).includes(alvo)),
-  );
-  return achado?.code ?? null;
+  let achado: T | null = null;
+  let nota = Infinity;
+  for (const item of itens) {
+    for (const nome of nomesDe(item)) {
+      const a = nome ? afinidade(nome, alvo) : null;
+      if (a !== null && a < nota) {
+        nota = a;
+        achado = item;
+      }
+    }
+  }
+  return achado;
+}
+
+function resolverPeloCatalogo(termo: string): string | null {
+  return melhor(ANALYTE_CATALOG, (a) => [a.projectLabel, ...a.synonyms], termo)?.code ?? null;
 }
 
 function resolverPeloHistorico(termo: string, linhas: LinhaDeResultado[]): string | null {
-  const alvo = semAcento(termo);
-  if (alvo === '') return null;
-  const achado = linhas.find(
-    (l) =>
-      (l.projectLabel && semAcento(l.projectLabel).includes(alvo)) ||
-      (l.analyteLabel && semAcento(l.analyteLabel).includes(alvo)) ||
-      semAcento(l.analyteCode).includes(alvo),
-  );
-  return achado?.analyteCode ?? null;
+  return melhor(linhas, (l) => [l.projectLabel, l.analyteLabel, l.analyteCode], termo)?.analyteCode ?? null;
 }
 
 const AUSENTE_NO_CATALOGO =
@@ -120,9 +154,18 @@ export const analitosTool: ChatTool = {
     // sem ele um analito que a tela mostra ficaria invisivel a conversa.
     const linhas = (await lerDoDono(process.env.LAB_RESULT_TABLE_NAME, identity)).map(comoLinha);
 
+    // O catalogo vem primeiro -- MAS so vence se a pessoa tiver linha com o
+    // codigo dele. A razao e a ampliacao do Bloco 10: analitos que eram de
+    // codigo local (D32) passaram a ter codigo LOINC, e as linhas gravadas
+    // ANTES continuam com o local. Sem esta regra, "zinco" resolveria para o
+    // codigo novo, que ninguem tem, e o zinco que a tela mostra ficaria
+    // invisivel a conversa.
+    const temLinha = (c: string) => linhas.some((l) => l.analyteCode === c);
+    const peloCatalogo = pedido.termo ? resolverPeloCatalogo(pedido.termo) : null;
+    const peloHistorico = pedido.termo ? resolverPeloHistorico(pedido.termo, linhas) : null;
     const codigo =
       (pedido.analyteCode ? pedido.analyteCode : null) ??
-      (pedido.termo ? (resolverPeloCatalogo(pedido.termo) ?? resolverPeloHistorico(pedido.termo, linhas)) : null);
+      (peloCatalogo && temLinha(peloCatalogo) ? peloCatalogo : (peloHistorico ?? peloCatalogo));
 
     if (!codigo) {
       return { disponivel: false, explicacao: AUSENTE_NO_CATALOGO };
@@ -171,17 +214,18 @@ export const analitosTool: ChatTool = {
 
       return {
         momento: chave === '' ? null : chave,
-        unidade,
+        // A comparacao acima usa o token; o que sai para o modelo e o legivel.
+        unidade: unidadeLegivel(unidade),
         coletas: comparaveis
           .sort((a, b) => (a.collectedAt ?? '').localeCompare(b.collectedAt ?? ''))
           .map((l) => ({
             id: l.id,
             valor: l.value,
-            unidade: l.unit,
+            unidade: unidadeLegivel(l.unit),
             dataDaColeta: l.collectedAt,
             // O que estava no papel, ao lado do numero lido -- e o que permite
             // a pessoa conferir sem abrir o documento.
-            comoEstavaNoPapel: l.rawValue,
+            comoEstavaNoPapel: comoEstavaNoPapel(l),
             faixaDoLaboratorio: {
               minimo: l.referenceLow,
               maximo: l.referenceHigh,
@@ -236,7 +280,7 @@ export const analitosTool: ChatTool = {
       linhas: coletas.map((c) =>
         [
           formatarData(c.dataDaColeta),
-          `${formatarDecimal(c.valor)} ${c.unidade ?? ''}`.trim(),
+          `${formatarDecimal(c.valor)} ${unidadeLegivel(c.unidade)}`.trim(),
           c.momento ? `(${c.momento})` : null,
         ]
           .filter((parte): parte is string => Boolean(parte))

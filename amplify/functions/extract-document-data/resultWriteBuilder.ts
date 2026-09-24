@@ -2,7 +2,7 @@
  * Resumo do arquivo:
  * A parte PURA da gravacao: montar o comando de escrita e decidir o que pode
  * ser gravado. Separado de resultRepository.ts pela mesma razao que
- * documentText.ts e separado de textractClient.ts -- nenhum teste deste
+ * formatoDoArquivo.ts e separado do handler -- nenhum teste deste
  * repositorio importa VALOR do SDK da AWS. `import type` e apagado na
  * compilacao e por isso e seguro aqui.
  *
