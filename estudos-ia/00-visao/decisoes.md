@@ -1778,3 +1778,82 @@ token.
 **O que a rodada não substitui:** a L7. A caixa "passou e não deveria" do achado
 6 foi preenchida pelo agente que executou o bloco, lendo as respostas (Decisão
 J3). A rodada humana continua sendo a da tese.
+
+---
+
+## D46 — A função confere de quem é o arquivo antes de lê-lo
+**Data:** 2026-09-24 · **Estado:** decidida · **EPIC `specs/09-seguranca/posse-do-arquivo/`**
+
+**Contexto.** Achado de segurança em revisão de código, anterior a esta data.
+A `extract-document-data` lê o arquivo pela chave `MedicalDocument.s3Key`, que
+o **cliente** escreve (`allow.owner()`), e o papel da função lê
+`medical-documents/*` inteiro. A pessoa A criava uma linha sua com a chave do
+laudo de B, disparava a leitura, e os valores de B viravam linhas de A. O anexo
+do chat tinha a mesma forma: chave vinda do corpo, leitura em
+`chat-attachments/*` inteiro. As duas conferências existentes
+(`chaveDoDocumento`, `chaveDeAnexoValida`) eram de **forma**, e os comentários
+de ambas diziam que "o fechamento de verdade é a política do bucket". **Estava
+errado:** a política por dono vale para a credencial da pessoa, e não para o
+papel da função. A exploração exige conhecer o identityId e o nome do arquivo de
+B, e é improvável; a autorização, porém, não existia.
+
+**A solução direta não existe.** Conferir o identityId da pasta exigiria que a
+função o conhecesse, e ela só conhece o `sub` (o defeito de 2026-09-18, em
+`documentKey.ts`, nasceu de confundir os dois). Nenhuma API converte um no outro
+sem o token da pessoa.
+
+**Decidido:**
+
+1. Todo arquivo enviado pelo aplicativo leva o metadado de objeto
+   `sub-de-quem-enviou`, com o `userId` de `getCurrentUser()`. O nome é uma
+   constante só (`amplify/storage/metadadoDoDono.ts`), minúsculo porque o S3
+   grava a chave assim.
+2. **O metadado é confiável porque só o dono escreve na própria pasta.** O que
+   está no objeto de B foi escrito por B. B pode gravar ali o `sub` de A, mas
+   isso é B entregando o próprio arquivo, e não A tomando o de B.
+3. As duas funções só abrem o bucket por `lerArquivoDoDono`, que confere o
+   metadado contra o dono esperado **antes** de os bytes seguirem: o `sub` do
+   `owner` da linha na extração e o `sub` do **token** no chat. Uma varredura em
+   teste trava que nenhum outro arquivo das duas funções importa o leitor.
+4. **Objeto sem metadado falha fechado.** Na extração vira o motivo
+   `arquivo-sem-dono` (*"Envie o arquivo de novo"*), no mesmo desenho do
+   `arquivo-sem-chave`; no chat vira ausência. A frase é a mesma para "arquivo
+   antigo" e "arquivo de outra pessoa", e o log distingue os dois.
+
+**O legado, e por que falhar fechado custa pouco:** documento já lido não tem
+botão de releitura nesta versão, e as linhas dele estão no banco. Só o documento
+que **já estava em falha** e recebe "Tentar de novo" passa a pedir o reenvio.
+Anexo do chat e importação de wearable não têm legado: cada arquivo é lido uma
+vez, logo depois de enviado.
+
+**Recusado:**
+
+- **Aceitar objeto antigo por data** (`LastModified` anterior à publicação): deixa
+  a porta aberta exatamente para os arquivos que já existem, os únicos que alguém
+  pode mirar hoje.
+- **Script que grava o metadado nos objetos antigos:** o único dado que liga uma
+  pasta a um `sub` é o `s3Key` das linhas, o dado não confiável do achado.
+- **Mandar o identityId na mutation ou no corpo:** é identificador escolhido pelo
+  chamador, que é o próprio defeito.
+- **Autorizar a mutation pelo pool de identidades (IAM):** a função passaria a
+  saber o identityId e deixaria de saber o `sub`, e a conferência de dono da
+  linha, que hoje funciona, se perderia.
+- **Uma Lambda de upload que grava o arquivo no lugar certo:** troca o caminho de
+  envio inteiro para obter a garantia que um cabeçalho dá.
+
+**O que esta decisão NÃO fecha:**
+
+- quem acerta a chave inteira de outra pessoa descobre que ela existe, porque a
+  falha é `arquivo-sem-dono`, e não `leitura-falhou`. Acertar exige adivinhar um
+  UUID; esconder isso obrigaria a mentir à pessoa legítima sobre o motivo;
+- a `analyze-health-import` não confere o metadado. Ela amarra cada chave ao
+  `importId` da própria linha, que é único na tabela. O metadado passa a ser
+  gravado lá também, e a conferência fica pronta para ser ligada;
+- a `extract-document-data` continua com `grantReadWrite` em
+  `medical-documents/*`, embora só leia. Estreitar é menor privilégio, e é
+  outra mudança.
+
+**Para quem vier depois (Bloco 11, regravação):** uma releitura de documento já
+lido falhará para arquivo antigo. A conferência de posse precisa ficar **antes**
+de qualquer escrita ou apagamento de linha, e a tela de `FAILED` esconde a seção
+de resultados.

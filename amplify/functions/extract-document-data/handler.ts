@@ -18,7 +18,8 @@ import { candidatesForPrompt } from './analyteCatalog';
 import { CONFIDENCE_THRESHOLD, normalizeLabResult } from './analyteNormalizer';
 import { requestExtraction, type ExtractionSource } from './bedrockClient';
 import { fileChecksum, labResultId, prescriptionItemId } from './checksum';
-import { chaveDoDocumento } from './documentKey';
+import { lerArquivoDoDono } from './arquivoDoDono';
+import { chaveDoDocumento, subDoOwner } from './documentKey';
 import { contarEscolhasDeFaixa } from './escolhaDeFaixa';
 import { avaliarArquivo } from './formatoDoArquivo';
 import { copyDaFalha } from './motivoDeFalha';
@@ -33,7 +34,6 @@ import {
   readDocumentRow,
   separarLinhasGravaveis,
 } from './resultRepository';
-import { readDocument } from './s3Reader';
 import { rebaixarLidasDeGrafico } from './valorDeGrafico';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient());
@@ -97,7 +97,20 @@ export async function handler(event: InvokeEvent): Promise<void> {
       await markFailed(ddb, documentTable, documentId, copyDaFalha('arquivo-sem-chave'));
       return;
     }
-    const { bytes } = await readDocument(bucketName, fileKey);
+    // 2b. A POSSE (D46). A chave tem a forma certa, mas quem a escreveu foi o
+    //     cliente, e esta funcao alcanca a pasta de todo mundo. So segue o
+    //     arquivo cujo metadado de envio e do dono DESTA linha -- antes de os
+    //     bytes irem ao modelo e antes de qualquer gravacao. O log leva o
+    //     motivo e o documento; nunca sub, chave ou nome de arquivo.
+    const lido = await lerArquivoDoDono(bucketName, fileKey, subDoOwner(owner));
+    if (!lido.ok) {
+      console.warn(
+        JSON.stringify({ evento: 'arquivo-recusado-pelo-dono', motivo: lido.motivo, documentId }),
+      );
+      await markFailed(ddb, documentTable, documentId, copyDaFalha('arquivo-sem-dono'));
+      return;
+    }
+    const { bytes } = lido;
     const checksum = fileChecksum(bytes);
 
     // 3. A rota sai dos BYTES, e nao do tipo declarado (G1, Bloco 10). O tipo

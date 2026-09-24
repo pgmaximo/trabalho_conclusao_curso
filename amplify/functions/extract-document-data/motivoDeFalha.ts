@@ -21,6 +21,7 @@ export const MOTIVOS_DE_FALHA = [
   'ilegivel',
   'bloqueado-pelo-filtro',
   'arquivo-sem-chave',
+  'arquivo-sem-dono',
   'leitura-falhou',
 ] as const;
 
@@ -41,6 +42,11 @@ export const COPY_DA_FALHA: Record<MotivoDeFalha, string> = {
     'O conteúdo deste documento foi bloqueado pelo filtro de segurança e não foi lido. O arquivo continua guardado.',
   'arquivo-sem-chave':
     'Este documento foi guardado antes de o aplicativo registrar onde o arquivo ficou. Envie o arquivo de novo para que ele possa ser lido.',
+  // D46: serve ao arquivo enviado antes de o metadado existir E ao arquivo de
+  // outra pessoa. Quem ve esta frase e quase sempre o dono legitimo de um
+  // arquivo antigo, e por isso ela nao acusa ninguem; o log distingue os dois.
+  'arquivo-sem-dono':
+    'Este arquivo foi enviado antes de o aplicativo registrar quem o enviou. Envie o arquivo de novo para que ele possa ser lido.',
   'leitura-falhou':
     'A leitura não terminou por um problema do nosso lado. O arquivo continua guardado — tente de novo em alguns minutos.',
 };

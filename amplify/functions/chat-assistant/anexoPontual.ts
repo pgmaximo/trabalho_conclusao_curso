@@ -21,23 +21,24 @@
  * implementacao de leitura divergiria da primeira em silencio, e a divergencia
  * apareceria para a pessoa como o mesmo papel lido de dois jeitos.
  */
+import { lerArquivoDoDono } from '../extract-document-data/arquivoDoDono';
 import { avaliarArquivo } from '../extract-document-data/formatoDoArquivo';
-import { readDocument } from '../extract-document-data/s3Reader';
 
 import type { ChatIdentity } from './auth';
 import type { AnexoLido } from './types';
 
 /**
- * A pasta do anexo carrega o identityId de quem subiu, e a chave precisa
- * comecar por ela. Sem essa conferencia, uma chave arbitraria no corpo da
- * requisicao leria o arquivo de outra pessoa -- a mesma classe de falha que o
- * `auth.ts` fecha para o dono dos dados.
+ * Conferencia de FORMA: o prefixo certo e um unico segmento de pasta. Ela impede
+ * a funcao de ler fora de `chat-attachments/` -- inclusive o historico da
+ * propria pessoa, que tem o metadado de dono certo e por isso passaria pela
+ * conferencia de posse. As duas conferencias fecham coisas diferentes.
  *
- * O identityId NAO e o `owner`: ele e o identificador do Cognito Identity Pool
- * que o Amplify Storage usa nos caminhos. Como a funcao so tem o `sub`, a
- * conferencia possivel aqui e de FORMA -- o prefixo certo e um unico segmento
- * de pasta -- e o fechamento de verdade e a politica do bucket, que so concede
- * leitura sob `chat-attachments/`.
+ * FORMA NAO E POSSE. Este comentario dizia que "o fechamento de verdade e a
+ * politica do bucket", e estava errado (achado de 2026-09-24, D46): a politica
+ * so concede leitura sob `chat-attachments/` para o PAPEL da funcao, e o papel
+ * alcanca a pasta de todo mundo. A chave do anexo de outra pessoa tem a forma
+ * certa. A funcao nao tem o identityId que nomeia a pasta, so o `sub`; quem
+ * fecha a posse e `lerArquivoDoDono`, com o `sub` do token.
  */
 const PREFIXO = 'chat-attachments/';
 
@@ -58,7 +59,7 @@ export type AnexoDoChat = { key: string };
  */
 export async function lerAnexo(
   anexo: AnexoDoChat | null | undefined,
-  _identity: ChatIdentity,
+  identity: ChatIdentity,
 ): Promise<AnexoLido | null> {
   if (!anexo?.key || !chaveDeAnexoValida(anexo.key)) return null;
 
@@ -66,7 +67,15 @@ export async function lerAnexo(
   if (!bucket) return null;
 
   try {
-    const { bytes } = await readDocument(bucket, anexo.key);
+    // A POSSE (D46): o dono sai do TOKEN, nunca do corpo. Anexo de outra
+    // pessoa, ou sem o metadado, e ausencia -- o mesmo caminho do ilegivel, e o
+    // turno continua sem ele. O log leva so o motivo.
+    const lido = await lerArquivoDoDono(bucket, anexo.key, identity.sub);
+    if (!lido.ok) {
+      console.warn(JSON.stringify({ evento: 'anexo-recusado-pelo-dono', motivo: lido.motivo }));
+      return null;
+    }
+    const { bytes } = lido;
 
     // Formato e tamanho saem da MESMA funcao que decide a extracao. Grande
     // demais e ausencia, e nao motivo para derrubar a pergunta.

@@ -13,6 +13,7 @@
 import { uploadData } from 'aws-amplify/storage';
 
 import { prepararArquivoParaEnvio } from '@/services/imagemParaEnvio';
+import { metadadosDeQuemEnvia } from '@/services/metadadoDeQuemEnvia';
 
 export type AnexoDoChat = {
   /** A chave completa no bucket, que e o que vai para a funcao. */
@@ -50,7 +51,9 @@ export async function uploadAnexoDoChat(
     // e o que mantem o anexo de cada pessoa na propria pasta.
     path: ({ identityId }) => `chat-attachments/${identityId}/${nomeNoBucket}`,
     data: blob,
-    options: { contentType: tipo },
+    // O `sub` de quem enviou (D46): a funcao do chat so le o anexo cujo
+    // metadado bate com o `sub` do token de quem pergunta.
+    options: { contentType: tipo, metadata: await metadadosDeQuemEnvia() },
   }).result;
 
   return { key: enviado.path, fileName };

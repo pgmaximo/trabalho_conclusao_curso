@@ -29,6 +29,17 @@ describe('motivoDeFalha', () => {
     expect(copyDaFalha('leitura-falhou')).toMatch(/tente de novo|tentar de novo/i);
   });
 
+  it('arquivo-sem-dono (D46) pede o reenvio, e a tela o reconhece', () => {
+    // A mesma frase serve ao arquivo enviado antes do metadado existir e ao
+    // arquivo de outra pessoa: o log distingue os dois, a tela nao precisa.
+    const copy = copyDaFalha('arquivo-sem-dono');
+    expect(copy).toMatch(/envie o arquivo de novo/i);
+    expect(ehCopyDeFalha(copy)).toBe(true);
+    // Nao acusa a pessoa: quase sempre quem ve esta frase e o dono legitimo de
+    // um arquivo antigo.
+    expect(copy).not.toMatch(/outra pessoa|não é seu|nao e seu|permiss/i);
+  });
+
   it('as copies sao distintas -- motivo diferente, frase diferente', () => {
     const copies = MOTIVOS_DE_FALHA.map(copyDaFalha);
     expect(new Set(copies).size).toBe(copies.length);
