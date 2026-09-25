@@ -6,12 +6,18 @@
 import React from 'react';
 import { router } from 'expo-router';
 
+import { useUserContext } from '@/contexts/UserContext';
 import { RegisterScreen } from '@/screens/RegisterScreen';
 import { resolvePostAuthRoute } from '@/services/auth';
 import { blurActiveWebElement } from '@/utils/webFocus';
 
 export default function RegisterRoute() {
+  const { refreshUser } = useUserContext();
+
   async function navigateAfterGoogleAuth() {
+    // Mesmo motivo da rota de login: o perfil foi buscado quando ainda nao
+    // havia sessao.
+    await refreshUser();
     const nextRoute = await resolvePostAuthRoute();
     router.replace(nextRoute);
   }

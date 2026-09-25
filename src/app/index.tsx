@@ -10,12 +10,14 @@ import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { getCurrentUser } from 'aws-amplify/auth';
 
+import { useUserContext } from '@/contexts/UserContext';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { resolvePostAuthRoute } from '@/services/auth';
 import { blurActiveWebElement } from '@/utils/webFocus';
 
 export default function LoginRoute() {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const { refreshUser } = useUserContext();
 
   useEffect(() => {
     let isActive = true;
@@ -43,6 +45,10 @@ export default function LoginRoute() {
   }, []);
 
   async function navigateAfterAuth() {
+    // O UserProvider busca o perfil so quando o app monta -- e, aqui na tela
+    // de login, ainda nao havia sessao. Sem recarregar agora, o Perfil abre
+    // vazio ate o app ser reaberto (defeito de 2026-09-25).
+    await refreshUser();
     const nextRoute = await resolvePostAuthRoute();
     router.replace(nextRoute);
   }
