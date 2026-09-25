@@ -224,7 +224,7 @@ export function LoginScreen({
                 <Pressable
                   accessibilityLabel={isPasswordVisible ? 'Ocultar senha' : 'Mostrar senha'}
                   accessibilityRole="button"
-                  className="h-11 w-11 items-center justify-center"
+                  className="size-11 items-center justify-center"
                   disabled={isLoading}
                   hitSlop={4}
                   onPress={togglePasswordVisibility}
