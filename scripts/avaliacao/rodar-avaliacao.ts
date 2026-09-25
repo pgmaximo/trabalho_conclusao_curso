@@ -7,6 +7,9 @@
  *     --owner "<sub>::<sub>" --documento <id do laudo de teste> \
  *     --saida estudos-ia/04-implementacao/avaliacoes/<data>-rodada-automatica.md
  *
+ * `--perguntas r1a,r1b,r1c --repeticoes 3` faz so essas, tres vezes cada
+ * (Bloco 11: a medicao da R1 antes e depois do vocabulario no prompt).
+ *
  * EM PROCESSO, e nao pela URL da funcao: a URL exige um token do Cognito, e
  * token exige senha. A chamada em processo exercita o MESMO `responder` que o
  * handler chama -- mesmo modelo, mesmo prompt, mesma verificacao, mesmas
@@ -29,7 +32,7 @@ import { dirname } from 'node:path';
 
 import { GetFunctionConfigurationCommand, LambdaClient, ListFunctionsCommand } from '@aws-sdk/client-lambda';
 
-import { BANCO_DE_PERGUNTAS } from './bancoDePerguntas';
+import { BANCO_DE_PERGUNTAS, selecionarPerguntas } from './bancoDePerguntas';
 import { lerEventos } from './eventos';
 import { conferirExpectativas, montarRelatorio, type ResultadoDaPergunta } from './relatorio';
 
@@ -58,8 +61,15 @@ async function main(): Promise<void> {
   const documentoDeTeste = argumento('documento');
   const saida = argumento('saida');
   if (!owner || !saida) {
-    throw new Error('Uso: --owner "<sub>::<sub>" --saida <arquivo.md> [--documento <id>]');
+    throw new Error(
+      'Uso: --owner "<sub>::<sub>" --saida <arquivo.md> [--documento <id>] [--perguntas r1a,r1b] [--repeticoes 3]',
+    );
   }
+  const perguntas = selecionarPerguntas(
+    BANCO_DE_PERGUNTAS,
+    argumento('perguntas')?.split(',').map((id) => id.trim()),
+    Number(argumento('repeticoes') ?? '1'),
+  );
 
   Object.assign(process.env, await configuracaoDaFuncao());
 
@@ -71,7 +81,7 @@ async function main(): Promise<void> {
   const identity = { sub: sub ?? owner, username: username ?? sub ?? owner, owner };
 
   const resultados: ResultadoDaPergunta[] = [];
-  for (const p of BANCO_DE_PERGUNTAS) {
+  for (const p of perguntas) {
     // O console do turno e capturado inteiro: e dele que saem as metricas,
     // exatamente como sairiam do CloudWatch.
     const linhas: string[] = [];

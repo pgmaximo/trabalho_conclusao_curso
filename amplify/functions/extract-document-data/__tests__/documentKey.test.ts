@@ -23,7 +23,7 @@
  * documento" -- uma mensagem sobre o CONTEUDO para um arquivo que nunca foi
  * aberto.
  */
-import { chaveDoDocumento } from '../documentKey';
+import { MAXIMO_DE_FOLHAS, chaveDoDocumento, chavesDasFolhas } from '../documentKey';
 
 /** Pool de IDENTIDADES: e o que nomeia a pasta. Repare no prefixo de regiao. */
 const IDENTITY_ID = 'us-east-1:5648ad4c-7d8f-c7c3-0980-fe0fc91139f5';
@@ -67,5 +67,65 @@ describe('chaveDoDocumento', () => {
         s3Key: `medical-documents/${IDENTITY_ID}/../../outro/x.pdf`,
       }),
     ).toBeNull();
+  });
+});
+
+/**
+ * Bloco 11 -- o laudo de varias folhas (E6, Decisao O1). A folha 1 continua
+ * sendo `s3Key`; as outras vem em `extraPageKeys`. Cada folha extra passa a
+ * MESMA conferencia de forma da primeira, e tem de estar na MESMA pasta dela:
+ * uma folha apontando para outra pasta leria arquivo de outro lugar.
+ */
+describe('chavesDasFolhas', () => {
+  const folha = (n: number) => `medical-documents/${IDENTITY_ID}/exams/folha-${n}.jpg`;
+  const base = { owner: OWNER, s3FileName: NOME, s3Key: folha(1) };
+
+  it('documento sem folhas extras e a folha 1 so -- como todo documento antigo', () => {
+    expect(chavesDasFolhas(base)).toEqual([folha(1)]);
+    expect(chavesDasFolhas({ ...base, extraPageKeys: null })).toEqual([folha(1)]);
+    expect(chavesDasFolhas({ ...base, extraPageKeys: [] })).toEqual([folha(1)]);
+  });
+
+  it('as folhas extras vem depois da primeira, na ordem gravada', () => {
+    expect(chavesDasFolhas({ ...base, extraPageKeys: [folha(2), folha(3)] })).toEqual([
+      folha(1),
+      folha(2),
+      folha(3),
+    ]);
+  });
+
+  it('entrada vazia ou nula na lista e ignorada', () => {
+    expect(chavesDasFolhas({ ...base, extraPageKeys: [folha(2), null, '  '] })).toEqual([
+      folha(1),
+      folha(2),
+    ]);
+  });
+
+  it('folha de OUTRA pasta invalida o documento inteiro', () => {
+    const deOutraPessoa = `medical-documents/us-east-1:outra-identidade/exams/x.jpg`;
+    expect(chavesDasFolhas({ ...base, extraPageKeys: [folha(2), deOutraPessoa] })).toBeNull();
+  });
+
+  it('folha com ".." ou fora do prefixo invalida o documento inteiro', () => {
+    expect(
+      chavesDasFolhas({ ...base, extraPageKeys: [`medical-documents/${IDENTITY_ID}/exams/../../x.jpg`] }),
+    ).toBeNull();
+    expect(chavesDasFolhas({ ...base, extraPageKeys: ['chat-attachments/x/y.jpg'] })).toBeNull();
+    // Mesma pasta, e ainda assim ".." -- so a conferencia de forma pega.
+    expect(
+      chavesDasFolhas({ ...base, extraPageKeys: [`medical-documents/${IDENTITY_ID}/exams/..`] }),
+    ).toBeNull();
+  });
+
+  it(`mais de ${MAXIMO_DE_FOLHAS} folhas invalida o documento`, () => {
+    const extras = Array.from({ length: MAXIMO_DE_FOLHAS }, (_, i) => folha(i + 2));
+    expect(chavesDasFolhas({ ...base, extraPageKeys: extras.slice(0, MAXIMO_DE_FOLHAS - 1) })).toHaveLength(
+      MAXIMO_DE_FOLHAS,
+    );
+    expect(chavesDasFolhas({ ...base, extraPageKeys: extras })).toBeNull();
+  });
+
+  it('sem a folha 1, nao ha documento -- como hoje', () => {
+    expect(chavesDasFolhas({ owner: OWNER, s3FileName: NOME, extraPageKeys: [folha(2)] })).toBeNull();
   });
 });

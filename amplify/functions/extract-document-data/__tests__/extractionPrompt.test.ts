@@ -97,3 +97,34 @@ describe('extractionPrompt', () => {
     expect(SYSTEM_PROMPT).toMatch(/nao esta impresso[^.]*NAO crie a linha/i);
   });
 });
+
+/**
+ * Bloco 11 -- o laudo de varias folhas (E6). A folha isolada foi a condicao em
+ * que o modelo foi buscar numero no grafico (G10): o resultado estava impresso
+ * na folha ANTERIOR. Com todas as folhas juntas, o pedido diz que elas sao do
+ * mesmo documento e como numerar a pagina.
+ */
+describe('buildUserAskDeFoto com varias folhas', () => {
+  it('uma folha e o pedido de sempre', () => {
+    expect(buildUserAskDeFoto('exam', 1)).toBe(buildUserAskDeFoto('exam'));
+  });
+
+  it('diz quantas fotos sao, que sao folhas do mesmo documento, e em ordem', () => {
+    const pedido = buildUserAskDeFoto('exam', 3);
+    expect(pedido).toMatch(/3 fotos/);
+    expect(pedido).toMatch(/folhas do mesmo documento/i);
+    expect(pedido).toMatch(/na ordem/i);
+  });
+
+  it('diz que a pagina e o numero da foto', () => {
+    expect(buildUserAskDeFoto('exam', 2)).toMatch(/sourcePage[^.]*n[uú]mero da foto/i);
+  });
+
+  it('continua proibindo o numero de grafico', () => {
+    expect(buildUserAskDeFoto('exam', 2)).toMatch(/grafico/i);
+  });
+
+  it('nao diz que pode ser so uma das folhas -- as folhas estao todas aqui', () => {
+    expect(buildUserAskDeFoto('exam', 2)).not.toMatch(/so uma das folhas/i);
+  });
+});

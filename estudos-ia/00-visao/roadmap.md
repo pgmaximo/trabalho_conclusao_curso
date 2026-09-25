@@ -21,6 +21,7 @@ roadmap que produz software passou a ter EPIC rastreável, no formato
 | 2.10 (nova) | `specs/07-ia-conversa/conversa-sobre-o-exame/` | a escrever, quando a execução começar |
 | 2.11 (nova) | `specs/08-ia-fechamento/lacunas-e-decisoes/` | `specs/08-ia-fechamento/lacunas-e-decisoes/plan.md` |
 | 2.12 (nova) | `specs/08-ia-fechamento/fechamento-funcional/` | `specs/08-ia-fechamento/fechamento-funcional/plan.md` |
+| 2.13 (nova) | `specs/08-ia-fechamento/engenharia-pendente/` | `specs/08-ia-fechamento/engenharia-pendente/plan.md` |
 
 A **2.9 não estava neste roadmap** e foi acrescentada em 2026-09-18: ela nasce
 de um pedido direto do usuário — memória de curto e longo prazo — e da fronteira
@@ -71,6 +72,13 @@ PDF em página limpa, 25 de 26 em foto simulada), achou na mesma medição o mod
 de falha mais perigoso do projeto — **número lido de gráfico, com confiança
 0,95** — e o travou antes de abrir a porta. Levou junto a ampliação do
 vocabulário (79 → 154 analitos), a pipeline de avaliação automática, e a Fase 4.
+
+A **2.13 foi acrescentada em 2026-09-24**, quando o escopo mudou: o aplicativo
+não será aberto ao público, e o que sobrou do Bloco 10 foi a engenharia
+registrada e não feita. A leitura do código para ela achou dois defeitos de
+dado mais graves que os da lista — reprocessar desfazia a correção da pessoa, e
+apagar o documento deixava os valores dele — e a medição da R1 achou uma
+resposta perdida que o Bloco 10 contava como salva (D47 a D51).
 
 As tarefas 3.2, 4.1 e 4.2 continuam sem EPIC de propósito: elas produzem
 **texto do TCC**, não software, e criar spec para elas seria confundir

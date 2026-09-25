@@ -174,6 +174,20 @@ const UNIDADES_DE_REMEDIO =
 const COISAS_DO_APLICATIVO =
   'exames?|documentos?|consultas?|receitas?|resultados?|registros?|compromissos?|vacinas?|laudos?|anexos?';
 
+/**
+ * O que pode vir entre "voce tem" e o inventario sem mudar o sentido (Bloco 11):
+ * "voce tem APENAS um laudo guardado". Sem isto a frase era reprovada como
+ * diagnostico -- medido: tres respostas a mesma pergunta, as tres barradas nas
+ * duas geracoes. O adverbio so exime quando o que vem depois E inventario;
+ * "voce tem apenas diabetes" continua reprovado.
+ */
+const ADVERBIOS_DO_INVENTARIO = 'apenas|s[oó]|somente|ainda|j[aá]';
+
+/** O inventario dito com o objeto ANTES do verbo: "os laudos que voce tem
+ *  guardados". O participio e o que diz que se fala do aplicativo. */
+const PARTICIPIOS_DO_INVENTARIO =
+  'guardad[oa]s?|registrad[oa]s?|salv[oa]s?|cadastrad[oa]s?|anexad[oa]s?|marcad[oa]s?';
+
 /** Letra COM acento, para a fronteira de palavra que `\b` nao da. */
 const L_R3 = '[\\wÀ-ÿ]';
 const FIM_R3 = `(?!${L_R3})`;
@@ -247,7 +261,9 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = 
         // A negativa exime o INVENTARIO do aplicativo, e so ele. Qualquer outro
         // objeto -- "diabetes", "um quadro de tireoidite" -- continua reprovado,
         // e ha caso de teste para cada um.
-        `(?!\\s+(?:\\d+\\s+)?(?:um|uma|uns|umas|o|a|os|as)?\\s*(?:${COISAS_DO_APLICATIVO})\\b)` +
+        `(?!\\s+(?:(?:${ADVERBIOS_DO_INVENTARIO})\\s+)?(?:\\d+\\s+)?(?:um|uma|uns|umas|o|a|os|as)?\\s*(?:${COISAS_DO_APLICATIVO})\\b` +
+        // "os laudos que voce tem guardados" -- o objeto veio ANTES do verbo.
+        `|\\s+(?:${PARTICIPIOS_DO_INVENTARIO})${FIM_R3})` +
         '|(?:^|\\W)(e|é)\\s+(um\\s+)?(sinal\\s+claro\\s+de|caso\\s+de|quadro\\s+de)\\b',
       'i',
     ),

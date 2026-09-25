@@ -5,8 +5,10 @@
  * poderem ser testadas.
  */
 import {
+  DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
+  QueryCommand,
   UpdateCommand,
   type UpdateCommandInput,
 } from '@aws-sdk/lib-dynamodb';
@@ -18,6 +20,7 @@ import { EXTRACTION_STATUS, type ReviewStatus } from '../../data/schemas/extract
 // arrumar o NOME de uma pasta e risco sem beneficio (regra 5).
 import { buildUpdateExpression } from '../health-import-shared/updateExpressionBuilder';
 
+import { comoLinhaExistente, type LinhaExistente } from './regravacao';
 import { buildLabResultUpdate, type LabResultRow } from './resultWriteBuilder';
 
 export type { LabResultRow } from './resultWriteBuilder';
@@ -49,6 +52,55 @@ export async function putLabResults(
   // esta feature nao pode usar.
   for (const row of rows) {
     await ddb.send(new UpdateCommand(buildLabResultUpdate(row, tableName)));
+  }
+}
+
+/** O indice que o Amplify cria para `index('documentId')` no LabResult. Nome
+ *  conferido na tabela do sandbox em 2026-09-24. */
+const INDICE_POR_DOCUMENTO = 'labResultsByDocumentId';
+
+/**
+ * O que a leitura anterior deste documento deixou gravado (Bloco 11). E a
+ * leitura que permite a regravacao preservar o que a pessoa conferiu e trocar
+ * a linha de codigo local pela de catalogo. Paginada: um laudo tem dezenas de
+ * linhas, mas o limite de 1 MB por pagina nao e do laudo, e do DynamoDB.
+ */
+export async function listarLinhasDoDocumento(
+  ddb: DynamoDBDocumentClient,
+  tableName: string,
+  documentId: string,
+): Promise<LinhaExistente[]> {
+  const linhas: LinhaExistente[] = [];
+  let cursor: Record<string, unknown> | undefined;
+  do {
+    const saida = await ddb.send(
+      new QueryCommand({
+        TableName: tableName,
+        IndexName: INDICE_POR_DOCUMENTO,
+        KeyConditionExpression: '#documentId = :documentId',
+        ExpressionAttributeNames: { '#documentId': 'documentId' },
+        ExpressionAttributeValues: { ':documentId': documentId },
+        ExclusiveStartKey: cursor,
+      }),
+    );
+    for (const item of saida.Items ?? []) {
+      const linha = comoLinhaExistente(item);
+      if (linha) linhas.push(linha);
+    }
+    cursor = saida.LastEvaluatedKey;
+  } while (cursor);
+  return linhas;
+}
+
+/** Apaga as linhas de codigo local que a leitura nova substituiu. Chamado
+ *  DEPOIS de gravar as novas: uma falha no meio deixa duplicado, nunca perdido. */
+export async function apagarLinhas(
+  ddb: DynamoDBDocumentClient,
+  tableName: string,
+  ids: string[],
+): Promise<void> {
+  for (const id of ids) {
+    await ddb.send(new DeleteCommand({ TableName: tableName, Key: { id } }));
   }
 }
 
@@ -102,6 +154,8 @@ export type DocumentRow = {
    * ver `documentKey.ts`, que existe por causa disso.
    */
   s3Key?: string | null;
+  /** As folhas 2 a N (Bloco 11). Ausente em documento de uma folha. */
+  extraPageKeys?: (string | null)[] | null;
   documentDate?: string;
   // A validade da receita NAO entra aqui de proposito. Ela e do formulario, e
   // o jeito seguro de a extracao nunca a tocar e ela nem existir no tipo com

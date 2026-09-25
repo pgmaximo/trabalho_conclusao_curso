@@ -396,6 +396,24 @@ describe('R3 — U3b: "você tem" precisa de objeto clínico', () => {
     expect(reprovaPorR3('Você provavelmente tem anemia.')).toBe(true);
     expect(reprovaPorR3('Você tem um quadro de tireoidite.')).toBe(true);
   });
+
+  it('inventario com advérbio ou com particípio tambem e inventario (Bloco 11)', () => {
+    // As tres frases sao as que o modelo escreveu, literalmente, respondendo a
+    // r1a em 2026-09-24 -- e as tres foram reprovadas nas DUAS geracoes, o que
+    // entregou "indisponivel" a uma pergunta sobre o rodape do laudo. A medicao
+    // da R1 foi o que as trouxe a tona.
+    expect(reprovaPorR3('Você tem apenas um laudo guardado: o exame de sangue do laboratório.')).toBe(false);
+    expect(reprovaPorR3('Se quiser, posso listar os laudos que você tem guardados no aplicativo.')).toBe(false);
+    expect(reprovaPorR3('Deixa eu verificar quais laudos você tem guardados no aplicativo.')).toBe(false);
+    expect(reprovaPorR3('Você tem só 2 exames registrados.')).toBe(false);
+    expect(reprovaPorR3('Você ainda tem uma consulta marcada.')).toBe(false);
+  });
+
+  it('o advérbio NAO abre caminho para diagnostico', () => {
+    expect(reprovaPorR3('Você tem apenas diabetes leve.')).toBe(true);
+    expect(reprovaPorR3('Você tem só um quadro de anemia.')).toBe(true);
+    expect(reprovaPorR3('Você tem apenas uma infecção.')).toBe(true);
+  });
 });
 
 describe('R3 — U3c: interpretação categórica de resultado', () => {

@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
@@ -23,9 +24,12 @@ import { FONTS, RADII, SIZES, useThemeColors, type ThemeColors } from '@/constan
 import {
   getTodayDate,
   createExamDocument,
+  ehImagem,
   formatFileSize,
   getExamDocumentIncompleteReason,
   isExamDocumentComplete,
+  MAXIMO_DE_FOLHAS,
+  type ArquivoSelecionado,
   type DocumentType,
 } from '@/services/examService';
 
@@ -47,6 +51,37 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
   const [expirationDate, setExpirationDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // As folhas 2 a N de um laudo em papel (Bloco 11, E6). So foto ganha folha:
+  // PDF ja tem paginas. O teto e o mesmo da extracao.
+  const [folhas, setFolhas] = useState<ArquivoSelecionado[]>([]);
+  const [erroDaFolha, setErroDaFolha] = useState<string | null>(null);
+  const podeFotografarFolha = ehImagem(fileName) && folhas.length + 1 < MAXIMO_DE_FOLHAS;
+
+  async function fotografarFolha() {
+    setErroDaFolha(null);
+    try {
+      const permissao = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissao.granted) {
+        setErroDaFolha(
+          'Permissão de câmera negada. Habilite o acesso à câmera nas configurações do dispositivo para fotografar as folhas.',
+        );
+        return;
+      }
+      const resultado = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
+      const foto = resultado.canceled ? null : resultado.assets?.[0];
+      if (!foto) return;
+      setFolhas((atuais) => [
+        ...atuais,
+        {
+          fileName: foto.fileName || `folha-${Date.now()}.jpg`,
+          filePath: foto.uri,
+          fileSize: foto.fileSize || 0,
+        },
+      ]);
+    } catch {
+      setErroDaFolha('Não foi possível fotografar a folha. Tente novamente.');
+    }
+  }
 
   // Estado visual preventivo (Canvas 3b): o botão só habilita quando tipo,
   // nome, data (e validade se receita) estão completos — não depende de
@@ -78,6 +113,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
         documentName,
         documentDate,
         expirationDate,
+        folhasAdicionais: folhas,
       });
 
       router.back();
@@ -128,6 +164,39 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
               </Pressable>
             </View>
           </HachuraPlaceholder>
+
+          {/* As outras folhas do laudo (Bloco 11, E6). O Canvas 3b mostra um
+              arquivo so; cada folha extra e uma linha no mesmo tom do card, e o
+              acrescimo usa o botao secundario do design (constituicao, regra 8). */}
+          {folhas.map((folha, i) => (
+            <View key={`${folha.filePath}-${i}`} style={styles.folhaRow}>
+              <Ionicons name="image-outline" size={20} color={colors.primary} />
+              <View style={styles.fileInfo}>
+                <Text style={styles.fileName}>{`Folha ${i + 2}`}</Text>
+                <Text style={styles.fileSize}>{formatFileSize(folha.fileSize)}</Text>
+              </View>
+              <Pressable
+                accessibilityLabel={`Remover a folha ${i + 2}`}
+                accessibilityRole="button"
+                hitSlop={8}
+                style={styles.reuploadButton}
+                onPress={() => setFolhas((atuais) => atuais.filter((_, j) => j !== i))}
+              >
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          ))}
+
+          {erroDaFolha ? <InlineError message={erroDaFolha} /> : null}
+
+          {podeFotografarFolha ? (
+            <Button
+              onPress={fotografarFolha}
+              style={styles.folhaButton}
+              title="Fotografar outra folha"
+              variant="secondary"
+            />
+          ) : null}
 
           {/* Document Type Selection */}
           <View style={styles.section}>
@@ -257,6 +326,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: SIZES.large * 2,
   },
   fileCard: {
+    marginBottom: SIZES.large,
+  },
+  folhaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.base,
+    paddingVertical: SIZES.small,
+    paddingHorizontal: SIZES.base,
+    marginTop: -SIZES.base,
+    marginBottom: SIZES.large,
+    borderRadius: RADII.card,
+    borderCurve: 'continuous',
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.background,
+  },
+  folhaButton: {
+    marginTop: -SIZES.base,
     marginBottom: SIZES.large,
   },
   filePreview: {

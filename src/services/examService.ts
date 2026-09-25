@@ -16,6 +16,7 @@ import { invalidateExamsCache } from '@/hooks/useExamsData';
 import { uploadFileToS3 } from '@/services/upload';
 import { startExtraction } from '@/services/extractionService';
 import { prepararArquivoParaEnvio } from '@/services/imagemParaEnvio';
+import { todasAsPaginas } from '@/services/todasAsPaginas';
 
 const client = generateClient<Schema>();
 
@@ -32,6 +33,11 @@ export interface FileMetadata {
    * servidor. Só existe depois do upload, por isso é opcional aqui.
    */
   s3Key?: string;
+  /**
+   * As chaves COMPLETAS das folhas 2 a N de um laudo fotografado (Bloco 11).
+   * Ausente em documento de uma folha — que é todo documento de antes.
+   */
+  extraPageKeys?: string[];
   /** Nome original do arquivo enviado pelo usuário */
   originalFileName: string;
   /** ID do usuário proprietário do arquivo */
@@ -63,7 +69,22 @@ export interface CreateExamDocumentInput {
   documentName: string;
   documentDate: string; // YYYY-MM-DD format
   expirationDate?: string; // YYYY-MM-DD format (only for prescriptions)
+  /**
+   * As folhas 2 a N de um laudo em papel fotografado (Bloco 11, Decisão O1).
+   * Só imagem, e só quando a folha 1 também é imagem: PDF já tem páginas.
+   */
+  folhasAdicionais?: ArquivoSelecionado[];
 }
+
+/** Um arquivo escolhido na tela, antes de subir. */
+export interface ArquivoSelecionado {
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+}
+
+/** O teto de folhas de um documento. O mesmo `MAXIMO_DE_FOLHAS` da extração. */
+export const MAXIMO_DE_FOLHAS = 10;
 
 export interface ExamValidationError {
   field: string;
@@ -95,6 +116,13 @@ const ALLOWED_FILE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'h
  * defesa além do filtro do seletor nativo (que pode ser contornável
  * dependendo da plataforma/picker usado).
  */
+const EXTENSOES_DE_IMAGEM = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+
+/** A folha que pode ganhar companheiras: imagem, e não PDF (Bloco 11). */
+export function ehImagem(fileName: string): boolean {
+  return EXTENSOES_DE_IMAGEM.includes(fileName.split('.').pop()?.toLowerCase() ?? '');
+}
+
 export function validateFileType(fileName: string): boolean {
   const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
   return ALLOWED_FILE_EXTENSIONS.includes(extension);
@@ -203,11 +231,34 @@ export function getExamDocumentIncompleteReason(input: ExamDocumentCoreInput): s
  * Gera um nome único para o arquivo no S3 combinando UUID com timestamp
  * Garante que não há conflitos mesmo se arquivos forem enviados simultaneamente
  */
-export function generateS3FileName(originalFileName: string): string {
+export function generateS3FileName(originalFileName: string, sufixo = ''): string {
   const fileId = uuidv4();
   const timestamp = Date.now();
   const extension = originalFileName.split('.').pop() || 'bin';
-  return `exams/${fileId}-${timestamp}.${extension}`;
+  return `exams/${fileId}-${timestamp}${sufixo}.${extension}`;
+}
+
+/**
+ * O que as folhas adicionais precisam cumprir ANTES de qualquer upload
+ * (Bloco 11). Recusar depois de subir a folha 1 deixaria arquivo no bucket sem
+ * documento nenhum apontando para ele.
+ */
+function errosDasFolhas(principal: string, folhas: ArquivoSelecionado[]): string[] {
+  if (folhas.length === 0) return [];
+  if (!ehImagem(principal)) {
+    return ['Só dá para juntar folhas a uma foto. Um PDF já traz as páginas dele.'];
+  }
+  if (folhas.length + 1 > MAXIMO_DE_FOLHAS) {
+    return [`Um documento pode ter no máximo ${MAXIMO_DE_FOLHAS} folhas.`];
+  }
+  const erros: string[] = [];
+  folhas.forEach((folha, i) => {
+    if (!ehImagem(folha.fileName)) erros.push(`A folha ${i + 2} não é uma foto.`);
+    else if (!validateFileSize(folha.fileSize)) {
+      erros.push(`A folha ${i + 2} é grande demais (máximo de ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB).`);
+    }
+  });
+  return erros;
 }
 
 /**
@@ -245,6 +296,20 @@ export function validateExamDocument(
   }
 
   return errors;
+}
+
+/**
+ * URL assinada de uma folha adicional, pela chave COMPLETA que o upload gravou
+ * (Bloco 11). A folha 1 continua saindo de `getDocumentDownloadUrl`.
+ */
+export async function getUrlDaFolha(chave: string): Promise<string> {
+  try {
+    const result = await getUrl({ path: chave });
+    return result.url.toString();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao obter o link da folha';
+    throw new Error(`Falha ao obter URL de download: ${message}`);
+  }
 }
 
 /**
@@ -307,6 +372,8 @@ async function saveDocumentMetadata(
       // o `owner` (sub do pool de usuários) e a pasta é nomeada pelo identityId
       // (pool de identidades). Ver `amplify/.../documentKey.ts`.
       s3Key: metadata.s3Key ?? null,
+      // Só quando há folhas (Bloco 11): documento de uma folha segue igual.
+      ...(metadata.extraPageKeys?.length ? { extraPageKeys: metadata.extraPageKeys } : {}),
       originalFileName: metadata.originalFileName,
       documentName: metadata.documentName,
       documentDate: metadata.documentDate,
@@ -343,12 +410,18 @@ export async function createExamDocument(entrada: CreateExamDocumentInput) {
   });
   const input: CreateExamDocumentInput = { ...entrada, ...preparado };
 
+  // As folhas 2 a N (Bloco 11) passam pelo mesmo preparo, e TUDO e validado
+  // antes do primeiro upload.
+  const folhas: ArquivoSelecionado[] = [];
+  for (const folha of entrada.folhasAdicionais ?? []) {
+    folhas.push({ ...folha, ...(await prepararArquivoParaEnvio(folha)) });
+  }
+
   // Validar dados
   const validationErrors = validateExamDocument(input);
-  if (validationErrors.length > 0) {
-    const message = validationErrors
-      .map((error) => error.message)
-      .join('\n');
+  const errosDeFolha = errosDasFolhas(entrada.fileName, folhas);
+  if (validationErrors.length > 0 || errosDeFolha.length > 0) {
+    const message = [...validationErrors.map((error) => error.message), ...errosDeFolha].join('\n');
     throw new Error(message);
   }
 
@@ -364,9 +437,18 @@ export async function createExamDocument(entrada: CreateExamDocumentInput) {
     );
     console.log('Arquivo enviado para S3:', s3Path);
 
+    // 2b. As folhas 2 a N, na mesma pasta, na ordem (Bloco 11).
+    const extraPageKeys: string[] = [];
+    for (const [i, folha] of folhas.entries()) {
+      const nome = generateS3FileName(folha.fileName, `-folha-${i + 2}`);
+      extraPageKeys.push(
+        await uploadFileToS3(folha.filePath, ({ identityId }) => `medical-documents/${identityId}/${nome}`),
+      );
+    }
+
     // 3. Salvar metadados no DynamoDB, com a chave que o upload REALMENTE
     //    gravou -- `s3Path` era registrado no console e descartado.
-    const savedMetadata = await saveDocumentMetadata({ ...metadata, s3Key: s3Path });
+    const savedMetadata = await saveDocumentMetadata({ ...metadata, s3Key: s3Path, extraPageKeys });
     console.log('Documento salvo:', savedMetadata);
 
     // 4. Invalidate cache so next fetch gets fresh data
@@ -447,15 +529,54 @@ export async function updateExamDocument(input: UpdateExamDocumentInput) {
 }
 
 /**
- * Delete a document from S3 and DynamoDB
+ * Apaga o que a leitura automatica tirou do documento: as linhas de resultado
+ * e os itens de receita, de todas as paginas (Bloco 11, E3). Antes ficavam --
+ * na serie do analito e nas respostas do chat, citando um documento apagado.
+ *
+ * Lanca na primeira falha, e isso e o que protege a ordem de quem chama.
  */
-export async function deleteExamDocument(documentId: string, s3FileName: string) {
+async function apagarLidoDoDocumento(documentId: string): Promise<void> {
+  const linhas = await todasAsPaginas((nextToken) =>
+    client.models.LabResult.listLabResultByDocumentId({ documentId }, { nextToken }),
+  );
+  for (const linha of linhas) {
+    const { errors } = await client.models.LabResult.delete({ id: linha.id });
+    if (errors?.length) throw new Error(errors.map((e) => e.message).join('; '));
+  }
+
+  const itens = await todasAsPaginas((nextToken) =>
+    client.models.PrescriptionItem.listPrescriptionItemByDocumentId({ documentId }, { nextToken }),
+  );
+  for (const item of itens) {
+    const { errors } = await client.models.PrescriptionItem.delete({ id: item.id });
+    if (errors?.length) throw new Error(errors.map((e) => e.message).join('; '));
+  }
+}
+
+/**
+ * Apaga o documento e tudo o que veio dele, NESTA ORDEM: o que foi lido, o
+ * arquivo, o documento. Se parar no meio, o documento ainda existe e apagar de
+ * novo termina o servico. Apagar o documento primeiro deixaria linhas que
+ * nenhuma tela alcanca mais.
+ */
+export async function deleteExamDocument(
+  documentId: string,
+  s3FileName: string,
+  extraPageKeys: string[] = [],
+) {
   try {
+    // 0. O que a leitura automatica tirou dele (Bloco 11).
+    await apagarLidoDoDocumento(documentId);
+
     // 1. Delete from S3
     console.log('Deleting from S3:', s3FileName);
     await remove({
       path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
     });
+    // 1b. As folhas 2 a N (Bloco 11), pela chave completa que o upload gravou.
+    for (const chave of extraPageKeys) {
+      await remove({ path: chave });
+    }
     console.log('File deleted from S3');
 
     // 2. Delete from DynamoDB

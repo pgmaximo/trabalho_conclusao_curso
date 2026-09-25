@@ -70,6 +70,9 @@ export function ExtractedResultsSection({
   const grupos = agruparPorExame(linhas);
 
   const emAndamento = state?.status === 'PENDING' || state?.status === 'PROCESSING';
+  // Bloco 11 (E10): a releitura que falha nao apaga nada -- a gravacao le antes
+  // de escrever --, e a tela nao pode esconder o que a leitura anterior trouxe.
+  const releituraFalhou = state?.status === 'FAILED' && linhas.length > 0;
 
   return (
     <Card padding="regular" style={{ marginBottom: 20 }} variant="surface">
@@ -106,8 +109,14 @@ export function ExtractedResultsSection({
         </View>
       ) : null}
 
-      {state?.status === 'SUCCEEDED' ? (
+      {state?.status === 'SUCCEEDED' || releituraFalhou ? (
         <View className="mt-3">
+          {releituraFalhou ? (
+            <Legenda>
+              A leitura nova não deu certo. Os valores abaixo são da leitura anterior e continuam
+              guardados.
+            </Legenda>
+          ) : null}
           {/* Contagem visivel. Na tela do DASA ela informa; aqui ela tambem
               protege: o estudo de leitura mediu cobertura instavel entre
               execucoes, e sem contagem uma omissao nao deixa rastro. */}

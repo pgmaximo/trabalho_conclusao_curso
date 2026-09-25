@@ -157,3 +157,56 @@ describe('createExamDocument -- a foto (G2, Bloco 10)', () => {
     expect(linha.originalFileName).toBe('IMG_0001.jpg');
   });
 });
+
+/**
+ * Bloco 11 -- o laudo de varias folhas (E6, Decisao O1). A folha 1 continua
+ * sendo o arquivo do documento (`s3FileName`/`s3Key`); as outras sobem para a
+ * mesma pasta e entram em `extraPageKeys`, na ordem.
+ */
+describe('createExamDocument -- varias folhas (Bloco 11)', () => {
+  const FOLHA_1 = { ...ENTRADA, fileName: 'folha1.jpg', filePath: 'file:///f1.jpg', fileSize: 500_000 };
+  const folha = (n: number) => ({ fileName: `folha${n}.jpg`, filePath: `file:///f${n}.jpg`, fileSize: 400_000 });
+
+  it('sobe cada folha preparada e grava as chaves extras na ordem, na mesma pasta', async () => {
+    await createExamDocument({ ...FOLHA_1, folhasAdicionais: [folha(2), folha(3)] });
+
+    expect(mockUploadFileToS3.mock.calls.map((c) => c[0])).toEqual([
+      'file:///f1.jpg',
+      'file:///f2.jpg',
+      'file:///f3.jpg',
+    ]);
+    const linha = mockCreate.mock.calls[0]![0] as { s3Key: string; extraPageKeys: string[] };
+    expect(linha.extraPageKeys).toHaveLength(2);
+    const pasta = (k: string) => k.slice(0, k.lastIndexOf('/'));
+    for (const chave of linha.extraPageKeys) expect(pasta(chave)).toBe(pasta(linha.s3Key));
+    expect(linha.extraPageKeys[0]).toMatch(/-folha-2\.jpg$/);
+    expect(linha.extraPageKeys[1]).toMatch(/-folha-3\.jpg$/);
+    expect(mockPreparar).toHaveBeenCalledTimes(3);
+  });
+
+  it('sem folhas adicionais, nada muda: o documento nao ganha extraPageKeys', async () => {
+    await createExamDocument(FOLHA_1);
+    const linha = mockCreate.mock.calls[0]![0] as Record<string, unknown>;
+    expect('extraPageKeys' in linha).toBe(false);
+  });
+
+  it('folha adicional que nao e imagem e recusada antes de subir qualquer coisa', async () => {
+    await expect(
+      createExamDocument({ ...FOLHA_1, folhasAdicionais: [{ ...folha(2), fileName: 'x.pdf' }] }),
+    ).rejects.toThrow(/folha/i);
+    expect(mockUploadFileToS3).not.toHaveBeenCalled();
+  });
+
+  it('PDF nao recebe folha adicional -- ele ja tem paginas', async () => {
+    await expect(
+      createExamDocument({ ...ENTRADA, folhasAdicionais: [folha(2)] }),
+    ).rejects.toThrow(/folha/i);
+    expect(mockUploadFileToS3).not.toHaveBeenCalled();
+  });
+
+  it('mais de 10 folhas e recusado', async () => {
+    const extras = Array.from({ length: 10 }, (_, i) => folha(i + 2));
+    await expect(createExamDocument({ ...FOLHA_1, folhasAdicionais: extras })).rejects.toThrow(/10 folhas/);
+    expect(mockUploadFileToS3).not.toHaveBeenCalled();
+  });
+});

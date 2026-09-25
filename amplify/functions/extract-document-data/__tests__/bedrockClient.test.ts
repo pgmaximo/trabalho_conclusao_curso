@@ -240,3 +240,43 @@ describe('requestExtraction -- falha', () => {
     expect(await pedir()).toEqual({ ok: false, motivo: 'bloqueado-pelo-filtro' });
   });
 });
+
+describe('requestExtraction -- varias folhas (Bloco 11)', () => {
+  const FOLHAS: ExtractionSource = {
+    kind: 'folhas',
+    folhas: [
+      { formato: 'jpeg', bytes: new Uint8Array([0xff, 0xd8, 0xff, 1]) },
+      { formato: 'png', bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) },
+      { formato: 'jpeg', bytes: new Uint8Array([0xff, 0xd8, 0xff, 3]) },
+    ],
+  };
+
+  const conteudoEnviado = () =>
+    (mockSend.mock.calls[0]![0] as { input: { messages: { content: Record<string, unknown>[] }[] } })
+      .input.messages[0]!.content;
+
+  it('um bloco de imagem por folha, na ordem, e nenhum de documento', async () => {
+    mockSend.mockResolvedValueOnce(resposta(EXTRACAO_VALIDA, [10, 5]));
+
+    const r = await requestExtraction(FOLHAS, 'exam', OPCOES);
+
+    expect(r.ok).toBe(true);
+    const imagens = conteudoEnviado().filter((b) => 'image' in b) as {
+      image: { format: string; source: { bytes: Uint8Array } };
+    }[];
+    expect(imagens.map((b) => b.image.format)).toEqual(['jpeg', 'png', 'jpeg']);
+    expect(imagens.map((b) => b.image.source.bytes[3])).toEqual([1, 0x47, 3]);
+    expect(conteudoEnviado().some((b) => 'document' in b)).toBe(false);
+  });
+
+  it('o pedido diz quantas folhas sao, e vem DEPOIS das imagens', async () => {
+    mockSend.mockResolvedValueOnce(resposta(EXTRACAO_VALIDA, [10, 5]));
+
+    await requestExtraction(FOLHAS, 'exam', OPCOES);
+
+    const conteudo = conteudoEnviado();
+    const ultimaImagem = conteudo.map((b) => 'image' in b).lastIndexOf(true);
+    const pedido = conteudo.findIndex((b) => JSON.stringify(b).includes('3 fotos'));
+    expect(pedido).toBeGreaterThan(ultimaImagem);
+  });
+});

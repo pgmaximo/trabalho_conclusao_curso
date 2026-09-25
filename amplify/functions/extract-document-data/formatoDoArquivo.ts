@@ -69,3 +69,19 @@ export function avaliarArquivo(bytes: Uint8Array): AvaliacaoDoArquivo {
   if (bytes.byteLength > teto) return { ok: false, motivo: 'grande-demais' };
   return { ok: true, formato };
 }
+
+/**
+ * O teto do PDF que a EXTRACAO aceita dividindo em partes (Bloco 11, E5). E o
+ * teto do aplicativo (`MAX_FILE_SIZE_BYTES` em examService): o PDF entre 4,5 e
+ * 10 MB subia e falhava aqui. Acima disto nem o aplicativo deixa subir.
+ */
+export const TETO_PDF_DIVIDIDO_BYTES = 10 * 1024 * 1024;
+
+/**
+ * O PDF que nao cabe num bloco, e cabe dividido. `avaliarArquivo` continua
+ * dizendo "grande demais" para ele de proposito: o anexo do chat usa a mesma
+ * funcao e manda o arquivo num bloco so.
+ */
+export function pdfDivisivel(bytes: Uint8Array): boolean {
+  return detectarFormato(bytes)?.tipo === 'pdf' && bytes.byteLength <= TETO_PDF_DIVIDIDO_BYTES;
+}

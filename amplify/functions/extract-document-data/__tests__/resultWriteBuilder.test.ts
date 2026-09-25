@@ -117,6 +117,25 @@ describe('buildLabResultUpdate', () => {
     expect(posRemove).toBeGreaterThan(posSet);
   });
 
+  it('gravacao normal NAO menciona correctedAt -- nem para gravar, nem para apagar (Bloco 11)', () => {
+    // A data em que a pessoa conferiu e dela. Uma gravacao que mencionasse o
+    // campo como nulo o APAGARIA (nulo vira REMOVE).
+    const nomes = Object.values(buildLabResultUpdate(linha, 'tabela').ExpressionAttributeNames ?? {});
+    expect(nomes).not.toContain('correctedAt');
+  });
+
+  it('a correcao transferida de uma linha antiga grava correctedAt (Bloco 11)', () => {
+    const cmd = buildLabResultUpdate(
+      { ...linha, reviewStatus: 'CONFIRMADO_PELO_USUARIO', correctedAt: '2026-09-20T10:00:00.000Z' },
+      'tabela',
+    );
+    const nomes = cmd.ExpressionAttributeNames ?? {};
+    const chave = Object.keys(nomes).find((k) => nomes[k] === 'correctedAt');
+    expect(chave).toBeDefined();
+    expect(cmd.UpdateExpression).toMatch(new RegExp(`SET .*${chave} = `));
+    expect(Object.values(cmd.ExpressionAttributeValues ?? {})).toContain('2026-09-20T10:00:00.000Z');
+  });
+
   it('nao escreve nenhum campo de interpretacao clinica', () => {
     const nomes = Object.values(buildLabResultUpdate(linha, 'tabela').ExpressionAttributeNames ?? {});
     expect(nomes).toEqual(

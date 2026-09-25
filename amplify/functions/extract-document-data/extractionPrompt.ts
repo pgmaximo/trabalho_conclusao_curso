@@ -87,7 +87,18 @@ export function buildUserAsk(documentType: 'exam' | 'prescription'): string {
  * mas foi na foto que o erro foi medido: vendo so a folha em que o resultado nao
  * estava impresso, o modelo foi busca-lo no grafico de historico.
  */
-export function buildUserAskDeFoto(documentType: 'exam' | 'prescription'): string {
+export function buildUserAskDeFoto(
+  documentType: 'exam' | 'prescription',
+  quantidade = 1,
+): string {
+  // Varias folhas (Bloco 11, E6): todas vem juntas, entao a frase "pode ser so
+  // uma das folhas" deixa de ser verdade -- e o resultado que estava na folha
+  // anterior, o que produziu o erro do grafico, agora esta aqui.
+  if (quantidade > 1) {
+    return `${buildUserAsk(documentType)}
+
+O documento sao ${quantidade} fotos, folhas do mesmo documento, na ordem em que a pessoa as fotografou. Leia todas antes de transcrever: o cabecalho da coleta pode estar numa folha e o resultado na seguinte. Em sourcePage, use o numero da foto (de 1 a ${quantidade}). As fotos podem estar inclinadas, com sombra, desfocadas ou com parte fora do quadro. O que nao estiver legivel, NAO transcreva: registre em warnings. Resultado que nao esta impresso em nenhuma das folhas nao e transcrito, nem a partir de grafico.`;
+  }
   return `${buildUserAsk(documentType)}
 
 O documento e uma FOTO ou imagem de uma pagina. Ela pode estar inclinada, com sombra, desfocada ou com parte fora do quadro, e pode ser so uma das folhas de um documento maior. O que nao estiver legivel, NAO transcreva: registre em warnings. Resultado que nao esta impresso nesta folha nao e transcrito, nem a partir de grafico.`;

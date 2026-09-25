@@ -10,7 +10,10 @@ confundem, e a diferença entre elas é o ponto deste documento:
 - **§2 e §3 — Limitações.** O que o sistema não faz **porque ainda não sabe, ou
   porque ninguém mediu**. Estas são dívida, e cada uma diz o que a fecharia.
 
-Estado de 2026-09-22, depois do Bloco 10.
+Estado de 2026-09-22, depois do Bloco 10; atualizado em 2026-09-25, depois do
+Bloco 11 (`specs/08-ia-fechamento/engenharia-pendente/`). Desde 2026-09-24 o
+aplicativo **não** será aberto ao público: §3.3 a §3.5 ficam registradas como
+fora de escopo, e não como pendência.
 
 ---
 
@@ -55,13 +58,14 @@ reproduz reflexo, papel dobrado, dedo na borda nem perspectiva trapezoidal. **A
 medição com foto de verdade, de laudos de laboratórios diferentes, não foi
 feita.**
 
-### 2.3 Uma foto é uma folha
+### 2.3 Até dez folhas por documento — e o que isso ainda não cobre
 
-Um laudo em papel tem várias folhas, e hoje um documento é um arquivo. Quem
-fotografa cinco folhas cria cinco documentos; os analitos se encontram na série,
-mas o documento "laudo de outubro" não existe como um só (Decisão K). E a folha
-isolada é exatamente a condição que produziu o erro do gráfico: o resultado
-estava na folha anterior.
+Desde o Bloco 11 (D50), um laudo fotografado pode ter até dez folhas num
+documento só, lidas juntas e em ordem. Com as duas folhas do caso do gráfico, o
+HDL veio do número impresso (62, confiança 0,98). O que continua fora: misturar
+PDF e foto no mesmo documento, mais de dez folhas, e o anexo do chat, que segue
+um arquivo por mensagem. E um resultado cujo bloco atravessa duas folhas pode
+sair marcado na folha em que o bloco continua, e não na do número.
 
 ### 2.4 O limiar de confiança é provisório
 
@@ -82,19 +86,15 @@ O catálogo cobre 154 analitos desde o Bloco 10. O que está fora vira linha com
 código **local**, derivado do rótulo (D32): legível e guardado, mas o código
 local de um laboratório não é o de outro, e as séries não se encontram.
 
-### 2.7 A ampliação do catálogo tem uma costura com o passado
+### 2.7 A costura do catálogo com o passado — fechada pela regravação
 
-Analitos que eram locais antes do Bloco 10 — o VPM e o SHBG do laudo do Delboni,
-por exemplo — passaram a ter código LOINC. As linhas antigas continuam com o
-código local. Duas consequências, uma consertada e uma não:
-
-- **Consertada:** a conversa encontra as linhas antigas (a busca da tool de
-  analitos só deixa o catálogo vencer quando há linha com o código dele).
-- **Não consertada:** **reprocessar** um documento antigo cria a linha nova com o
-  código LOINC e **deixa a antiga**, porque o identificador da linha inclui o
-  código. A série mostra as duas. Só afeta documento lido antes do Bloco 10 e
-  reprocessado depois; o conserto é a gravação apagar a versão de código local
-  da mesma linha do mesmo documento, e está registrado como pendência.
+Analitos que eram locais antes do Bloco 10 (o VPM e o SHBG do laudo do Delboni)
+ganharam código LOINC. Desde o Bloco 11 (D47), reprocessar um documento antigo
+**troca** a linha local pela de catálogo, e a correção que a pessoa tinha feito
+passa junto. O que ficou de fora é deliberado: a correspondência só age quando é
+única nos dois sentidos, então um rótulo ambíguo deixa a linha antiga ao lado da
+nova — um ponto duplicado, que se vê, em vez de um resultado apagado, que não se
+vê.
 
 ### 2.8 Escolhas do gerador sem termo neutro de método
 
@@ -102,6 +102,21 @@ A LDH e as frações da eletroforese caíram em termos com método específico,
 porque não há termo neutro no LOINC 2.83 que corresponda ao que o laudo
 brasileiro reporta. A escolha foi por ranqueamento e por unidade, e merece
 olhada contra papel (`05-vocabularios/pendencias.md`, seção 7).
+
+### 2.9 O PDF grande é lido em partes, e cada parte vê só as suas páginas
+
+Desde o Bloco 11 (D49), o PDF entre 4,5 e 10 MB é dividido em partes de páginas
+contíguas. Cada parte é lida sem ver as outras: um cabeçalho de coleta numa parte
+e o resultado na seguinte podem se desencontrar. Uma página sozinha acima de
+4,5 MB (digitalização em resolução muito alta) não tem como ser lida por este
+caminho.
+
+### 2.10 Dois defeitos de dado que nenhum documento registrava, fechados
+
+Achados lendo o código para o Bloco 11, e mais graves que os da lista que o
+originou: **reprocessar desfazia a correção da pessoa** (D47), e **apagar o
+documento deixava os valores dele** na série e no chat (D48). Os dois estão
+fechados, com teste e mutação.
 
 ---
 
@@ -123,15 +138,20 @@ faixa podem indicar...") — reprovação provavelmente sem razão, salva pela
 segunda geração. O custo é uma geração a mais nessas perguntas; o ganho é que a
 resposta que escolhe a linha da tabela pela idade da pessoa deixou de passar.
 
-### 3.2 A R1 tem falso positivo conhecido, e o custo dele foi medido uma vez
+### 3.2 A R1 e a R3 tinham falso positivo — medido, e consertado sem afrouxar
 
-A R1 veta uma raiz que aparece em palavras inocentes ("no fim do laudo" dito de
-outro jeito, "o propósito do exame" dito de outro jeito). A rodada automática
-tem três perguntas feitas para empurrar a resposta para essas palavras. Em
-quatro rodadas: **2 reprovações em 12**, as duas salvas pela segunda geração,
-nenhuma resposta perdida. Doze perguntas são uma amostra, não uma taxa.
+A R1 veta uma raiz que aparece em palavras inocentes. Nas rodadas do Bloco 10,
+2 reprovações em 12 perguntas feitas para provocá-la, salvas pela segunda
+geração. A medição do Bloco 11 (D51, nove turnos) mostrou que o custo era maior:
+uma resposta **perdida**, porque a segunda geração caía na R3, que barrava
+inventário ("você tem apenas um laudo guardado"). Com a R1 do prompt nomeando os
+sentidos inocentes (sem escrever a palavra) e a exceção de inventário da R3, as
+nove foram aprovadas de primeira. Nove turnos são amostra, não taxa.
 
 ### 3.3 O dado de saúde sai do Brasil
+
+> **Fora de escopo desde 2026-09-24:** o aplicativo não será aberto ao público.
+> O fato técnico continua verdadeiro e fica registrado.
 
 O Bedrock é invocado em `us-east-1`, pelo perfil de inferência cruzado `us.`.
 O dado de saúde da pessoa — o PDF, a foto, os valores citados na conversa —
@@ -144,6 +164,8 @@ lugar nenhum do aplicativo hoje. A alternativa técnica existe (Bedrock em
 
 ### 3.4 A conta é de plano gratuito, com prazo
 
+> **Fora de escopo desde 2026-09-24**, pela mesma razão.
+
 Medido em 2026-09-18: a conta AWS está no plano gratuito, com créditos que
 **vencem em 2026-10-25**. É a causa mais provável da recusa do Textract, e é um
 risco de operação para qualquer abertura ao público: depois do prazo, a conta
@@ -151,6 +173,10 @@ passa a exigir o plano pago ou deixa de responder. É decisão de custo do dono 
 conta, não do código.
 
 ### 3.5 Custo por documento e por conversa, em escala, não foi projetado
+
+> **Fora de escopo desde 2026-09-24**, pela mesma razão. Os custos por documento
+> continuam medidos: 16 mil tokens para duas folhas, 78 mil para o PDF de 7,3 MB
+> dividido (D49, D50).
 
 Medido: um laudo de 20 páginas em PDF custa perto de 57 mil tokens de entrada
 por leitura; a foto de uma página, 14,4 mil com o catálogo de 154 analitos
@@ -175,10 +201,13 @@ dita aqui porque é o preço dela.
 | Diagnóstico, dose, juízo de valor, escolha de faixa, número de gráfico | **recusa de projeto** | nada — é a tese |
 | Omissão instável | limitação | reprocessar e contar; segunda fonte independente |
 | Foto medida só em simulação e com um emissor | limitação | fotos reais de laudos de laboratórios diferentes (U12, T14) |
-| Uma foto por documento | limitação | EPIC de tela com vários arquivos por documento (Decisão K2) |
+| Uma foto por documento | **fechada no Bloco 11** (D50) | — até dez folhas; misturar PDF e foto segue fora |
 | Limiar de confiança provisório | limitação | T14 |
-| Reprocessamento de documento antigo duplica linha que mudou de código | defeito conhecido | gravação apaga a versão de código local da mesma linha |
+| Reprocessamento de documento antigo duplica linha que mudou de código | **fechado no Bloco 11** (D47) | — correspondência ambígua fica duplicada, de propósito |
+| Reprocessar desfazia a correção da pessoa | **achado e fechado no Bloco 11** (D47) | — |
+| Apagar o documento deixava os valores dele | **achado e fechado no Bloco 11** (D48) | — |
+| PDF acima de 4,5 MB recusado | **fechado no Bloco 11** (D49) | — página sozinha acima de 4,5 MB continua sem caminho |
 | L7 humana | medição pendente | vinte perguntas reais, pela pessoa |
-| Transferência internacional (LGPD art. 33) | pendência de produto | consentimento e política; ou Bedrock em `sa-east-1` |
-| Conta em plano gratuito, com prazo | risco de operação | decisão do dono da conta |
-| Custo em escala | medição pendente | projeção por documento e por conversa; modelo menor para transcrição |
+| Transferência internacional (LGPD art. 33) | fora de escopo (sem abertura pública) | — |
+| Conta em plano gratuito, com prazo | fora de escopo (sem abertura pública) | — |
+| Custo em escala | fora de escopo (sem abertura pública) | — |

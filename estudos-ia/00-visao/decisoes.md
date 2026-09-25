@@ -1778,3 +1778,121 @@ token.
 **O que a rodada não substitui:** a L7. A caixa "passou e não deveria" do achado
 6 foi preenchida pelo agente que executou o bloco, lendo as respostas (Decisão
 J3). A rodada humana continua sendo a da tese.
+
+---
+
+## D47 — Reprocessar preserva o que a pessoa conferiu e troca a linha que mudou de código
+**Data:** 2026-09-25 · **Estado:** decidida · **Decisão L do Bloco 11**
+
+A gravação idempotente pelo id (D22) tinha dois efeitos que nenhum documento
+registrava, achados lendo o código para esta EPIC:
+
+1. **Reprocessar desfazia a correção da pessoa.** O construtor da gravação escrevia
+   valor, qualificador, unidade e status em toda linha; a linha que a pessoa
+   conferiu no papel voltava a ser a leitura do modelo.
+2. **Reprocessar duplicava a linha que mudou de código** (limitações §2.7): o id
+   inclui o código, e a linha local antiga ficava ao lado da LOINC nova.
+
+A extração passou a **ler as linhas do documento antes de gravar**
+(`regravacao.ts`, consulta ao índice `labResultsByDocumentId`, permissão
+explícita no índice em `backend.ts`):
+
+- linha conferida mantém os quatro campos da pessoa; se a leitura nova discorda,
+  vira aviso;
+- linha local é apagada quando uma de catálogo a substitui **um para um** — mesmo
+  momento, e o código local sai do rótulo do papel ou de um nome que o catálogo
+  conhece para o analito. Correspondência ambígua (o "Neutr" do absoluto e do
+  percentual) não apaga nada. A correção da antiga passa para a nova, com a data;
+- as novas são gravadas **antes** de a antiga ser apagada: uma falha no meio deixa
+  duplicado, nunca perdido;
+- linha que não reaparece fica (a omissão é instável, D22).
+
+**E a tela:** a releitura que falha (status `FAILED`) escondia a lista inteira,
+embora as linhas continuassem no banco. Agora a lista fica à vista, com a frase
+"os valores abaixo são da leitura anterior". Isso pesa mais com a D46: todo
+documento enviado antes da posse do arquivo falha ao ser relido.
+
+---
+
+## D48 — Apagar o documento apaga o que foi lido dele, nesta ordem
+**Data:** 2026-09-25 · **Estado:** decidida · **Decisão M do Bloco 11**
+
+`deleteExamDocument` removia o arquivo e a linha do documento e deixava as linhas
+de `LabResult` e `PrescriptionItem`: a série e o chat continuavam mostrando valor
+de um documento apagado, com citação para lugar nenhum.
+
+A exclusão é feita no aplicativo (as regras `allow.owner()` já permitem), na
+ordem **o que foi lido → arquivos → documento**. Se parar no meio, o documento
+ainda existe e apagar de novo termina o serviço; apagar o documento primeiro
+deixaria linhas que nenhuma tela alcança. As listas são lidas até a última
+página (`todasAsPaginas.ts`), e a tela do documento, que lia só a primeira, usa
+o mesmo ajudante.
+
+Medido no sandbox antes de escrever: **zero** linhas órfãs. Não houve limpeza
+retroativa a fazer.
+
+---
+
+## D49 — O PDF acima de 4,5 MB é dividido em partes de páginas contíguas
+**Data:** 2026-09-25 · **Estado:** decidida · **Decisão N do Bloco 11**
+
+O bloco de documento do Converse aceita 4,5 MB e o aplicativo, 10 MB. O PDF entre
+os dois falhava no servidor. Agora ele é dividido com `pdf-lib` (JavaScript puro,
+MIT; justificativa em `plan.md`, regra 3): metades sucessivas até cada parte
+caber, e depois uma passada que junta vizinhas enquanto couberem. Cada parte é
+uma chamada **idêntica** à de um PDF pequeno; a junção desloca a página de cada
+linha para a numeração do documento inteiro, prefixa os avisos com as páginas, e
+uma parte que falha não derruba as outras.
+
+**Medido contra o modelo real:** o laudo de 20 páginas com duas páginas de ruído
+na frente (7,3 MB) virou 2 partes; as **40 de 40** linhas em comum com a leitura
+inteira vieram com a página certa. O custo sobe com o que for lido a mais — o
+ruído também é lido. O anexo do chat **não** divide: continua um bloco só.
+
+---
+
+## D50 — Um documento pode ter até dez folhas fotografadas
+**Data:** 2026-09-25 · **Estado:** decidida · **Decisão O do Bloco 11 (a K2 do Bloco 10)**
+
+`MedicalDocument.extraPageKeys` guarda as chaves das folhas 2 a N; `s3Key`
+continua sendo a folha 1 — todo código que o lê continua certo, e documento
+antigo é um documento de uma folha (regra 5). Toda folha extra passa a mesma
+conferência de forma da primeira **e** está na mesma pasta dela. Uma folha só
+mantém a soma do arquivo, e os ids de documento antigo não mudam.
+
+As folhas vão juntas ao modelo, em ordem, com o pedido dizendo que são do mesmo
+documento e que a página é o número da foto. Só foto ganha folha (PDF já tem
+páginas), e o teto é dez.
+
+**Medido contra o modelo real,** com as páginas 10 e 11 do laudo do Delboni — a
+dupla que produziu o erro do gráfico (G10): a folha 11 sozinha não traz HDL; as
+duas juntas trazem o **HDL 62 do papel**, com confiança 0,98, iguais nas duas
+rodadas, e a trava do gráfico não rebaixa nada. Custo: 16,0 mil tokens de entrada
+contra 14,4 mil de uma folha. Uma imprecisão registrada: o HDL veio marcado na
+folha 2, onde o bloco dele continua, e não na 1, onde o número está.
+
+---
+
+## D51 — A R1 do prompt nomeia os sentidos inocentes, sem escrever a palavra; a R3 deixa de barrar inventário
+**Data:** 2026-09-25 · **Estado:** decidida · **Decisão P do Bloco 11**
+
+A R1 do prompt dizia "a palavra que encerra uma questão de forma definitiva" — um
+enigma, porque o prompt não pode conter o termo (teste em `rulesPrompt.test.ts`;
+modelos imitam o que leem). O modelo repetia a palavra da pergunta. A R1 agora
+nomeia os dois sentidos inocentes que a avaliação provoca (a posição no
+documento e aquilo a que o exame serve), dá as substituições de cada um e manda não
+repetir a palavra da pergunta — **sem escrevê-la**. A trava não afrouxou.
+
+A medição (r1a, r1b e r1c, três vezes cada) achou o que o Bloco 10 não tinha
+visto: uma das reprovações **perdia a resposta**, porque a segunda geração caía na
+R3 — o padrão de diagnóstico ("você tem …") barrava inventário com advérbio ("você
+tem **apenas** um laudo") e com o objeto antes do verbo ("os laudos que você tem
+**guardados**"). A exceção de inventário cobre os dois; "você tem apenas diabetes"
+continua reprovado.
+
+| | Antes | Só R1 | R1 + inventário |
+|---|---|---|---|
+| Aprovadas de primeira | 7 de 9 | 7 de 9 | **9 de 9** |
+| Respostas perdidas | 1 | 2 | **0** |
+
+Relatório: `04-implementacao/avaliacoes/2026-09-24-r1-antes-e-depois.md`.

@@ -284,6 +284,16 @@ backend.startDocumentExtraction.addEnvironment(
 medicalDocumentTable.grantReadWriteData(extractDocumentDataLambda);
 labResultTable.grantReadWriteData(extractDocumentDataLambda);
 prescriptionItemTable.grantReadWriteData(extractDocumentDataLambda);
+// A regravacao le as linhas do documento pelo indice por documento (Bloco 11)
+// antes de gravar. O grant da tabela do Amplify cobre a ARN da tabela, e a
+// consulta a um indice e autorizada pela ARN do INDICE -- sem esta linha, a
+// primeira leitura real devolveria AccessDeniedException.
+extractDocumentDataLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['dynamodb:Query'],
+    resources: [`${labResultTable.tableArn}/index/*`],
+  }),
+);
 backend.extractDocumentData.addEnvironment(
   'MEDICAL_DOCUMENT_TABLE_NAME',
   medicalDocumentTable.tableName,

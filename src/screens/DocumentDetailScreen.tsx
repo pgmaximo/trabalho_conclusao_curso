@@ -30,6 +30,7 @@ import { useThemeColors } from '@/constants/theme';
 import type { UseDocumentExtractionResult } from '@/hooks/useDocumentExtraction';
 import {
   getDocumentDownloadUrl,
+  getUrlDaFolha,
   getExamDocumentIncompleteReason,
   isExamDocumentComplete,
   updateExamDocument,
@@ -137,7 +138,7 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
     setDeleteError(null);
 
     try {
-      await deleteExamDocument(document.id, document.s3FileName);
+      await deleteExamDocument(document.id, document.s3FileName, document.extraPageKeys ?? []);
       router.replace('/exams');
     } catch (error) {
       // Painel fecha e o usuário permanece na tela do documento para nova tentativa —
@@ -147,6 +148,17 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
       setIsConfirmingDelete(false);
     } finally {
       setIsDeleting(false);
+    }
+  }
+
+  /** Uma folha extra do laudo fotografado (Bloco 11), pela chave completa. */
+  async function handleAbrirFolha(chave: string) {
+    setDownloadError(null);
+    try {
+      await Linking.openURL(await getUrlDaFolha(chave));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao abrir a folha.';
+      setDownloadError(message);
     }
   }
 
@@ -314,6 +326,25 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
                   Baixar documento
                 </Text>
               </Pressable>
+
+              {/* As folhas 2 a N de um laudo fotografado (Bloco 11, E6). O
+                  Canvas 3c mostra um arquivo so; cada folha extra reusa o botao
+                  secundario do "Baixar documento" (constituicao, regra 8). */}
+              {(document.extraPageKeys ?? []).map((chave, i) => (
+                <Pressable
+                  accessibilityLabel={`Abrir folha ${i + 2}`}
+                  accessibilityRole="button"
+                  key={chave}
+                  onPress={() => handleAbrirFolha(chave)}
+                  style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+                  className="mb-3 h-12 flex-row items-center justify-center gap-2 rounded-field border-[1.5px] border-app-border dark:border-app-dark-border"
+                >
+                  <Ionicons color={colors.primaryDark} name="document-outline" size={18} />
+                  <Text className="text-[17px] font-semibold text-app-primaryDark dark:text-app-dark-primaryDark">
+                    Abrir folha {i + 2}
+                  </Text>
+                </Pressable>
+              ))}
 
               {deleteError ? <InlineError message={deleteError} /> : null}
 

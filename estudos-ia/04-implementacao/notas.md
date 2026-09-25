@@ -1178,3 +1178,21 @@ O rótulo por caixa está no próprio relatório da rodada 4
 Gerada para o laudo do Delboni: 48 linhas, fora do repositório (tem dado de
 saúde). **Não preenchida** — preencher é conferir contra o papel, e isso é a
 T14.
+
+---
+
+## Bloco 11 — a engenharia que ficou registrada (2026-09-24 e 25)
+
+Spec em `specs/08-ia-fechamento/engenharia-pendente/`; decisões D47 a D51.
+
+- **Banco do sandbox antes de começar,** sem ler valor: 7 documentos, 48 linhas,
+  0 órfãs, 7 de código local.
+- **R1, nove turnos antes e depois:** de 7/9 aprovadas de primeira e 1 resposta
+  perdida para 9/9 e nenhuma. A causa da resposta perdida era a R3 barrando
+  inventário, não a R1.
+- **PDF dividido:** 7,3 MB → 2 partes; 40/40 linhas em comum com a página certa;
+  78 mil tokens de entrada contra 62 mil da leitura inteira (o ruído também é
+  lido).
+- **Duas folhas juntas (páginas 10 e 11 do Delboni):** HDL 62 do papel nas duas
+  rodadas, a trava do gráfico não dispara, 16,0 mil tokens contra 14,4 mil de
+  uma folha. A folha 11 sozinha não traz HDL.

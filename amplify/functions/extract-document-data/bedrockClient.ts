@@ -55,7 +55,8 @@ const TEMPERATURE = 0;
  */
 export type ExtractionSource =
   | { kind: 'pdf'; bytes: Uint8Array }
-  | { kind: 'imagem'; formato: FormatoDeImagem; bytes: Uint8Array };
+  | { kind: 'imagem'; formato: FormatoDeImagem; bytes: Uint8Array }
+  | { kind: 'folhas'; folhas: Array<{ formato: FormatoDeImagem; bytes: Uint8Array }> };
 
 export type RequestExtractionOptions = {
   modelId: string;
@@ -128,6 +129,17 @@ function blocosDoDocumento(
       // pudesse se manifestar.
       { document: { format: 'pdf', name: 'laudo', source: { bytes: source.bytes } } },
       { guardContent: { text: { text: buildUserAsk(documentType) } } },
+    ];
+  }
+  // As folhas de um mesmo laudo (Bloco 11, E6): uma imagem por folha, na ordem
+  // em que a pessoa as fotografou, e o pedido DEPOIS de todas -- o modelo le o
+  // documento inteiro antes de saber o que fazer com ele.
+  if (source.kind === 'folhas') {
+    return [
+      ...source.folhas.map(
+        (folha): ContentBlock => ({ image: { format: folha.formato, source: { bytes: folha.bytes } } }),
+      ),
+      { guardContent: { text: { text: buildUserAskDeFoto(documentType, source.folhas.length) } } },
     ];
   }
   // A foto (G1). Mesma protecao do PDF: o bloco de imagem tambem nao passa

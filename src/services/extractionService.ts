@@ -15,6 +15,7 @@ import type { Schema } from '../../amplify/data/resource';
 // aplicativo. A pessoa que corrige uma linha digita "32,5" pelo mesmo motivo
 // que o laudo escreve "32,5", e ler isso com parseFloat devolveria 32 (D23).
 import { parseDecimal } from '../../amplify/functions/extract-document-data/numberParser';
+import { todasAsPaginas } from '@/services/todasAsPaginas';
 
 const client = generateClient<Schema>();
 
@@ -85,7 +86,10 @@ export async function fetchExtractionState(documentId: string): Promise<Extracti
   const { data: doc, errors } = await client.models.MedicalDocument.get({ id: documentId });
   lancarSeErro(errors);
 
-  const { data: linhas } = await client.models.LabResult.listLabResultByDocumentId({ documentId });
+  // Todas as paginas (Bloco 11). Antes a tela lia a primeira e parava.
+  const linhas = await todasAsPaginas((nextToken) =>
+    client.models.LabResult.listLabResultByDocumentId({ documentId }, { nextToken }),
+  );
 
   return {
     status: (doc?.extractionStatus as ExtractionStatus | null) ?? 'NUNCA_EXTRAIDO',

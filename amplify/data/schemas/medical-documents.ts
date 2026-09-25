@@ -22,6 +22,11 @@ export const medicalDocumentsSchema = {
       // um no outro do lado do servidor. Sem este campo a Lambda precisaria
       // adivinhar a pasta, e adivinhar foi o defeito de 2026-09-18.
       s3Key: a.string(),
+      // As folhas 2 a N de um laudo fotografado (Bloco 11, Decisao O1): chaves
+      // COMPLETAS, na mesma pasta da folha 1, que continua sendo `s3Key`.
+      // Opcional: documento antigo, ou de uma folha, simplesmente nao tem --
+      // e todo codigo que le `s3Key` continua certo.
+      extraPageKeys: a.string().array(),
       // Quem emitiu o laudo, como esta escrito no papel. Opcional, preenchido
       // pela extracao. Sustenta a promessa da S8 -- "faixa de CADA laboratorio"
       // exige saber de quem e cada faixa.

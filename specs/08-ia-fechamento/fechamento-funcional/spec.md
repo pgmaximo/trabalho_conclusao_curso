@@ -366,6 +366,9 @@ automática, rotulada pelo agente" não é "L7".
 
 ### 5.6 Decisão K — foto de laudo com várias páginas
 
+> **Executada como K2 no Bloco 11** (`specs/08-ia-fechamento/engenharia-pendente/`,
+> Decisão O, D50): até dez folhas por documento.
+
 Um laudo em papel tem várias folhas. Hoje um documento é um arquivo.
 
 | Opção | Prós | Contras |

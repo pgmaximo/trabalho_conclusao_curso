@@ -18,7 +18,7 @@ jest.mock('@expo/vector-icons/Ionicons', () => {
 });
 
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ANALYTE_CATALOG } from '../amplify/functions/extract-document-data/analyteCatalog';
@@ -164,6 +164,24 @@ describe('DocumentDetailScreen — os cinco estados da leitura', () => {
     // A frase generica sai: duas explicacoes para a mesma falha confundem.
     expect(screen.queryByText(/Não conseguimos ler o conteúdo deste documento/)).toBeNull();
     expect(screen.getByText(/tentar de novo/i)).toBeTruthy();
+  });
+
+  // Bloco 11 (E10): a releitura que falha nao pode esconder o que ja foi lido.
+  // As linhas continuam no banco -- a gravacao nunca apaga antes de ler -- e a
+  // tela as escondia so porque o status virou FAILED. Com a posse do arquivo
+  // (D46), todo documento enviado antes dela falha ao ser relido.
+  it('falha na RELEITURA mantem a vista o que a leitura anterior trouxe', () => {
+    renderScreen(
+      extracao({ status: 'FAILED', errorMessage: 'Não foi possível ler.', results: [hemoglobina] }),
+    );
+    expect(screen.getByText('Hemoglobina')).toBeTruthy();
+    expect(screen.getByText(/valores abaixo são da leitura anterior/i)).toBeTruthy();
+    expect(screen.getByText(/tentar de novo/i)).toBeTruthy();
+  });
+
+  it('falha sem leitura anterior nao inventa aviso de leitura anterior', () => {
+    renderScreen(extracao({ status: 'FAILED', errorMessage: 'Não foi possível ler.' }));
+    expect(screen.queryByText(/leitura anterior/i)).toBeNull();
   });
 
   it('falha com texto TECNICO gravado antes do Bloco 10 continua escondida', () => {
@@ -400,5 +418,43 @@ describe('DocumentDetailScreen — a data do formulario e a do laudo (B2)', () =
     // Se a tela "consertasse" o campo sozinha, o resumo mostraria 04/10/2025.
     expect(screen.getAllByText(/18\/09\/2026/).length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText(/04\/10\/2025/)).toBeTruthy();
+  });
+});
+
+/**
+ * Bloco 11 (E6) -- o laudo de varias folhas. A folha 1 continua no "Baixar
+ * documento"; cada folha extra ganha o seu botao, que abre aquele arquivo.
+ */
+describe('DocumentDetailScreen — varias folhas (Bloco 11)', () => {
+  const { getUrl } = jest.requireMock('aws-amplify/storage') as { getUrl: jest.Mock };
+  const comFolhas = {
+    ...documento,
+    s3FileName: 'exams/folha-1.jpg',
+    extraPageKeys: ['medical-documents/id/exams/f-folha-2.jpg', 'medical-documents/id/exams/f-folha-3.jpg'],
+  } as typeof documento;
+
+  it('documento de uma folha nao mostra botao de folha', () => {
+    renderScreen(extracao());
+    expect(screen.queryByText(/Abrir folha/)).toBeNull();
+  });
+
+  it('um botao por folha extra, numerado a partir de 2', () => {
+    renderScreen(extracao(), comFolhas);
+    expect(screen.getByText('Abrir folha 2')).toBeTruthy();
+    expect(screen.getByText('Abrir folha 3')).toBeTruthy();
+    expect(screen.queryByText('Abrir folha 4')).toBeNull();
+  });
+
+  it('abrir a folha pede o link DAQUELA chave, e o abre', async () => {
+    const { Linking } = jest.requireActual('react-native') as typeof import('react-native');
+    const abrir = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    getUrl.mockResolvedValue({ url: new URL('https://exemplo.test/folha-3') });
+
+    renderScreen(extracao(), comFolhas);
+    fireEvent.press(screen.getByText('Abrir folha 3'));
+
+    await waitFor(() => expect(abrir).toHaveBeenCalledWith('https://exemplo.test/folha-3'));
+    expect(getUrl).toHaveBeenCalledWith({ path: 'medical-documents/id/exams/f-folha-3.jpg' });
+    abrir.mockRestore();
   });
 });

@@ -79,6 +79,7 @@ export default function DocumentDetailPage() {
       id: selectedDocument.id,
       fileId: '',
       s3FileName: selectedDocument.s3FileName,
+      extraPageKeys: selectedDocument.extraPageKeys,
       originalFileName: selectedDocument.originalFileName,
       userId: '',
       documentType: selectedDocument.documentType,

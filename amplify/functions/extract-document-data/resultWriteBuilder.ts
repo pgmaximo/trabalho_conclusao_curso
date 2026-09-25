@@ -23,6 +23,13 @@ export type LabResultRow = NormalizedLabResult & {
   id: string;
   owner: string;
   documentId: string;
+  /**
+   * So presente quando a regravacao TRANSFERE a correcao de uma linha antiga
+   * para a que a substitui (Bloco 11). Ausente, o campo nem e mencionado na
+   * escrita -- e por isso nenhuma gravacao normal apaga a data em que a pessoa
+   * conferiu.
+   */
+  correctedAt?: string;
 };
 
 /**
@@ -76,6 +83,9 @@ export function buildLabResultUpdate(row: LabResultRow, tableName: string): Upda
     sourcePage: row.sourcePage,
     confidence: row.confidence,
     reviewStatus: row.reviewStatus,
+    // `undefined` nao menciona o campo (ver updateExpressionBuilder): so a
+    // correcao transferida pela regravacao o escreve (Bloco 11).
+    correctedAt: row.correctedAt,
     updatedAt: agora,
   });
 

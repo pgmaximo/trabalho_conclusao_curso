@@ -1,5 +1,5 @@
 import { ANALYTE_CATALOG } from '../analyteCatalog';
-import { fileChecksum, labResultId } from '../checksum';
+import { fileChecksum, labResultId, somaDasFolhas } from '../checksum';
 
 // D27: nenhum codigo LOINC digitado a mao, nem como exemplo em teste. O que o
 // teste escolhe e o analito -- pelo rotulo em portugues -- e o codigo vem do
@@ -70,5 +70,39 @@ describe('idempotencia', () => {
     expect(labResultId('doc-1', 'abc', VITAMINA_D, null)).toBe(
       labResultId('doc-1', 'abc', VITAMINA_D, ''),
     );
+  });
+});
+
+/**
+ * Bloco 11 -- a soma de um documento de varias folhas (E6). A soma entra no id
+ * de cada linha (D22). Documento de UMA folha tem de manter a soma de sempre,
+ * senao todo documento antigo, ao ser relido, geraria ids novos e duplicaria
+ * tudo -- exatamente o defeito E2 por outra porta.
+ */
+describe('somaDasFolhas', () => {
+  const a = new Uint8Array([1, 2, 3]);
+  const b = new Uint8Array([4, 5, 6]);
+
+  it('uma folha e a soma do arquivo, como sempre foi', () => {
+    expect(somaDasFolhas([a])).toBe(fileChecksum(a));
+  });
+
+  it('e deterministica', () => {
+    expect(somaDasFolhas([a, b])).toBe(somaDasFolhas([a, b]));
+  });
+
+  it('a ordem das folhas importa', () => {
+    expect(somaDasFolhas([a, b])).not.toBe(somaDasFolhas([b, a]));
+  });
+
+  it('nao e a soma dos bytes emendados -- a fronteira entre folhas conta', () => {
+    // [1,2] + [3] e [1] + [2,3] sao documentos diferentes com os mesmos bytes.
+    const x = somaDasFolhas([new Uint8Array([1, 2]), new Uint8Array([3])]);
+    const y = somaDasFolhas([new Uint8Array([1]), new Uint8Array([2, 3])]);
+    expect(x).not.toBe(y);
+  });
+
+  it('e hexadecimal de 64 caracteres, como a de um arquivo', () => {
+    expect(somaDasFolhas([a, b])).toMatch(/^[0-9a-f]{64}$/);
   });
 });

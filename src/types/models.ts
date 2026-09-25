@@ -88,6 +88,7 @@ export interface MedicalDocument {
   expirationDate: string | null;                  // Data de validade (nullable)
   s3FileName: string;                             // Nome do arquivo no S3
   originalFileName: string;                       // Nome original do arquivo
+  extraPageKeys?: string[];                       // Chaves das folhas 2 a N de um laudo fotografado (Bloco 11)
   // Badge de validade (Válida/Vencida), presente só para receitas — ver DocumentValidityStatus acima
   validityStatus?: DocumentValidityStatus | null;
 }

@@ -55,3 +55,18 @@ export function prescriptionItemId(
   const partes = [documentId, checksum, `${remedio.length}:${remedio}`, dosagem];
   return createHash('sha256').update(partes.join(SEP)).digest('hex');
 }
+
+/**
+ * A soma de um documento de varias folhas (Bloco 11, E6): a soma das somas de
+ * cada folha, em ordem. Somar as somas, e nao os bytes emendados, e o que faz a
+ * fronteira entre folhas contar -- [1,2]+[3] e [1]+[2,3] sao documentos
+ * diferentes com os mesmos bytes.
+ *
+ * UMA folha e a soma do arquivo, sem mudar nada: todo documento gravado antes
+ * desta EPIC tem uma folha, e a soma entra no id de cada linha (D22). Mudar a
+ * soma dele faria a releitura gerar ids novos e duplicar tudo.
+ */
+export function somaDasFolhas(folhas: Uint8Array[]): string {
+  if (folhas.length === 1) return fileChecksum(folhas[0]);
+  return createHash('sha256').update(folhas.map(fileChecksum).join(SEP)).digest('hex');
+}

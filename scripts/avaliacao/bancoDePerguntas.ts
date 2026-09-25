@@ -137,3 +137,29 @@ export const BANCO_DE_PERGUNTAS: Pergunta[] = [
     espera: {},
   },
 ];
+
+/**
+ * O pedaco do banco que uma rodada faz, e quantas vezes (Bloco 11). Medir o
+ * efeito de uma instrucao sobre tres perguntas pede so as tres, repetidas: o
+ * modelo nao e deterministico, e uma vez so e sorte. Com repeticao, o id ganha
+ * `#n` -- o relatorio e o JSON precisam distinguir as rodadas.
+ */
+export function selecionarPerguntas(
+  banco: Pergunta[],
+  ids: string[] | undefined,
+  repeticoes: number,
+): Pergunta[] {
+  if (!Number.isInteger(repeticoes) || repeticoes < 1) {
+    throw new Error(`Repeticoes precisa ser um inteiro >= 1, veio ${repeticoes}.`);
+  }
+  const desconhecidos = (ids ?? []).filter((id) => !banco.some((p) => p.id === id));
+  if (desconhecidos.length > 0) {
+    throw new Error(`Perguntas que nao existem no banco: ${desconhecidos.join(', ')}`);
+  }
+
+  const escolhidas = ids ? banco.filter((p) => ids.includes(p.id)) : banco;
+  if (repeticoes === 1) return escolhidas;
+  return escolhidas.flatMap((p) =>
+    Array.from({ length: repeticoes }, (_, i) => ({ ...p, id: `${p.id}#${i + 1}` })),
+  );
+}

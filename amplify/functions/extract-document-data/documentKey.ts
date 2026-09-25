@@ -56,3 +56,41 @@ export function chaveDoDocumento(doc: LinhaComArquivo): string | null {
 
   return chave;
 }
+
+/**
+ * O teto de folhas de um documento (Bloco 11, Decisao O1). O Converse aceita
+ * 20 imagens por pedido; 10 folhas de cerca de 1 MB (a foto encolhida no
+ * aparelho) ficam longe desse teto e do de tamanho.
+ */
+export const MAXIMO_DE_FOLHAS = 10;
+
+/** A pasta de uma chave: tudo ate a ultima barra. */
+const pastaDe = (chave: string) => chave.slice(0, chave.lastIndexOf('/'));
+
+/**
+ * Todas as folhas do documento, na ordem: a folha 1 (`s3Key`) e as extras.
+ * Nulo quando qualquer uma nao passa -- um documento com uma folha suspeita nao
+ * e lido pela metade.
+ *
+ * Cada folha extra passa a MESMA conferencia de forma da primeira, e tem de
+ * estar na MESMA pasta dela. A chave vem do banco, e o banco e escrito pelo
+ * cliente: uma folha apontando para outra pasta leria arquivo de outro lugar.
+ */
+export function chavesDasFolhas(
+  doc: LinhaComArquivo & { extraPageKeys?: (string | null)[] | null },
+): string[] | null {
+  const primeira = chaveDoDocumento(doc);
+  if (!primeira) return null;
+
+  const extras = (doc.extraPageKeys ?? [])
+    .map((chave) => (chave ?? '').trim())
+    .filter((chave) => chave !== '');
+  if (extras.length + 1 > MAXIMO_DE_FOLHAS) return null;
+
+  const pasta = pastaDe(primeira);
+  for (const extra of extras) {
+    const valida = chaveDoDocumento({ ...doc, s3Key: extra });
+    if (!valida || pastaDe(valida) !== pasta) return null;
+  }
+  return [primeira, ...extras];
+}

@@ -12,6 +12,8 @@
 import {
   TETO_IMAGEM_BYTES,
   TETO_PDF_BYTES,
+  TETO_PDF_DIVIDIDO_BYTES,
+  pdfDivisivel,
   avaliarArquivo,
   detectarFormato,
 } from '../formatoDoArquivo';
@@ -88,5 +90,37 @@ describe('avaliarArquivo', () => {
     const pdfGrande = new Uint8Array(TETO_PDF_BYTES + 1);
     pdfGrande.set(ascii('%PDF-'));
     expect(avaliarArquivo(pdfGrande)).toEqual({ ok: false, motivo: 'grande-demais' });
+  });
+});
+
+describe('pdfDivisivel -- o PDF grande demais para um bloco, que cabe dividido (Bloco 11)', () => {
+  const pdfDe = (tamanho: number) => {
+    const b = new Uint8Array(tamanho);
+    b.set(ascii('%PDF-'));
+    return b;
+  };
+
+  it('o teto dividido e o do aplicativo, e maior que o do bloco', () => {
+    expect(TETO_PDF_DIVIDIDO_BYTES).toBe(10 * 1024 * 1024);
+    expect(TETO_PDF_DIVIDIDO_BYTES).toBeGreaterThan(TETO_PDF_BYTES);
+  });
+
+  it('PDF entre os dois tetos e divisivel', () => {
+    expect(pdfDivisivel(pdfDe(TETO_PDF_BYTES + 1))).toBe(true);
+    expect(pdfDivisivel(pdfDe(TETO_PDF_DIVIDIDO_BYTES))).toBe(true);
+  });
+
+  it('acima do teto do aplicativo, nao', () => {
+    expect(pdfDivisivel(pdfDe(TETO_PDF_DIVIDIDO_BYTES + 1))).toBe(false);
+  });
+
+  it('imagem grande nao e PDF, e nao se divide', () => {
+    const imagem = new Uint8Array(TETO_PDF_BYTES + 1);
+    imagem.set([0xff, 0xd8, 0xff]);
+    expect(pdfDivisivel(imagem)).toBe(false);
+  });
+
+  it('avaliarArquivo NAO muda: o anexo do chat continua cabendo num bloco so', () => {
+    expect(avaliarArquivo(pdfDe(TETO_PDF_BYTES + 1))).toEqual({ ok: false, motivo: 'grande-demais' });
   });
 });
