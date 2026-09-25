@@ -147,6 +147,8 @@ Fonte real única, inalterada: `Appointment` no DynamoDB, via `useAppointmentsDa
 
 `parseScheduledAt`, `isPast`, `compareScheduled`, `isWithinRange`, `isDateWithinRange`, `toIsoDate`, `startOfDay`, `buildRange` e `buildMonthCells` em `agendaDateRange.ts`; `MonthCalendarGrid`; `AppointmentCard`; `src/services/homeAppointments.ts` e toda a Home; `useAppointmentsData`; `appointmentService`; `amplify/**`.
 
+`AgendaScope`, `shiftAnchor` e `formatPeriodLabel` também sobrevivem, fora do escopo original desta tabela: a camada de mês (`AgendaMonthLayer.tsx`) os consome para navegar entre meses e rotular o mês visível, sempre com escopo `'mes'`.
+
 **O contrato de data é o ativo mais valioso das duas EPICs anteriores e não é tocado.**
 
 ### 5.3 O teste de regressão herdado

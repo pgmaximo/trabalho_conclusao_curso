@@ -1,9 +1,6 @@
 import {
-  buildDayCells,
   buildMonthCells,
   buildRange,
-  buildWeekCells,
-  buildYearCells,
   compareScheduled,
   formatPeriodLabel,
   isPast,
@@ -185,57 +182,6 @@ describe('formatPeriodLabel', () => {
   });
 });
 
-describe('buildDayCells', () => {
-  const hoje = new Date(2026, 8, 18);
-
-  it('com a ancora em hoje, a faixa comeca em hoje (fidelidade ao Canvas 2c)', () => {
-    const cells = buildDayCells(hoje, [], hoje);
-    expect(cells).toHaveLength(7);
-    expect(cells[0].isoDate).toBe('2026-09-18');
-    expect(cells[6].isoDate).toBe('2026-09-24');
-    expect(cells[0].isToday).toBe(true);
-  });
-
-  it('selecionar um dia dentro do bloco NAO desloca a faixa', () => {
-    const cells = buildDayCells(new Date(2026, 8, 21), [], hoje);
-    expect(cells[0].isoDate).toBe('2026-09-18');
-  });
-
-  it('ancora no passado cai no bloco anterior, alinhado a hoje', () => {
-    const cells = buildDayCells(new Date(2026, 8, 15), [], hoje);
-    expect(cells[0].isoDate).toBe('2026-09-11');
-    expect(cells[6].isoDate).toBe('2026-09-17');
-  });
-
-  it('marca hasAppointments apenas nos dias que realmente tem compromisso', () => {
-    const cells = buildDayCells(hoje, ['2026-09-20T10:00', 'lixo'], hoje);
-    expect(cells.find((c) => c.isoDate === '2026-09-20')!.hasAppointments).toBe(true);
-    expect(cells.find((c) => c.isoDate === '2026-09-19')!.hasAppointments).toBe(false);
-  });
-});
-
-describe('buildWeekCells', () => {
-  const hoje = new Date(2026, 8, 18);
-
-  it('devolve a semana domingo-sabado da ancora, coerente com buildRange', () => {
-    const cells = buildWeekCells(new Date(2026, 8, 18), [], hoje);
-    expect(cells).toHaveLength(7);
-    expect(cells[0].isoDate).toBe('2026-09-13');
-    expect(cells[6].isoDate).toBe('2026-09-19');
-  });
-
-  it('marca isToday na celula correta mesmo em outra semana', () => {
-    const cells = buildWeekCells(new Date(2026, 8, 30), [], hoje);
-    expect(cells.every((cell) => cell.isToday === false)).toBe(true);
-  });
-
-  it('marca hasAppointments pelos dias reais da semana', () => {
-    const cells = buildWeekCells(hoje, ['2026-09-15T08:00'], hoje);
-    expect(cells.find((c) => c.isoDate === '2026-09-15')!.hasAppointments).toBe(true);
-    expect(cells.find((c) => c.isoDate === '2026-09-16')!.hasAppointments).toBe(false);
-  });
-});
-
 describe('buildMonthCells', () => {
   const hoje = new Date(2026, 8, 18);
 
@@ -260,21 +206,5 @@ describe('buildMonthCells', () => {
       .flat()
       .filter((cell) => cell !== null);
     expect(dias).toHaveLength(29);
-  });
-});
-
-describe('buildYearCells', () => {
-  it('devolve 12 meses com a contagem real de cada um', () => {
-    const cells = buildYearCells(new Date(2026, 0, 1), [
-      '2026-03-10T09:00',
-      '2026-03-22T14:00',
-      '2025-03-01T09:00', // outro ano: nao conta
-      'lixo',
-    ]);
-    expect(cells).toHaveLength(12);
-    expect(cells[2].count).toBe(2);
-    expect(cells[2].label).toBe('Março');
-    expect(cells[2].isoDate).toBe('2026-03-01');
-    expect(cells[0].count).toBe(0);
   });
 });
