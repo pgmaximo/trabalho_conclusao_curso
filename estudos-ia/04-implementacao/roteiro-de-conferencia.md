@@ -199,3 +199,39 @@ entra no histórico e ninguém descobre.
 A amostra precisa conter, de propósito: valor com vírgula decimal, valor com
 ponto de milhar, valor censurado (`<0,01`) e analito repetido no mesmo laudo
 (curva glicêmica).
+
+---
+
+## 6. Posse do arquivo (D46) — depois de publicar o sandbox
+
+A EPIC `specs/09-seguranca/posse-do-arquivo/` prova a lógica com dublês do S3.
+O que ela não prova é o encaixe com o bucket de verdade: que o Amplify grava o
+metadado, que o S3 o devolve com o nome minúsculo e que a função o encontra.
+**Publicar aplicativo e função juntos**: a função nova com o aplicativo antigo
+recusa todo envio.
+
+### Passos
+
+1. Enviar um laudo novo pelo aplicativo. Ele precisa terminar em **Lido**
+   (`SUCCEEDED`) ou **Sem resultados**, e **não** em falha com *"Envie o arquivo
+   de novo"*.
+2. Conferir o metadado no objeto (a chave está no `s3Key` da linha):
+
+   ```bash
+   aws s3api head-object --bucket <bucket> --key "<s3Key>" --query Metadata
+   ```
+
+   Esperado: `{ "sub-de-quem-enviou": "<sub>" }`, com o `sub` igual à metade do
+   `owner` da linha antes do `::`.
+3. Anexar um PDF no chat e perguntar sobre ele. A resposta precisa falar do
+   documento, e o log da função **não** pode ter `anexo-recusado-pelo-dono`.
+4. Se houver um documento antigo em falha, tocar em "Tentar de novo". Esperado:
+   a frase do `arquivo-sem-dono`, e o evento `arquivo-recusado-pelo-dono` com
+   motivo `sem-metadado` no log da extração.
+
+### O que conta como falha
+
+- o passo 1 falhar com o motivo novo: o metadado não chegou ao objeto, ou chegou
+  com outro nome. É o cenário que o teste do nome minúsculo tenta impedir;
+- o passo 2 devolver `null`: o `uploadData` não repassou o metadado. Anotar a
+  plataforma (web ou nativo), porque os ramos são diferentes.

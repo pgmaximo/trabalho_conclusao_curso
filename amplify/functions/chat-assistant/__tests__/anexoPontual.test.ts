@@ -14,6 +14,7 @@ jest.mock('../../extract-document-data/s3Reader', () => ({
   readDocument: (...a: unknown[]) => mockReadDocument(...a),
 }));
 
+import { METADADO_DO_DONO } from '../../../storage/metadadoDoDono';
 import { TETO_IMAGEM_BYTES, TETO_PDF_BYTES } from '../../extract-document-data/formatoDoArquivo';
 import { chaveDeAnexoValida, lerAnexo } from '../anexoPontual';
 
@@ -23,14 +24,22 @@ const CHAVE = 'chat-attachments/id-1/a.pdf';
 const bytesPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]); // "%PDF-"
 const bytesJpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
 
+/** O metadado que o aplicativo grava no envio (D46), com o sub de IDENTIDADE. */
+const DO_DONO = { [METADADO_DO_DONO]: IDENTIDADE.sub };
+
 beforeAll(() => {
   process.env.HEALTH_BUCKET_NAME = 'bucket';
 });
 
+// O duble devolve um objeto enviado por IDENTIDADE. Os `mockResolvedValue` dos
+// casos abaixo que so trocam bytes passam pelo `comDono`, para continuar
+// testando o que testavam -- a rota e o teto -- e nao a posse.
+const comDono = (o: { bytes: Uint8Array; contentType: string }) => ({ ...o, metadados: DO_DONO });
+
 beforeEach(() => {
   mockReadDocument
     .mockReset()
-    .mockResolvedValue({ bytes: bytesPdf, contentType: 'application/pdf' });
+    .mockResolvedValue(comDono({ bytes: bytesPdf, contentType: 'application/pdf' }));
 });
 
 describe('chaveDeAnexoValida', () => {
@@ -60,14 +69,14 @@ describe('lerAnexo -- a rota do PDF (D19)', () => {
   });
 
   it('a rota sai dos bytes: um PDF declarado como imagem continua sendo PDF', async () => {
-    mockReadDocument.mockResolvedValue({ bytes: bytesPdf, contentType: 'image/jpeg' });
+    mockReadDocument.mockResolvedValue(comDono({ bytes: bytesPdf, contentType: 'image/jpeg' }));
     expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toEqual({ kind: 'pdf', bytes: bytesPdf });
   });
 
   it('PDF grande demais para o bloco de documento e ausencia', async () => {
     const grande = new Uint8Array(TETO_PDF_BYTES + 1);
     grande.set(bytesPdf);
-    mockReadDocument.mockResolvedValue({ bytes: grande, contentType: 'application/pdf' });
+    mockReadDocument.mockResolvedValue(comDono({ bytes: grande, contentType: 'application/pdf' }));
 
     expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toBeNull();
   });
@@ -76,7 +85,7 @@ describe('lerAnexo -- a rota do PDF (D19)', () => {
 describe('lerAnexo -- a foto (G3, Bloco 10)', () => {
   it('foto vai ao modelo como imagem, com o formato detectado', async () => {
     // Antes ia ao Textract, que a conta recusa, e o anexo sumia da conversa.
-    mockReadDocument.mockResolvedValue({ bytes: bytesJpeg, contentType: 'image/jpeg' });
+    mockReadDocument.mockResolvedValue(comDono({ bytes: bytesJpeg, contentType: 'image/jpeg' }));
     expect(await lerAnexo({ key: 'chat-attachments/id-1/a.jpg' }, IDENTIDADE)).toEqual({
       kind: 'imagem',
       formato: 'jpeg',
@@ -87,12 +96,12 @@ describe('lerAnexo -- a foto (G3, Bloco 10)', () => {
   it('foto acima do teto do bloco de imagem e ausencia', async () => {
     const grande = new Uint8Array(TETO_IMAGEM_BYTES + 1);
     grande.set(bytesJpeg);
-    mockReadDocument.mockResolvedValue({ bytes: grande, contentType: 'image/jpeg' });
+    mockReadDocument.mockResolvedValue(comDono({ bytes: grande, contentType: 'image/jpeg' }));
     expect(await lerAnexo({ key: 'chat-attachments/id-1/a.jpg' }, IDENTIDADE)).toBeNull();
   });
 
   it('formato que nao e PDF nem imagem suportada e ausencia', async () => {
-    mockReadDocument.mockResolvedValue({ bytes: new Uint8Array([0x50, 0x4b, 3, 4]), contentType: '' });
+    mockReadDocument.mockResolvedValue(comDono({ bytes: new Uint8Array([0x50, 0x4b, 3, 4]), contentType: '' }));
     expect(await lerAnexo({ key: 'chat-attachments/id-1/a.zip' }, IDENTIDADE)).toBeNull();
   });
 });
@@ -114,5 +123,37 @@ describe('lerAnexo -- o que nao pode derrubar o turno', () => {
     // que tiver.
     mockReadDocument.mockRejectedValue(new Error('NoSuchKey'));
     expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toBeNull();
+  });
+});
+
+/**
+ * D46 (2026-09-24). A chave vem do CORPO da requisicao, e `chaveDeAnexoValida`
+ * so confere a forma: a chave do anexo de outra pessoa tem a forma certa. A
+ * funcao le `chat-attachments/*` inteiro, entao lia -- e o modelo respondia a A
+ * sobre o documento de B. O dono comparado sai do TOKEN, pela regra do auth.ts.
+ */
+describe('lerAnexo -- so o anexo de quem pergunta', () => {
+  const OUTRA = { sub: 's-2', username: 'u-2', owner: 's-2::u-2' };
+
+  it('anexo enviado por outra pessoa e ausencia, e os bytes nao saem', async () => {
+    mockReadDocument.mockResolvedValue({
+      bytes: bytesPdf,
+      contentType: 'application/pdf',
+      metadados: { [METADADO_DO_DONO]: OUTRA.sub },
+    });
+
+    expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toBeNull();
+  });
+
+  it('anexo sem o metadado e ausencia', async () => {
+    mockReadDocument.mockResolvedValue({ bytes: bytesPdf, contentType: 'application/pdf', metadados: {} });
+
+    expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toBeNull();
+  });
+
+  it('o dono comparado e o da identidade: o mesmo objeto, duas respostas', async () => {
+    // Objeto enviado por IDENTIDADE (o duble padrao). Quem pergunta decide.
+    expect(await lerAnexo({ key: CHAVE }, IDENTIDADE)).toEqual({ kind: 'pdf', bytes: bytesPdf });
+    expect(await lerAnexo({ key: CHAVE }, OUTRA)).toBeNull();
   });
 });

@@ -50,7 +50,14 @@ export function chaveDoDocumento(doc: LinhaComArquivo): string | null {
 
   // A chave vem do banco, e quem escreve o banco e o cliente. Conferencia de
   // FORMA, no mesmo espirito do `chaveDeAnexoValida` do chat: esta funcao le
-  // documento, e nada mais. O fechamento de verdade e a politica do bucket.
+  // documento, e nada mais.
+  //
+  // FORMA NAO E POSSE. Esta linha dizia que "o fechamento de verdade e a
+  // politica do bucket", e estava errada (achado de 2026-09-24, D46): a
+  // politica por dono vale para a credencial DA PESSOA, e esta funcao le com o
+  // proprio papel, que alcanca `medical-documents/*` inteiro. A chave do laudo
+  // de outra pessoa tem a forma certa. Quem fecha a posse e
+  // `lerArquivoDoDono`, que confere o metadado gravado no envio.
   if (!chave.startsWith(PREFIXO)) return null;
   if (chave.includes('..')) return null;
 
@@ -93,4 +100,21 @@ export function chavesDasFolhas(
     if (!valida || pastaDe(valida) !== pasta) return null;
   }
   return [primeira, ...extras];
+}
+
+/**
+ * O `sub` do pool de USUARIOS, que e a metade do `owner` antes do `::`. E o dono
+ * que a conferencia de posse compara com o metadado do objeto (D46).
+ *
+ * E a MESMA operacao da linha do defeito narrado no topo deste arquivo -- e ela
+ * estava certa; errado era o nome da variavel, que prometia um identityId. Aqui
+ * o nome diz o que ela guarda, e o teste trava que nunca e um identityId.
+ *
+ * `owner` sem `::`, ou com a metade vazia, devolve nulo: a conferencia recusa, em
+ * vez de comparar contra um valor que nao e o de ninguem.
+ */
+export function subDoOwner(owner: string): string | null {
+  const separador = owner.indexOf('::');
+  if (separador <= 0) return null;
+  return owner.slice(0, separador);
 }

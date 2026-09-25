@@ -23,7 +23,7 @@
  * documento" -- uma mensagem sobre o CONTEUDO para um arquivo que nunca foi
  * aberto.
  */
-import { MAXIMO_DE_FOLHAS, chaveDoDocumento, chavesDasFolhas } from '../documentKey';
+import { MAXIMO_DE_FOLHAS, chaveDoDocumento, chavesDasFolhas, subDoOwner } from '../documentKey';
 
 /** Pool de IDENTIDADES: e o que nomeia a pasta. Repare no prefixo de regiao. */
 const IDENTITY_ID = 'us-east-1:5648ad4c-7d8f-c7c3-0980-fe0fc91139f5';
@@ -127,5 +127,31 @@ describe('chavesDasFolhas', () => {
 
   it('sem a folha 1, nao ha documento -- como hoje', () => {
     expect(chavesDasFolhas({ owner: OWNER, s3FileName: NOME, extraPageKeys: [folha(2)] })).toBeNull();
+  });
+});
+
+/**
+ * D46 (2026-09-24): a funcao confere que o arquivo e do dono da linha, e o dono
+ * que ela conhece e o `sub`. A operacao e a mesma linha do defeito acima --
+ * a metade antes do `::` --, e desta vez o nome diz o que ela guarda.
+ */
+describe('subDoOwner', () => {
+  it('devolve o sub do pool de usuarios', () => {
+    expect(subDoOwner(OWNER)).toBe(SUB);
+    expect(subDoOwner(`${SUB}::pedro`)).toBe(SUB);
+  });
+
+  it('nunca devolve um identityId -- o par medido do defeito de 2026-09-18', () => {
+    expect(subDoOwner(OWNER)).not.toBe(IDENTITY_ID);
+    expect(subDoOwner(OWNER)).not.toMatch(/^[a-z]{2}-[a-z]+-\d+:/);
+  });
+
+  it('owner malformado nao tem sub: nulo, e nao a string inteira', () => {
+    // Nulo vira recusa na conferencia de dono. Devolver o owner inteiro, ou
+    // um pedaco vazio, faria a comparacao falhar por um motivo que ninguem
+    // leria no log.
+    expect(subDoOwner(SUB)).toBeNull();
+    expect(subDoOwner(`::${SUB}`)).toBeNull();
+    expect(subDoOwner('')).toBeNull();
   });
 });

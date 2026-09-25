@@ -21,8 +21,9 @@ import {
   type ExtractionSource,
   type RequestExtractionResult,
 } from './bedrockClient';
+import { lerArquivoDoDono } from './arquivoDoDono';
 import { labResultId, prescriptionItemId, somaDasFolhas } from './checksum';
-import { chavesDasFolhas } from './documentKey';
+import { chavesDasFolhas, subDoOwner } from './documentKey';
 import { contarEscolhasDeFaixa } from './escolhaDeFaixa';
 import { dividirPdf } from './divisaoDoPdf';
 import { TETO_PDF_BYTES, avaliarArquivo, pdfDivisivel } from './formatoDoArquivo';
@@ -42,7 +43,6 @@ import {
   readDocumentRow,
   separarLinhasGravaveis,
 } from './resultRepository';
-import { readDocument } from './s3Reader';
 import { rebaixarLidasDeGrafico } from './valorDeGrafico';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient());
@@ -114,10 +114,25 @@ export async function handler(event: InvokeEvent): Promise<void> {
       await markFailed(ddb, documentTable, documentId, copyDaFalha('arquivo-sem-chave'));
       return;
     }
-    // A UNICA leitura do bucket nesta funcao: um laco sobre as folhas.
+    // 2b. A POSSE (D46), conferida EM CADA FOLHA. A chave tem a forma certa,
+    //     mas quem a escreveu foi o cliente, e esta funcao alcanca a pasta de
+    //     todo mundo. So segue o arquivo cujo metadado de envio e do dono
+    //     DESTA linha -- antes de os bytes irem ao modelo e antes de qualquer
+    //     gravacao ou substituicao de linha (D47). Uma folha recusada recusa
+    //     o documento: nada e lido pela metade. O log leva o motivo e o
+    //     documento; nunca sub, chave ou nome de arquivo.
+    const donoDaLinha = subDoOwner(owner);
     const folhas: Uint8Array[] = [];
     for (const chave of chaves) {
-      folhas.push((await readDocument(bucketName, chave)).bytes);
+      const lido = await lerArquivoDoDono(bucketName, chave, donoDaLinha);
+      if (!lido.ok) {
+        console.warn(
+          JSON.stringify({ evento: 'arquivo-recusado-pelo-dono', motivo: lido.motivo, documentId }),
+        );
+        await markFailed(ddb, documentTable, documentId, copyDaFalha('arquivo-sem-dono'));
+        return;
+      }
+      folhas.push(lido.bytes);
     }
     const bytes = folhas[0];
     // Uma folha e a soma do arquivo, como sempre (ids de documento antigo nao

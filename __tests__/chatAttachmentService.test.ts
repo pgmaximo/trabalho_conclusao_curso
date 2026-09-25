@@ -15,6 +15,11 @@ jest.mock('@/services/imagemParaEnvio', () => ({
   prepararArquivoParaEnvio: (...a: unknown[]) => mockPreparar(...a),
 }));
 
+jest.mock('aws-amplify/auth', () => ({
+  getCurrentUser: async () => ({ userId: 'sub-1', username: 'u-1' }),
+}));
+
+import { METADADO_DO_DONO } from '../amplify/storage/metadadoDoDono';
 import { uploadAnexoDoChat } from '@/services/chatAttachmentService';
 
 const blobDe = (tipo: string) => ({ type: tipo });
@@ -45,6 +50,18 @@ describe('uploadAnexoDoChat', () => {
     expect(enviado.key).toMatch(/^chat-attachments\/id-1\/.+\.jpg$/);
     // O nome que a tela mostra continua o que a pessoa escolheu.
     expect(enviado.fileName).toBe('IMG_0001.HEIC');
+  });
+
+  it('grava o sub de quem enviou no metadado, sem perder o contentType (D46)', async () => {
+    // A funcao do chat so le o anexo cujo metadado bate com o `sub` do token.
+    // Sem o metadado, todo anexo viraria ausencia.
+    await uploadAnexoDoChat('file:///laudo.pdf', 'laudo.pdf', 'application/pdf');
+
+    const chamada = mockUploadData.mock.calls[0]![0] as {
+      options: { contentType: string; metadata?: Record<string, string> };
+    };
+    expect(chamada.options.metadata).toEqual({ [METADADO_DO_DONO]: 'sub-1' });
+    expect(chamada.options.contentType).toBe('application/pdf');
   });
 
   it('PDF sobe como veio', async () => {
