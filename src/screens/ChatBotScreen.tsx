@@ -19,27 +19,41 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useColorScheme } from 'nativewind';
 import * as DocumentPicker from 'expo-document-picker';
-import { router } from 'expo-router';
 
 import { AiDisclaimerBanner } from '@/components/AiDisclaimerBanner';
+import { ChatAttachmentRow } from '@/components/ChatAttachmentRow';
 import { HistoryDrawer } from '@/components/HistoryDrawer';
 import { MessageBubble } from '@/components/MessageBubble';
+import { MemoryProposalCard } from '@/components/MemoryProposalCard';
+import { MessageSources } from '@/components/MessageSources';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { TypingIndicator } from '@/components/TypingIndicator';
 import { useThemeColors } from '@/constants/theme';
-import { useChatBot } from '@/hooks/useChatBot';
-import type { ChatMessage } from '@/services/aiAssistantService';
+import { useChatBot, type ChatMessageComOrigem } from '@/hooks/useChatBot';
+import { uploadAnexoDoChat } from '@/services/chatAttachmentService';
 
+/**
+ * As sugestoes precisam ser perguntas que o assistente CONSEGUE responder com
+ * as ferramentas que ele tem -- todas somente leitura, todas sobre o que a
+ * pessoa registrou.
+ *
+ * As tres da versao mockada sairam: "o que significa colesterol alto?" seria
+ * respondida com a R5 ("nao tenho esse dado"), porque nenhuma ferramenta
+ * devolve explicacao de conceito; e "lembrar de tomar remedio" promete uma
+ * escrita que nao existe -- a D9 diz que a IA de conversa nao grava. Uma
+ * sugestao que o proprio produto recusa ensina a pessoa a nao confiar nas
+ * sugestoes.
+ */
 const QUICK_PROMPTS = [
   'Analisar meu último exame',
-  'O que significa colesterol alto?',
-  'Lembrar de tomar remédio',
+  'Como está minha vitamina D comparada ao exame anterior?',
+  'Quando é minha próxima consulta?',
 ];
 
-export function ChatBotScreen() {
+export function ChatBotScreen({ conversaInicial }: { conversaInicial?: string | null } = {}) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
-  const listRef = useRef<FlatList<ChatMessage>>(null);
+  const listRef = useRef<FlatList<ChatMessageComOrigem>>(null);
   const {
     messages,
     inputText,
@@ -48,14 +62,23 @@ export function ChatBotScreen() {
     sendMessage,
     historyOpen,
     historyGroups,
+    deleteConversation,
+    anexo,
+    setAnexo,
     openHistory,
     closeHistory,
     newChat,
-  } = useChatBot();
+    propostaDeMemoria,
+    confirmarMemoria,
+    recusarMemoria,
+    abrirMemoria,
+  } = useChatBot(conversaInicial);
 
   const hasUserMessage = messages.some((message) => message.role === 'user');
   const canSend = inputText.trim().length > 0 && !isTyping;
   const [isAttachPressed, setIsAttachPressed] = useState(false);
+  const [isAttaching, setIsAttaching] = useState(false);
+  const [anexoErro, setAnexoErro] = useState<string | null>(null);
 
   // ATTENTION: rola para a ultima mensagem sempre que o historico cresce ou a IA "digita"
   useEffect(() => {
@@ -64,12 +87,41 @@ export function ChatBotScreen() {
   }, [messages.length, isTyping]);
 
   const renderMessage = useCallback(
-    ({ item }: { item: ChatMessage }) => (
-      <MessageBubble type={item.role === 'user' ? 'user' : 'ai'} content={item.content} />
-    ),
+    ({ item }: { item: ChatMessageComOrigem }) => {
+      // Sem citacao a bolha continua sendo a de antes: uma secao de origens
+      // vazia em toda resposta viraria ruido, e ensinaria a pessoa a ignorar o
+      // lugar onde a origem aparece quando ela existe.
+      if (item.role === 'user' || !item.citations?.length) {
+        return <MessageBubble type={item.role === 'user' ? 'user' : 'ai'} content={item.content} />;
+      }
+
+      return (
+        <MessageBubble
+          type="ai"
+          content={
+            <>
+              <Text className="text-[15px] leading-[22px] text-app-text dark:text-app-dark-text">
+                {item.content}
+              </Text>
+              <MessageSources citations={item.citations} />
+            </>
+          }
+        />
+      );
+    },
     [],
   );
 
+  /**
+   * O anexo PONTUAL (D15): o documento entra nesta conversa e nao vira
+   * registro. Antes desta EPIC este botao saia do chat e levava direto a
+   * `/add-exam` -- ou seja, so existia a porta que registra, e quem so queria
+   * perguntar sobre um papel era mandado a cadastra-lo.
+   *
+   * As duas portas existem agora, e a que registra continua a um toque: ela
+   * fica na propria linha do anexo, no mesmo lugar em que a pessoa descobre
+   * que aquele documento nao entrou no historico.
+   */
   async function handleAttach() {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -77,20 +129,20 @@ export function ChatBotScreen() {
         copyToCacheDirectory: false,
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        router.push({
-          pathname: '/add-exam',
-          params: {
-            fileName: asset.name,
-            filePath: asset.uri,
-            fileSize: asset.size || 0,
-          },
-        });
-      }
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      setIsAttaching(true);
+      const enviado = await uploadAnexoDoChat(asset.uri, asset.name, asset.mimeType);
+      // O nome vem do que a PESSOA escolheu, e nao do que o bucket devolveu:
+      // a chave no bucket e unica de proposito (carimbo de tempo mais sorteio)
+      // e nao serve para ela se reconhecer.
+      setAnexo({ key: enviado.key, fileName: asset.name });
     } catch (error) {
-      console.error('Error picking document:', error);
-      alert('Erro ao selecionar o documento. Tente novamente.');
+      console.error('Error attaching document:', error);
+      setAnexoErro('Não consegui anexar este documento. Tente de novo ou registre-o pelo menu de exames.');
+    } finally {
+      setIsAttaching(false);
     }
   }
 
@@ -138,6 +190,20 @@ export function ChatBotScreen() {
             <>
               {isTyping ? <TypingIndicator /> : null}
 
+              {/* O cartao fica ABAIXO da ultima bolha, e nunca dentro dela: e
+                  um pedido do APLICATIVO, e nao fala do assistente. Confundir
+                  os dois faria a pessoa achar que o modelo esta falando quando
+                  ele esta pedindo consentimento (D34). */}
+              {propostaDeMemoria && !isTyping ? (
+                <MemoryProposalCard
+                  key={propostaDeMemoria.proposta.texto}
+                  proposta={propostaDeMemoria.proposta}
+                  onConfirmar={confirmarMemoria}
+                  onRecusar={recusarMemoria}
+                  onVerMemoria={abrirMemoria}
+                />
+              ) : null}
+
               {!hasUserMessage ? (
                 <View className="mt-2">
                   <Text className="text-[20px] font-semibold text-app-text dark:text-app-dark-text">
@@ -167,10 +233,27 @@ export function ChatBotScreen() {
         />
 
         <View className="border-t border-app-border bg-app-surface px-4 py-3 dark:border-app-dark-border dark:bg-app-dark-surface">
+          {anexo ? (
+            <ChatAttachmentRow
+              fileName={anexo.fileName}
+              onRemove={() => {
+                setAnexo(null);
+                setAnexoErro(null);
+              }}
+            />
+          ) : null}
+
+          {anexoErro ? (
+            <Text className="mb-2 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+              {anexoErro}
+            </Text>
+          ) : null}
+
           <View className="flex-row items-center gap-3">
             <Pressable
               accessibilityLabel="Anexar exame"
               accessibilityRole="button"
+              disabled={isAttaching}
               onPress={handleAttach}
               onPressIn={() => setIsAttachPressed(true)}
               onPressOut={() => setIsAttachPressed(false)}
@@ -206,7 +289,9 @@ export function ChatBotScreen() {
 
       <HistoryDrawer
         groups={historyGroups}
+        onAbrirMemoria={abrirMemoria}
         onClose={closeHistory}
+        onDelete={deleteConversation}
         onNewChat={newChat}
         visible={historyOpen}
       />

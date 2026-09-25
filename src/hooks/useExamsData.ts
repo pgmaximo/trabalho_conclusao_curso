@@ -40,11 +40,15 @@ function mapDocumentToMedicalDocument(doc: {
   expirationDate: string | null;
   s3FileName: string;
   originalFileName?: string | null;
+  extraPageKeys?: (string | null)[] | null;
 }): MedicalDocument {
   const isExam = doc.documentType === 'exam';
   const documentType = (doc.documentType || 'exam') as 'exam' | 'prescription';
   const expirationDate = doc.expirationDate || null;
   const formattedDate = formatDateForDisplay(doc.documentDate);
+  // As folhas 2 a N (Bloco 11). So existe quando ha folha: documento de uma
+  // folha continua sem o campo, como sempre foi.
+  const extraPageKeys = (doc.extraPageKeys ?? []).filter((k): k is string => !!k);
 
   return {
     id: doc.id,
@@ -62,6 +66,7 @@ function mapDocumentToMedicalDocument(doc: {
     // real quando ele existe (GAP_ANALYSIS.md #38).
     originalFileName: doc.originalFileName || doc.s3FileName,
     validityStatus: computeValidityStatus(documentType, expirationDate),
+    ...(extraPageKeys.length > 0 ? { extraPageKeys } : {}),
   } satisfies MedicalDocument;
 }
 

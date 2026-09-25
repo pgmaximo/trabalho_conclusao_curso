@@ -17,6 +17,14 @@ describe('buildGoogleCalendarUrl', () => {
     expect(dates).toMatch(/^\d{8}T\d{6}Z\/\d{8}T\d{6}Z$/);
     expect(dates).not.toContain('1999');
     expect(url).toContain('Consulta+cardiol%C3%B3gica');
+
+    // Asserção de valor: deriva o esperado da mesma forma que a função,
+    // sem fixar um fuso horário específico (independe de onde o teste roda).
+    const expectedStart = new Date(2026, 8, 2, 15, 0);
+    const expectedEnd = new Date(2026, 8, 2, 16, 0);
+    const formatExpected = (date: Date) =>
+      date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    expect(dates).toBe(`${formatExpected(expectedStart)}/${formatExpected(expectedEnd)}`);
   });
 
   it('includes observações in the Google Calendar event description', () => {

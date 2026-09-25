@@ -10,7 +10,7 @@ import { listAppointmentsForUser } from '@/services/appointmentService';
 import { restoreAppointmentReminders } from '@/services/appointmentNotifications';
 
 export default function AppointmentsRoute() {
-  const appointments = useAppointmentsData();
+  const { appointments, isLoading, errorMessage, retry } = useAppointmentsData();
 
   useEffect(() => {
     void (async () => {
@@ -21,14 +21,10 @@ export default function AppointmentsRoute() {
 
   return (
     <AgendaScreen
-      dates={appointments.dates}
-      selectedDate={appointments.selectedDate}
-      selectedDayLabel={appointments.selectedDayLabel}
-      appointments={appointments.appointmentsForSelectedDate}
-      isLoading={appointments.isLoading}
-      errorMessage={appointments.errorMessage}
-      onRetry={appointments.retry}
-      onDateSelect={appointments.setSelectedDate}
+      appointments={appointments}
+      errorMessage={errorMessage}
+      isLoading={isLoading}
+      onRetry={retry}
     />
   );
 }

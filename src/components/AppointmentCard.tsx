@@ -23,6 +23,9 @@ import type { AppointmentType } from '@/types/models';
 
 interface AppointmentCardProps {
   time: string;                           // Horário da consulta
+  /** Data do compromisso ("01/10"). Ausente no escopo Dia, onde a data ja esta no
+   *  rotulo do periodo (Canvas 2c). Presente quando a lista mistura dias. */
+  dateLabel?: string;
   title: string;                          // Título/descrição da consulta
   location: string;                       // Local da consulta
   type: AppointmentType;                  // Tipo do compromisso
@@ -43,7 +46,7 @@ function getTypeTone(colors: ThemeColors, type: AppointmentType) {
   }
 }
 
-export function AppointmentCard({ time, title, location, type, onPress, onSyncPress }: AppointmentCardProps) {
+export function AppointmentCard({ time, dateLabel, title, location, type, onPress, onSyncPress }: AppointmentCardProps) {
   const colors = useThemeColors();
   const tone = getTypeTone(colors, type);
   const [isPressed, setIsPressed] = useState(false);
@@ -61,7 +64,14 @@ export function AppointmentCard({ time, title, location, type, onPress, onSyncPr
 
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={[styles.time, { color: colors.textSecondary }]}>{time}</Text>
+          <View style={styles.timeColumn}>
+            {dateLabel ? (
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>
+                {dateLabel}
+              </Text>
+            ) : null}
+            <Text style={[styles.time, { color: colors.textSecondary }]}>{time}</Text>
+          </View>
           {onSyncPress ? (
             <Pressable
               style={[styles.syncButton, { backgroundColor: colors.secondarySoft }]}
@@ -79,7 +89,7 @@ export function AppointmentCard({ time, title, location, type, onPress, onSyncPr
         </View>
 
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-        <Text style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
+        <Text numberOfLines={1} style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
       </View>
     </Pressable>
   );
@@ -108,10 +118,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
+  timeColumn: {
+    flex: 1,
+  },
   time: {
     fontSize: 18,
     fontWeight: '700',
-    flex: 1,
   },
   syncButton: {
     borderRadius: 6,

@@ -136,7 +136,7 @@ export function RecommendationCard({
           </Pressable>
 
           {showOriginal ? (
-            <View className="mt-2 rounded-app border border-app-border bg-app-surfaceMuted px-3 py-3 dark:border-app-dark-border dark:bg-app-dark-surfaceMuted">
+            <View className="mt-2 rounded-app border border-app-border bg-app-surfaceMuted p-3 dark:border-app-dark-border dark:bg-app-dark-surfaceMuted">
               <Text className="mb-2 text-[12px] font-bold uppercase tracking-wide text-app-textMuted dark:text-app-dark-textMuted">
                 Texto oficial (inglês)
               </Text>

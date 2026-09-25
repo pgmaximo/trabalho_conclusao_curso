@@ -7,6 +7,7 @@ import { useExamsData } from '@/hooks/useExamsData';
 import { useAppointmentsData } from '@/hooks/useAppointmentsData';
 import { useVaccinationAlert } from '@/hooks/useVaccinationAlert';
 import { useMedicinesData } from '@/hooks/useMedicinesData';
+import { buildDashboardTodaySummary, selectUpcomingAppointments } from '@/services/homeAppointments';
 
 function getDashboardTodayLabel(date = new Date()): string {
   return date.toLocaleDateString('pt-BR', {
@@ -21,46 +22,6 @@ function getGreeting(name: string): string {
   const hour = new Date().getHours();
   const period = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
   return `${period}, ${name.split(' ')[0]}`;
-}
-
-function isSameCalendarDay(isoDate: string, reference: Date): boolean {
-  const date = new Date(isoDate);
-  return (
-    date.getFullYear() === reference.getFullYear() &&
-    date.getMonth() === reference.getMonth() &&
-    date.getDate() === reference.getDate()
-  );
-}
-
-// DECISION (specs/02-perfil-home-agenda/home/plan.md §2): a frase-modelo do
-// Canvas ("1 consulta às 15h · 2 medicamentos pendentes") tem 2 clausulas —
-// medicamentos nao tem fonte real ainda (Bloco 3, Medicamentos e 100% mock),
-// entao so a clausula de consultas e composta; nunca inventamos o numero de
-// medicamentos pendentes.
-function buildTodaySummaryText(appointments: { scheduledAt: string; time: string }[]): string {
-  const now = new Date();
-  const todayAppointments = appointments
-    .filter((appointment) => isSameCalendarDay(appointment.scheduledAt, now))
-    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-
-  if (todayAppointments.length === 0) {
-    return 'Nenhum compromisso ou pendência para hoje.';
-  }
-
-  const [next] = todayAppointments;
-  const label = todayAppointments.length === 1 ? 'consulta' : 'consultas';
-
-  return `${todayAppointments.length} ${label} às ${next.time}`;
-}
-
-function buildDashboardTodaySummary(appointments: { scheduledAt: string; time: string }[], pendingMedicines: number): string {
-  const appointmentText = buildTodaySummaryText(appointments);
-  const hasAppointments = appointments.some((appointment) => isSameCalendarDay(appointment.scheduledAt, new Date()));
-  const medicineText = pendingMedicines > 0
-    ? `${pendingMedicines} medicamento${pendingMedicines === 1 ? '' : 's'} pendente${pendingMedicines === 1 ? '' : 's'}`
-    : '';
-  if (!hasAppointments) return medicineText || appointmentText;
-  return medicineText ? `${appointmentText} · ${medicineText}` : appointmentText;
 }
 
 export default function DashboardRoute() {
@@ -88,13 +49,12 @@ export default function DashboardRoute() {
     .sort((a, b) => (b.documentDate ?? '').localeCompare(a.documentDate ?? ''))
     .slice(0, 3);
 
-  const now = new Date().toISOString();
-  const upcomingAppointments = [...appointments]
-    .filter((appointment) => appointment.scheduledAt >= now)
-    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
-    .slice(0, 2);
-
-  const todaySummaryText = buildDashboardTodaySummary(appointments, pendingMedicines);
+  // Um Date, nao uma string ISO: comparar "AAAA-MM-DDTHH:mm" (local ingenuo) com
+  // `toISOString()` (UTC) escondia da Home todo compromisso das proximas tres
+  // horas em UTC-3 (spec.md §2.1, D1).
+  const now = new Date();
+  const upcomingAppointments = selectUpcomingAppointments(appointments, now, 2);
+  const todaySummaryText = buildDashboardTodaySummary(appointments, pendingMedicines, now);
 
   return (
     <HomeScreen
@@ -104,6 +64,7 @@ export default function DashboardRoute() {
       examsLoading={examsLoading}
       greeting={greeting}
       onNavigateToAi={() => router.push('/ai')}
+      onNavigateToAppointmentDetail={(id) => router.push(`/edit-appointment?id=${encodeURIComponent(id)}`)}
       onNavigateToAppointments={() => router.push('/appointments')}
       onNavigateToExamDetail={(id) => router.push(`/document-detail?id=${id}`)}
       onNavigateToExams={() => router.push('/exams')}

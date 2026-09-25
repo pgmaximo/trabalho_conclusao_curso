@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 
 import { BottomSheet } from '@/components/BottomSheet';
+import { AnalyteSeriesEntry } from '@/components/AnalyteSeriesEntry';
 import { EmptyState } from '@/components/EmptyState';
 import { ExamItem } from '@/components/ExamItem';
 import { FilterChips } from '@/components/FilterChips';
@@ -185,7 +186,13 @@ export function ExamsScreen({
             />
           ) : (
             <>
-              <ScreenHeader title="Exames e receitas" />
+              <ScreenHeader
+                title="Exames e receitas"
+                // Some quando nao ha documento nenhum: oferecer comparacao a
+                // quem nao tem o que comparar e mandar a pessoa para uma tela
+                // vazia. A porta so faz sentido depois do primeiro exame.
+                action={hasAnyDocuments ? <AnalyteSeriesEntry /> : undefined}
+              />
 
               <View
                 style={[

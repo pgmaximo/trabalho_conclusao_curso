@@ -4,8 +4,14 @@
 // =============================================================================
 
 import React from 'react';
+import { useLocalSearchParams } from 'expo-router';
+
 import { ChatBotScreen } from '@/screens/ChatBotScreen';
 
 export default function ChatBotRoute() {
-  return <ChatBotScreen />;
+  // A conversa de origem de um fato da memoria (M11). Ausente no caminho
+  // normal, que e abrir o chat pela barra de navegacao.
+  const { conversationId } = useLocalSearchParams<{ conversationId?: string }>();
+
+  return <ChatBotScreen conversaInicial={conversationId ?? null} />;
 }

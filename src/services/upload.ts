@@ -12,6 +12,8 @@ import { uploadData } from 'aws-amplify/storage';
 import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
+import { metadadosDeQuemEnvia } from '@/services/metadadoDeQuemEnvia';
+
 /**
  * Faz upload de um arquivo local (URI do document picker) para o S3.
  * `buildPath` recebe `{ identityId }` resolvido pelo Amplify e monta a
@@ -41,9 +43,12 @@ export async function uploadFileToS3(
       data = await new File(filePath).bytes();
     }
 
+    // O `sub` de quem enviou vai no metadado do objeto (D46): as funcoes que
+    // leem o bucket conferem que o arquivo e do dono da linha antes de abri-lo.
     const result = await uploadData({
       path: buildPath,
       data,
+      options: { metadata: await metadadosDeQuemEnvia() },
     }).result;
 
     console.log(`Arquivo enviado para S3: ${result.path}`);

@@ -22,5 +22,15 @@ export const storage = defineStorage({
     'health-imports/{entity_id}/*': [
       allow.entity('identity').to(['read', 'write', 'delete']),
     ],
+    // Anexo PONTUAL da conversa (D15). Pasta separada de medical-documents/
+    // de proposito, e nao por organizacao: o que esta la faz parte do
+    // historico e tem uma linha em MedicalDocument apontando para ele; o que
+    // esta aqui nao tem linha nenhuma -- existe para uma pergunta.
+    //
+    // A separacao tambem e o que permite conceder a funcao do chat leitura
+    // SO daqui: ela nunca precisa enxergar o historico de documentos.
+    'chat-attachments/{entity_id}/*': [
+      allow.entity('identity').to(['read', 'write', 'delete']),
+    ],
   }),
 });

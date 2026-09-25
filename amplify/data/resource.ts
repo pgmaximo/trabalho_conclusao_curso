@@ -6,6 +6,8 @@ import { vaccinationSchema } from './schemas/vaccination.js';
 import { medicinesSchema } from './schemas/medicines.js';
 import { preventionSchema } from './schemas/prevention.js';
 import { healthImportSchema } from './schemas/health-import.js';
+import { chatSchema } from './schemas/chat.js';
+import { assistantMemorySchema } from './schemas/memory.js';
 
 const schema = a.schema({
   ...userSchema,
@@ -15,6 +17,8 @@ const schema = a.schema({
   ...medicinesSchema,
   ...preventionSchema,
   ...healthImportSchema,
+  ...chatSchema,
+  ...assistantMemorySchema,
 });
 
 export type Schema = ClientSchema<typeof schema>;

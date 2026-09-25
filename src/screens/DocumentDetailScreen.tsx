@@ -17,18 +17,20 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { DateInput } from '@/components/DateInput';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { DetailHeader } from '@/components/DetailHeader';
+import { DocumentSummaryCard } from '@/components/DocumentSummaryCard';
+import { ExtractedResultsSection } from '@/components/ExtractedResultsSection';
 import { FormField } from '@/components/FormField';
 import { HachuraPlaceholder } from '@/components/HachuraPlaceholder';
 import { InlineError } from '@/components/InlineError';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
 import { useThemeColors } from '@/constants/theme';
+import type { UseDocumentExtractionResult } from '@/hooks/useDocumentExtraction';
 import {
-  formatDateForDisplay,
   getDocumentDownloadUrl,
+  getUrlDaFolha,
   getExamDocumentIncompleteReason,
   isExamDocumentComplete,
   updateExamDocument,
@@ -38,9 +40,16 @@ import {
 
 export interface DocumentDetailScreenProps {
   document: MedicalDocumentMetadata;
+  /**
+   * Estado da leitura automatica, injetado pela rota. A tela continua
+   * apresentacional -- quem consulta o backend e o hook, na rota, como em
+   * health-data.tsx. E tambem o que permite testar os cinco estados sem
+   * cronometro nem rede.
+   */
+  extraction: UseDocumentExtractionResult;
 }
 
-export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
+export function DocumentDetailScreen({ document, extraction }: DocumentDetailScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
 
@@ -129,7 +138,7 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
     setDeleteError(null);
 
     try {
-      await deleteExamDocument(document.id, document.s3FileName);
+      await deleteExamDocument(document.id, document.s3FileName, document.extraPageKeys ?? []);
       router.replace('/exams');
     } catch (error) {
       // Painel fecha e o usuário permanece na tela do documento para nova tentativa —
@@ -139,6 +148,17 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
       setIsConfirmingDelete(false);
     } finally {
       setIsDeleting(false);
+    }
+  }
+
+  /** Uma folha extra do laudo fotografado (Bloco 11), pela chave completa. */
+  async function handleAbrirFolha(chave: string) {
+    setDownloadError(null);
+    try {
+      await Linking.openURL(await getUrlDaFolha(chave));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao abrir a folha.';
+      setDownloadError(message);
     }
   }
 
@@ -209,7 +229,7 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
               />
 
               <DateInput
-                label="Data do documento"
+                label={isPrescription ? 'Data da receita' : 'Guardado em'}
                 onChange={setDocumentDate}
                 placeholder="DD/MM/YYYY"
                 value={documentDate}
@@ -273,48 +293,24 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
             </>
           ) : (
             <>
-              {/* Card somente-leitura: Tipo/Nome/Data(/Data de validade), linhas com divisor */}
-              <Card padding="regular" style={{ marginBottom: 20 }} variant="surface">
-                <View className="border-b border-app-border pb-3 dark:border-app-dark-border">
-                  <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                    Tipo
-                  </Text>
-                  <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                    {typeLabel}
-                  </Text>
-                </View>
+              <DocumentSummaryCard
+                documentDate={documentDate}
+                documentName={documentName}
+                expirationDate={isPrescription ? expirationDate : undefined}
+                typeLabel={typeLabel}
+              />
 
-                <View className="border-b border-app-border py-3 dark:border-app-dark-border">
-                  <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                    Nome
-                  </Text>
-                  <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                    {documentName}
-                  </Text>
-                </View>
-
-                <View
-                  className={isPrescription && expirationDate ? 'border-b border-app-border py-3 dark:border-app-dark-border' : 'pt-3'}
-                >
-                  <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                    Data
-                  </Text>
-                  <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                    {formatDateForDisplay(documentDate)}
-                  </Text>
-                </View>
-
-                {isPrescription && expirationDate ? (
-                  <View className="pt-3">
-                    <Text className="text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                      Data de validade
-                    </Text>
-                    <Text className="mt-1 text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                      {formatDateForDisplay(expirationDate)}
-                    </Text>
-                  </View>
-                ) : null}
-              </Card>
+              {/* Leitura automatica do documento (EPIC 06). Entra ABAIXO do
+                  que ja existia: os tres modos desta tela -- visualizacao,
+                  edicao e exclusao -- nao mudaram (regra 5). */}
+              <ExtractedResultsSection
+                documentDate={documentDate}
+                extraction={extraction}
+                onCorrigido={() => setSuccessMessage('Correção salva!')}
+                onOpenSeries={(analyteCode) =>
+                  router.push(`/analyte-series?code=${encodeURIComponent(analyteCode)}`)
+                }
+              />
 
               {downloadError ? <InlineError message={downloadError} /> : null}
 
@@ -330,6 +326,25 @@ export function DocumentDetailScreen({ document }: DocumentDetailScreenProps) {
                   Baixar documento
                 </Text>
               </Pressable>
+
+              {/* As folhas 2 a N de um laudo fotografado (Bloco 11, E6). O
+                  Canvas 3c mostra um arquivo so; cada folha extra reusa o botao
+                  secundario do "Baixar documento" (constituicao, regra 8). */}
+              {(document.extraPageKeys ?? []).map((chave, i) => (
+                <Pressable
+                  accessibilityLabel={`Abrir folha ${i + 2}`}
+                  accessibilityRole="button"
+                  key={chave}
+                  onPress={() => handleAbrirFolha(chave)}
+                  style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+                  className="mb-3 h-12 flex-row items-center justify-center gap-2 rounded-field border-[1.5px] border-app-border dark:border-app-dark-border"
+                >
+                  <Ionicons color={colors.primaryDark} name="document-outline" size={18} />
+                  <Text className="text-[17px] font-semibold text-app-primaryDark dark:text-app-dark-primaryDark">
+                    Abrir folha {i + 2}
+                  </Text>
+                </Pressable>
+              ))}
 
               {deleteError ? <InlineError message={deleteError} /> : null}
 
