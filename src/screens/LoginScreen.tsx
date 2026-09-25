@@ -222,9 +222,11 @@ export function LoginScreen({
               secureTextEntry={!isPasswordVisible}
               trailingAction={
                 <Pressable
+                  accessibilityLabel={isPasswordVisible ? 'Ocultar senha' : 'Mostrar senha'}
                   accessibilityRole="button"
+                  className="h-11 w-11 items-center justify-center"
                   disabled={isLoading}
-                  hitSlop={8}
+                  hitSlop={4}
                   onPress={togglePasswordVisibility}
                   onPressIn={() => setIsTogglePressed(true)}
                   onPressOut={() => setIsTogglePressed(false)}
@@ -233,9 +235,13 @@ export function LoginScreen({
                   // renderiza sem nenhum estilo.
                   style={[isTogglePressed && { opacity: 0.7 }]}
                 >
-                  <Text className="text-[16px] font-semibold text-app-secondary dark:text-app-dark-secondary">
-                    {isPasswordVisible ? 'Ocultar' : 'Mostrar'}
-                  </Text>
+                  {/* Olho, e nao a palavra "Mostrar": o texto nao cabia na caixa em
+                      tela de celular. O nome do botao fica no accessibilityLabel. */}
+                  <MaterialIcons
+                    color={colors.secondary}
+                    name={isPasswordVisible ? 'visibility-off' : 'visibility'}
+                    size={22}
+                  />
                 </Pressable>
               }
               value={password}
