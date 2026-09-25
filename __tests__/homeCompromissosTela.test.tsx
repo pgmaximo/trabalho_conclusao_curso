@@ -88,7 +88,9 @@ describe('Home — navegacao dos compromissos', () => {
   it('rotula um compromisso de amanha como "Amanhã"', () => {
     renderHome({ onNavigateToAppointmentDetail: jest.fn() });
 
-    expect(screen.getByText(/Amanhã/)).toBeTruthy();
+    // O card do compromisso (com o local); o atalho de Consultas do Acesso
+    // rapido tambem diz "Amanhã", e e coberto em homeAcessoRapido.test.tsx.
+    expect(screen.getByText(/Amanhã, 08:00 · Clinica Central/)).toBeTruthy();
   });
 
   it('rotula um compromisso com data corrompida como "Data inválida"', () => {
@@ -96,6 +98,6 @@ describe('Home — navegacao dos compromissos', () => {
 
     renderHome({ upcomingAppointments: [corrompido], onNavigateToAppointmentDetail: jest.fn() });
 
-    expect(screen.getByText(/Data inválida/)).toBeTruthy();
+    expect(screen.getByText(/Data inválida, 08:00 · Clinica Central/)).toBeTruthy();
   });
 });

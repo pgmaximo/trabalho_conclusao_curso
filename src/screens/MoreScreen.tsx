@@ -1,7 +1,8 @@
 // =============================================================================
 // Arquivo: MoreScreen.tsx
 // Descrição: Tela do hub "Mais" — 5ª tab de primeiro nível, lista de acesso a
-// Prevenção, Assistente de IA e Perfil (ver specs/00-fundacao/navegacao).
+// Consultas, Prevenção, Vacinação, Dados do smartwatch e Perfil (ver
+// specs/00-fundacao/navegacao e specs/00-fundacao/barra-de-navegacao).
 // =============================================================================
 //
 // Sem seta de voltar (é uma tab de primeiro nível). Lista estática vinda de

@@ -52,11 +52,15 @@ type HomeScreenProps = {
   onNavigateToAppointmentDetail?: (id: string) => void;
   onNavigateToExams: () => void;
   onNavigateToAppointments?: () => void;
-  onNavigateToAi?: () => void;
   onNavigateToMedicines?: () => void;
   onNavigateToPrevention?: () => void;
   onNavigateToVaccination?: () => void;
   onNotificationPress?: () => void;
+  /** Total de documentos guardados, para a linha de apoio do atalho Exames. */
+  examsCount?: number;
+  /** Doses de hoje ainda não tomadas. `null` enquanto carrega ou se falhou:
+   *  nesse caso o atalho Remédios fica sem linha de apoio, em vez de dizer "0". */
+  pendingDosesToday?: number | null;
 };
 
 const APPOINTMENT_TYPE_LABEL: Record<AppointmentType, string> = {
@@ -83,11 +87,12 @@ export function HomeScreen({
   onNavigateToAppointmentDetail,
   onNavigateToExams,
   onNavigateToAppointments,
-  onNavigateToAi,
   onNavigateToMedicines,
   onNavigateToPrevention,
   onNavigateToVaccination,
   onNotificationPress,
+  examsCount,
+  pendingDosesToday,
 }: HomeScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
@@ -125,6 +130,52 @@ export function HomeScreen({
         {vaccinationAlert ? (
           <VaccinationAlertCard alert={vaccinationAlert} onPress={onNavigateToVaccination} />
         ) : null}
+
+        {/* DECISION (specs/00-fundacao/barra-de-navegacao/spec.md, D6): o Acesso
+            rápido subiu para logo depois do Resumo e ganhou Consultas e Exames.
+            Consultas saiu da barra, e o Início passou a ser a porta de entrada
+            de 1 toque para ela, Exames e Remédios. "Análise IA" saiu: virou a
+            aba Assistente. As linhas de apoio só usam dado que esta tela já
+            recebeu, e somem enquanto ele carrega ou se falhou. */}
+        <Section title="Acesso rápido">
+          <View className="flex-row gap-2.5">
+            <QuickAccessButton
+              detail={
+                appointmentsLoading || appointmentsError
+                  ? null
+                  : resumoDoProximoCompromisso(upcomingAppointments)
+              }
+              icon="calendar-outline"
+              label="Consultas"
+              onPress={onNavigateToAppointments}
+              tone="secondary"
+            />
+            <QuickAccessButton
+              detail={
+                examsLoading || examsError || examsCount === undefined
+                  ? null
+                  : resumoDosDocumentos(examsCount)
+              }
+              icon="document-text-outline"
+              label="Exames"
+              onPress={onNavigateToExams}
+            />
+          </View>
+          <View className="mt-2.5 flex-row gap-2.5">
+            <QuickAccessButton
+              detail={pendingDosesToday == null ? null : resumoDasDoses(pendingDosesToday)}
+              icon="medkit-outline"
+              label="Remédios"
+              onPress={onNavigateToMedicines}
+            />
+            <QuickAccessButton
+              icon="shield-checkmark-outline"
+              label="Prevenção"
+              onPress={onNavigateToPrevention}
+              tone="warning"
+            />
+          </View>
+        </Section>
 
         <Section
           action={<SectionLink label="Ver todos" onPress={onNavigateToExams} />}
@@ -204,35 +255,32 @@ export function HomeScreen({
           )}
         </Section>
 
-        <Section title="Acesso rápido">
-          <View className="flex-row justify-between">
-            <QuickAccessButton
-              icon="calendar-outline"
-              label="Agenda"
-              onPress={onNavigateToAppointments ?? (() => {})}
-            />
-            <QuickAccessButton
-              icon="bulb-outline"
-              label="Análise IA"
-              onPress={onNavigateToAi ?? (() => {})}
-            />
-          </View>
-          <View className="mt-2 flex-row justify-between">
-            <QuickAccessButton
-              icon="medkit-outline"
-              label="Remédios"
-              onPress={onNavigateToMedicines ?? (() => {})}
-            />
-            <QuickAccessButton
-              icon="shield-checkmark-outline"
-              label="Prevenção"
-              onPress={onNavigateToPrevention ?? (() => {})}
-            />
-          </View>
-        </Section>
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function resumoDoProximoCompromisso(upcomingAppointments: AppointmentEntry[]): string {
+  // `upcomingAppointments` já chega em ordem cronológica (selectUpcomingAppointments).
+  const proximo = upcomingAppointments[0];
+  if (!proximo) {
+    return 'Nada agendado';
+  }
+  return `Próximo: ${formatAppointmentWhen(proximo.scheduledAt)}, ${proximo.time}`;
+}
+
+function resumoDosDocumentos(quantidade: number): string {
+  if (quantidade === 0) {
+    return 'Nenhum documento guardado';
+  }
+  return quantidade === 1 ? '1 documento guardado' : `${quantidade} documentos guardados`;
+}
+
+function resumoDasDoses(doses: number): string {
+  if (doses === 0) {
+    return 'Nenhuma dose a tomar hoje';
+  }
+  return doses === 1 ? '1 dose a tomar hoje' : `${doses} doses a tomar hoje`;
 }
 
 function SectionLink({ label, onPress }: { label: string; onPress?: () => void }) {
