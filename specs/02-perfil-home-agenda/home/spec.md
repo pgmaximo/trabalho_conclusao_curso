@@ -1,5 +1,12 @@
 # EPIC: Home — Resumo, Indicadores e Acesso Rápido (Bloco 2)
 
+> **Reconciliação (2026-09-25):** o "Acesso rápido" desta tela mudou por
+> decisão explícita em `specs/00-fundacao/barra-de-navegacao/spec.md` (D6 e D7):
+> subiu para logo depois do "Resumo de hoje", e a grade 2×2 passou a ser
+> Consultas (antes "Agenda"), Exames (no lugar de "Análise IA", que virou aba
+> da barra), Remédios e Prevenção, com linha de apoio de dado real quando o
+> Início já o tem.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: tela **2b** ("Home — resumo, indicadores e acesso rápido") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 730–794).
 - Rota/arquivo no código (existente): `src/app/(app)/dashboard.tsx` (rota `/dashboard`, aba "Início" da tab bar) → renderiza `src/screens/HomeScreen.tsx`, alimentado por `src/hooks/useDashboardData.ts` (mock) + `src/hooks/useExamsData.ts` (real) + `src/hooks/useAppointmentsData.ts` (real, ainda não consumido pela Home hoje).

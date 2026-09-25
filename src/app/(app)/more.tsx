@@ -1,6 +1,7 @@
 // =============================================================================
 // Arquivo: (app)/more.tsx
-// Descrição: Rota do hub "Mais" (5ª tab — Prevenção, Assistente de IA, Perfil).
+// Descrição: Rota do hub "Mais" (5ª tab — Consultas, Prevenção, Vacinação,
+// Dados do smartwatch e Perfil).
 // =============================================================================
 
 import React from 'react';

@@ -38,7 +38,11 @@ export default function DashboardRoute() {
     errorMessage: appointmentsError,
     retry: retryAppointments,
   } = useAppointmentsData();
-  const { pendingCount: pendingMedicines } = useMedicinesData();
+  const {
+    pendingCount: pendingMedicines,
+    isLoading: medicinesLoading,
+    errorMessage: medicinesError,
+  } = useMedicinesData();
   const vaccinationAlert = useVaccinationAlert();
 
   const greeting = getGreeting(user?.name ?? 'você');
@@ -60,10 +64,10 @@ export default function DashboardRoute() {
     <HomeScreen
       appointmentsError={appointmentsError}
       appointmentsLoading={appointmentsLoading}
+      examsCount={documents.length}
       examsError={examsError}
       examsLoading={examsLoading}
       greeting={greeting}
-      onNavigateToAi={() => router.push('/ai')}
       onNavigateToAppointmentDetail={(id) => router.push(`/edit-appointment?id=${encodeURIComponent(id)}`)}
       onNavigateToAppointments={() => router.push('/appointments')}
       onNavigateToExamDetail={(id) => router.push(`/document-detail?id=${id}`)}
@@ -73,6 +77,9 @@ export default function DashboardRoute() {
       onNavigateToVaccination={() => router.push('/vaccination')}
       onRetryAppointments={retryAppointments}
       onRetryExams={retryExams}
+      // Sem linha de apoio enquanto os remédios carregam ou se falharam: "0"
+      // seria afirmar que não há dose, sem saber.
+      pendingDosesToday={medicinesLoading || medicinesError ? null : pendingMedicines}
       preventionAlert={null}
       vaccinationAlert={vaccinationAlert}
       recentExams={recentExams}

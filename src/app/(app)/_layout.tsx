@@ -15,10 +15,10 @@
 //
 // Estrutura do AppShell (5 abas + hub "Mais" — ver src/constants/navigation.ts):
 // - Início (dashboard)
-// - Consultas (agenda, /appointments)
 // - Exames
+// - Assistente (assistant, /ai)
 // - Remédios (medicines)
-// - Mais (hub: Prevenção, Assistente de IA, Perfil)
+// - Mais (hub: Consultas, Prevenção, Vacinação, Dados do smartwatch, Perfil)
 //
 // =============================================================================
 

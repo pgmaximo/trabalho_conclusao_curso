@@ -1,5 +1,12 @@
 # EPIC: Fundação — Estrutura de Navegação (5 abas + Mais)
 
+> **Reconciliação (2026-09-25):** a ordem das abas desta EPIC foi alterada por
+> decisão explícita em `specs/00-fundacao/barra-de-navegacao/spec.md` (D1):
+> a barra passou a ser Início · Exames · Assistente · Remédios · Mais, e
+> Consultas foi para o topo do hub Mais. O teto de 5 abas do Canvas 1a foi
+> mantido. A aba acesa por rota agora vem de `ROUTE_TAB_MAP`, e não mais de
+> `MORE_ROUTE_PREFIXES`.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: tela 1a (referência fixa — documenta a barra de 5 abas e descarta explicitamente uma alternativa de 7 abas); telas 2b, 2c, 3a, 3d, 4a, 4b (todas renderizam a barra de 5 abas em uso real); tela 3e (Prevenção, alcançada a partir de "Mais", com a aba "Mais" destacada como ativa).
 - Rota/arquivo no código (existente ou proposto):
