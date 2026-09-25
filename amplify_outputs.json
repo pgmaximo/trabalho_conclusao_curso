@@ -235,6 +235,14 @@
               "isRequired": false,
               "attributes": []
             },
+            "extraPageKeys": {
+              "name": "extraPageKeys",
+              "isArray": true,
+              "type": "String",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
             "laboratorio": {
               "name": "laboratorio",
               "isArray": false,
