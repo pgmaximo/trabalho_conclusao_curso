@@ -30,6 +30,18 @@ export interface CorrectResultPanelProps {
   onCancel: () => void;
 }
 
+/**
+ * Filtra o que a pessoa digita/cola para o que um numero de laudo pode ter:
+ * digitos, separador decimal, sinal e os dois caracteres de limite (D21). O
+ * teclado "decimal-pad" ja tira letra da digitação, mas colar um numero
+ * copiado de uma calculadora pode trazer notação científica ("1.5E-6") -- a
+ * regra desta tela e digitar o numero EXATAMENTE como esta no papel, nunca
+ * uma notação que o laudo nunca usou.
+ */
+function semNotacaoCientifica(texto: string): string {
+  return texto.replace(/[^0-9,.<>+-]/g, '');
+}
+
 export function CorrectResultPanel({ result, onDone, onCancel }: CorrectResultPanelProps) {
   const [digitado, setDigitado] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -82,7 +94,7 @@ export function CorrectResultPanel({ result, onDone, onCancel }: CorrectResultPa
           // "decimal-pad" e nao "numeric": o teclado precisa ter a virgula,
           // que e o separador decimal que o laudo usa.
           keyboardType="decimal-pad"
-          onChangeText={setDigitado}
+          onChangeText={(texto) => setDigitado(semNotacaoCientifica(texto))}
           placeholder={result.rawValue}
           value={digitado}
         />

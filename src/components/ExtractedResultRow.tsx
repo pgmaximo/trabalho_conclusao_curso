@@ -35,7 +35,13 @@ export const CLASSE_LINHA_PENDENTE =
 
 export interface ExtractedResultRowProps {
   result: LabResultView;
-  onConfirm: (id: string) => void;
+  /**
+   * "A leitura esta certa". Passa a linha inteira (nao so o id): quando ela
+   * ja tem `value`, confirmar so muda quem responde por ele; quando nao tem,
+   * quem trata isto (useDocumentExtraction) usa o `rawValue` como o valor, e
+   * a pessoa nao precisa redigitar o que o OCR ja leu certo.
+   */
+  onConfirm: (result: LabResultView) => void;
   onCorrect: (result: LabResultView) => void;
   onOpenSeries?: (analyteCode: string) => void;
   /** Some enquanto o painel de correcao daquela linha esta aberto. */
@@ -51,13 +57,6 @@ export function ExtractedResultRow({
 }: ExtractedResultRowProps) {
   const colors = useThemeColors();
   const pendente = result.reviewStatus === 'PENDENTE_DE_REVISAO';
-  // Confirmar so faz sentido quando ha um numero lido para confirmar. Boa
-  // parte das linhas pendentes chega com `value: null` (numero ilegivel,
-  // analito fora do catalogo, faixa que nao leu, unidade que nao converteu --
-  // ver `paraRevisao` em analyteNormalizer.ts): oferecer "Confirmar" ali deixa
-  // a pessoa sair da revisao sem nunca ter digitado o numero, e o valor fica
-  // nulo pra sempre com a tela dando a entender que ela confirmou uma leitura.
-  const temValorParaConfirmar = result.value !== null;
   const faixa = formatarFaixa(result.referenceLow, result.referenceHigh);
   // So exibicao: o banco guarda o token ("10*3/uL"), a pessoa le "mil/µL".
   const unidade = unidadeLegivel(result.unit ?? result.rawUnit ?? '');
@@ -120,38 +119,23 @@ export function ExtractedResultRow({
       {pendente && !emCorrecao ? (
         <View className="mt-2">
           <Text className="text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
-            {temValorParaConfirmar ? (
-              <>
-                Não conseguimos ler este valor com segurança. No documento está escrito{' '}
-                <Text className="font-semibold text-app-text dark:text-app-dark-text">
-                  {result.rawValue}
-                  {result.rawUnit ? ` ${result.rawUnit}` : ''}
-                </Text>
-                . Confira no documento antes de confirmar.
-              </>
-            ) : (
-              <>
-                Não conseguimos transformar isto num número. No documento está escrito{' '}
-                <Text className="font-semibold text-app-text dark:text-app-dark-text">
-                  {result.rawValue}
-                  {result.rawUnit ? ` ${result.rawUnit}` : ''}
-                </Text>
-                . Confira no documento e digite o valor.
-              </>
-            )}
+            Não conseguimos ler este valor com segurança. No documento está escrito{' '}
+            <Text className="font-semibold text-app-text dark:text-app-dark-text">
+              {result.rawValue}
+              {result.rawUnit ? ` ${result.rawUnit}` : ''}
+            </Text>
+            . Confira no documento antes de confirmar.
           </Text>
           <View className="mt-2 flex-row gap-5">
-            {temValorParaConfirmar ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Confirmar a leitura de ${result.projectLabel}`}
-                onPress={() => onConfirm(result.id)}
-              >
-                <Text className="text-[15px] font-semibold" style={{ color: colors.primary }}>
-                  Confirmar
-                </Text>
-              </Pressable>
-            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Confirmar a leitura de ${result.projectLabel}`}
+              onPress={() => onConfirm(result)}
+            >
+              <Text className="text-[15px] font-semibold" style={{ color: colors.primary }}>
+                Confirmar
+              </Text>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Corrigir a leitura de ${result.projectLabel}`}

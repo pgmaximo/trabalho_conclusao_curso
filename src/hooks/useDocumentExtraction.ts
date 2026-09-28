@@ -17,9 +17,11 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 import {
   confirmLabResult,
+  correctLabResult,
   fetchExtractionState,
   startExtraction,
   type ExtractionState,
+  type LabResultView,
 } from '@/services/extractionService';
 
 const POLL_DELAYS_MS = [2000, 2000, 3000, 3000, 5000, 5000, 8000, 8000, 10000];
@@ -43,7 +45,20 @@ export type UseDocumentExtractionResult = {
   retry: () => void;
   /** Valvula manual: reinicia a espera do zero, sem pedir leitura nova. */
   refresh: () => void;
-  confirm: (id: string) => Promise<void>;
+  /**
+   * "A leitura esta certa". Quando ja ha um numero lido (so a confianca e
+   * baixa), so muda quem responde por ele. Quando NAO ha (`value: null` --
+   * numero ilegivel, analito fora do catalogo, faixa ou unidade que nao
+   * converteu, ver `paraRevisao` em analyteNormalizer.ts), confirmar SEM
+   * digitar nada deixaria o valor nulo pra sempre com a tela dando a entender
+   * que a pessoa confirmou uma leitura -- entao usa o `rawValue` (o texto do
+   * papel) como o valor, pelo MESMO parseDecimal que corrige uma linha na mao
+   * (D23): a pessoa nao precisa redigitar o que o OCR ja leu certo.
+   *
+   * LANCA quando o `rawValue` nao vira numero (ex.: OCR errou um digito) --
+   * quem chama decide o que fazer (abrir o painel de correcao manual).
+   */
+  confirm: (result: LabResultView) => Promise<void>;
 };
 
 export function useDocumentExtraction(documentId: string | null): UseDocumentExtractionResult {
@@ -154,8 +169,14 @@ export function useDocumentExtraction(documentId: string | null): UseDocumentExt
   }, []);
 
   const confirm = useCallback(
-    async (id: string) => {
-      await confirmLabResult(id);
+    async (result: LabResultView) => {
+      if (result.value !== null) {
+        await confirmLabResult(result.id);
+      } else {
+        const unidade = result.unit ?? result.rawUnit ?? '';
+        const resposta = await correctLabResult(result.id, result.rawValue, unidade);
+        if (!resposta.ok) throw new Error(resposta.message);
+      }
       // Relê em vez de mexer no estado local: o que a tela mostra passa a ser
       // o que o banco tem, e nao o que o aplicativo supos que ficou gravado.
       await pollRef.current();

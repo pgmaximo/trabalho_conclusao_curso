@@ -64,6 +64,18 @@ export function ExtractedResultsSection({
   const [linhaEmCorrecao, setLinhaEmCorrecao] = useState<LabResultView | null>(null);
   const { state, isLoading, isTimedOut, isRetrying, errorMessage } = extraction;
 
+  // `extraction.confirm` lanca quando a linha nao tinha `value` e o
+  // `rawValue` nao virou numero (OCR errou um digito, ex.: "3Z,5") -- cai pro
+  // painel de correcao manual em vez de a pessoa achar que o toque nao fez
+  // nada.
+  async function confirmar(resultado: LabResultView) {
+    try {
+      await extraction.confirm(resultado);
+    } catch {
+      setLinhaEmCorrecao(resultado);
+    }
+  }
+
   const linhas = state?.results ?? [];
   const contagem = contarLinhas(linhas);
   const avisoDeDivergencia = avisoDeDivergenciaDeData(documentDate, linhas);
@@ -148,7 +160,7 @@ export function ExtractedResultsSection({
                   <View key={linha.id}>
                     <ExtractedResultRow
                       emCorrecao={linhaEmCorrecao?.id === linha.id}
-                      onConfirm={extraction.confirm}
+                      onConfirm={confirmar}
                       onCorrect={setLinhaEmCorrecao}
                       onOpenSeries={onOpenSeries}
                       result={linha}

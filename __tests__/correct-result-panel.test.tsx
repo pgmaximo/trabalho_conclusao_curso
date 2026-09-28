@@ -59,14 +59,28 @@ describe('CorrectResultPanel', () => {
   });
 
   it('recusa texto que nao e numero, sem gravar nada', async () => {
+    // Letra sozinha nem chega a habilitar o botao (o filtro de notacao
+    // cientifica tira do campo o que nao e digito da leitura permanece
+    // vazio); "1,,5" sobrevive ao filtro e so falha no parseDecimal do lado
+    // do servidor -- e o caminho que este teste cobre.
     (correctLabResult as jest.Mock).mockResolvedValue({
       ok: false,
       message: 'Não entendemos esse número.',
     });
     render(<CorrectResultPanel onCancel={jest.fn()} onDone={jest.fn()} result={pendente} />);
-    fireEvent.changeText(screen.getByLabelText(/valor/i), 'trinta e dois');
+    fireEvent.changeText(screen.getByLabelText(/valor/i), '1,,5');
     fireEvent.press(screen.getByText(/salvar correção/i));
     await waitFor(() => expect(screen.getByText(/não entendemos/i)).toBeTruthy());
+  });
+
+  it('filtra letra e notação científica do que a pessoa digita ou cola', () => {
+    render(<CorrectResultPanel onCancel={jest.fn()} onDone={jest.fn()} result={pendente} />);
+
+    fireEvent.changeText(screen.getByLabelText(/valor/i), '1.5E-6');
+    expect(screen.getByLabelText(/valor/i).props.value).toBe('1.5-6');
+
+    fireEvent.changeText(screen.getByLabelText(/valor/i), 'trinta e dois');
+    expect(screen.getByLabelText(/valor/i).props.value).toBe('');
   });
 
   it('nao oferece campo livre de unidade -- so a unidade que a tela ja mostra', () => {

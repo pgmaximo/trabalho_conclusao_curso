@@ -95,7 +95,10 @@ const tshAbaixoDoLimite: LabResultView = {
   reviewStatus: 'AUTO',
 };
 
-function extracao(overrides: Partial<ExtractionState> = {}): UseDocumentExtractionResult {
+function extracao(
+  overrides: Partial<ExtractionState> = {},
+  hookOverrides: Partial<UseDocumentExtractionResult> = {},
+): UseDocumentExtractionResult {
   return {
     state: {
       status: 'SUCCEEDED',
@@ -112,6 +115,7 @@ function extracao(overrides: Partial<ExtractionState> = {}): UseDocumentExtracti
     retry: jest.fn(),
     refresh: jest.fn(),
     confirm: jest.fn(),
+    ...hookOverrides,
   };
 }
 
@@ -320,17 +324,33 @@ describe('DocumentDetailScreen — o que a tela pode e nao pode dizer', () => {
     expect(screen.getByLabelText(/corrigir a leitura de hemoglobina/i)).toBeTruthy();
   });
 
-  it('linha pendente sem valor lido nao oferece confirmar, so corrigir', () => {
+  it('linha pendente sem valor lido tambem oferece confirmar -- usa o texto do papel como o valor', async () => {
     // `value: null` e o caso mais comum de PENDENTE_DE_REVISAO (numero
     // ilegivel, analito fora do catalogo, faixa ou unidade que nao converteu
-    // -- ver `paraRevisao` em analyteNormalizer.ts): nao ha leitura nenhuma
-    // para a pessoa confirmar, so o texto cru do papel. Oferecer "Confirmar"
-    // deixava a linha sair da revisao com o valor nulo pra sempre.
+    // -- ver `paraRevisao` em analyteNormalizer.ts). "Confirmar" continua
+    // oferecido: quem decide o que fazer com um `rawValue` sem `value` e o
+    // hook (useDocumentExtraction), que usa o texto do papel como o valor em
+    // vez de deixar a pessoa retitar o que o OCR ja leu certo.
     const semValor = { ...hemoglobina, reviewStatus: 'PENDENTE_DE_REVISAO' as const, value: null };
-    renderScreen(extracao({ status: 'SUCCEEDED', results: [semValor] }));
+    const confirm = jest.fn().mockResolvedValue(undefined);
+    renderScreen(extracao({ status: 'SUCCEEDED', results: [semValor] }, { confirm }));
 
-    expect(screen.queryByLabelText(/confirmar a leitura de hemoglobina/i)).toBeNull();
-    expect(screen.getByLabelText(/corrigir a leitura de hemoglobina/i)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText(/confirmar a leitura de hemoglobina/i));
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(semValor));
+  });
+
+  it('quando o texto do papel nao vira numero, confirmar abre o painel de correcao', async () => {
+    // O OCR pode errar um digito ("3Z,5" em vez de "32,5"): o hook lanca
+    // quando o rawValue nao passa pelo parseDecimal, e a tela precisa cair
+    // pro painel manual em vez de a pessoa achar que o toque nao fez nada.
+    const semValor = { ...hemoglobina, reviewStatus: 'PENDENTE_DE_REVISAO' as const, value: null };
+    const confirm = jest.fn().mockRejectedValue(new Error('Não entendemos esse número.'));
+    renderScreen(extracao({ status: 'SUCCEEDED', results: [semValor] }, { confirm }));
+
+    fireEvent.press(screen.getByLabelText(/confirmar a leitura de hemoglobina/i));
+
+    await waitFor(() => expect(screen.getByText(/salvar correção/i)).toBeTruthy());
   });
 
   it('o botao corrigir abre o painel de correcao naquela linha', () => {
