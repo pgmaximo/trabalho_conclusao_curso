@@ -51,6 +51,13 @@ export function ExtractedResultRow({
 }: ExtractedResultRowProps) {
   const colors = useThemeColors();
   const pendente = result.reviewStatus === 'PENDENTE_DE_REVISAO';
+  // Confirmar so faz sentido quando ha um numero lido para confirmar. Boa
+  // parte das linhas pendentes chega com `value: null` (numero ilegivel,
+  // analito fora do catalogo, faixa que nao leu, unidade que nao converteu --
+  // ver `paraRevisao` em analyteNormalizer.ts): oferecer "Confirmar" ali deixa
+  // a pessoa sair da revisao sem nunca ter digitado o numero, e o valor fica
+  // nulo pra sempre com a tela dando a entender que ela confirmou uma leitura.
+  const temValorParaConfirmar = result.value !== null;
   const faixa = formatarFaixa(result.referenceLow, result.referenceHigh);
   // So exibicao: o banco guarda o token ("10*3/uL"), a pessoa le "mil/µL".
   const unidade = unidadeLegivel(result.unit ?? result.rawUnit ?? '');
@@ -113,23 +120,38 @@ export function ExtractedResultRow({
       {pendente && !emCorrecao ? (
         <View className="mt-2">
           <Text className="text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
-            Não conseguimos ler este valor com segurança. No documento está escrito{' '}
-            <Text className="font-semibold text-app-text dark:text-app-dark-text">
-              {result.rawValue}
-              {result.rawUnit ? ` ${result.rawUnit}` : ''}
-            </Text>
-            . Confira no documento antes de confirmar.
+            {temValorParaConfirmar ? (
+              <>
+                Não conseguimos ler este valor com segurança. No documento está escrito{' '}
+                <Text className="font-semibold text-app-text dark:text-app-dark-text">
+                  {result.rawValue}
+                  {result.rawUnit ? ` ${result.rawUnit}` : ''}
+                </Text>
+                . Confira no documento antes de confirmar.
+              </>
+            ) : (
+              <>
+                Não conseguimos transformar isto num número. No documento está escrito{' '}
+                <Text className="font-semibold text-app-text dark:text-app-dark-text">
+                  {result.rawValue}
+                  {result.rawUnit ? ` ${result.rawUnit}` : ''}
+                </Text>
+                . Confira no documento e digite o valor.
+              </>
+            )}
           </Text>
           <View className="mt-2 flex-row gap-5">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Confirmar a leitura de ${result.projectLabel}`}
-              onPress={() => onConfirm(result.id)}
-            >
-              <Text className="text-[15px] font-semibold" style={{ color: colors.primary }}>
-                Confirmar
-              </Text>
-            </Pressable>
+            {temValorParaConfirmar ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Confirmar a leitura de ${result.projectLabel}`}
+                onPress={() => onConfirm(result.id)}
+              >
+                <Text className="text-[15px] font-semibold" style={{ color: colors.primary }}>
+                  Confirmar
+                </Text>
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Corrigir a leitura de ${result.projectLabel}`}

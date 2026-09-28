@@ -320,6 +320,19 @@ describe('DocumentDetailScreen — o que a tela pode e nao pode dizer', () => {
     expect(screen.getByLabelText(/corrigir a leitura de hemoglobina/i)).toBeTruthy();
   });
 
+  it('linha pendente sem valor lido nao oferece confirmar, so corrigir', () => {
+    // `value: null` e o caso mais comum de PENDENTE_DE_REVISAO (numero
+    // ilegivel, analito fora do catalogo, faixa ou unidade que nao converteu
+    // -- ver `paraRevisao` em analyteNormalizer.ts): nao ha leitura nenhuma
+    // para a pessoa confirmar, so o texto cru do papel. Oferecer "Confirmar"
+    // deixava a linha sair da revisao com o valor nulo pra sempre.
+    const semValor = { ...hemoglobina, reviewStatus: 'PENDENTE_DE_REVISAO' as const, value: null };
+    renderScreen(extracao({ status: 'SUCCEEDED', results: [semValor] }));
+
+    expect(screen.queryByLabelText(/confirmar a leitura de hemoglobina/i)).toBeNull();
+    expect(screen.getByLabelText(/corrigir a leitura de hemoglobina/i)).toBeTruthy();
+  });
+
   it('o botao corrigir abre o painel de correcao naquela linha', () => {
     const pendente = { ...hemoglobina, reviewStatus: 'PENDENTE_DE_REVISAO' as const };
     renderScreen(extracao({ status: 'SUCCEEDED', results: [pendente] }));

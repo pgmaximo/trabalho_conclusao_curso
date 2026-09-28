@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { HealthDashboardScreen } from '@/screens/HealthDashboardScreen';
 import { useHealthDashboardData } from '@/hooks/useHealthDashboardData';
 import { useHealthImportStatus } from '@/hooks/useHealthImportStatus';
-import { deleteHealthImport } from '@/services/healthImportService';
+import { deleteHealthImport, listHealthImports } from '@/services/healthImportService';
 import { invalidateHealthImportCache } from '@/hooks/healthImportCache';
 
 export default function HealthDataRoute() {
@@ -13,15 +13,57 @@ export default function HealthDataRoute() {
   // ela pode estar PENDING/PROCESSING e ainda não é a "última READY".
   // Sem o param, mostra a última importação já concluída (histórico normal).
   const { importId } = useLocalSearchParams<{ importId?: string }>();
-  const activeImportId = importId ?? null;
+  const latest = useHealthDashboardData();
+
+  // `latest` só enxerga importação READY (getLatestReadyHealthImport). Uma
+  // importação que travou em PENDING/PROCESSING ou terminou FAILED enquanto a
+  // pessoa não estava olhando (app fechado, ou aberto sem o ?importId da
+  // sessão de upload) ficava então indistinguível de "nunca importei nada" —
+  // some da tela pra sempre, mesmo a linha existindo no banco. Sem o param,
+  // e só depois de confirmar que não há READY, busca a importação mais
+  // recente de QUALQUER status para reconectar o polling a ela.
+  const [importadaSemAcompanhar, setImportadaSemAcompanhar] = useState<string | null>(null);
+  // Só fica true entre "latest terminou sem achar READY" e a busca extra
+  // responder — evita mostrar "nunca importei" por um instante antes de
+  // trocar para PENDING/PROCESSING/FAILED (isLoading conta com isto).
+  const [resolvendoFallback, setResolvendoFallback] = useState(false);
+  useEffect(() => {
+    if (importId || latest.isLoading || latest.healthImport) {
+      setImportadaSemAcompanhar(null);
+      setResolvendoFallback(false);
+      return;
+    }
+    let cancelado = false;
+    setResolvendoFallback(true);
+    listHealthImports()
+      .then((importacoes) => {
+        if (cancelado) return;
+        const maisRecente = importacoes[0];
+        if (maisRecente && maisRecente.status !== 'READY') {
+          setImportadaSemAcompanhar(maisRecente.id);
+        }
+      })
+      .catch(() => {
+        // Falha nesta busca extra não pode derrubar a tela: o caminho normal
+        // (latest) já deu seu próprio retorno, e esta é só uma tentativa a
+        // mais de achar o que ficou pra trás.
+      })
+      .finally(() => {
+        if (!cancelado) setResolvendoFallback(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [importId, latest.isLoading, latest.healthImport]);
+
+  const activeImportId = importId ?? importadaSemAcompanhar;
 
   const active = useHealthImportStatus(activeImportId);
-  const latest = useHealthDashboardData();
 
   const isTrackingActive = Boolean(activeImportId);
 
   const healthImport = isTrackingActive ? active.data : latest.healthImport;
-  const isLoading = isTrackingActive ? active.isLoading : latest.isLoading;
+  const isLoading = isTrackingActive ? active.isLoading : latest.isLoading || resolvendoFallback;
   const errorMessage = isTrackingActive ? active.errorMessage : latest.errorMessage;
   const isTimedOut = isTrackingActive ? active.isTimedOut : false;
   const onRetry = isTrackingActive ? active.refresh : latest.retry;
