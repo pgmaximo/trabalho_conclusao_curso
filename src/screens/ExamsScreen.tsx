@@ -83,7 +83,10 @@ export function ExamsScreen({
 
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
-        copyToCacheDirectory: false,
+        // `false` deixa a URI original (ex.: content://...providers.downloads...),
+        // cuja permissão de leitura é transitória: some antes do upload rodar,
+        // depois do usuário preencher o formulário em add-exam (SecurityException).
+        copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
