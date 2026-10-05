@@ -43,7 +43,10 @@
         {
           "locationWhenInUsePermission": "O SuaSaúde usa sua localização para mostrar campanhas de vacinação da sua região e unidades de saúde próximas."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-font",
+      "expo-asset"
     ],
     "extra": {
       "medicineReminders": {

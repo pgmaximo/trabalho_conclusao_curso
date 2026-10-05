@@ -29,7 +29,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>('system');
 
   const colorScheme: 'light' | 'dark' =
-    theme === 'system' ? (systemScheme ?? 'light') : theme;
+    theme === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : theme;
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_KEY)
