@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
@@ -194,10 +202,15 @@ export function AssistantMemoryScreen({ state }: { state: UseAssistantMemoryRetu
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-app-background px-5 pt-6 dark:bg-app-dark-background"
-      showsVerticalScrollIndicator={false}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      className="flex-1"
     >
+      <ScrollView
+        className="flex-1 bg-app-background px-5 pt-6 dark:bg-app-dark-background"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <ScreenHeader title="O que eu lembro" />
 
       <Text className="mb-5 text-[14px] leading-[20px] text-app-textSecondary dark:text-app-dark-textSecondary">
@@ -298,6 +311,7 @@ export function AssistantMemoryScreen({ state }: { state: UseAssistantMemoryRetu
           </View>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

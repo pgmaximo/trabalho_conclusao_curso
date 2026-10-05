@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -128,8 +130,12 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.background} />
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <DetailHeader title="Adicionar documento" onBack={() => router.back()} />
 
           {/* Pré-visualização do arquivo — fundo hachurado decorativo, conforme Canvas 3b
@@ -307,7 +313,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
             style={styles.submitButton}
           />
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

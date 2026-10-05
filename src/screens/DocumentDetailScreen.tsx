@@ -9,7 +9,15 @@
 // =============================================================================
 
 import React, { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -177,8 +185,12 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar backgroundColor={colors.background} style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <View className="flex-1">
-        <ScrollView contentContainerClassName="px-6 pt-6 pb-32" showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+        <ScrollView
+          contentContainerClassName="px-6 pt-6 pb-32"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <DetailHeader
             title={isEditMode ? 'Editar documento' : 'Detalhes do documento'}
             onBack={() => router.back()}
@@ -365,7 +377,7 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
             </>
           )}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
 
       <SuccessSnackbar
         durationMs={4000}
