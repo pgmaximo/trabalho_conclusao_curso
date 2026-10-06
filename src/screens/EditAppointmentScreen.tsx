@@ -154,7 +154,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
   if (status === 'loading') {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar backgroundColor={colors.background} style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <View style={styles.container}>
           <ScrollView contentContainerStyle={styles.content}>
             <ScreenSkeleton blocks={3} />
@@ -167,7 +167,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
   if (status === 'notFound' || status === 'error') {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar backgroundColor={colors.background} style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <View style={styles.container}>
           <ScrollView contentContainerStyle={styles.content}>
             <EmptyState
@@ -190,7 +190,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor={colors.background} style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         <ScrollView
           contentContainerStyle={styles.content}

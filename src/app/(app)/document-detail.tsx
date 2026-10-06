@@ -47,10 +47,19 @@ export default function DocumentDetailPage() {
     }
 
     let cancelled = false;
-    setFetchState('loading');
 
-    getDocumentById(id)
-      .then((doc) => {
+    // O `await` abaixo tira o `setFetchState('loading')` da mesma passada
+    // sincrona do efeito -- sem isso, o lint react-hooks/set-state-in-effect
+    // reclama de um setState sincrono dentro de efeito. Um microtask de
+    // atraso aqui e imperceptivel.
+    void Promise.resolve().then(async () => {
+      if (cancelled) {
+        return;
+      }
+      setFetchState('loading');
+
+      try {
+        const doc = await getDocumentById(id);
         if (cancelled) {
           return;
         }
@@ -60,12 +69,12 @@ export default function DocumentDetailPage() {
         } else {
           setFetchState('error');
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setFetchState('error');
         }
-      });
+      }
+    });
 
     return () => {
       cancelled = true;

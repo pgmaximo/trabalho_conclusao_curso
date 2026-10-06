@@ -13,7 +13,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Animated,
@@ -786,7 +786,7 @@ function Footer({
 }) {
   const colors = useThemeColors();
   const styles = useProfileSetupStyles();
-  const backButtonProgress = useRef(new Animated.Value(currentStep > 0 ? 1 : 0)).current;
+  const [backButtonProgress] = useState(() => new Animated.Value(currentStep > 0 ? 1 : 0));
   const isFirstStep = currentStep === 0;
   const shouldShowBackButton = currentStep > 0;
   const [isBackButtonMounted, setIsBackButtonMounted] = useState(shouldShowBackButton);
@@ -796,11 +796,19 @@ function Footer({
     outputRange: [34, 0],
   });
 
-  useEffect(() => {
+  // Monta o botao de volta assim que ele deve aparecer, ajustado durante a
+  // renderizacao (react.dev/learn/you-might-not-need-an-effect) -- o
+  // desmonte so acontece depois que a animacao de saida termina, no efeito
+  // abaixo.
+  const [prevShouldShowBackButton, setPrevShouldShowBackButton] = useState(shouldShowBackButton);
+  if (shouldShowBackButton !== prevShouldShowBackButton) {
+    setPrevShouldShowBackButton(shouldShowBackButton);
     if (shouldShowBackButton) {
       setIsBackButtonMounted(true);
     }
+  }
 
+  useEffect(() => {
     Animated.timing(backButtonProgress, {
       toValue: shouldShowBackButton ? 1 : 0,
       duration: 180,

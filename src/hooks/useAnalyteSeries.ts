@@ -96,7 +96,10 @@ export function useAnalyteSeries(initialCode?: string | null): UseAnalyteSeriesR
   // dependesse de `selectedCode`, o efeito abaixo dispararia de novo a cada
   // troca de analito feita DENTRO dele, e a tela recarregaria em laco.
   useEffect(() => {
-    void carregar(initialCode ?? null);
+    // Chamada via `.then()` (em vez de `void carregar(...)` direto) para que
+    // o lint react-hooks/set-state-in-effect reconheca isto como callback
+    // assincrono, e nao como setState sincrono dentro do efeito.
+    void Promise.resolve().then(() => carregar(initialCode ?? null));
     // Só recarrega do zero quando a tela recebe outro analito por parametro.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCode]);

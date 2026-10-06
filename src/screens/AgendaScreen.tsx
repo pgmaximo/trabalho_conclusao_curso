@@ -66,11 +66,17 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
   // depender de `todayIndex` por closure — leria um valor congelado na primeira
   // renderizacao. O ref e a ponte entre os dois.
   const todayIndexRef = useRef(todayIndex);
-  todayIndexRef.current = todayIndex;
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
-    setTodayVisible(viewableItems.some((item) => item.index === todayIndexRef.current));
-  }).current;
+  useEffect(() => {
+    todayIndexRef.current = todayIndex;
+  }, [todayIndex]);
+
+  const [onViewableItemsChanged] = useState(
+    () =>
+      ({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
+        setTodayVisible(viewableItems.some((item) => item.index === todayIndexRef.current));
+      },
+  );
 
   const scrollToToday = useCallback((animated: boolean) => {
     if (todayIndexRef.current >= 0) {

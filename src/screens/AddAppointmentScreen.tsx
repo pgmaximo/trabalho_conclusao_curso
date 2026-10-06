@@ -83,7 +83,7 @@ export function AddAppointmentScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor={colors.background} style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         <ScrollView
           contentContainerStyle={styles.content}

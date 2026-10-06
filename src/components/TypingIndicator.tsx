@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, Text, View } from 'react-native';
 
 import { useThemeColors } from '@/constants/theme';
@@ -36,7 +36,7 @@ const EASE_IN_OUT = Easing.bezier(0.77, 0, 0.175, 1);
 const NATIVO = Platform.OS !== 'web';
 
 function Ponto({ indice, cor, reduzirMovimento }: { indice: number; cor: string; reduzirMovimento: boolean }) {
-  const fase = useRef(new Animated.Value(0)).current;
+  const [fase] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const laco = Animated.loop(

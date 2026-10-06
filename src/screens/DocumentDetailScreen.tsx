@@ -184,7 +184,7 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
 
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
-      <StatusBar backgroundColor={colors.background} style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
         <ScrollView
           contentContainerClassName="px-6 pt-6 pb-32"

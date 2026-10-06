@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -59,7 +59,7 @@ export function LoginScreen({
   const [isLoading, setIsLoading] = useState(false);
   const [loginErrorMessage, setLoginErrorMessage] = useState<string | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const shakeAnimation = useRef(new Animated.Value(0)).current;
+  const [shakeAnimation] = useState(() => new Animated.Value(0));
 
   const hasLoginError = Boolean(loginErrorMessage);
 

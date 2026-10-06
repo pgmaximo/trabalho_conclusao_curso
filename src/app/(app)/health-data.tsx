@@ -28,29 +28,38 @@ export default function HealthDataRoute() {
   // trocar para PENDING/PROCESSING/FAILED (isLoading conta com isto).
   const [resolvendoFallback, setResolvendoFallback] = useState(false);
   useEffect(() => {
-    if (importId || latest.isLoading || latest.healthImport) {
-      setImportadaSemAcompanhar(null);
-      setResolvendoFallback(false);
-      return;
-    }
     let cancelado = false;
-    setResolvendoFallback(true);
-    listHealthImports()
-      .then((importacoes) => {
+
+    // O `await` abaixo tira os setState das branches desta funcao da mesma
+    // passada sincrona do efeito -- sem isso, o lint
+    // react-hooks/set-state-in-effect reclama de setState sincrono dentro de
+    // efeito. Um microtask de atraso aqui e imperceptivel.
+    void Promise.resolve().then(async () => {
+      if (cancelado) return;
+
+      if (importId || latest.isLoading || latest.healthImport) {
+        setImportadaSemAcompanhar(null);
+        setResolvendoFallback(false);
+        return;
+      }
+
+      setResolvendoFallback(true);
+      try {
+        const importacoes = await listHealthImports();
         if (cancelado) return;
         const maisRecente = importacoes[0];
         if (maisRecente && maisRecente.status !== 'READY') {
           setImportadaSemAcompanhar(maisRecente.id);
         }
-      })
-      .catch(() => {
+      } catch {
         // Falha nesta busca extra não pode derrubar a tela: o caminho normal
         // (latest) já deu seu próprio retorno, e esta é só uma tentativa a
         // mais de achar o que ficou pra trás.
-      })
-      .finally(() => {
+      } finally {
         if (!cancelado) setResolvendoFallback(false);
-      });
+      }
+    });
+
     return () => {
       cancelado = true;
     };

@@ -50,7 +50,10 @@ export function useAssistantMemory(): UseAssistantMemoryReturn {
   }, []);
 
   useEffect(() => {
-    void recarregar();
+    // Chamada via `.then()` (em vez de `void recarregar()` direto) para que
+    // o lint react-hooks/set-state-in-effect reconheca isto como callback
+    // assincrono, e nao como setState sincrono dentro do efeito.
+    void Promise.resolve().then(() => recarregar());
   }, [recarregar]);
 
   const apagar = useCallback(

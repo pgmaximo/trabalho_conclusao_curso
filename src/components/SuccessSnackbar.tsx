@@ -32,7 +32,10 @@ export function SuccessSnackbar({
   durationMs = 4000,
 }: SuccessSnackbarProps) {
   const onHideRef = useRef(onHide);
-  onHideRef.current = onHide;
+
+  useEffect(() => {
+    onHideRef.current = onHide;
+  }, [onHide]);
 
   useEffect(() => {
     if (!visible) {

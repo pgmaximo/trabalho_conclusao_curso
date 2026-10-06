@@ -129,7 +129,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.background} />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         <ScrollView
           contentContainerStyle={styles.content}

@@ -11,7 +11,7 @@
 //
 // =============================================================================
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -53,12 +53,16 @@ export function AgendaMonthLayer({
   const [anchor, setAnchor] = useState(() => new Date());
 
   // Camada fica montada entre aberturas: sem isto, reabrir mostra o ultimo mes
-  // visto, nao o mes corrente.
-  useEffect(() => {
+  // visto, nao o mes corrente. Ajustado durante a renderizacao (em vez de um
+  // efeito) seguindo o padrao "Adjusting some state when a prop changes" de
+  // react.dev/learn/you-might-not-need-an-effect.
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
     if (visible) {
       setAnchor(new Date());
     }
-  }, [visible]);
+  }
 
   const scheduledAtList = useMemo(
     () => appointments.map((appointment) => appointment.scheduledAt),

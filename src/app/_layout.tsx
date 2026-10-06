@@ -109,7 +109,11 @@ export default function RootLayout() {
 
   // Atualização síncrona (fora de estado React) para que o monkey-patch acima
   // já enxergue o valor correto no mesmo ciclo de render em que o app volta a
-  // desenhar a árvore de telas (ver comentário acima).
+  // desenhar a árvore de telas (ver comentário acima). Mover isto para um
+  // efeito atrasaria a atualização para o PRÓXIMO ciclo, trazendo de volta o
+  // "flash" de fonte errada que este padrão existe para evitar -- excessão
+  // deliberada à regra react-hooks/globals.
+  // eslint-disable-next-line react-hooks/globals
   fontsReady = Boolean(fontsLoaded);
 
   useEffect(() => {

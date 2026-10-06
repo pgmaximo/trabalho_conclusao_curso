@@ -36,14 +36,31 @@ export function useHealthImportStatus(importId: string | null): UseHealthImportS
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isTimedOut, setIsTimedOut] = useState(false);
+  // Guarda o ultimo importId visto para "ajustar estado durante a
+  // renderizacao" (react.dev/learn/you-might-not-need-an-effect) quando ele
+  // muda, em vez de resetar via setState dentro do efeito.
+  const [prevImportId, setPrevImportId] = useState(importId);
+
+  if (importId !== prevImportId) {
+    setPrevImportId(importId);
+    setIsTimedOut(false);
+    setErrorMessage(null);
+    setData(null);
+    setIsLoading(Boolean(importId));
+  }
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollIndexRef = useRef(0);
-  const startTimeRef = useRef<number>(Date.now());
+  // O valor inicial nunca e lido: o efeito principal sempre o substitui por
+  // Date.now() antes da primeira consulta (ver abaixo).
+  const startTimeRef = useRef<number>(0);
   const isMountedRef = useRef(true);
   const isActiveRef = useRef(true);
   const importIdRef = useRef(importId);
-  importIdRef.current = importId;
+
+  useEffect(() => {
+    importIdRef.current = importId;
+  }, [importId]);
 
   // `pollRef` quebra o ciclo poll -> scheduleNext -> poll sem precisar listar
   // `poll` nas deps de `scheduleNext` (o que recriaria os dois a cada
@@ -99,7 +116,9 @@ export function useHealthImportStatus(importId: string | null): UseHealthImportS
     }
   }, [clearScheduled, scheduleNext]);
 
-  pollRef.current = poll;
+  useEffect(() => {
+    pollRef.current = poll;
+  }, [poll]);
 
   const refresh = useCallback(() => {
     pollIndexRef.current = 0;
@@ -114,15 +133,9 @@ export function useHealthImportStatus(importId: string | null): UseHealthImportS
     isMountedRef.current = true;
     pollIndexRef.current = 0;
     startTimeRef.current = Date.now();
-    setIsTimedOut(false);
-    setErrorMessage(null);
-    setData(null);
 
     if (importId) {
-      setIsLoading(true);
       void pollRef.current();
-    } else {
-      setIsLoading(false);
     }
 
     return () => {

@@ -67,14 +67,31 @@ export function useDocumentExtraction(documentId: string | null): UseDocumentExt
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isTimedOut, setIsTimedOut] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  // Guarda o ultimo documentId visto para "ajustar estado durante a
+  // renderizacao" (react.dev/learn/you-might-not-need-an-effect) quando ele
+  // muda, em vez de resetar via setState dentro do efeito.
+  const [prevDocumentId, setPrevDocumentId] = useState(documentId);
+
+  if (documentId !== prevDocumentId) {
+    setPrevDocumentId(documentId);
+    setIsTimedOut(false);
+    setErrorMessage(null);
+    setState(null);
+    setIsLoading(Boolean(documentId));
+  }
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollIndexRef = useRef(0);
-  const startTimeRef = useRef<number>(Date.now());
+  // O valor inicial nunca e lido: o efeito principal sempre o substitui por
+  // Date.now() antes da primeira consulta (ver abaixo).
+  const startTimeRef = useRef<number>(0);
   const isMountedRef = useRef(true);
   const isActiveRef = useRef(true);
   const documentIdRef = useRef(documentId);
-  documentIdRef.current = documentId;
+
+  useEffect(() => {
+    documentIdRef.current = documentId;
+  }, [documentId]);
 
   // Quebra o ciclo poll -> scheduleNext -> poll sem recriar as duas funcoes a
   // cada render, do mesmo jeito que useHealthImportStatus faz.
@@ -130,7 +147,9 @@ export function useDocumentExtraction(documentId: string | null): UseDocumentExt
     }
   }, [clearScheduled, scheduleNext]);
 
-  pollRef.current = poll;
+  useEffect(() => {
+    pollRef.current = poll;
+  }, [poll]);
 
   const refresh = useCallback(() => {
     pollIndexRef.current = 0;
@@ -188,15 +207,9 @@ export function useDocumentExtraction(documentId: string | null): UseDocumentExt
     isMountedRef.current = true;
     pollIndexRef.current = 0;
     startTimeRef.current = Date.now();
-    setIsTimedOut(false);
-    setErrorMessage(null);
-    setState(null);
 
     if (documentId) {
-      setIsLoading(true);
       void pollRef.current();
-    } else {
-      setIsLoading(false);
     }
 
     return () => {
