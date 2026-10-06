@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
+import * as Notifications from '@/services/notificationsClient';
 import { Platform } from 'react-native';
 
 const APPOINTMENT_NOTIFICATION_IDS_KEY = '@SuaSaude:appointmentNotificationIds';

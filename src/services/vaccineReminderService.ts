@@ -10,7 +10,7 @@
  * negada, a dose continua salva, só o lembrete não é criado.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
+import * as Notifications from '@/services/notificationsClient';
 
 import { ensureNotificationPermission } from '@/services/reminderService';
 

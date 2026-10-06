@@ -10,7 +10,7 @@
  * criado. Ver specs/design/GAP_ANALYSIS.md item 22.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
+import * as Notifications from '@/services/notificationsClient';
 import { Platform } from 'react-native';
 
 import { ensureNotificationPermission } from '@/services/reminderService';

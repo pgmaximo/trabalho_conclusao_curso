@@ -3,7 +3,7 @@ import '@/services/amplify/configureAmplify';
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Notifications from 'expo-notifications';
+import * as Notifications from '@/services/notificationsClient';
 import { DocumentProvider } from '@/contexts/DocumentContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { UserProvider } from '@/contexts/UserContext';
