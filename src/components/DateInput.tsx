@@ -124,7 +124,9 @@ export function DateInput({ label, value, onChange, placeholder, maxDate, contai
         style={styles.inputButton}
         onPress={() => setIsVisible(true)}
       >
-        <Text style={styles.inputText}>{formatDisplayDate(value)}</Text>
+        <Text style={[styles.inputText, !value ? styles.inputTextPlaceholder : null]}>
+          {formatDisplayDate(value)}
+        </Text>
         <Ionicons color={colors.textSecondary} name="calendar-outline" size={18} style={styles.calendarIcon} />
       </Pressable>
 
@@ -219,6 +221,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   inputText: {
     ...FONTS.body,
     color: colors.text,
+  },
+  inputTextPlaceholder: {
+    color: colors.placeholder,
   },
   calendarIcon: {
     marginLeft: 6,
