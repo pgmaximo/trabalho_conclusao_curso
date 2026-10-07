@@ -152,6 +152,7 @@ export function AddAppointmentScreen() {
             <View style={styles.dateTimeRow}>
               <View style={styles.dateTimeField}>
                 <DateInput
+                  containerStyle={styles.dateTimeFieldNoMargin}
                   label="Data"
                   onChange={setScheduledDate}
                   placeholder="DD/MM/AAAA"
@@ -160,7 +161,9 @@ export function AddAppointmentScreen() {
               </View>
               <View style={styles.dateTimeField}>
                 <FormField
+                  containerStyle={styles.dateTimeFieldNoMargin}
                   inputMode="numeric"
+                  inputWrapperStyle={styles.dateTimeInputWrapper}
                   keyboardType="number-pad"
                   label="Hora"
                   maxLength={5}
@@ -283,9 +286,22 @@ const createStyles = (colors: ThemeColors) =>
     dateTimeRow: {
       flexDirection: 'row',
       gap: 12,
+      // marginTop fica aqui (e não em cada campo) para garantir que "Data"
+      // (DateInput, StyleSheet) e "Hora" (FormField, NativeWind) partam
+      // exatamente da mesma linha — ver dateTimeFieldNoMargin.
+      marginTop: SIZES.large,
     },
     dateTimeField: {
       flex: 1,
+    },
+    dateTimeFieldNoMargin: {
+      marginTop: 0,
+    },
+    // O wrapper de FormField renderiza mais baixo que o `h-14` (56px)
+    // nominal — trava a altura explicitamente para bater com o Pressable
+    // de 56px do DateInput ao lado.
+    dateTimeInputWrapper: {
+      height: 56,
     },
     textArea: {
       minHeight: 76,

@@ -22,6 +22,9 @@ type FormFieldProps = TextInputProps & {
   containerStyle?: StyleProp<ViewStyle>;
   containerClassName?: string;
   inputWrapperClassName?: string;
+  /** Sobrepõe o estilo do wrapper do input (ex.: travar a altura em px quando
+   * o campo precisa alinhar com outro componente que não usa NativeWind). */
+  inputWrapperStyle?: StyleProp<ViewStyle>;
   inputClassName?: string;
   style?: StyleProp<TextStyle>;
 };
@@ -36,6 +39,7 @@ export function FormField({
   containerStyle,
   containerClassName,
   inputWrapperClassName,
+  inputWrapperStyle,
   inputClassName,
   style,
   onFocus,
@@ -74,7 +78,7 @@ export function FormField({
         {label}
       </Text>
 
-      <View className={wrapperClasses}>
+      <View className={wrapperClasses} style={inputWrapperStyle}>
         {icon ? (
           <View className="mr-3 w-5 items-center justify-center">
             {typeof icon === 'string' ? (

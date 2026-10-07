@@ -3,9 +3,11 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  StyleProp,
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
@@ -17,6 +19,8 @@ interface DateInputProps {
   placeholder?: string;
   /** Data máxima selecionável (YYYY-MM-DD, inclusive) — dias posteriores ficam desabilitados e não respondem a toque. Usado, por exemplo, para impedir uma data de aplicação de vacina no futuro. */
   maxDate?: string;
+  /** Sobrepõe o estilo do container (ex.: zerar marginTop quando o espaçamento já é controlado por um wrapper externo, como a linha Data/Hora). */
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 function toIsoDateString(date: Date): string {
@@ -26,7 +30,7 @@ function toIsoDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function DateInput({ label, value, onChange, placeholder, maxDate }: DateInputProps) {
+export function DateInput({ label, value, onChange, placeholder, maxDate, containerStyle }: DateInputProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [isVisible, setIsVisible] = useState(false);
@@ -114,7 +118,7 @@ export function DateInput({ label, value, onChange, placeholder, maxDate }: Date
   const monthName = selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       <Text style={styles.label}>{label}</Text>
       <Pressable
         style={styles.inputButton}
