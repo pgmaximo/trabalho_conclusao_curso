@@ -29,6 +29,7 @@ import {
   type AppointmentRecord,
   type AppointmentType,
 } from '@/services/appointmentService';
+import { maskTimeInput } from '@/utils/timeMask';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -260,8 +261,10 @@ export function EditAppointmentScreen({ id }: { id: string }) {
               <View style={styles.dateTimeField}>
                 <FormField
                   inputMode="numeric"
+                  keyboardType="number-pad"
                   label="Hora"
-                  onChangeText={setScheduledTime}
+                  maxLength={5}
+                  onChangeText={(text) => setScheduledTime(maskTimeInput(text))}
                   placeholder="hh:mm"
                   value={scheduledTime}
                 />

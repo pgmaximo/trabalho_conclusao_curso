@@ -183,8 +183,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     marginTop: SIZES.large,
   },
+  // fontSize 16 (não FONTS.body/17) e sem lineHeight explícito — precisa
+  // bater pixel a pixel com o label do FormField (`text-[16px] font-semibold
+  // mb-3`), senão a altura do bloco de label diverge e desalinha a caixa de
+  // input de "Data" com a de "Hora" na mesma linha.
   label: {
-    ...FONTS.body,
+    fontSize: 16,
     color: colors.text,
     fontWeight: '600',
     marginBottom: SIZES.small,

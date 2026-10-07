@@ -20,6 +20,7 @@ import { FormField } from '@/components/FormField';
 import { InlineError } from '@/components/InlineError';
 import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
 import { createAppointment, type AppointmentType } from '@/services/appointmentService';
+import { maskTimeInput } from '@/utils/timeMask';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -160,8 +161,10 @@ export function AddAppointmentScreen() {
               <View style={styles.dateTimeField}>
                 <FormField
                   inputMode="numeric"
+                  keyboardType="number-pad"
                   label="Hora"
-                  onChangeText={setScheduledTime}
+                  maxLength={5}
+                  onChangeText={(text) => setScheduledTime(maskTimeInput(text))}
                   placeholder="hh:mm"
                   value={scheduledTime}
                 />
