@@ -10,7 +10,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
+import { FONTS, RADII, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
 
 interface DateInputProps {
   label: string;
@@ -125,7 +125,7 @@ export function DateInput({ label, value, onChange, placeholder, maxDate, contai
         onPress={() => setIsVisible(true)}
       >
         <Text style={styles.inputText}>{formatDisplayDate(value)}</Text>
-        <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+        <Ionicons color={colors.textSecondary} name="calendar-outline" size={18} style={styles.calendarIcon} />
       </Pressable>
 
       <Modal visible={isVisible} transparent animationType="fade">
@@ -202,9 +202,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.inputBackground,
-    borderRadius: SIZES.radius,
+    // RADII.field (14px) — mesmo raio de borda do wrapper `rounded-field` de
+    // FormField, para que a caixa de "Data" não pareça mais arredondada que
+    // as demais (ex.: "Hora") na mesma tela.
+    borderRadius: RADII.field,
     borderCurve: 'continuous',
-    borderWidth: 1,
+    // 1.5px — mesma espessura do estado padrão (não focado) do wrapper de
+    // FormField (`border-[1.5px]`).
+    borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: SIZES.base,
     // 56px fixo — mesma altura do wrapper `h-14` de FormField, para que o
@@ -214,6 +219,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   inputText: {
     ...FONTS.body,
     color: colors.text,
+  },
+  calendarIcon: {
+    marginLeft: 6,
   },
   modalOverlay: {
     flex: 1,
