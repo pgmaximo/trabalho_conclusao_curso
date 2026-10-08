@@ -14,6 +14,7 @@ export default function MedicinesRoute() {
     <MedicinesScreen
       medicines={medicines.medicines}
       stocks={medicines.stocks}
+      interactions={medicines.interactions}
       hasMedicines={medicines.hasMedicines}
       pendingCount={medicines.pendingCount}
       isLoading={medicines.isLoading}

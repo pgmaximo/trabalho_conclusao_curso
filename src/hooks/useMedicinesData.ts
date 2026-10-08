@@ -16,8 +16,9 @@ import {
   type MedicineRecord,
 } from '@/services/medicineService';
 import type { MedicineDose, MedicineInventoryItem, MedicineStockStatus } from '@/types/models';
-import { getLocalIsoDate, getMedicineDoseTimesForDate } from '@/utils/medicineSchedule';
+import { getLocalIsoDate, getMedicineDoseTimesForDate, isMedicineScheduledOnDate } from '@/utils/medicineSchedule';
 import { syncMedicineReminders } from '@/services/medicineReminderService';
+import { findInteractions } from '@/services/drugInteractionService';
 
 const UNIT_LABELS: Record<string, string> = {
   COMP: 'comp.',
@@ -120,6 +121,10 @@ export function useMedicinesData() {
 
   const medicines = useMemo(() => deriveDosesForToday(records, logs, today), [logs, records, today]);
   const stocks = useMemo(() => deriveStocks(records), [records]);
+  const interactions = useMemo(
+    () => findInteractions(records.filter((record) => isMedicineScheduledOnDate(record, today))),
+    [records, today],
+  );
   const pendingCount = useMemo(
     () => medicines.filter((dose) => dose.status === 'pending').length,
     [medicines],
@@ -164,6 +169,7 @@ export function useMedicinesData() {
   return {
     medicines,
     stocks,
+    interactions,
     hasMedicines: records.length > 0,
     pendingCount,
     isLoading: status === 'loading',

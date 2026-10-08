@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import { AlertBanner } from '@/components/AlertBanner';
 import { EmptyState } from '@/components/EmptyState';
 import { MedicineCard } from '@/components/MedicineCard';
 import { MedicineStock } from '@/components/MedicineStock';
@@ -19,11 +20,13 @@ import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { InlineError } from '@/components/InlineError';
 import { useThemeColors } from '@/constants/theme';
+import type { DrugInteractionMatch } from '@/services/drugInteractionService';
 import type { MedicineDose, MedicineInventoryItem } from '@/types/models';
 
 type MedicinesScreenProps = {
   medicines: MedicineDose[];
   stocks: MedicineInventoryItem[];
+  interactions: DrugInteractionMatch[];
   hasMedicines: boolean;
   pendingCount: number;
   isLoading: boolean;
@@ -35,6 +38,7 @@ type MedicinesScreenProps = {
 export function MedicinesScreen({
   medicines,
   stocks,
+  interactions,
   hasMedicines,
   pendingCount,
   isLoading,
@@ -117,6 +121,20 @@ export function MedicinesScreen({
                 Você tem {pendingCount} lembrete{pendingCount !== 1 ? 's' : ''} ativo{pendingCount !== 1 ? 's' : ''} para hoje.
               </Text>
             </View>
+
+            {interactions.length > 0 ? (
+              <View className="mb-4">
+                {interactions.map((match) => (
+                  <AlertBanner
+                    key={match.pair.id}
+                    icon="⚠️"
+                    type={match.severity === 'danger' ? 'danger' : 'warning'}
+                    title={`${match.medicineA.name} + ${match.medicineB.name}`}
+                    message={match.riskPt}
+                  />
+                ))}
+              </View>
+            ) : null}
 
             <Section title="Próximas doses" subtitle="Marque cada item conforme a administração.">
               {medicines.length > 0 ? (

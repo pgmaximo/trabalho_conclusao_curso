@@ -19,6 +19,7 @@
 // - warning: Âmbar - Alertas de atenção
 // - success: Verde - Sucesso e confirmação
 // - info: Azul - Informações gerais
+// - danger: Vermelho - Alertas críticos (ex.: interação medicamentosa grave)
 //
 // =============================================================================
 
@@ -34,7 +35,7 @@ type AlertBannerProps = {
   icon: string;                    // Ícone representativo do alerta
   title: string;                   // Título do alerta
   message: string;                 // Mensagem descritiva
-  type?: 'warning' | 'info' | 'success'; // Tipo de alerta (padrão: info)
+  type?: 'warning' | 'info' | 'success' | 'danger'; // Tipo de alerta (padrão: info)
 };
 
 // Componente AlertBanner principal
@@ -47,20 +48,23 @@ export function AlertBanner({
   const colors = useThemeColors();
 
   // Define cores baseadas no tipo de alerta — tokens reativos a dark mode
-  // (mesmas 3 famílias semânticas de Badge.tsx: success/warning/info)
+  // (mesmas famílias semânticas de Badge.tsx: success/warning/danger/info)
   const backgroundColor =
     type === 'warning' ? colors.warningSoft :
     type === 'success' ? colors.successSoft :
+    type === 'danger' ? colors.dangerSoft :
     colors.infoSoft;
 
   const borderColor =
     type === 'warning' ? colors.warningBadgeBorder :
     type === 'success' ? colors.successBadgeBorder :
+    type === 'danger' ? colors.dangerBadgeBorder :
     colors.infoBadgeBorder;
 
   const textColor =
     type === 'warning' ? colors.warning :
     type === 'success' ? colors.success :
+    type === 'danger' ? colors.danger :
     colors.info;
 
   // Renderiza o banner de alerta

@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
+import { DrugInteractionSheet } from '@/components/DrugInteractionSheet';
 import { InlineError } from '@/components/InlineError';
 import {
   EMPTY_MEDICINE_FORM,
@@ -22,8 +23,9 @@ import {
   type MedicineFormState,
 } from '@/components/MedicineFormFields';
 import { useThemeColors } from '@/constants/theme';
-import { createMedicine } from '@/services/medicineService';
+import { createMedicine, listMedicinesForUser } from '@/services/medicineService';
 import { syncMedicineReminders } from '@/services/medicineReminderService';
+import { findInteractionsForCandidate, type DrugInteractionMatch } from '@/services/drugInteractionService';
 
 export function AddMedicineScreen() {
   const { colorScheme } = useColorScheme();
@@ -32,6 +34,8 @@ export function AddMedicineScreen() {
   const [form, setForm] = useState<MedicineFormState>(EMPTY_MEDICINE_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [interactionMatches, setInteractionMatches] = useState<DrugInteractionMatch[]>([]);
+  const [isInteractionSheetVisible, setIsInteractionSheetVisible] = useState(false);
 
   function update(patch: Partial<MedicineFormState>) {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -56,6 +60,21 @@ export function AddMedicineScreen() {
         console.error('Erro ao agendar lembretes do medicamento:', reminderError);
       }
 
+      // O medicamento já foi salvo com sucesso neste ponto — o aviso de
+      // interação abaixo nunca bloqueia nem desfaz o salvamento, apenas
+      // adia a navegação até o usuário confirmar que leu o alerta.
+      try {
+        const others = (await listMedicinesForUser()).filter((other) => other.id !== record.id);
+        const matches = findInteractionsForCandidate(record, others);
+        if (matches.length > 0) {
+          setInteractionMatches(matches);
+          setIsInteractionSheetVisible(true);
+          return;
+        }
+      } catch (interactionError) {
+        console.error('Erro ao verificar interações medicamentosas:', interactionError);
+      }
+
       router.replace('/medicines');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao salvar o lembrete.';
@@ -63,6 +82,11 @@ export function AddMedicineScreen() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handleCloseInteractionSheet() {
+    setIsInteractionSheetVisible(false);
+    router.replace('/medicines');
   }
 
   return (
@@ -104,6 +128,12 @@ export function AddMedicineScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <DrugInteractionSheet
+        visible={isInteractionSheetVisible}
+        matches={interactionMatches}
+        onClose={handleCloseInteractionSheet}
+      />
     </SafeAreaView>
   );
 }
