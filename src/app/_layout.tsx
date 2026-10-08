@@ -14,7 +14,15 @@ import {
   IBMPlexSans_700Bold,
   useFonts,
 } from '@expo-google-fonts/ibm-plex-sans';
-import { Platform, Text, TextInput } from 'react-native';
+import { LogBox, Platform, Text, TextInput } from 'react-native';
+
+// Desde o upgrade para o SDK 57, o cliente de HMR do Expo abre um WebSocket
+// próprio para o host do Metro além do bundle principal; quando esse socket
+// específico falha (comum no Expo Go via Wi-Fi) ele loga esse aviso mesmo com
+// o bundle já carregado e o app funcionando normalmente — é só ruído de dev.
+if (__DEV__) {
+  LogBox.ignoreLogs(['Cannot connect to Expo CLI']);
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
