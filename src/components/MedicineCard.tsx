@@ -25,7 +25,9 @@ interface MedicineCardProps {
 const STATUS_CONFIG = {
   pending: { badgeVariant: 'neutral' as const, label: 'Pendente', icon: 'ellipse-outline' as const },
   taken: { badgeVariant: 'success' as const, label: 'Tomado', icon: 'checkmark' as const },
-  missed: { badgeVariant: 'danger' as const, label: 'Perdido', icon: 'alert' as const },
+  // Dose de hoje que passou do horário sem ser marcada. "Atrasado", e não
+  // "Perdido": ela ainda pode ser tomada e marcada.
+  missed: { badgeVariant: 'danger' as const, label: 'Atrasado', icon: 'alert' as const },
 };
 
 export function MedicineCard({ name, dosage, time, status, onPress, onToggle, toggleDisabled = false }: MedicineCardProps) {
@@ -50,11 +52,12 @@ export function MedicineCard({ name, dosage, time, status, onPress, onToggle, to
             <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
               {name}
             </Text>
-            <Text className="mt-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+            {/* O horário vem primeiro e em destaque: numa lista de doses, é ele
+                que a pessoa procura. Antes era o menor texto do cartão (13px). */}
+            <Text className="mt-1 text-[16px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
+              <Text className="font-semibold text-app-text dark:text-app-dark-text">{time}</Text>
+              {' · '}
               {dosage}
-            </Text>
-            <Text className="mt-1 text-[13px] text-app-textMuted dark:text-app-dark-textMuted">
-              {time}
             </Text>
           </View>
 

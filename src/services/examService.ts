@@ -17,6 +17,7 @@ import { uploadFileToS3 } from '@/services/upload';
 import { startExtraction } from '@/services/extractionService';
 import { prepararArquivoParaEnvio } from '@/services/imagemParaEnvio';
 import { todasAsPaginas } from '@/services/todasAsPaginas';
+import { backendError } from '@/services/backendError';
 
 const client = generateClient<Schema>();
 
@@ -381,11 +382,7 @@ async function saveDocumentMetadata(
     });
 
     if (errors?.length) {
-      const message = errors
-        .map((error) => error.message)
-        .filter(Boolean)
-        .join('; ');
-      throw new Error(message || 'Não foi possível salvar os metadados.');
+      throw backendError(errors, 'Não foi possível salvar os metadados.');
     }
 
     console.log('Documento salvo no banco de dados:', data);
@@ -508,11 +505,7 @@ export async function updateExamDocument(input: UpdateExamDocumentInput) {
     });
 
     if (errors?.length) {
-      const message = errors
-        .map((error) => error.message)
-        .filter(Boolean)
-        .join('; ');
-      throw new Error(message || 'Não foi possível atualizar o documento.');
+      throw backendError(errors, 'Não foi possível atualizar o documento.');
     }
 
     console.log('Documento atualizado:', data);
@@ -541,7 +534,7 @@ async function apagarLidoDoDocumento(documentId: string): Promise<void> {
   );
   for (const linha of linhas) {
     const { errors } = await client.models.LabResult.delete({ id: linha.id });
-    if (errors?.length) throw new Error(errors.map((e) => e.message).join('; '));
+    if (errors?.length) throw backendError(errors, 'Não foi possível excluir os resultados lidos do documento.');
   }
 
   const itens = await todasAsPaginas((nextToken) =>
@@ -549,7 +542,7 @@ async function apagarLidoDoDocumento(documentId: string): Promise<void> {
   );
   for (const item of itens) {
     const { errors } = await client.models.PrescriptionItem.delete({ id: item.id });
-    if (errors?.length) throw new Error(errors.map((e) => e.message).join('; '));
+    if (errors?.length) throw backendError(errors, 'Não foi possível excluir os itens lidos da receita.');
   }
 }
 
@@ -586,11 +579,7 @@ export async function deleteExamDocument(
     });
 
     if (errors?.length) {
-      const message = errors
-        .map((error) => error.message)
-        .filter(Boolean)
-        .join('; ');
-      throw new Error(message || 'Não foi possível deletar o documento.');
+      throw backendError(errors, 'Não foi possível excluir o documento.');
     }
 
     console.log('Documento deletado:', data);

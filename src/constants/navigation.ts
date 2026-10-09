@@ -20,7 +20,8 @@
 // - assistant: chatbubble-ellipses  Assistente - Chat com a IA (href /ai), no centro
 // - medicines: medkit               Remédios   - Doses, estoque e lembretes
 // - more:      ellipsis-horizontal  Mais       - Hub: Consultas, Prevenção, Vacinação,
-//                                                smartwatch e Perfil
+//                                                smartwatch, memória do assistente
+//                                                e Perfil
 //
 // Ordem decidida em specs/00-fundacao/barra-de-navegacao (Opção 1 da proposta):
 // o Assistente saiu de "Mais" para a barra, e Consultas (uso mensal) cedeu o
@@ -83,6 +84,16 @@ export const MORE_MENU_ITEMS = [
     label: 'Dados do smartwatch',
     description: 'Insights do seu sono, passos e batimentos',
     href: '/health-data',
+  },
+  // A memória mora dentro do Assistente (e acende a aba dele), mas só era
+  // alcançável por lá em três passos: Assistente > ícone do histórico > um
+  // link pequeno. O hub é o índice de tudo o que não está na barra.
+  {
+    id: 'assistant-memory',
+    icon: 'bookmark',
+    label: 'Memória do assistente',
+    description: 'O que ele lembra de você',
+    href: '/assistant-memory',
   },
   {
     id: 'profile',

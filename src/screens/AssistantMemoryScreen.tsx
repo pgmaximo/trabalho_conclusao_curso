@@ -8,10 +8,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { useThemeColors } from '@/constants/theme';
 import type { UseAssistantMemoryReturn } from '@/hooks/useAssistantMemory';
 import type { FatoSalvo } from '@/services/assistantMemoryService';
@@ -187,7 +191,14 @@ function LinhaDeFato({ fato, state }: LinhaDeFatoProps) {
   );
 }
 
-export function AssistantMemoryScreen({ state }: { state: UseAssistantMemoryReturn }) {
+type AssistantMemoryScreenProps = {
+  state: UseAssistantMemoryReturn;
+  /** Volta para a tela de onde esta foi aberta (o Assistente ou o hub Mais). */
+  onBack?: () => void;
+};
+
+export function AssistantMemoryScreen({ state, onBack }: AssistantMemoryScreenProps) {
+  const { colorScheme } = useColorScheme();
   const [perguntandoDesligar, setPerguntandoDesligar] = useState(false);
   const [confirmandoTudo, setConfirmandoTudo] = useState(false);
 
@@ -202,21 +213,32 @@ export function AssistantMemoryScreen({ state }: { state: UseAssistantMemoryRetu
   }
 
   return (
+    // A tela não tinha `SafeAreaView`: o título começava a 24dp do topo, por
+    // baixo da barra de status do aparelho.
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1"
     >
       <ScrollView
-        className="flex-1 bg-app-background px-5 pt-6 dark:bg-app-dark-background"
+        className="flex-1 px-5 pt-6"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-      <ScreenHeader title="O que eu lembro" />
+      <ScreenHeader onBack={onBack} title="O que eu lembro" />
 
       <Text className="mb-5 text-[14px] leading-[20px] text-app-textSecondary dark:text-app-dark-textSecondary">
         {ABERTURA}
       </Text>
 
+      {/* Enquanto a leitura não volta, a tela NÃO sabe se há algo guardado nem
+          se a memória está ligada. Mostrar "Ainda não guardei nada" e "Memória
+          ligada" nesse intervalo era afirmar as duas coisas sem saber. */}
+      {state.carregando ? (
+        <ScreenSkeleton blocks={2} />
+      ) : (
+        <>
       {/* O estado aparece em TEXTO, e não só na posição de um controle: um
           interruptor sem rótulo obriga a pessoa a adivinhar se ligado é para a
           esquerda ou para a direita. */}
@@ -311,7 +333,10 @@ export function AssistantMemoryScreen({ state }: { state: UseAssistantMemoryRetu
           </View>
         </>
       )}
+        </>
+      )}
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

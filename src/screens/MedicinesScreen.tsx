@@ -115,10 +115,12 @@ export function MedicinesScreen({
             {toggleError ? <InlineError message={toggleError} /> : null}
             <View className="mb-6 flex-row items-center gap-3 rounded-app border border-app-infoBadgeBorder bg-app-infoSoft px-4 py-3 dark:border-app-dark-infoBadgeBorder dark:bg-app-dark-infoSoft">
               <View className="size-8 items-center justify-center rounded-full bg-app-infoIconBg dark:bg-app-dark-infoIconBg">
-                <Ionicons color="#FFFFFF" name="notifications" size={16} />
+                <Ionicons color={colors.onPrimary} name="notifications" size={16} />
               </View>
               <Text className="flex-1 text-[15px] leading-[20px] text-app-text dark:text-app-dark-text">
-                Você tem {pendingCount} lembrete{pendingCount !== 1 ? 's' : ''} ativo{pendingCount !== 1 ? 's' : ''} para hoje.
+                {pendingCount > 0
+                  ? `Você tem ${pendingCount} lembrete${pendingCount !== 1 ? 's' : ''} ativo${pendingCount !== 1 ? 's' : ''} para hoje.`
+                  : 'Nenhum lembrete pendente para hoje.'}
               </Text>
             </View>
 
@@ -151,10 +153,13 @@ export function MedicinesScreen({
                   />
                 ))
               ) : (
+                // Esta lista vazia quer dizer que NÃO HÁ dose prevista para hoje
+                // (as já tomadas continuam na lista). O texto antigo dizia que
+                // todas já tinham sido registradas, o que aqui nunca é o caso.
                 <EmptyState
                   icon="checkmark-circle-outline"
-                  title="Nenhuma dose pendente"
-                  description="Todas as medicações previstas para hoje já foram registradas."
+                  title="Nenhuma dose para hoje"
+                  description="Você não tem doses previstas para hoje."
                 />
               )}
             </Section>

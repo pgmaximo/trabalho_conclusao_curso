@@ -25,9 +25,21 @@ export type AmplifyUserProfileInput = {
   physicalActivity?: boolean;
   alcoholConsumption?: boolean;
   pregnancy?: boolean;
-  chronicConditions?: string;
-  medications?: string;
-  allergies?: string;
+  // `null` limpa o campo no backend (edição do perfil, quando a pessoa apaga o texto).
+  chronicConditions?: string | null;
+  medications?: string | null;
+  allergies?: string | null;
+};
+
+export type BuildProfileInputOptions = {
+  /**
+   * O que fazer com um campo clínico (condições crônicas, medicamentos em uso,
+   * alergias) que chega vazio:
+   * - `keep` (padrão): não envia o campo, e o que está guardado continua.
+   * - `clear`: envia `null`, e o campo é apagado. Só serve para uma tela que
+   *   MOSTRA esses campos à pessoa — senão apagaria o que ela nunca viu.
+   */
+  emptyClinicalFields?: 'keep' | 'clear';
 };
 
 function parseBrazilianDate(value: string) {
@@ -152,6 +164,7 @@ export function buildPreventionTaskForceQuery(
 
 export function buildAmplifyUserProfileInput(
   values: ProfileSetupFormValues,
+  options: BuildProfileInputOptions = {},
 ): AmplifyUserProfileInput {
   const input: AmplifyUserProfileInput = {
     fullName: values.fullName.trim(),
@@ -194,20 +207,24 @@ export function buildAmplifyUserProfileInput(
     input.pregnancy = values.pregnancyStatus === 'yes';
   }
 
-  // DECISION (regra 2 e 5): so inclui os 3 campos clinicos quando preenchidos.
-  // A Tela 4c (edit-profile.tsx) nao coleta esses campos e sempre envia string
-  // vazia aqui — omiti-los do payload evita sobrescrever com vazio o que o
-  // usuario preencheu no wizard (2a), sem exigir logica separada por tela.
-  if (values.chronicConditions.trim()) {
-    input.chronicConditions = values.chronicConditions.trim();
-  }
+  // DECISION (regra 2 e 5): por padrao, so inclui os 3 campos clinicos quando
+  // preenchidos — omiti-los evita sobrescrever com vazio o que a pessoa
+  // preencheu no wizard (2a) quando quem chama nao os coleta.
+  //
+  // A Tela 4c (edit-profile.tsx) passou a MOSTRAR esses campos
+  // (correcoes-de-usabilidade, D10): antes a pessoa os preenchia no cadastro e
+  // nunca mais os via. Ali, apagar o texto e uma escolha dela, e o campo vazio
+  // vai como `null` (`emptyClinicalFields: 'clear'`).
+  const clearEmpty = options.emptyClinicalFields === 'clear';
 
-  if (values.medications.trim()) {
-    input.medications = values.medications.trim();
-  }
+  for (const field of ['chronicConditions', 'medications', 'allergies'] as const) {
+    const text = values[field].trim();
 
-  if (values.allergies.trim()) {
-    input.allergies = values.allergies.trim();
+    if (text) {
+      input[field] = text;
+    } else if (clearEmpty) {
+      input[field] = null;
+    }
   }
 
   return input;

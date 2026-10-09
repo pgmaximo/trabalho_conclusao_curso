@@ -21,9 +21,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Badge } from '@/components/Badge';
 import { Card } from '@/components/Card';
+import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { DetailHeader } from '@/components/DetailHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { FilterChips } from '@/components/FilterChips';
+import { InlineError } from '@/components/InlineError';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
@@ -50,7 +52,23 @@ type VaccinationScreenProps = {
   onAddVaccine: () => void;
   onRequestLocation: () => void;
   onMarkDoseApplied: (item: VaccineDoseItem) => void;
+  /** Exclui um registro lançado por engano. Sem ela, a tela não desenha a
+   *  lixeira: a Carteira não mostra controle que não faz nada. */
+  onDeleteDose?: (item: VaccineDoseItem) => Promise<void>;
 };
+
+// O que os cartões precisam para excluir: quem está com a pergunta aberta,
+// quem está sendo excluído e o erro da última tentativa. Um registro de cada vez.
+type DeleteControls = {
+  confirmingId: string | null;
+  deletingId: string | null;
+  error: { id: string; message: string } | null;
+  onAsk: (item: VaccineDoseItem) => void;
+  onCancel: () => void;
+  onConfirm: (item: VaccineDoseItem) => void;
+};
+
+const DELETE_QUESTION = 'Excluir este registro de vacina? Essa ação não pode ser desfeita.';
 
 const FILTER_OPTIONS = ['Todas', 'Pendentes', 'Atrasadas'] as const;
 type FilterOption = (typeof FILTER_OPTIONS)[number];
@@ -80,7 +98,74 @@ function formatDatePt(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
-function DoseCard({ item, onMarkApplied }: { item: VaccineDoseItem; onMarkApplied: (item: VaccineDoseItem) => void }) {
+// DECISION (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D3): marcar
+// como aplicada era tocar no SELO de status, que não parece um botão. O selo
+// voltou a ser só status, e a ação ganhou um botão com o nome dela.
+function MarkAppliedButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint="Toque para registrar a data em que esta dose foi tomada"
+      onPress={onPress}
+      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+      className="h-12 flex-1 items-center justify-center rounded-field border-[1.5px] border-app-primary dark:border-app-dark-primary"
+    >
+      <Text className="text-[16px] font-semibold text-app-primary dark:text-app-dark-primary">
+        Marcar como aplicada
+      </Text>
+    </Pressable>
+  );
+}
+
+function DeleteDoseButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const colors = useThemeColors();
+
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+      className="size-12 items-center justify-center rounded-field"
+    >
+      <Ionicons color={colors.textSecondary} name="trash-outline" size={20} />
+    </Pressable>
+  );
+}
+
+// Pergunta e erro da exclusão, logo abaixo do registro a que se referem.
+function DeleteDosePanel({ item, controls }: { item: VaccineDoseItem; controls?: DeleteControls }) {
+  if (!controls) return null;
+
+  const hasError = controls.error?.id === item.id;
+  const isConfirming = controls.confirmingId === item.id;
+
+  if (!hasError && !isConfirming) return null;
+
+  return (
+    <View className="mt-3">
+      {hasError ? <InlineError message={controls.error?.message ?? ''} /> : null}
+      {isConfirming ? (
+        <DeleteConfirmPanel
+          isDeleting={controls.deletingId === item.id}
+          message={DELETE_QUESTION}
+          onCancel={controls.onCancel}
+          onConfirm={() => controls.onConfirm(item)}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function DoseCard({
+  item,
+  onMarkApplied,
+  deleteControls,
+}: {
+  item: VaccineDoseItem;
+  onMarkApplied: (item: VaccineDoseItem) => void;
+  deleteControls?: DeleteControls;
+}) {
   const isPending = item.status !== 'aplicada';
 
   const badge =
@@ -106,21 +191,19 @@ function DoseCard({ item, onMarkApplied }: { item: VaccineDoseItem; onMarkApplie
             {supportLine}
           </Text>
         </View>
-        {isPending ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Marcar como aplicada"
-            accessibilityHint="Toque para registrar a data em que esta dose foi tomada"
-            onPress={() => onMarkApplied(item)}
-            hitSlop={8}
-            style={({ pressed }) => [pressed && { opacity: 0.6 }]}
-          >
-            <Badge label={badge.label} variant={badge.variant} />
-          </Pressable>
-        ) : (
-          <Badge label={badge.label} variant={badge.variant} />
-        )}
+        <Badge label={badge.label} variant={badge.variant} />
       </View>
+
+      {isPending || deleteControls ? (
+        <View className="mt-3 flex-row items-center justify-end gap-2">
+          {isPending ? <MarkAppliedButton onPress={() => onMarkApplied(item)} /> : null}
+          {deleteControls ? (
+            <DeleteDoseButton label={`Excluir ${item.name}`} onPress={() => deleteControls.onAsk(item)} />
+          ) : null}
+        </View>
+      ) : null}
+
+      <DeleteDosePanel controls={deleteControls} item={item} />
     </Card>
   );
 }
@@ -139,10 +222,12 @@ function VaccineGroupCard({
   group,
   filter,
   onMarkApplied,
+  deleteControls,
 }: {
   group: VaccineGroupView;
   filter: FilterOption;
   onMarkApplied: (item: VaccineDoseItem) => void;
+  deleteControls?: DeleteControls;
 }) {
   const total = group.seriesTotal;
   const applied = group.dosesAplicadas.length;
@@ -175,13 +260,28 @@ function VaccineGroupCard({
 
       {group.dosesAplicadas.length > 0 ? (
         <View className="mt-3 gap-1.5">
-          {group.dosesAplicadas.map((dose) => (
-            <Text key={dose.id} className="text-[14px] text-app-textSecondary dark:text-app-dark-textSecondary">
-              {dose.doseNumber ? `${dose.doseNumber}ª dose` : 'Dose'} · {dose.appliedDate ? formatDatePt(dose.appliedDate) : '—'}
-              {dose.location ? ` · ${dose.location}` : ''}
-              {dose.manufacturer ? ` · ${dose.manufacturer}` : ''}
-            </Text>
-          ))}
+          {group.dosesAplicadas.map((dose) => {
+            const doseLabel = dose.doseNumber ? `${dose.doseNumber}ª dose` : 'Dose';
+
+            return (
+              <View key={dose.id}>
+                <View className="flex-row items-center gap-2">
+                  <Text className="flex-1 text-[14px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                    {doseLabel} · {dose.appliedDate ? formatDatePt(dose.appliedDate) : '—'}
+                    {dose.location ? ` · ${dose.location}` : ''}
+                    {dose.manufacturer ? ` · ${dose.manufacturer}` : ''}
+                  </Text>
+                  {deleteControls ? (
+                    <DeleteDoseButton
+                      label={`Excluir ${group.nome}, ${doseLabel}`}
+                      onPress={() => deleteControls.onAsk(dose)}
+                    />
+                  ) : null}
+                </View>
+                <DeleteDosePanel controls={deleteControls} item={dose} />
+              </View>
+            );
+          })}
         </View>
       ) : null}
 
@@ -195,13 +295,7 @@ function VaccineGroupCard({
           <Text className="mb-2 text-[12px] font-semibold uppercase text-app-textMuted dark:text-app-dark-textMuted">
             Próxima dose
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Marcar como aplicada"
-            accessibilityHint="Toque para registrar a data em que esta dose foi tomada"
-            onPress={() => onMarkApplied(group.proximaDose as VaccineDoseItem)}
-            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8 }, pressed && { opacity: 0.6 }]}
-          >
+          <View className="flex-row items-center gap-2">
             <Badge
               label={group.proximaDose.status === 'atrasada' ? 'Atrasada' : 'Pendente'}
               variant={group.proximaDose.status === 'atrasada' ? 'danger' : 'warning'}
@@ -210,7 +304,10 @@ function VaccineGroupCard({
               {group.proximaDose.doseNumber ? `${group.proximaDose.doseNumber}ª dose` : 'Dose'}
               {group.proximaDose.dueDate ? ` · ${formatDatePt(group.proximaDose.dueDate)}` : ''}
             </Text>
-          </Pressable>
+          </View>
+          <View className="mt-3 flex-row">
+            <MarkAppliedButton onPress={() => onMarkApplied(group.proximaDose as VaccineDoseItem)} />
+          </View>
         </View>
       ) : null}
     </Card>
@@ -236,7 +333,7 @@ function CampaignCard({ campaign }: { campaign: VaccinationCampaignView }) {
     <View className="mb-4 gap-2 rounded-app border border-app-successBadgeBorder bg-app-successSoft px-4 py-3 dark:border-app-dark-successBadgeBorder dark:bg-app-dark-successSoft">
       <View className="flex-row items-start gap-3">
         <View className="size-6 items-center justify-center rounded-full bg-app-successIconBg dark:bg-app-dark-successIconBg">
-          <Ionicons color="#FFFFFF" name="medical" size={14} />
+          <Ionicons color={colors.onPrimary} name="medical" size={14} />
         </View>
         <View className="flex-1">
           <Text className="text-[15px] font-semibold leading-[20px] text-app-primaryDark dark:text-app-dark-primaryDark">
@@ -300,10 +397,47 @@ export function VaccinationScreen({
   onAddVaccine,
   onRequestLocation,
   onMarkDoseApplied,
+  onDeleteDose,
 }: VaccinationScreenProps) {
   const { colorScheme } = useColorScheme();
   const colors = useThemeColors();
   const [filter, setFilter] = useState<FilterOption>('Todas');
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(null);
+
+  async function confirmDelete(item: VaccineDoseItem) {
+    if (!onDeleteDose) return;
+
+    setDeletingId(item.id);
+    setDeleteError(null);
+    try {
+      await onDeleteDose(item);
+    } catch (error) {
+      // O registro continua na tela, com o motivo logo abaixo dele.
+      setDeleteError({
+        id: item.id,
+        message: error instanceof Error ? error.message : 'Não foi possível excluir a vacina.',
+      });
+    } finally {
+      setDeletingId(null);
+      setConfirmingDeleteId(null);
+    }
+  }
+
+  const deleteControls: DeleteControls | undefined = onDeleteDose
+    ? {
+        confirmingId: confirmingDeleteId,
+        deletingId,
+        error: deleteError,
+        onAsk: (item) => {
+          setDeleteError(null);
+          setConfirmingDeleteId(item.id);
+        },
+        onCancel: () => setConfirmingDeleteId(null),
+        onConfirm: (item) => void confirmDelete(item),
+      }
+    : undefined;
 
   const filteredUpcoming = useMemo(
     () => upcoming.filter((item) => matchesFilter(item.status, filter)),
@@ -360,7 +494,7 @@ export function VaccinationScreen({
             className="mb-4 flex-row items-center gap-3 rounded-app border border-app-infoBadgeBorder bg-app-infoSoft px-4 py-3 dark:border-app-dark-infoBadgeBorder dark:bg-app-dark-infoSoft"
           >
             <View className="size-8 items-center justify-center rounded-full bg-app-infoIconBg dark:bg-app-dark-infoIconBg">
-              <Ionicons color="#FFFFFF" name="location" size={16} />
+              <Ionicons color={colors.onPrimary} name="location" size={16} />
             </View>
             <Text className="flex-1 text-[14px] leading-[19px] text-app-text dark:text-app-dark-text">
               {isRequestingLocation
@@ -400,7 +534,12 @@ export function VaccinationScreen({
                 />
                 {filteredUpcoming.length > 0 ? (
                   filteredUpcoming.map((item) => (
-                    <DoseCard key={item.id} item={item} onMarkApplied={onMarkDoseApplied} />
+                    <DoseCard
+                      key={item.id}
+                      deleteControls={deleteControls}
+                      item={item}
+                      onMarkApplied={onMarkDoseApplied}
+                    />
                   ))
                 ) : (
                   <Text className="text-[14px] text-app-textSecondary dark:text-app-dark-textSecondary">
@@ -415,6 +554,7 @@ export function VaccinationScreen({
                 {groups.map((group) => (
                   <VaccineGroupCard
                     key={group.catalogId}
+                    deleteControls={deleteControls}
                     group={group}
                     filter={filter}
                     onMarkApplied={onMarkDoseApplied}

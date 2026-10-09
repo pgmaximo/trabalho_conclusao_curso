@@ -6,7 +6,7 @@
 // estoque/unidade, aviso de estoque baixo, observações e lembretes ativos.
 // =============================================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { DateInput } from '@/components/DateInput';
@@ -86,7 +86,7 @@ const UNIT_OPTIONS: { value: MedicineUnit; label: string }[] = [
   { value: 'CAPS', label: 'Cáps.' },
 ];
 
-/** Converte o estado do formulário (datas DD/MM/YYYY, números como texto) para o
+/** Converte o estado do formulário (datas DD/MM/AAAA, números como texto) para o
  * `MedicineInput` consumido por `createMedicine`/`updateMedicine`. `initialStock` não é um
  * campo do formulário (não existe no Canvas) — quem chama decide o valor
  * (criação: igual a `currentStock`; edição: preservado, exceto reposição — ver
@@ -121,6 +121,15 @@ export function validateMedicineForm(form: MedicineFormState): Record<string, st
   return byField;
 }
 
+// Erro de um grupo de opções ou de uma data, que não passa pelo `FormField`.
+function GroupError({ message }: { message?: string }) {
+  if (!message) return null;
+
+  return (
+    <Text className="mt-2 text-[13px] text-app-danger dark:text-app-dark-danger">{message}</Text>
+  );
+}
+
 type MedicineFormFieldsProps = {
   form: MedicineFormState;
   onChange: (patch: Partial<MedicineFormState>) => void;
@@ -128,6 +137,21 @@ type MedicineFormFieldsProps = {
 };
 
 export function MedicineFormFields({ form, onChange, fieldErrors = {} }: MedicineFormFieldsProps) {
+  // Quem chama valida o formulário inteiro a cada renderização (é o que
+  // habilita o botão de salvar). Mostrar tudo o que vem em `fieldErrors` fazia
+  // a tela ABRIR com sete campos em vermelho. Aqui o erro de um campo só
+  // aparece depois que a pessoa passou por ele: ao sair de um campo de texto,
+  // ou ao mexer num grupo de opções ou numa data.
+  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
+
+  function touch(field: string) {
+    setTouched((current) => (current.has(field) ? current : new Set(current).add(field)));
+  }
+
+  function errorOf(field: string): string | undefined {
+    return touched.has(field) ? fieldErrors[field] : undefined;
+  }
+
   function updateTime(index: number, value: string) {
     const next = [...form.times];
     next[index] = value;
@@ -141,6 +165,7 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
   function removeTime(index: number) {
     const next = form.times.filter((_, i) => i !== index);
     onChange({ times: next.length > 0 ? next : [''] });
+    touch('times');
   }
 
   function toggleWeekDay(day: string) {
@@ -148,6 +173,7 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
       ? form.weekDays.filter((d) => d !== day)
       : [...form.weekDays, day];
     onChange({ weekDays: next });
+    touch('weekDays');
   }
 
   return (
@@ -157,7 +183,8 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
         placeholder="Ex.: Losartana"
         value={form.name}
         onChangeText={(text) => onChange({ name: text })}
-        errorMessage={fieldErrors.name}
+        onBlur={() => touch('name')}
+        errorMessage={errorOf('name')}
       />
 
       <FormField
@@ -165,7 +192,8 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
         placeholder="Ex.: 50mg"
         value={form.dosage}
         onChangeText={(text) => onChange({ dosage: text })}
-        errorMessage={fieldErrors.dosage}
+        onBlur={() => touch('dosage')}
+        errorMessage={errorOf('dosage')}
       />
 
       <View className="mt-6">
@@ -178,15 +206,14 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
               key={option.value}
               label={option.label}
               selected={form.form === option.value}
-              onPress={() => onChange({ form: option.value })}
+              onPress={() => {
+                onChange({ form: option.value });
+                touch('form');
+              }}
             />
           ))}
         </View>
-        {fieldErrors.form ? (
-          <Text className="mt-2 text-[13px] text-app-danger dark:text-app-dark-danger">
-            {fieldErrors.form}
-          </Text>
-        ) : null}
+        <GroupError message={errorOf('form')} />
       </View>
 
       <View className="mt-6">
@@ -197,6 +224,7 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
           <DoseTimeRow
             key={index}
             value={time}
+            onBlur={() => touch('times')}
             onChange={(value) => updateTime(index, value)}
             onRemove={form.times.length > 1 ? () => removeTime(index) : undefined}
           />
@@ -208,11 +236,7 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
         >
           + Adicionar horário
         </Text>
-        {fieldErrors.times ? (
-          <Text className="mt-2 text-[13px] text-app-danger dark:text-app-dark-danger">
-            {fieldErrors.times}
-          </Text>
-        ) : null}
+        <GroupError message={errorOf('times')} />
       </View>
 
       <View className="mt-6">
@@ -225,15 +249,14 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
               key={option.value}
               label={option.label}
               selected={form.frequencyType === option.value}
-              onPress={() => onChange({ frequencyType: option.value })}
+              onPress={() => {
+                onChange({ frequencyType: option.value });
+                touch('frequencyType');
+              }}
             />
           ))}
         </View>
-        {fieldErrors.frequencyType ? (
-          <Text className="mt-2 text-[13px] text-app-danger dark:text-app-dark-danger">
-            {fieldErrors.frequencyType}
-          </Text>
-        ) : null}
+        <GroupError message={errorOf('frequencyType')} />
       </View>
 
       {form.frequencyType === 'SPECIFIC_DAYS' ? (
@@ -248,11 +271,7 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
               />
             ))}
           </View>
-          {fieldErrors.weekDays ? (
-            <Text className="mt-2 text-[13px] text-app-danger dark:text-app-dark-danger">
-              {fieldErrors.weekDays}
-            </Text>
-          ) : null}
+          <GroupError message={errorOf('weekDays')} />
         </View>
       ) : null}
 
@@ -263,35 +282,34 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
           placeholder="Ex.: 8"
           value={form.intervalHours}
           onChangeText={(text) => onChange({ intervalHours: text.replace(/\D/g, '') })}
-          errorMessage={fieldErrors.intervalHours}
+          onBlur={() => touch('intervalHours')}
+          errorMessage={errorOf('intervalHours')}
         />
       ) : null}
 
       <DateInput
         label="Data de início"
         value={form.startDate}
-        onChange={(value) => onChange({ startDate: value })}
-        placeholder="DD/MM/YYYY"
+        onChange={(value) => {
+          onChange({ startDate: value });
+          touch('startDate');
+        }}
+        placeholder="DD/MM/AAAA"
       />
-      {fieldErrors.startDate ? (
-        <Text className="mt-2 text-[13px] text-app-danger dark:text-app-dark-danger">
-          {fieldErrors.startDate}
-        </Text>
-      ) : null}
+      <GroupError message={errorOf('startDate')} />
 
       {!form.hasNoEndDate ? (
         <DateInput
           label="Data de término"
           value={form.endDate}
-          onChange={(value) => onChange({ endDate: value })}
-          placeholder="DD/MM/YYYY"
+          onChange={(value) => {
+            onChange({ endDate: value });
+            touch('endDate');
+          }}
+          placeholder="DD/MM/AAAA"
         />
       ) : null}
-      {fieldErrors.endDate ? (
-        <Text className="mt-2 text-[13px] text-app-danger dark:text-app-dark-danger">
-          {fieldErrors.endDate}
-        </Text>
-      ) : null}
+      <GroupError message={errorOf('endDate')} />
 
       <View className="mt-4 flex-row items-center gap-2">
         <SelectableChip
@@ -307,7 +325,8 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
         placeholder="Ex.: 30"
         value={form.currentStock}
         onChangeText={(text) => onChange({ currentStock: text.replace(/\D/g, '') })}
-        errorMessage={fieldErrors.currentStock}
+        onBlur={() => touch('currentStock')}
+        errorMessage={errorOf('currentStock')}
       />
 
       <View className="mt-6">
@@ -320,15 +339,14 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
               key={option.value}
               label={option.label}
               selected={form.unit === option.value}
-              onPress={() => onChange({ unit: option.value })}
+              onPress={() => {
+                onChange({ unit: option.value });
+                touch('unit');
+              }}
             />
           ))}
         </View>
-        {fieldErrors.unit ? (
-          <Text className="mt-2 text-[13px] text-app-danger dark:text-app-dark-danger">
-            {fieldErrors.unit}
-          </Text>
-        ) : null}
+        <GroupError message={errorOf('unit')} />
       </View>
 
       <FormField

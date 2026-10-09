@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 
 import { PreventionScreen } from '@/screens/PreventionScreen';
 import { usePreventionData } from '@/hooks/usePreventionData';
+import { goBackOr } from '@/utils/goBack';
 
 export default function PreventionRoute() {
   const {
@@ -29,6 +30,7 @@ export default function PreventionRoute() {
       onToggleReminder={onToggleReminder}
       onEnableRemindersForIds={onEnableRemindersForIds}
       onCompleteProfile={() => router.push('/edit-profile')}
+      onBack={() => goBackOr('/more')}
       pendingReminderIds={pendingReminderIds}
       activeCampaignMessage={activeCampaignMessage}
     />

@@ -7,6 +7,7 @@
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import type { PreventionRecommendation, PreventionSnapshot, UspstfGrade } from '@/types/models';
+import { backendError } from '@/services/backendError';
 
 const client = generateClient<Schema>();
 
@@ -39,11 +40,7 @@ export async function getPreventionRecommendations(): Promise<PreventionSnapshot
   const { data, errors } = await client.queries.getPreventionRecommendations({});
 
   if (errors?.length) {
-    const message = errors
-      .map((error) => error.message)
-      .filter(Boolean)
-      .join('; ');
-    throw new Error(message || 'Nao foi possivel carregar as recomendacoes preventivas.');
+    throw backendError(errors, 'Não foi possível carregar as recomendações preventivas.');
   }
 
   const rawRecommendations = (data?.recommendations ?? []) as unknown as (RawRecommendation | null)[];

@@ -1,5 +1,7 @@
 # EPIC: Insights de saúde (Bloco 4)
 
+> **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D4 e D6), "Excluir esta importação" pede confirmação; o rodapé diz o nome do modelo, e não o identificador; as médias e os nomes das métricas foram corrigidos; e a tela ganhou botão de voltar.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: **N/A — feature nova, sem Canvas de origem** (ver `../importar-dados/spec.md` §1; a mesma ambiguidade documentada se aplica aqui).
 - Rota/arquivo no código: `src/app/(app)/health-data.tsx` → `src/screens/HealthDashboardScreen.tsx`.

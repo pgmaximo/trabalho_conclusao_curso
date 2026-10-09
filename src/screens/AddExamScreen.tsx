@@ -273,7 +273,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
               label={documentType === 'prescription' ? 'Data da receita' : 'Guardado em'}
               value={documentDate}
               onChange={setDocumentDate}
-              placeholder="DD/MM/YYYY"
+              placeholder="DD/MM/AAAA"
             />
 
             {documentType === 'prescription' && (
@@ -281,7 +281,7 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
                 label="Data de validade"
                 value={expirationDate}
                 onChange={setExpirationDate}
-                placeholder="DD/MM/YYYY"
+                placeholder="DD/MM/AAAA"
               />
             )}
           </View>

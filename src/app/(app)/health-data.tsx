@@ -6,6 +6,7 @@ import { useHealthDashboardData } from '@/hooks/useHealthDashboardData';
 import { useHealthImportStatus } from '@/hooks/useHealthImportStatus';
 import { deleteHealthImport, listHealthImports } from '@/services/healthImportService';
 import { invalidateHealthImportCache } from '@/hooks/healthImportCache';
+import { goBackOr } from '@/utils/goBack';
 
 export default function HealthDataRoute() {
   // Quando vem de uma importação recém-criada (ImportHealthDataScreen passa
@@ -77,15 +78,18 @@ export default function HealthDataRoute() {
   const isTimedOut = isTrackingActive ? active.isTimedOut : false;
   const onRetry = isTrackingActive ? active.refresh : latest.retry;
 
+  // A tela pede a confirmação antes de chamar isto, e mostra o erro se a
+  // exclusão falhar — por isso a falha sobe, em vez de morrer no console.
   async function handleDeleteImport() {
     if (!healthImport) return;
     try {
       await deleteHealthImport(healthImport.id);
       await invalidateHealthImportCache();
-      router.replace('/health-data');
     } catch (error) {
       console.error('Erro ao excluir importação:', error);
+      throw error;
     }
+    router.replace('/health-data');
   }
 
   return (
@@ -94,6 +98,7 @@ export default function HealthDataRoute() {
       healthImport={healthImport}
       isLoading={isLoading}
       isTimedOut={isTimedOut}
+      onBack={() => goBackOr('/more')}
       onDeleteImport={healthImport?.status === 'READY' ? handleDeleteImport : undefined}
       onImportPress={() => router.push('/import-health-data')}
       onRetry={onRetry}

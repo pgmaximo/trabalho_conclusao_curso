@@ -116,7 +116,7 @@ export function FormField({
             className="items-center justify-center rounded-full bg-app-danger dark:bg-app-dark-danger"
             style={{ height: 22, width: 22 }}
           >
-            <Text className="text-xs font-bold text-white">!</Text>
+            <Text className="text-xs font-bold text-app-onPrimary dark:text-app-dark-onPrimary">!</Text>
           </View>
           <Text className="flex-1 text-[16px] text-app-danger dark:text-app-dark-danger">
             {errorMessage}

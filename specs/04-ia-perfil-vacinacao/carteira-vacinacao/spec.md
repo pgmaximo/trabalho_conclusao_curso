@@ -1,5 +1,7 @@
 # EPIC: Carteira de Vacinação (Bloco 4)
 
+> **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D3), marcar uma dose como aplicada deixou de ser um toque no selo de status e virou o botão "Marcar como aplicada"; e cada registro pode ser excluído, com confirmação.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: tela **4e** ("Carteira de vacinação") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 190–227). Sem `sc-if`/estados dinâmicos no markup — apenas dados de exemplo estáticos (banner de campanha + 2 cards "Próximas recomendadas" + 3 cards "Histórico de doses"), então os 4 estados padrão (`DESIGN_TOKENS.md` §4) e as variações de urgência abaixo são inferidos, não copiados literalmente do Canvas.
 - Rota/arquivo no código (a criar): `src/app/(app)/vaccination.tsx` (rota `/vaccination`) → renderiza `src/screens/VaccinationScreen.tsx`, alimentado por um novo `src/hooks/useVaccinationData.ts`. Rota já antecipada (mas não implementada) em `specs/00-fundacao/navegacao/plan.md` §2/§7 como item do hub "Mais" — ver §4 abaixo para reconciliação.

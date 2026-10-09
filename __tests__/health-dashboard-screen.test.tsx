@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { HealthDashboardScreen } from '@/screens/HealthDashboardScreen';
@@ -217,5 +217,90 @@ describe('HealthDashboardScreen', () => {
       renderScreen({ healthImport: baseHealthImport(), ...props });
       expect(screen.queryByRole('button', IMPORT_ACTION)).toBeNull();
     });
+  });
+});
+
+// Correcoes do painel (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D4).
+describe('HealthDashboardScreen - o que a pessoa le', () => {
+  it('mostra a media sem casa decimal e com separador de milhar ("8.200 passos", e nao "8200.0 passos")', () => {
+    renderScreen({ healthImport: baseHealthImport() });
+
+    expect(screen.getByText('8.200 passos')).toBeTruthy();
+    expect(screen.queryByText(/8200\.0/)).toBeNull();
+  });
+
+  it('nomeia as metricas de uma correlacao pelo rotulo, e nunca pelo identificador interno', () => {
+    const sono = { ...baseSummary().metrics[0], metric: 'sleepMinutes' as const, label: 'Sono', unit: 'min', mean: 402 };
+    renderScreen({
+      healthImport: baseHealthImport({ summary: baseSummary({ metrics: [baseSummary().metrics[0], sono] }) }),
+    });
+
+    expect(screen.getByText('Passos × Sono')).toBeTruthy();
+    expect(screen.queryByText(/sleepMinutes/)).toBeNull();
+    expect(screen.queryByText(/\bsteps\b/)).toBeNull();
+  });
+
+  it('sem o rotulo de uma das metricas, usa a descricao da correlacao como titulo', () => {
+    // A base so tem a metrica de passos; a correlacao cita tambem o sono.
+    renderScreen({ healthImport: baseHealthImport() });
+
+    expect(screen.getByText('Passos e sono')).toBeTruthy();
+    expect(screen.queryByText(/sleepMinutes/)).toBeNull();
+  });
+
+  it('diz qual modelo gerou a analise pelo nome, e nao pelo identificador', () => {
+    renderScreen({ healthImport: baseHealthImport() });
+
+    expect(screen.getByText(/Análise gerada por IA \(Claude Sonnet 4\.6\) em 01\/04\/2026/)).toBeTruthy();
+    expect(screen.queryByText(/us\.anthropic/)).toBeNull();
+  });
+});
+
+describe('HealthDashboardScreen - excluir a importacao', () => {
+  const PERGUNTA = 'Excluir esta importação? A análise e os arquivos enviados somem de vez.';
+
+  it('pergunta antes de excluir', () => {
+    const onDeleteImport = jest.fn();
+    renderScreen({ healthImport: baseHealthImport(), onDeleteImport });
+
+    fireEvent.press(screen.getByText('Excluir esta importação'));
+
+    expect(onDeleteImport).not.toHaveBeenCalled();
+    expect(screen.getByText(PERGUNTA)).toBeTruthy();
+  });
+
+  it('exclui so depois da confirmacao', async () => {
+    const onDeleteImport = jest.fn(async () => {});
+    renderScreen({ healthImport: baseHealthImport(), onDeleteImport });
+
+    fireEvent.press(screen.getByText('Excluir esta importação'));
+    fireEvent.press(screen.getByRole('button', { name: 'Confirmar exclusão' }));
+
+    await waitFor(() => expect(onDeleteImport).toHaveBeenCalledTimes(1));
+  });
+
+  it('desiste sem excluir', () => {
+    const onDeleteImport = jest.fn();
+    renderScreen({ healthImport: baseHealthImport(), onDeleteImport });
+
+    fireEvent.press(screen.getByText('Excluir esta importação'));
+    fireEvent.press(screen.getByRole('button', { name: 'Cancelar exclusão' }));
+
+    expect(onDeleteImport).not.toHaveBeenCalled();
+    expect(screen.queryByText(PERGUNTA)).toBeNull();
+  });
+
+  it('avisa quando a exclusao falha, em vez de falhar em silencio', async () => {
+    const onDeleteImport = jest.fn(async () => {
+      throw new Error('Network error');
+    });
+    renderScreen({ healthImport: baseHealthImport(), onDeleteImport });
+
+    fireEvent.press(screen.getByText('Excluir esta importação'));
+    fireEvent.press(screen.getByRole('button', { name: 'Confirmar exclusão' }));
+
+    expect(await screen.findByText('Não foi possível excluir a importação. Tente novamente.')).toBeTruthy();
+    // O erro tecnico nao vai para a tela.
+    expect(screen.queryByText('Network error')).toBeNull();
   });
 });

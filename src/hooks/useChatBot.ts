@@ -3,7 +3,7 @@
  * Hook que gerencia o estado do chat (mensagens, input, "digitando") e
  * orquestra a chamada ao aiAssistantService. Sem persistencia entre sessoes.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { router } from 'expo-router';
 
@@ -26,6 +26,7 @@ import {
   salvarTurno,
   type ConversaSalva,
 } from '@/services/chatHistoryService';
+import { conversaAbertaNaSessao, lembrarConversaAberta } from '@/hooks/conversaAberta';
 import { agruparPorPeriodo } from '@/utils/conversationGrouping';
 
 export type HistoryGroup = {
@@ -113,8 +114,17 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
   const [anexo, setAnexo] = useState<AnexoPendente | null>(null);
   // A conversa ABERTA. Nula ate a primeira pergunta: uma conversa criada ao
   // abrir a tela encheria a gaveta de linhas vazias que a pessoa nunca teve.
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationIdState] = useState<string | null>(null);
   const [conversas, setConversas] = useState<ConversaSalva[]>([]);
+  // Verdadeiro depois da primeira pergunta enviada nesta montagem da tela.
+  const jaPerguntou = useRef(false);
+
+  // Toda troca de conversa passa por aqui, para a sessão lembrar qual estava
+  // aberta quando a pessoa sair da aba (ver conversaAberta.ts).
+  const setConversationId = useCallback((id: string | null) => {
+    lembrarConversaAberta(id);
+    setConversationIdState(id);
+  }, []);
 
   const recarregarConversas = useCallback(async () => {
     try {
@@ -153,6 +163,7 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
       };
 
       const history = messages;
+      jaPerguntou.current = true;
       setMessages((prev) => [...prev, userMessage]);
       setInputText('');
       setIsTyping(true);
@@ -234,6 +245,7 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
       messages,
       recarregarConversas,
       recusados,
+      setConversationId,
     ],
   );
 
@@ -278,7 +290,7 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
     setAnexo(null);
     // Nova conversa comeca sem id: a proxima pergunta cria a dela.
     setConversationId(null);
-  }, []);
+  }, [setConversationId]);
 
   /** Abre uma conversa guardada, com as citacoes de cada resposta. */
   const abrirConversa = useCallback(async (id: string) => {
@@ -298,7 +310,40 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
     } catch (erro) {
       console.warn('Nao foi possivel abrir esta conversa:', erro);
     }
-  }, []);
+  }, [setConversationId]);
+
+  /**
+   * Reabre a conversa que estava aberta quando a pessoa saiu da aba. Difere de
+   * `abrirConversa` em duas coisas: se a conversa nao existe mais (foi apagada,
+   * ou e de outra conta), a tela fica no chat novo em vez de ficar vazia; e se
+   * a pessoa ja perguntou algo enquanto a leitura corria, a pergunta dela vale.
+   */
+  const retomarConversa = useCallback(
+    async (id: string) => {
+      try {
+        const gravadas = await lerMensagens(id);
+        if (jaPerguntou.current) return;
+        if (gravadas.length === 0) {
+          lembrarConversaAberta(null);
+          return;
+        }
+        setConversationId(id);
+        setMessages(
+          gravadas.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: m.createdAt ? new Date(m.createdAt) : new Date(),
+            citations: m.citations,
+          })),
+        );
+      } catch (erro) {
+        lembrarConversaAberta(null);
+        console.warn('Nao foi possivel retomar a conversa:', erro);
+      }
+    },
+    [setConversationId],
+  );
 
   const deleteConversation = useCallback(
     async (id: string) => {
@@ -318,7 +363,7 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
 
       await recarregarConversas();
     },
-    [conversationId, recarregarConversas],
+    [conversationId, recarregarConversas, setConversationId],
   );
 
   const historyGroups = useMemo<HistoryGroup[]>(
@@ -337,8 +382,17 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
   // Abre UMA vez, ao montar com uma conversa indicada. A dependencia e so o
   // identificador: reagir a `abrirConversa` faria a conversa recarregar a cada
   // vez que o callback fosse recriado, jogando fora o que a pessoa digitou.
+  //
+  // Sem conversa indicada, retoma a que estava aberta nesta sessao: voltar a
+  // aba do Assistente no meio de uma conversa mostrava um chat em branco.
   useEffect(() => {
-    if (conversaInicial) void abrirConversa(conversaInicial);
+    if (conversaInicial) {
+      void abrirConversa(conversaInicial);
+      return;
+    }
+
+    const aberta = conversaAbertaNaSessao();
+    if (aberta) void retomarConversa(aberta);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversaInicial]);
 

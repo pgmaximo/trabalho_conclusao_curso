@@ -42,7 +42,7 @@ export function DeleteConfirmPanel({
           className="items-center justify-center rounded-full bg-app-danger dark:bg-app-dark-danger"
           style={{ height: 26, width: 26 }}
         >
-          <Text className="text-sm font-bold text-white">!</Text>
+          <Text className="text-sm font-bold text-app-onPrimary dark:text-app-dark-onPrimary">!</Text>
         </View>
         <Text className="flex-1 text-[17px] leading-[24px] text-app-text dark:text-app-dark-text">
           {message}
@@ -72,7 +72,7 @@ export function DeleteConfirmPanel({
           ]}
           className="h-[52px] flex-1 items-center justify-center rounded-xl bg-app-danger dark:bg-app-dark-danger"
         >
-          <Text className="text-[17px] font-semibold text-white">
+          <Text className="text-[17px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">
             {isDeleting ? confirmingLabel : confirmLabel}
           </Text>
         </Pressable>

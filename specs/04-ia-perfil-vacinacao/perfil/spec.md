@@ -1,5 +1,7 @@
 # EPIC: Perfil — Dados de Saúde e Preferências (Bloco 4)
 
+> **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D6 e D10), o topo do Perfil voltou a mostrar o avatar da pessoa; a linha "Exportar meus dados" mostra o selo "Em breve" e não é tocável; e a tela ganhou botão de voltar.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: tela **4b** ("Perfil — dados de saúde e preferências") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 76–126).
 - Rota/arquivo no código (existente): `src/app/(app)/profile.tsx` (rota `/profile`, aba "Mais" da tab bar) → renderiza `src/screens/ProfileScreen.tsx`.

@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { uploadFileToS3 } from '@/services/upload';
 import type { AnalysisSummary, HealthImport, Insights } from '@/types/healthInsights';
+import { backendError } from '@/services/backendError';
 
 const client = generateClient<Schema>();
 
@@ -148,15 +149,13 @@ export async function createHealthImport(files: PickedHealthFile[]): Promise<Cre
   });
 
   if (createErrors?.length) {
-    const message = createErrors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível registrar a importação.');
+    throw backendError(createErrors, 'Não foi possível registrar a importação.');
   }
 
   const { errors: startErrors } = await client.mutations.startHealthAnalysis({ importId });
 
   if (startErrors?.length) {
-    const message = startErrors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível iniciar a análise.');
+    throw backendError(startErrors, 'Não foi possível iniciar a análise.');
   }
 
   return { importId };
@@ -201,8 +200,7 @@ export async function getHealthImport(importId: string): Promise<HealthImport | 
   const { data, errors } = await client.models.HealthImport.get({ id: importId });
 
   if (errors?.length) {
-    const message = errors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível consultar a importação.');
+    throw backendError(errors, 'Não foi possível consultar a importação.');
   }
 
   return data ? mapHealthImport(data) : null;
@@ -217,8 +215,7 @@ export async function getLatestReadyHealthImport(): Promise<HealthImport | null>
   const { data, errors } = await client.models.HealthImport.list();
 
   if (errors?.length) {
-    const message = errors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível carregar suas importações.');
+    throw backendError(errors, 'Não foi possível carregar suas importações.');
   }
 
   const ready = (data ?? []).filter((item) => item.status === 'READY');
@@ -233,8 +230,7 @@ export async function listHealthImports(): Promise<HealthImport[]> {
   const { data, errors } = await client.models.HealthImport.list();
 
   if (errors?.length) {
-    const message = errors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível carregar suas importações.');
+    throw backendError(errors, 'Não foi possível carregar suas importações.');
   }
 
   return (data ?? []).map(mapHealthImport).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -245,7 +241,6 @@ export async function deleteHealthImport(importId: string): Promise<void> {
   const { errors } = await client.models.HealthImport.delete({ id: importId });
 
   if (errors?.length) {
-    const message = errors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível excluir a importação.');
+    throw backendError(errors, 'Não foi possível excluir a importação.');
   }
 }

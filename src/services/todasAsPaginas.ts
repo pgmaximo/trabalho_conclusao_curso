@@ -11,6 +11,8 @@
  * o defeito que este arquivo existe para fechar.
  */
 
+import { backendError } from '@/services/backendError';
+
 type Pagina<T> = {
   data: T[] | null | undefined;
   nextToken?: string | null;
@@ -25,8 +27,7 @@ export async function todasAsPaginas<T>(
   do {
     const pagina: Pagina<T> = await buscar(cursor);
     if (pagina.errors?.length) {
-      const mensagem = pagina.errors.map((e) => e.message).filter(Boolean).join('; ');
-      throw new Error(mensagem || 'Não foi possível ler a lista inteira.');
+      throw backendError(pagina.errors, 'Não foi possível ler a lista inteira.');
     }
     itens.push(...(pagina.data ?? []));
     cursor = pagina.nextToken ?? null;

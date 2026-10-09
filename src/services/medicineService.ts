@@ -1,6 +1,7 @@
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { invalidateMedicinesCache } from '@/hooks/medicinesCache';
+import { backendError, technicalDetail } from '@/services/backendError';
 
 const client = generateClient<Schema>();
 
@@ -86,13 +87,13 @@ export function validateMedicineReminder(input: MedicineInput): MedicineValidati
   if (!input.startDate) errors.push({ field: 'startDate', message: 'Informe a data de início.' });
 
   if (input.startDate && !isValidIsoDate(input.startDate)) {
-    errors.push({ field: 'startDate', message: 'Informe uma data de inicio valida.' });
+    errors.push({ field: 'startDate', message: 'Informe uma data de início válida.' });
   }
   if (input.endDate && !isValidIsoDate(input.endDate)) {
-    errors.push({ field: 'endDate', message: 'Informe uma data de termino valida.' });
+    errors.push({ field: 'endDate', message: 'Informe uma data de término válida.' });
   }
   if (input.endDate && isValidIsoDate(input.startDate) && isValidIsoDate(input.endDate) && input.endDate < input.startDate) {
-    errors.push({ field: 'endDate', message: 'A data de termino nao pode ser anterior a data de inicio.' });
+    errors.push({ field: 'endDate', message: 'A data de término não pode ser anterior à data de início.' });
   }
 
   if (input.currentStock === undefined || input.currentStock === null || input.currentStock < 0) {
@@ -152,8 +153,7 @@ export async function createMedicine(input: MedicineInput): Promise<MedicineReco
   });
 
   if (apiErrors?.length) {
-    const message = apiErrors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível salvar o medicamento.');
+    throw backendError(apiErrors, 'Não foi possível salvar o medicamento.');
   }
   if (!data) {
     throw new Error('Não foi possível salvar o medicamento.');
@@ -168,8 +168,7 @@ export async function listMedicinesForUser(): Promise<MedicineRecord[]> {
   const { data, errors } = await client.models.Medicine.list();
 
   if (errors?.length) {
-    const message = errors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível carregar os medicamentos.');
+    throw backendError(errors, 'Não foi possível carregar os medicamentos.');
   }
 
   return (data ?? []).map(mapRecord);
@@ -202,8 +201,7 @@ export async function updateMedicine(id: string, input: Partial<MedicineInput>):
   const { data, errors } = await client.models.Medicine.update({ id, ...updateData });
 
   if (errors?.length) {
-    const message = errors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível atualizar o medicamento.');
+    throw backendError(errors, 'Não foi possível atualizar o medicamento.');
   }
   if (!data) {
     throw new Error('Resposta inesperada do servidor ao atualizar o medicamento.');
@@ -217,8 +215,7 @@ export async function updateMedicine(id: string, input: Partial<MedicineInput>):
 export async function deleteMedicine(id: string): Promise<void> {
   const { errors } = await client.models.Medicine.delete({ id });
   if (errors?.length) {
-    const message = errors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível deletar o medicamento.');
+    throw backendError(errors, 'Não foi possível excluir o medicamento.');
   }
 
   await invalidateMedicinesCache();
@@ -240,7 +237,7 @@ export async function listMedicineDoseLogsForDate(date: string): Promise<Medicin
   try {
     const { data, errors } = await client.models.MedicineDoseLog.list();
     if (errors?.length) {
-      const error = new Error(errors.map((item) => item.message).filter(Boolean).join('; ') || 'Nao foi possivel carregar o historico de doses.');
+      const error = backendError(errors, 'Não foi possível carregar o histórico de doses.');
       if (isDoseHistoryBackendUnavailable(error)) return [];
       throw error;
     }
@@ -256,7 +253,9 @@ function doseLogId(medicineId: string, date: string, time: string): string {
 }
 
 export function isDoseHistoryBackendUnavailable(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+  // O que se reconhece aqui é o texto TÉCNICO do backend, que não está mais na
+  // mensagem do erro (ela agora é a frase que a pessoa lê).
+  const message = technicalDetail(error);
   return /MedicineDoseLog|Cannot query field|Unknown type|not configured|Cannot read properties of undefined \(reading 'list'\)/i.test(message);
 }
 
@@ -276,7 +275,7 @@ export async function toggleMedicineDose(
     const { errors } = await client.models.MedicineDoseLog.delete({ id: existingLog.id });
     if (errors?.length) {
       if (existingLog.stockAdjusted) await updateMedicine(medicine.id, { currentStock: medicine.currentStock });
-      throw new Error(errors.map((error) => error.message).filter(Boolean).join('; ') || 'Nao foi possivel desfazer a dose.');
+      throw backendError(errors, 'Não foi possível desfazer a dose.');
     }
   } else {
     const stockAdjusted = medicine.currentStock > 0;
@@ -289,7 +288,7 @@ export async function toggleMedicineDose(
       stockAdjusted,
     });
     if (errors?.length) {
-      throw new Error(errors.map((error) => error.message).filter(Boolean).join('; ') || 'Nao foi possivel registrar a dose.');
+      throw backendError(errors, 'Não foi possível registrar a dose.');
     }
     if (stockAdjusted) {
       try {

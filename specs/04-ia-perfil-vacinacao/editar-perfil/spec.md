@@ -1,5 +1,7 @@
 # EPIC: Editar Perfil — Scroll Único
 
+> **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D10), esta tela passou a mostrar e editar condições crônicas, medicamentos em uso e alergias, antes só coletados no cadastro inicial.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 4c ("Editar perfil — scroll único") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 128-188).
 - Rota/arquivo no código (existente): `src/app/edit-profile.tsx` (rota `/edit-profile`) → `src/screens/EditProfileScreen.tsx` (`EditProfileScreen`).

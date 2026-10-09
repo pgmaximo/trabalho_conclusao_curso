@@ -17,15 +17,18 @@ import { AiDisclaimerBanner } from '@/components/AiDisclaimerBanner';
 import { Badge } from '@/components/Badge';
 import { BarChart, type BarChartPoint } from '@/components/charts/BarChart';
 import { CorrelationRow } from '@/components/charts/CorrelationRow';
+import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { LineChart, type LineChartSeries } from '@/components/charts/LineChart';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { EmptyState } from '@/components/EmptyState';
+import { InlineError } from '@/components/InlineError';
 import { InsightCard } from '@/components/InsightCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
-import type { HealthImport, MetricSummary } from '@/types/healthInsights';
+import type { HealthImport, MetricId, MetricSummary } from '@/types/healthInsights';
+import { formatarValorDeMetrica, nomeDoModelo } from '@/utils/metricDisplay';
 
 type HealthDashboardScreenProps = {
   healthImport: HealthImport | null;
@@ -34,16 +37,17 @@ type HealthDashboardScreenProps = {
   isTimedOut: boolean;
   onRetry: () => void;
   onImportPress: () => void;
-  onDeleteImport?: () => void;
+  /** Volta para a tela de onde esta foi aberta (o Início ou o hub Mais). */
+  onBack?: () => void;
+  /** Exclui a importação. Um erro lançado aqui aparece na tela, junto do botão. */
+  onDeleteImport?: () => void | Promise<void>;
 };
 
 const PRIMARY_COLOR = '#10794E';
 const SECONDARY_COLOR = '#1B63C4';
 
 function formatMetricValue(metric: MetricSummary): string {
-  const value = metric.mean ?? metric.median ?? metric.max;
-  if (value === null || value === undefined) return '—';
-  return `${value.toFixed(metric.unit === '%' || metric.unit === 'pontos' ? 0 : 1)} ${metric.unit}`;
+  return formatarValorDeMetrica(metric.mean ?? metric.median ?? metric.max, metric.unit);
 }
 
 function formatPeriod(periodStart: string | null, periodEnd: string | null): string {
@@ -66,6 +70,7 @@ export function HealthDashboardScreen({
   isTimedOut,
   onRetry,
   onImportPress,
+  onBack,
   onDeleteImport,
 }: HealthDashboardScreenProps) {
   const { colorScheme } = useColorScheme();
@@ -87,6 +92,7 @@ export function HealthDashboardScreen({
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <ScrollView contentContainerClassName="px-6 pb-32 pt-6" showsVerticalScrollIndicator={false}>
         <ScreenHeader
+          onBack={onBack}
           title="Dados do smartwatch"
           subtitle="Insights sobre sono, passos e batimentos, gerados a partir dos seus próprios dados."
           action={
@@ -168,12 +174,30 @@ type ReadyDashboardProps = {
   colors: ReturnType<typeof useThemeColors>;
   warningsExpanded: boolean;
   setWarningsExpanded: (value: boolean) => void;
-  onDeleteImport?: () => void;
+  onDeleteImport?: () => void | Promise<void>;
 };
 
 function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExpanded, onDeleteImport }: ReadyDashboardProps) {
   const summary = healthImport.summary;
   const insights = healthImport.insights;
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function confirmDelete() {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await onDeleteImport?.();
+    } catch {
+      // A análise continua na tela. Antes a falha só ia para o console, e a
+      // pessoa ficava sem saber se a importação tinha sido apagada.
+      setDeleteError('Não foi possível excluir a importação. Tente novamente.');
+    } finally {
+      setIsDeleting(false);
+      setIsConfirmingDelete(false);
+    }
+  }
 
   if (!summary || !insights) {
     return (
@@ -185,6 +209,12 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
       />
     );
   }
+
+  // O nome de cada métrica, como a própria análise o escreve. As correlações
+  // chegam com o identificador interno ("steps", "sleepMinutes"), que era
+  // mostrado cru na tela.
+  const metricLabel = (id: MetricId) => summary.metrics.find((m) => m.metric === id)?.label ?? null;
+  const modelName = nomeDoModelo(healthImport.modelId);
 
   const stepsMetric = summary.metrics.find((m) => m.metric === 'steps');
   const stepsBarPoints: BarChartPoint[] = (stepsMetric?.monthly ?? []).map((point) => ({
@@ -207,7 +237,9 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
   return (
     <>
       <Section subtitle={`Cobertura média: ${averageCoverage(summary.metrics)}%`} title="Período analisado">
-        <View className="flex-row items-center gap-2">
+        {/* `flex-wrap`: em telas de 360dp os dois selos não cabem lado a lado, e
+            o segundo saía cortado pela borda da tela. */}
+        <View className="flex-row flex-wrap items-center gap-2">
           <Badge label={formatPeriod(summary.periodStart, summary.periodEnd)} variant="secondary" />
           <Badge label={`${summary.dayCount} dias`} variant="neutral" />
         </View>
@@ -319,16 +351,24 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
               <Text className="mb-2 text-[13px] font-semibold text-app-textSecondary dark:text-app-dark-textSecondary">
                 Evidência estatística
               </Text>
-              {summary.correlations.map((correlation, index) => (
-                <CorrelationRow
-                  interpretation={correlation.label}
-                  key={index}
-                  labelA={correlation.metricA}
-                  labelB={correlation.metricB}
-                  n={correlation.n}
-                  r={correlation.r}
-                />
-              ))}
+              {summary.correlations.map((correlation, index) => {
+                const labelA = metricLabel(correlation.metricA);
+                const labelB = metricLabel(correlation.metricB);
+
+                // Sem o nome das duas métricas, o título é a própria descrição da
+                // correlação — nunca o identificador interno.
+                return labelA && labelB ? (
+                  <CorrelationRow
+                    interpretation={correlation.label}
+                    key={index}
+                    n={correlation.n}
+                    r={correlation.r}
+                    title={`${labelA} × ${labelB}`}
+                  />
+                ) : (
+                  <CorrelationRow key={index} n={correlation.n} r={correlation.r} title={correlation.label} />
+                );
+              })}
             </View>
           ) : null}
         </Section>
@@ -383,14 +423,39 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
 
       <View className="mt-2 flex-row items-center justify-between">
         <Text className="text-[12px] text-app-textMuted dark:text-app-dark-textMuted">
-          Modelo: {healthImport.modelId ?? '—'} · Analisado em {formatDateTime(healthImport.analyzedAt)}
+          {modelName ? `Análise gerada por IA (${modelName})` : 'Análise gerada por IA'} em{' '}
+          {formatDateTime(healthImport.analyzedAt)}
         </Text>
       </View>
 
+      {/* DECISION (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D4): o
+          toque excluía na hora. Ação destrutiva sempre passa pelo painel de
+          confirmação do app (DESIGN_TOKENS.md §4). */}
       {onDeleteImport ? (
-        <Pressable accessibilityRole="button" className="mt-4 items-center" onPress={onDeleteImport}>
-          <Text className="text-[13px] font-semibold text-app-danger dark:text-app-dark-danger">Excluir esta importação</Text>
-        </Pressable>
+        <View className="mt-4">
+          {deleteError ? <InlineError message={deleteError} /> : null}
+          {isConfirmingDelete ? (
+            <DeleteConfirmPanel
+              isDeleting={isDeleting}
+              message="Excluir esta importação? A análise e os arquivos enviados somem de vez."
+              onCancel={() => setIsConfirmingDelete(false)}
+              onConfirm={() => void confirmDelete()}
+            />
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              className="min-h-12 items-center justify-center"
+              onPress={() => {
+                setDeleteError(null);
+                setIsConfirmingDelete(true);
+              }}
+            >
+              <Text className="text-[13px] font-semibold text-app-danger dark:text-app-dark-danger">
+                Excluir esta importação
+              </Text>
+            </Pressable>
+          )}
+        </View>
       ) : null}
     </>
   );

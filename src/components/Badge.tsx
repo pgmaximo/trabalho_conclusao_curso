@@ -103,7 +103,14 @@ export function Badge({
             justifyContent: 'center',
           }}
         >
-          <Ionicons color="#FFFFFF" name={iconName} size={10} />
+          {/* `onPrimary` acompanha o tema (branco no claro, quase preto no
+              escuro, onde os círculos coloridos são claros). O círculo neutro
+              é o mesmo cinza escuro nos dois temas, e fica com branco. */}
+          <Ionicons
+            color={variant === 'neutral' ? '#FFFFFF' : colors.onPrimary}
+            name={iconName}
+            size={10}
+          />
         </View>
       ) : null}
       <Text style={[FONTS.caption, { fontWeight: '700', color: variantStyle.color }]}>{label}</Text>

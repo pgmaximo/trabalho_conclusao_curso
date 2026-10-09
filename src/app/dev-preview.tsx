@@ -16,9 +16,16 @@ import { Link, useLocalSearchParams } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddMedicineScreen } from '@/screens/AddMedicineScreen';
 import { AddVaccineScreen } from '@/screens/AddVaccineScreen';
+import { AgendaScreen } from '@/screens/AgendaScreen';
+import { AssistantMemoryScreen } from '@/screens/AssistantMemoryScreen';
+import { EditProfileScreen } from '@/screens/EditProfileScreen';
 import { HealthDashboardScreen } from '@/screens/HealthDashboardScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
+import { MedicinesScreen } from '@/screens/MedicinesScreen';
+import { MoreScreen } from '@/screens/MoreScreen';
+import { PreventionScreen } from '@/screens/PreventionScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
 import { BottomTabBar } from '@/components/BottomTabBar';
@@ -331,12 +338,103 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       vaccineDoseCounts={null}
     />
   ),
+  'medicines-with-data': () => (
+    <MedicinesScreen
+      errorMessage={null}
+      hasMedicines
+      interactions={[]}
+      isLoading={false}
+      medicines={[
+        { id: 'm1__08:00', medicineId: 'm1', time: '08:00', name: 'Losartana', dosage: '50mg', status: 'taken' },
+        { id: 'm2__09:00', medicineId: 'm2', time: '09:00', name: 'Metformina', dosage: '850mg', status: 'missed' },
+        { id: 'm1__20:00', medicineId: 'm1', time: '20:00', name: 'Losartana', dosage: '50mg', status: 'pending' },
+      ]}
+      onRetry={noop}
+      onToggleMedicineStatus={async () => {}}
+      pendingCount={2}
+      stocks={[
+        { id: 'm1', name: 'Losartana', quantity: 22, unit: 'comp.', status: 'ok', percentage: 73 },
+        { id: 'm2', name: 'Metformina', quantity: 4, unit: 'comp.', status: 'low', percentage: 13 },
+      ]}
+    />
+  ),
+  'add-medicine': () => <AddMedicineScreen />,
+  agenda: () => (
+    <AgendaScreen appointments={PREVIEW_APPOINTMENTS} errorMessage={null} isLoading={false} onBack={noop} onRetry={noop} />
+  ),
+  'prevention-empty': () => (
+    <PreventionScreen
+      activeCampaignMessage={null}
+      errorMessage={null}
+      isLoading={false}
+      lastUpdated=""
+      onBack={noop}
+      onCompleteProfile={noop}
+      onEnableRemindersForIds={noop}
+      onRetry={noop}
+      onToggleReminder={noop}
+      pendingReminderIds={new Set()}
+      profileComplete
+      recommendations={[]}
+    />
+  ),
+  more: () => <MoreScreen />,
+  'assistant-memory': () => (
+    <AssistantMemoryScreen
+      onBack={noop}
+      state={{
+        fatos: [
+          {
+            id: 'f-1',
+            texto: 'Prefiro respostas curtas',
+            tipo: 'PREFERENCIA_DE_RESPOSTA',
+            confirmadoEm: '2026-09-10T12:00:00Z',
+            editadoEm: null,
+            conversaDeOrigem: null,
+          },
+        ],
+        carregando: false,
+        ligada: true,
+        apagar: noop,
+        apagarTudo: noop,
+        editar: async () => ({ ok: true }),
+        definirLigada: noop,
+        abrirConversa: noop,
+      }}
+    />
+  ),
+  'edit-profile': () => (
+    <EditProfileScreen
+      displayName={PREVIEW_USER.name}
+      email={PREVIEW_USER.email}
+      initialValues={{
+        fullName: PREVIEW_USER.name,
+        birthDate: '12/04/1961',
+        biologicalSex: 'female',
+        heightCm: '162',
+        weightKg: '68',
+        chronicConditions: 'Hipertensão',
+        medications: 'Losartana 50mg, 1x ao dia',
+        allergies: '',
+        tobaccoUse: 'no',
+        sexuallyActive: 'unknown',
+        physicalActivity: 'yes',
+        alcoholUse: 'no',
+        pregnancyStatus: 'unknown',
+      }}
+      isSaving={false}
+      onCancel={noop}
+      onSubmit={noop}
+      onUploadPhoto={async () => {}}
+    />
+  ),
   'health-dashboard-ready': () => (
     <HealthDashboardScreen
       errorMessage={null}
       healthImport={READY_HEALTH_IMPORT}
       isLoading={false}
       isTimedOut={false}
+      onBack={noop}
       onDeleteImport={noop}
       onImportPress={noop}
       onRetry={noop}
@@ -361,6 +459,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       onSetReminderInterval={noop}
       onLogout={noop}
       onEditProfile={noop}
+      onBack={noop}
     />
   ),
   'vaccination-empty': () => (
@@ -437,6 +536,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       onAddVaccine={noop}
       onRequestLocation={noop}
       onMarkDoseApplied={noop}
+      onDeleteDose={async () => {}}
     />
   ),
   'vaccination-no-location': () => (

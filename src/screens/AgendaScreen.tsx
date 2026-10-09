@@ -26,6 +26,8 @@ type AgendaScreenProps = {
   isLoading: boolean;
   errorMessage: string | null;
   onRetry: () => void;
+  /** Volta para a tela de onde esta foi aberta (o Início ou o hub Mais). */
+  onBack?: () => void;
 };
 
 type Row = TimelineRow<AppointmentEntry>;
@@ -40,7 +42,7 @@ function formatCardTime(scheduledAt: string): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
-export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }: AgendaScreenProps) {
+export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry, onBack }: AgendaScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
   const listRef = useRef<FlatList<Row>>(null);
@@ -144,7 +146,7 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
               onPress={() => router.push('/add-appointment')}
               style={({ pressed }) => [pressed && { opacity: 0.85 }]}
             >
-              <Text className="text-[15px] font-semibold text-white">Agendar consulta</Text>
+              <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Agendar consulta</Text>
             </Pressable>
           </View>
         );
@@ -173,6 +175,7 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View className="flex-1 px-6 pt-6">
         <ScreenHeader
+          onBack={onBack}
           title="Agenda"
           subtitle="Seus compromissos de saúde"
           action={
@@ -249,7 +252,7 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry }:
                 onPress={() => scrollToToday(true)}
                 style={({ pressed }) => [pressed && { opacity: 0.85 }]}
               >
-                <Text className="text-[15px] font-semibold text-white">Hoje</Text>
+                <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Hoje</Text>
               </Pressable>
             ) : null}
           </>

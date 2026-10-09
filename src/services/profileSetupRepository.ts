@@ -7,23 +7,37 @@ import { generateClient } from 'aws-amplify/data';
 import { getCurrentUser } from 'aws-amplify/auth';
 
 import type { Schema } from '../../amplify/data/resource';
-import { buildAmplifyUserProfileInput } from '@/services/profileSetupPayload';
+import {
+  buildAmplifyUserProfileInput,
+  type BuildProfileInputOptions,
+} from '@/services/profileSetupPayload';
 import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
+import { backendError } from '@/services/backendError';
 
 const client = generateClient<Schema>();
 
-export async function saveUserProfile(values: ProfileSetupFormValues) {
+/** Quem tenta salvar o perfil sem sessão. A tela reconhece o erro pela classe,
+ *  e não por um trecho do texto da mensagem. */
+export class UserNotAuthenticatedError extends Error {
+  constructor() {
+    super('Você não está autenticado. Por favor, faça login novamente ou complete o cadastro no início do app.');
+    this.name = 'UserNotAuthenticatedError';
+  }
+}
+
+export async function saveUserProfile(
+  values: ProfileSetupFormValues,
+  options: BuildProfileInputOptions = {},
+) {
   // DECISION: Garante que o usuario esta autenticado antes de tentar salvar.
   // Se o usuario nao estiver autenticado, getCurrentUser lanca uma excecao.
   try {
     await getCurrentUser();
   } catch (authError) {
-    throw new Error(
-      'Usuario nao autenticado. Por favor, faca login novamente ou complete o cadastro no inicio do app.',
-    );
+    throw new UserNotAuthenticatedError();
   }
 
-  const input = buildAmplifyUserProfileInput(values);
+  const input = buildAmplifyUserProfileInput(values, options);
 
   // DECISION: list() retorna so registros do owner autenticado (auth rule owner()).
   // Se ja existe perfil -> update, evitando duplicata no DynamoDB a cada onboarding.
@@ -35,12 +49,7 @@ export async function saveUserProfile(values: ProfileSetupFormValues) {
     : await client.models.UserProfile.create(input);
 
   if (errors?.length) {
-    const message = errors
-      .map((error) => error.message)
-      .filter(Boolean)
-      .join('; ');
-
-    throw new Error(message || 'Nao foi possivel salvar o perfil.');
+    throw backendError(errors, 'Não foi possível salvar o perfil.');
   }
 
   return data;
@@ -55,7 +64,7 @@ export async function updateUserPhotoKey(photoKey: string) {
   const existingProfile = existing?.[0];
 
   if (!existingProfile?.id) {
-    throw new Error('Perfil nao encontrado para salvar a foto.');
+    throw new Error('Perfil não encontrado para salvar a foto.');
   }
 
   const { data, errors } = await client.models.UserProfile.update({
@@ -64,12 +73,7 @@ export async function updateUserPhotoKey(photoKey: string) {
   });
 
   if (errors?.length) {
-    const message = errors
-      .map((error) => error.message)
-      .filter(Boolean)
-      .join('; ');
-
-    throw new Error(message || 'Nao foi possivel salvar a foto de perfil.');
+    throw backendError(errors, 'Não foi possível salvar a foto de perfil.');
   }
 
   return data;

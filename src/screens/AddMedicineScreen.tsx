@@ -122,7 +122,9 @@ export function AddMedicineScreen() {
               title="Salvar"
               onPress={handleSubmit}
               disabled={!isFormValid}
-              disabledReason={!isFormValid ? 'Complete os campos obrigatórios para continuar.' : undefined}
+              // O motivo diz QUAL é a próxima coisa que falta. Os erros de cada
+                  // campo só aparecem depois que a pessoa passa por ele.
+                  disabledReason={Object.values(fieldErrors)[0]}
               loading={isSubmitting}
             />
           </View>

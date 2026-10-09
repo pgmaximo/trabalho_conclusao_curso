@@ -243,7 +243,7 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
               <DateInput
                 label={isPrescription ? 'Data da receita' : 'Guardado em'}
                 onChange={setDocumentDate}
-                placeholder="DD/MM/YYYY"
+                placeholder="DD/MM/AAAA"
                 value={documentDate}
               />
 
@@ -251,7 +251,7 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
                 <DateInput
                   label="Data de validade"
                   onChange={setExpirationDate}
-                  placeholder="DD/MM/YYYY"
+                  placeholder="DD/MM/AAAA"
                   value={expirationDate}
                 />
               ) : null}

@@ -79,7 +79,11 @@ describe('createExamDocument e a extracao', () => {
 
   it('nao dispara extracao de documento que nao chegou a ser salvo', async () => {
     mockCriarDocumento.mockResolvedValueOnce({ data: null, errors: [{ message: 'sem permissao' }] });
-    await expect(createExamDocument(entradaValida)).rejects.toThrow(/sem permissao/);
+    // A pessoa le a frase em portugues, e nao o texto do backend
+    // (correcoes-de-usabilidade, D9).
+    const tentativa = createExamDocument(entradaValida);
+    await expect(tentativa).rejects.toThrow(/Não foi possível salvar os metadados/);
+    await expect(tentativa).rejects.not.toThrow(/sem permissao/);
     expect(mockDispararExtracao).not.toHaveBeenCalled();
   });
 
@@ -87,7 +91,10 @@ describe('createExamDocument e a extracao', () => {
     // Quem chama do formulario engole; quem chama do botao "Ler agora" da tela
     // de detalhe precisa saber que falhou para poder dizer.
     mockDispararExtracao.mockResolvedValueOnce({ errors: [{ message: 'nao encontrado' }] });
-    await expect(startExtraction('doc-1')).rejects.toThrow(/nao encontrado/);
+    await expect(startExtraction('doc-1')).rejects.toMatchObject({
+      message: 'Não foi possível iniciar a leitura do documento.',
+      detail: 'nao encontrado',
+    });
   });
 });
 

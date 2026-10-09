@@ -8,6 +8,8 @@ type DoseTimeRowProps = {
   value: string;
   onChange: (value: string) => void;
   onRemove?: () => void;
+  /** Avisa quando a pessoa sai do campo — é quando o formulário passa a mostrar o erro dele. */
+  onBlur?: () => void;
 };
 
 function formatTimeInput(value: string) {
@@ -20,7 +22,7 @@ function formatTimeInput(value: string) {
  * Linha de horário dinâmico (input hh:mm + botão remover) — reutilizada pela lista de
  * horários de `AddMedicineScreen`/`EditMedicineScreen` (3f/3g).
  */
-export function DoseTimeRow({ value, onChange, onRemove }: DoseTimeRowProps) {
+export function DoseTimeRow({ value, onChange, onRemove, onBlur }: DoseTimeRowProps) {
   const colors = useThemeColors();
 
   return (
@@ -34,6 +36,7 @@ export function DoseTimeRow({ value, onChange, onRemove }: DoseTimeRowProps) {
           placeholder="hh:mm"
           placeholderTextColor={colors.placeholder}
           value={value}
+          onBlur={onBlur}
           onChangeText={(text) => onChange(formatTimeInput(text))}
         />
       </View>

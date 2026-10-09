@@ -29,6 +29,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Avatar } from '@/components/Avatar';
 import { FormField } from '@/components/FormField';
 import { Section } from '@/components/Section';
+import { useThemeColors } from '@/constants/theme';
 
 export type OptionalAnswerValue = 'yes' | 'no' | 'unknown';
 export type BiologicalSexValue = 'female' | 'male' | 'prefer_not_to_say' | '';
@@ -39,6 +40,10 @@ export type EditProfileFormState = {
   biologicalSex: BiologicalSexValue;
   heightCm: string; // centímetros inteiros (ex.: 165)
   weightKg: string; // kg
+  // Texto livre, como no cadastro inicial. Vazio = a pessoa não tem / apagou.
+  chronicConditions: string;
+  medications: string;
+  allergies: string;
   tobaccoUse: OptionalAnswerValue;
   sexuallyActive: OptionalAnswerValue;
   physicalActivity: OptionalAnswerValue;
@@ -97,6 +102,7 @@ export function EditProfileScreen({
   onUploadPhoto,
 }: EditProfileScreenProps) {
   const { colorScheme } = useColorScheme();
+  const colors = useThemeColors();
   const [values, setValues] = useState<EditProfileFormState>(initialValues);
   const [errors, setErrors] = useState<{ fullName?: string; birthDate?: string }>({});
   const [previewPhotoUri, setPreviewPhotoUri] = useState<string | null>(null);
@@ -292,6 +298,38 @@ export function EditProfileScreen({
             </View>
           </Section>
 
+          {/* DECISION (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D10):
+              estes três campos eram preenchidos no cadastro inicial e nunca mais
+              apareciam em tela nenhuma — não dava para conferir nem corrigir.
+              Mesmos rótulos e exemplos da etapa "Clínico" do cadastro. */}
+          <Section title="Informações clínicas" subtitle="Opcionais. Deixe em branco o que não se aplica.">
+            <FormField
+              label="Condições crônicas"
+              multiline
+              placeholder="Opcional"
+              helperText="Ex.: diabetes tipo 2, hipertensão."
+              value={values.chronicConditions}
+              onChangeText={(text) => update('chronicConditions', text)}
+              containerClassName="mt-0"
+            />
+            <FormField
+              label="Medicamentos em uso"
+              multiline
+              placeholder="Opcional"
+              helperText="Ex.: losartana 50mg, 1x ao dia."
+              value={values.medications}
+              onChangeText={(text) => update('medications', text)}
+            />
+            <FormField
+              label="Alergias"
+              multiline
+              placeholder="Opcional"
+              helperText="Ex.: dipirona, poeira."
+              value={values.allergies}
+              onChangeText={(text) => update('allergies', text)}
+            />
+          </Section>
+
           <Section title="Hábitos" subtitle="Ajudam nas recomendações de prevenção.">
             <View>
               <Text className="mb-3 text-sm font-semibold text-app-text dark:text-app-dark-text">
@@ -360,7 +398,7 @@ export function EditProfileScreen({
             style={({ pressed }) => [(pressed || isSaving) && { opacity: 0.85 }]}
           >
             {isSaving ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text className="text-[16px] font-bold text-app-onPrimary dark:text-app-dark-onPrimary">
                 Salvar alterações

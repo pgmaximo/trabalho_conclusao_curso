@@ -23,6 +23,8 @@ interface DateInputProps {
   containerStyle?: StyleProp<ViewStyle>;
 }
 
+const PLACEHOLDER_PADRAO = 'DD/MM/AAAA';
+
 function toIsoDateString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -30,39 +32,64 @@ function toIsoDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+// "AAAA-MM-DD" é uma data de CALENDÁRIO, sem fuso. `new Date('2026-10-01')` a
+// lê como meia-noite UTC, e no Brasil (UTC-3) isso é 30/09 às 21h: o calendário
+// reabria no dia — e, no dia 1º, no mês — anterior ao que a pessoa guardou. Aqui
+// a data é montada com os números, no fuso do aparelho.
+function parseIsoDate(value: string): Date | null {
+  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!partes) return null;
+  const date = new Date(Number(partes[1]), Number(partes[2]) - 1, Number(partes[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function primeiroDiaDoMes(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
 export function DateInput({ label, value, onChange, placeholder, maxDate, containerStyle }: DateInputProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [isVisible, setIsVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(value ? new Date(value) : new Date());
+  // O mês que o calendário está MOSTRANDO. A data escolhida não mora aqui: ela
+  // é a prop `value`, e por isso navegar pelos meses nunca muda o que está guardado.
+  const [mesVisivel, setMesVisivel] = useState(() => primeiroDiaDoMes(parseIsoDate(value) ?? new Date()));
+
+  const mesMaximo = maxDate ? parseIsoDate(maxDate) : null;
+  const limite = mesMaximo ? primeiroDiaDoMes(mesMaximo) : null;
 
   function formatDisplayDate(dateString: string): string {
-    if (!dateString) return placeholder || 'DD/MM/YYYY';
+    if (!dateString) return placeholder || PLACEHOLDER_PADRAO;
     const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
   }
 
+  function abrir() {
+    // Reabre sempre no mês da data guardada (ou no de hoje), e não onde a
+    // pessoa parou de navegar da última vez.
+    setMesVisivel(primeiroDiaDoMes(parseIsoDate(value) ?? new Date()));
+    setIsVisible(true);
+  }
+
   function handleDateSelect(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const formattedDate = `${year}-${month}-${day}`;
-    onChange(formattedDate);
-    setSelectedDate(date);
+    onChange(toIsoDateString(date));
     setIsVisible(false);
   }
 
-  function getDaysInMonth(date: Date): number {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  // Avançar nunca leva a um mês em que todos os dias estão proibidos: com data
+  // máxima, o calendário para no mês dela.
+  function irPara(ano: number, mes: number) {
+    const destino = new Date(ano, mes, 1);
+    setMesVisivel(limite && destino > limite ? limite : destino);
   }
 
-  function getFirstDayOfMonth(date: Date): number {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-  }
+  const ano = mesVisivel.getFullYear();
+  const mes = mesVisivel.getMonth();
+  const estaNoLimite = Boolean(limite) && mesVisivel.getTime() >= (limite as Date).getTime();
 
   function renderCalendar() {
-    const daysInMonth = getDaysInMonth(selectedDate);
-    const firstDay = getFirstDayOfMonth(selectedDate);
+    const daysInMonth = new Date(ano, mes + 1, 0).getDate();
+    const firstDay = mesVisivel.getDay();
     const days: (number | null)[] = Array(firstDay).fill(null);
 
     for (let i = 1; i <= daysInMonth; i++) {
@@ -77,37 +104,40 @@ export function DateInput({ label, value, onChange, placeholder, maxDate, contai
     return weeks.map((week, weekIndex) => (
       <View key={weekIndex} style={styles.weekRow}>
         {week.map((day, dayIndex) => {
-          const isSelected = day === selectedDate.getDate();
-          const dayDate = day ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day) : null;
-          const isDisabled = Boolean(day) && Boolean(maxDate) && dayDate !== null && toIsoDateString(dayDate) > (maxDate as string);
+          if (!day) {
+            return <View key={dayIndex} style={styles.dayButton} />;
+          }
+
+          const dayDate = new Date(ano, mes, day);
+          const iso = toIsoDateString(dayDate);
+          // Compara a data INTEIRA: comparar só o número do dia marcava "15"
+          // em todos os meses depois de a pessoa escolher o dia 15 de um deles.
+          const isSelected = iso === value;
+          const isDisabled = Boolean(maxDate) && iso > (maxDate as string);
 
           return (
             <Pressable
               key={dayIndex}
-              style={[
-                styles.dayButton,
-                ...(isSelected ? [styles.dayButtonSelected] : []),
-              ]}
-              onPress={() => {
-                if (day && !isDisabled) {
-                  const newDate = new Date(selectedDate);
-                  newDate.setDate(day);
-                  handleDateSelect(newDate);
-                }
-              }}
-              disabled={!day || isDisabled}
+              accessibilityLabel={dayDate.toLocaleDateString('pt-BR', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected, disabled: isDisabled }}
+              disabled={isDisabled}
+              onPress={() => handleDateSelect(dayDate)}
+              style={[styles.dayButton, isSelected ? styles.dayButtonSelected : null]}
             >
-              {day && (
-                <Text
-                  style={[
-                    styles.dayText,
-                    ...(isSelected ? [styles.dayTextSelected] : []),
-                    ...(isDisabled ? [styles.dayTextDisabled] : []),
-                  ]}
-                >
-                  {day}
-                </Text>
-              )}
+              <Text
+                style={[
+                  styles.dayText,
+                  isSelected ? styles.dayTextSelected : null,
+                  isDisabled ? styles.dayTextDisabled : null,
+                ]}
+              >
+                {day}
+              </Text>
             </Pressable>
           );
         })}
@@ -115,14 +145,16 @@ export function DateInput({ label, value, onChange, placeholder, maxDate, contai
     ));
   }
 
-  const monthName = selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const nomeDoMes = mesVisivel.toLocaleDateString('pt-BR', { month: 'long' });
 
   return (
     <View style={[styles.container, containerStyle]}>
       <Text style={styles.label}>{label}</Text>
       <Pressable
+        accessibilityLabel={`${label}: ${value ? formatDisplayDate(value) : 'não informada'}`}
+        accessibilityRole="button"
         style={styles.inputButton}
-        onPress={() => setIsVisible(true)}
+        onPress={abrir}
       >
         <Text style={[styles.inputText, !value ? styles.inputTextPlaceholder : null]}>
           {formatDisplayDate(value)}
@@ -130,35 +162,35 @@ export function DateInput({ label, value, onChange, placeholder, maxDate, contai
         <Ionicons color={colors.textSecondary} name="calendar-outline" size={18} style={styles.calendarIcon} />
       </Pressable>
 
-      <Modal visible={isVisible} transparent animationType="fade">
+      <Modal visible={isVisible} transparent animationType="fade" onRequestClose={() => setIsVisible(false)}>
         <Pressable
           style={styles.modalOverlay}
           onPress={() => setIsVisible(false)}
         >
           <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            <View style={styles.modalHeader}>
-              <Pressable
-                onPress={() => {
-                  const newDate = new Date(selectedDate);
-                  newDate.setMonth(newDate.getMonth() - 1);
-                  setSelectedDate(newDate);
-                }}
-                style={styles.navButton}
-              >
-                <Ionicons name="chevron-back" size={18} color={colors.text} />
-              </Pressable>
-              <Text style={styles.monthYear}>{monthName}</Text>
-              <Pressable
-                onPress={() => {
-                  const newDate = new Date(selectedDate);
-                  newDate.setMonth(newDate.getMonth() + 1);
-                  setSelectedDate(newDate);
-                }}
-                style={styles.navButton}
-              >
-                <Ionicons name="chevron-forward" size={18} color={colors.text} />
-              </Pressable>
-            </View>
+            {/* Ano e mês em linhas separadas, cada uma com as suas setas. Só
+                com as setas de mês, uma data de dez anos atrás (uma vacina
+                antiga, por exemplo) pedia mais de cem toques. */}
+            <SeletorDePeriodo
+              anterior="Ano anterior"
+              proximo="Próximo ano"
+              proximoDesabilitado={estaNoLimite}
+              rotulo={String(ano)}
+              styles={styles}
+              colors={colors}
+              onAnterior={() => irPara(ano - 1, mes)}
+              onProximo={() => irPara(ano + 1, mes)}
+            />
+            <SeletorDePeriodo
+              anterior="Mês anterior"
+              proximo="Próximo mês"
+              proximoDesabilitado={estaNoLimite}
+              rotulo={nomeDoMes}
+              styles={styles}
+              colors={colors}
+              onAnterior={() => irPara(ano, mes - 1)}
+              onProximo={() => irPara(ano, mes + 1)}
+            />
 
             <View style={styles.weekDays}>
               {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, index) => (
@@ -172,11 +204,14 @@ export function DateInput({ label, value, onChange, placeholder, maxDate, contai
               {renderCalendar()}
             </ScrollView>
 
+            {/* Tocar num dia já escolhe e fecha. Este botão sempre foi a saída
+                SEM escolher — e se chamava "Confirmar", o que não confirmava nada. */}
             <Pressable
-              style={styles.confirmButton}
+              accessibilityRole="button"
+              style={styles.cancelButton}
               onPress={() => setIsVisible(false)}
             >
-              <Text style={styles.confirmButtonText}>Confirmar</Text>
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -185,14 +220,58 @@ export function DateInput({ label, value, onChange, placeholder, maxDate, contai
   );
 }
 
+type SeletorDePeriodoProps = {
+  rotulo: string;
+  anterior: string;
+  proximo: string;
+  proximoDesabilitado: boolean;
+  onAnterior: () => void;
+  onProximo: () => void;
+  styles: ReturnType<typeof createStyles>;
+  colors: ThemeColors;
+};
+
+function SeletorDePeriodo({
+  rotulo,
+  anterior,
+  proximo,
+  proximoDesabilitado,
+  onAnterior,
+  onProximo,
+  styles,
+  colors,
+}: SeletorDePeriodoProps) {
+  return (
+    <View style={styles.periodRow}>
+      <Pressable
+        accessibilityLabel={anterior}
+        accessibilityRole="button"
+        hitSlop={4}
+        onPress={onAnterior}
+        style={styles.navButton}
+      >
+        <Ionicons name="chevron-back" size={18} color={colors.text} />
+      </Pressable>
+      <Text style={styles.periodLabel}>{rotulo}</Text>
+      <Pressable
+        accessibilityLabel={proximo}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: proximoDesabilitado }}
+        disabled={proximoDesabilitado}
+        hitSlop={4}
+        onPress={onProximo}
+        style={[styles.navButton, proximoDesabilitado ? styles.navButtonDisabled : null]}
+      >
+        <Ionicons name="chevron-forward" size={18} color={colors.text} />
+      </Pressable>
+    </View>
+  );
+}
+
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     marginTop: SIZES.large,
   },
-  // fontSize 16 (não FONTS.body/17) e sem lineHeight explícito — precisa
-  // bater pixel a pixel com o label do FormField (`text-[16px] font-semibold
-  // mb-3`), senão a altura do bloco de label diverge e desalinha a caixa de
-  // input de "Data" com a de "Hora" na mesma linha.
   label: {
     fontSize: 16,
     color: colors.text,
@@ -204,18 +283,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.inputBackground,
-    // RADII.field (14px) — mesmo raio de borda do wrapper `rounded-field` de
-    // FormField, para que a caixa de "Data" não pareça mais arredondada que
-    // as demais (ex.: "Hora") na mesma tela.
     borderRadius: RADII.field,
     borderCurve: 'continuous',
-    // 1.5px — mesma espessura do estado padrão (não focado) do wrapper de
-    // FormField (`border-[1.5px]`).
     borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: SIZES.base,
-    // 56px fixo — mesma altura do wrapper `h-14` de FormField, para que o
-    // par "Data"/"Hora" (DateInput + FormField lado a lado) fique alinhado.
     height: 56,
   },
   inputText: {
@@ -242,27 +314,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '85%',
     maxWidth: 350,
   },
-  modalHeader: {
+  periodRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SIZES.large,
+    marginBottom: SIZES.small,
   },
   navButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.inputBackground,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  monthYear: {
-    ...FONTS.subtitle,
+  navButtonDisabled: {
+    opacity: 0.35,
+  },
+  periodLabel: {
+    ...FONTS.bodyStrong,
     color: colors.text,
     textTransform: 'capitalize',
   },
   weekDays: {
     flexDirection: 'row',
+    marginTop: SIZES.small,
     marginBottom: SIZES.base,
   },
   weekDayText: {
@@ -301,16 +377,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textMuted,
     opacity: 0.4,
   },
-  confirmButton: {
-    backgroundColor: colors.primary,
-    borderRadius: SIZES.radius,
+  // Botão secundário do app (contorno verde), como os demais "Cancelar".
+  cancelButton: {
+    height: 52,
+    borderRadius: RADII.field,
     borderCurve: 'continuous',
-    paddingVertical: SIZES.base,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  confirmButtonText: {
-    ...FONTS.body,
-    color: colors.onPrimary,
-    fontWeight: '700',
+  cancelButtonText: {
+    ...FONTS.bodyStrong,
+    color: colors.primary,
   },
 });

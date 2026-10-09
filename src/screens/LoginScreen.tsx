@@ -156,7 +156,9 @@ export function LoginScreen({
         error.name === 'InvalidParameterException' &&
         error.message?.includes('USER_PASSWORD_AUTH')
       ) {
-        message = 'Erro de configuração: Habilite ALLOW_USER_PASSWORD_AUTH no console da AWS.';
+        // Instrução para quem configura o backend, e não para quem está
+        // entrando: fica no console, e a pessoa lê a mensagem genérica.
+        console.warn('Erro de configuração: habilite ALLOW_USER_PASSWORD_AUTH no console da AWS.');
       }
 
       setLoginErrorMessage(message);

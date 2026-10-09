@@ -7,9 +7,10 @@ import React from 'react';
 
 import { useAssistantMemory } from '@/hooks/useAssistantMemory';
 import { AssistantMemoryScreen } from '@/screens/AssistantMemoryScreen';
+import { goBackOr } from '@/utils/goBack';
 
 export default function AssistantMemoryRoute() {
   const state = useAssistantMemory();
 
-  return <AssistantMemoryScreen state={state} />;
+  return <AssistantMemoryScreen onBack={() => goBackOr('/ai')} state={state} />;
 }

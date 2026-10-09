@@ -25,6 +25,8 @@ type PreventionScreenProps = {
   onToggleReminder: (recommendationId: number) => void;
   onEnableRemindersForIds: (recommendationIds: number[]) => void;
   onCompleteProfile: () => void;
+  /** Volta para a tela de onde esta foi aberta (o Início ou o hub Mais). */
+  onBack?: () => void;
   pendingReminderIds: Set<number>;
   activeCampaignMessage: string | null;
 };
@@ -42,6 +44,7 @@ export function PreventionScreen({
   onToggleReminder,
   onEnableRemindersForIds,
   onCompleteProfile,
+  onBack,
   pendingReminderIds,
   activeCampaignMessage,
 }: PreventionScreenProps) {
@@ -72,11 +75,28 @@ export function PreventionScreen({
   // a API do USPSTF pode retornar vazio, entao a linha e omitida nesse caso.
   const lastUpdatedLabel = lastUpdated ? `Dataset atualizado em ${lastUpdated}.` : null;
 
+  // O selo conta as recomendações, então só existe depois que elas carregaram.
+  const isLoaded = !isLoading && !errorMessage && profileComplete;
+
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View className="flex-1">
         <ScrollView contentContainerClassName="px-6 pt-6 pb-12" showsVerticalScrollIndicator={false}>
+          {/* O cabeçalho fica FORA dos estados: antes ele só existia com a
+              lista carregada, e a tela carregando, com erro ou com o perfil
+              incompleto não tinha título nem como voltar. */}
+          <ScreenHeader
+            onBack={onBack}
+            title="Prevenção & Alertas"
+            badgeLabel={
+              isLoaded
+                ? `${recommendations.length} recomendaç${recommendations.length === 1 ? 'ão' : 'ões'}`
+                : undefined
+            }
+            badgeVariant={recommendations.length > 0 ? 'primary' : 'neutral'}
+          />
+
           {isLoading ? (
             <ScreenSkeleton blocks={3} />
           ) : errorMessage ? (
@@ -98,16 +118,10 @@ export function PreventionScreen({
             />
           ) : (
             <>
-              <ScreenHeader
-                title="Prevenção & Alertas"
-                badgeLabel={`${recommendations.length} recomendaç${recommendations.length === 1 ? 'ão' : 'ões'}`}
-                badgeVariant={recommendations.length > 0 ? 'primary' : 'neutral'}
-              />
-
               {activeCampaignMessage ? (
                 <View className="mb-6 flex-row items-start gap-3 rounded-app border border-app-successBadgeBorder bg-app-successSoft px-4 py-3 dark:border-app-dark-successBadgeBorder dark:bg-app-dark-successSoft">
                   <View className="size-6 items-center justify-center rounded-full bg-app-successIconBg dark:bg-app-dark-successIconBg">
-                    <Ionicons color="#FFFFFF" name="medical" size={14} />
+                    <Ionicons color={colors.onPrimary} name="medical" size={14} />
                   </View>
                   <Text className="flex-1 text-[15px] leading-[20px] text-app-primaryDark dark:text-app-dark-primaryDark">
                     {activeCampaignMessage}

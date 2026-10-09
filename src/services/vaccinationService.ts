@@ -13,6 +13,7 @@ import { invalidateVaccinationCache } from '@/hooks/vaccinationCache';
 import { derivePendingSeries } from '@/services/vaccineScheduleService';
 import { syncVaccineReminder, removeVaccineReminder } from '@/services/vaccineReminderService';
 import { findVacinaCatalogo } from '@/data/calendarioNacionalVacinacao';
+import { backendError } from '@/services/backendError';
 
 const client = generateClient<Schema>();
 
@@ -64,8 +65,7 @@ export async function createVaccineDose(input: CreateVaccineDoseInput): Promise<
   });
 
   if (errors?.length) {
-    const message = errors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível salvar a vacina.');
+    throw backendError(errors, 'Não foi possível salvar a vacina.');
   }
 
   if (!data) {
@@ -91,8 +91,7 @@ export async function updateVaccineDose(input: UpdateVaccineDoseInput): Promise<
   const { data, errors } = await client.models.VaccineDose.update({ id, ...rest });
 
   if (errors?.length) {
-    const message = errors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível atualizar a vacina.');
+    throw backendError(errors, 'Não foi possível atualizar a vacina.');
   }
 
   if (!data) {
@@ -107,8 +106,7 @@ export async function deleteVaccineDose(id: string): Promise<void> {
   const { errors } = await client.models.VaccineDose.delete({ id });
 
   if (errors?.length) {
-    const message = errors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível excluir a vacina.');
+    throw backendError(errors, 'Não foi possível excluir a vacina.');
   }
 
   await removeVaccineReminder(id);
@@ -119,8 +117,7 @@ export async function listVaccineDosesForUser(): Promise<VaccineDoseRecord[]> {
   const { data, errors } = await client.models.VaccineDose.list();
 
   if (errors?.length) {
-    const message = errors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível carregar a carteira de vacinação.');
+    throw backendError(errors, 'Não foi possível carregar a carteira de vacinação.');
   }
 
   return data ?? [];
@@ -273,8 +270,7 @@ export async function fetchVaccinationCampaigns(args: {
   });
 
   if (errors?.length) {
-    const message = errors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível carregar as campanhas de vacinação.');
+    throw backendError(errors, 'Não foi possível carregar as campanhas de vacinação.');
   }
 
   // O tipo gerado pelo Amplify Data client para arrays de customType aninhado
@@ -310,8 +306,7 @@ export async function fetchVaccinationSites(args: {
   });
 
   if (errors?.length) {
-    const message = errors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível carregar as unidades de saúde próximas.');
+    throw backendError(errors, 'Não foi possível carregar as unidades de saúde próximas.');
   }
 
   const rawUnidades = (data?.unidades ?? []) as unknown as (VaccinationSiteRecord | null)[];

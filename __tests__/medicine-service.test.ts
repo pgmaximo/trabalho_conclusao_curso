@@ -59,3 +59,31 @@ describe('dose-history rollout compatibility', () => {
     expect(isDoseHistoryBackendUnavailable(new TypeError("Cannot read properties of undefined (reading 'list')"))).toBe(true);
   });
 });
+
+// A mensagem do erro passou a ser a frase que a pessoa le; o texto do backend,
+// que e o que este detector reconhece, mora em `detail`
+// (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D9).
+describe('isDoseHistoryBackendUnavailable com erro do backend', () => {
+  const { backendError } = require('@/services/backendError');
+
+  beforeEach(() => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('reconhece o backend sem historico de doses pelo detalhe tecnico', () => {
+    const erro = backendError(
+      [{ message: 'Cannot query field "listMedicineDoseLogs" on type "Query"' }],
+      'Não foi possível carregar o histórico de doses.',
+    );
+    expect(isDoseHistoryBackendUnavailable(erro)).toBe(true);
+  });
+
+  it('nao confunde um erro qualquer do backend com esse caso', () => {
+    const erro = backendError([{ message: 'Unauthorized' }], 'Não foi possível registrar a dose.');
+    expect(isDoseHistoryBackendUnavailable(erro)).toBe(false);
+  });
+});

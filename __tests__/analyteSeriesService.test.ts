@@ -76,11 +76,17 @@ describe('listLabResultsByAnalyte', () => {
     expect(mockListByAnalyte.mock.calls.length).toBeLessThanOrEqual(20);
   });
 
-  it('erro do AppSync vira excecao com a mensagem, nao lista vazia silenciosa', async () => {
+  it('erro do AppSync vira excecao, nao lista vazia silenciosa', async () => {
     // Lista vazia e "voce nao tem esse exame". Erro e outra coisa, e a tela
     // precisa poder dizer qual dos dois aconteceu.
+    //
+    // A mensagem e a frase que a pessoa le; o texto do backend fica em
+    // `detail`, e nao vai para a tela (correcoes-de-usabilidade, D9).
     mockListByAnalyte.mockResolvedValue({ data: null, errors: [{ message: 'sem permissao' }] });
-    await expect(listLabResultsByAnalyte(VITAMINA_D)).rejects.toThrow('sem permissao');
+    await expect(listLabResultsByAnalyte(VITAMINA_D)).rejects.toMatchObject({
+      message: 'Não foi possível carregar a evolução dos resultados.',
+      detail: 'sem permissao',
+    });
   });
 });
 
@@ -149,6 +155,6 @@ describe('listAnalytesWithResults', () => {
 
   it('erro do AppSync tambem lanca aqui', async () => {
     mockList.mockResolvedValue({ data: null, errors: [{ message: 'falhou' }] });
-    await expect(listAnalytesWithResults()).rejects.toThrow('falhou');
+    await expect(listAnalytesWithResults()).rejects.toMatchObject({ detail: 'falhou' });
   });
 });

@@ -9,7 +9,7 @@ import { router } from 'expo-router';
 import { getCurrentUser } from 'aws-amplify/auth';
 
 import { OnboardingScreen } from '@/screens/OnboardingScreen';
-import { saveUserProfile } from '@/services/profileSetupRepository';
+import { saveUserProfile, UserNotAuthenticatedError } from '@/services/profileSetupRepository';
 import { useUserContext } from '@/contexts/UserContext';
 import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
 
@@ -26,8 +26,8 @@ export default function ProfileSetupRoute() {
       } catch (authError) {
         console.error('Erro: Usuario nao esta autenticado', authError);
         Alert.alert(
-          'Erro de autenticacao',
-          'Voce nao esta autenticado. Por favor, faca login novamente ou complete o cadastro.',
+          'Erro de autenticação',
+          'Você não está autenticado. Por favor, faça login novamente ou complete o cadastro.',
         );
         return;
       }
@@ -40,12 +40,12 @@ export default function ProfileSetupRoute() {
       console.log('Erro ao salvar perfil:', error);
       
       // Fornece mensagens de erro mais descriptivas baseado no tipo de erro
-      let errorMessage = 'Nao foi possivel salvar seu perfil agora. Verifique sua conexao e tente novamente.';
+      let errorMessage = 'Não foi possível salvar seu perfil agora. Verifique sua conexão e tente novamente.';
       if (error instanceof Error) {
         if (error.message.includes('NoValidAuthTokens') || error.message.includes('federated jwt')) {
-          errorMessage = 'Erro de autenticacao: Seu session expirou. Por favor, faca login novamente.';
-        } else if (error.message.includes('usuario nao autenticado')) {
-          errorMessage = 'Voce nao esta autenticado. Por favor, faca login para continuar.';
+          errorMessage = 'Sua sessão expirou. Por favor, faça login novamente.';
+        } else if (error instanceof UserNotAuthenticatedError) {
+          errorMessage = 'Você não está autenticado. Por favor, faça login para continuar.';
         }
       }
       

@@ -29,6 +29,9 @@ const EMPTY_VALUES: EditProfileFormState = {
   biologicalSex: '',
   heightCm: '',
   weightKg: '',
+  chronicConditions: '',
+  medications: '',
+  allergies: '',
   tobaccoUse: 'unknown',
   sexuallyActive: 'unknown',
   physicalActivity: 'unknown',
@@ -57,6 +60,46 @@ function renderEditProfileScreen(props?: Partial<React.ComponentProps<typeof Edi
 }
 
 describe('EditProfileScreen', () => {
+  // Condicoes cronicas, medicamentos em uso e alergias eram preenchidos no
+  // cadastro inicial e nunca mais apareciam: nao dava para conferir nem
+  // corrigir (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D10).
+  describe('informacoes clinicas do cadastro inicial', () => {
+    const PREENCHIDO: EditProfileFormState = {
+      ...EMPTY_VALUES,
+      fullName: 'Maria Souza',
+      birthDate: '10/05/1961',
+      chronicConditions: 'Hipertensão',
+      medications: 'Losartana 50mg',
+      allergies: 'Dipirona',
+    };
+
+    it('mostra o que a pessoa informou no cadastro', () => {
+      renderEditProfileScreen({ initialValues: PREENCHIDO });
+
+      expect(screen.getByText('Informações clínicas')).toBeTruthy();
+      expect(screen.getByLabelText('Condições crônicas').props.value).toBe('Hipertensão');
+      expect(screen.getByLabelText('Medicamentos em uso').props.value).toBe('Losartana 50mg');
+      expect(screen.getByLabelText('Alergias').props.value).toBe('Dipirona');
+    });
+
+    it('salva a correcao, inclusive quando a pessoa apaga um campo', () => {
+      const onSubmit = jest.fn();
+      renderEditProfileScreen({ initialValues: PREENCHIDO, onSubmit });
+
+      fireEvent.changeText(screen.getByLabelText('Alergias'), 'Dipirona, poeira');
+      fireEvent.changeText(screen.getByLabelText('Condições crônicas'), '');
+      fireEvent.press(screen.getByLabelText('Salvar alterações'));
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allergies: 'Dipirona, poeira',
+          chronicConditions: '',
+          medications: 'Losartana 50mg',
+        }),
+      );
+    });
+  });
+
   it('shows the biological sex chips as Masculino/Feminino/Outro', () => {
     renderEditProfileScreen();
 

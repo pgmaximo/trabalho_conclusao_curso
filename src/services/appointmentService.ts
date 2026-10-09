@@ -9,6 +9,7 @@ import {
   saveAppointmentNotificationId,
   scheduleAppointmentReminder,
 } from '@/services/appointmentNotifications';
+import { backendError } from '@/services/backendError';
 
 const client = generateClient<Schema>();
 
@@ -48,8 +49,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   });
 
   if (errors?.length) {
-    const message = errors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível salvar o agendamento.');
+    throw backendError(errors, 'Não foi possível salvar o agendamento.');
   }
 
   if (!data) {
@@ -79,8 +79,7 @@ export async function listAppointmentsForUser(): Promise<AppointmentRecord[]> {
   const { data, errors } = await client.models.Appointment.list();
 
   if (errors?.length) {
-    const message = errors.map((error) => error.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível carregar a agenda.');
+    throw backendError(errors, 'Não foi possível carregar a agenda.');
   }
 
   const items = (data ?? []).slice().sort((a, b) => {
@@ -118,8 +117,7 @@ export async function updateAppointment(id: string, input: Partial<CreateAppoint
   const { data, errors } = await client.models.Appointment.update({ id, ...updateData });
 
   if (errors?.length) {
-    const message = errors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível atualizar o agendamento.');
+    throw backendError(errors, 'Não foi possível atualizar o agendamento.');
   }
 
   if (!data) {
@@ -148,8 +146,7 @@ export async function updateAppointment(id: string, input: Partial<CreateAppoint
 export async function deleteAppointment(id: string): Promise<void> {
   const { data, errors } = await client.models.Appointment.delete({ id });
   if (errors?.length) {
-    const message = errors.map((e) => e.message).filter(Boolean).join('; ');
-    throw new Error(message || 'Não foi possível deletar o agendamento.');
+    throw backendError(errors, 'Não foi possível excluir o agendamento.');
   }
 
   await cancelAppointmentReminder(await getStoredAppointmentNotificationId(id));

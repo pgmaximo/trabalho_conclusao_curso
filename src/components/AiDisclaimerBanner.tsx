@@ -14,7 +14,7 @@ export function AiDisclaimerBanner() {
   return (
     <View className="mb-4 flex-row items-start gap-3 rounded-app border border-app-infoBadgeBorder bg-app-infoSoft px-4 py-3 dark:border-app-dark-infoBadgeBorder dark:bg-app-dark-infoSoft">
       <View className="size-6 items-center justify-center rounded-full bg-app-infoIconBg dark:bg-app-dark-infoIconBg">
-        <Text className="text-[13px] font-bold text-white">i</Text>
+        <Text className="text-[13px] font-bold text-app-onPrimary dark:text-app-dark-onPrimary">i</Text>
       </View>
       <Text className="flex-1 text-[15px] leading-[20px] text-app-info dark:text-app-dark-info">
         Apoio informativo — não substitui avaliação médica.

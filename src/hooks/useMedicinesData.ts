@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useAsyncResource } from '@/hooks/useAsyncResource';
 import {
@@ -16,7 +16,12 @@ import {
   type MedicineRecord,
 } from '@/services/medicineService';
 import type { MedicineDose, MedicineInventoryItem, MedicineStockStatus } from '@/types/models';
-import { getLocalIsoDate, getMedicineDoseTimesForDate, isMedicineScheduledOnDate } from '@/utils/medicineSchedule';
+import {
+  getLocalIsoDate,
+  getMedicineDoseTimesForDate,
+  isDoseLate,
+  isMedicineScheduledOnDate,
+} from '@/utils/medicineSchedule';
 import { syncMedicineReminders } from '@/services/medicineReminderService';
 import { findInteractions } from '@/services/drugInteractionService';
 
@@ -37,7 +42,12 @@ function parseTakenToday(takenToday: string | null | undefined, today: string): 
   }
 }
 
-function deriveDosesForToday(medicines: MedicineRecord[], logs: MedicineDoseLog[], today: string): MedicineDose[] {
+function deriveDosesForToday(
+  medicines: MedicineRecord[],
+  logs: MedicineDoseLog[],
+  today: string,
+  now: Date,
+): MedicineDose[] {
   const doses: MedicineDose[] = [];
 
   medicines.forEach((medicine) => {
@@ -47,13 +57,17 @@ function deriveDosesForToday(medicines: MedicineRecord[], logs: MedicineDoseLog[
 
     scheduledTimes.forEach((time) => {
       const hasLog = logs.some((log) => log.medicineId === medicine.id && log.scheduledTime === time);
+      const taken = hasLog || takenTimes.has(time);
       doses.push({
         id: `${medicine.id}__${time}`,
         medicineId: medicine.id,
         time,
         name: medicine.name,
         dosage: medicine.dosage,
-        status: hasLog || takenTimes.has(time) ? 'taken' : 'pending',
+        // `missed` é a dose de hoje que passou do horário sem ser marcada. Ela
+        // continua podendo ser tomada e marcada; o cartão só a mostra como
+        // atrasada, para não se confundir com a que ainda vai vencer.
+        status: taken ? 'taken' : isDoseLate(time, now) ? 'missed' : 'pending',
       });
     });
   });
@@ -119,14 +133,27 @@ export function useMedicinesData() {
     });
   }, [records, status]);
 
-  const medicines = useMemo(() => deriveDosesForToday(records, logs, today), [logs, records, today]);
+  // O atraso depende da hora, e não só dos dados. A hora fica em estado e
+  // avança de minuto em minuto: uma dose passa a "atrasada" com a tela aberta,
+  // sem ler o relógio durante a renderização.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const medicines = useMemo(
+    () => deriveDosesForToday(records, logs, today, now),
+    [logs, now, records, today],
+  );
   const stocks = useMemo(() => deriveStocks(records), [records]);
   const interactions = useMemo(
     () => findInteractions(records.filter((record) => isMedicineScheduledOnDate(record, today))),
     [records, today],
   );
+  // Conta tudo o que ainda não foi tomado: a dose atrasada continua pendente.
   const pendingCount = useMemo(
-    () => medicines.filter((dose) => dose.status === 'pending').length,
+    () => medicines.filter((dose) => dose.status !== 'taken').length,
     [medicines],
   );
 

@@ -17,6 +17,22 @@ function minutesFromTime(time: string): number | null {
   return minutes < 24 * 60 ? minutes : null;
 }
 
+// Quanto tempo depois do horário uma dose ainda não tomada passa a ser mostrada
+// como atrasada. Uma hora é a janela usual para considerar um remédio "tomado
+// na hora"; marcar atraso no minuto seguinte ao horário só assustaria.
+export const LATE_DOSE_TOLERANCE_MINUTES = 60;
+
+/** Diz se uma dose de HOJE, ainda não tomada, já passou do horário além da tolerância. */
+export function isDoseLate(
+  time: string,
+  now: Date,
+  toleranceMinutes: number = LATE_DOSE_TOLERANCE_MINUTES,
+): boolean {
+  const scheduled = minutesFromTime(time);
+  if (scheduled === null) return false;
+  return now.getHours() * 60 + now.getMinutes() - scheduled > toleranceMinutes;
+}
+
 function daysBetween(start: string, end: string): number {
   return Math.floor((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000);
 }

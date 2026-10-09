@@ -13,7 +13,7 @@ import { router } from 'expo-router';
 import { MarkDoseAppliedSheet, type MarkDoseAppliedInput } from '@/components/MarkDoseAppliedSheet';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
 import { useVaccinationData } from '@/hooks/useVaccinationData';
-import { markDoseApplied } from '@/services/vaccinationService';
+import { deleteVaccineDose, markDoseApplied } from '@/services/vaccinationService';
 import type { VaccineDoseItem } from '@/types/models';
 
 export default function VaccinationRoute() {
@@ -60,6 +60,12 @@ export default function VaccinationRoute() {
     }
   }
 
+  // Um erro aqui sobe para a tela, que o mostra junto do registro.
+  async function handleDeleteDose(item: VaccineDoseItem) {
+    await deleteVaccineDose(item.id);
+    retry();
+  }
+
   async function handleRequestLocation() {
     const location = await requestLocation();
     if (!location) {
@@ -94,6 +100,7 @@ export default function VaccinationRoute() {
         onRetry={retry}
         onRequestLocation={handleRequestLocation}
         onMarkDoseApplied={setDoseToMark}
+        onDeleteDose={handleDeleteDose}
       />
 
       <MarkDoseAppliedSheet

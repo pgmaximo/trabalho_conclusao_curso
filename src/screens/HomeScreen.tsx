@@ -393,11 +393,15 @@ function SectionLink({ label, onPress }: { label: string; onPress?: () => void }
   );
 }
 
+// O texto sobre o verde usa `onPrimary`, e não branco fixo: no tema escuro os
+// verdes são CLAROS, e branco sobre eles dava de 2,2:1 a 3,1:1. O token é
+// branco no tema claro e quase preto no escuro, como o Canvas 1c define
+// (DESIGN_TOKENS.md, "Dark theme"). Vale para os botões dos alertas abaixo.
 function TodaySummaryCard({ text, onPress }: { text: string; onPress?: () => void }) {
   return (
     <View className="mb-4 rounded-[18px] bg-app-primaryDark p-[18px] dark:bg-app-dark-primaryDark">
-      <Text className="text-[18px] font-semibold text-white">Resumo de hoje</Text>
-      <Text className="mt-1.5 text-[16px] text-white/90">{text}</Text>
+      <Text className="text-[18px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Resumo de hoje</Text>
+      <Text className="mt-1.5 text-[16px] text-app-onPrimary/90 dark:text-app-dark-onPrimary/90">{text}</Text>
       {onPress ? (
         <Pressable
           accessibilityRole="button"
@@ -405,7 +409,7 @@ function TodaySummaryCard({ text, onPress }: { text: string; onPress?: () => voi
           onPress={onPress}
           style={({ pressed }) => [pressed && { opacity: 0.8 }]}
         >
-          <Text className="text-[15px] font-semibold text-white">Ver agenda de hoje →</Text>
+          <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Ver agenda de hoje →</Text>
         </Pressable>
       ) : null}
     </View>
@@ -441,7 +445,7 @@ function PreventionAlertCard({
           onPress={onPress}
           style={({ pressed }) => [pressed && { opacity: 0.85 }]}
         >
-          <Text className="text-[15px] font-semibold text-white">Agendar agora</Text>
+          <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Agendar agora</Text>
         </Pressable>
       ) : null}
     </View>
@@ -477,7 +481,7 @@ function VaccinationAlertCard({
           onPress={onPress}
           style={({ pressed }) => [pressed && { opacity: 0.85 }]}
         >
-          <Text className="text-[15px] font-semibold text-white">Ver carteira de vacinação</Text>
+          <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Ver carteira de vacinação</Text>
         </Pressable>
       ) : null}
     </View>

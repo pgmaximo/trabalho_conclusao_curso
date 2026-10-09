@@ -23,6 +23,10 @@ export interface UserProfile {
   physicalActivity?: boolean;
   alcoholConsumption?: boolean;
   pregnancy?: boolean;
+  // Texto livre do cadastro inicial (etapa "Clínico"), editável em "Editar perfil".
+  chronicConditions?: string;
+  medications?: string;
+  allergies?: string;
   // DECISION: existência do registro no DynamoDB = onboarding completo (sem campo booleano separado)
   onboardingCompleted: boolean;
   // photoUrl é derivado (URL assinada, temporária) a partir de photoKey via
@@ -88,6 +92,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         physicalActivity: profile?.physicalActivity ?? undefined,
         alcoholConsumption: profile?.alcoholConsumption ?? undefined,
         pregnancy: profile?.pregnancy ?? undefined,
+        chronicConditions: profile?.chronicConditions ?? undefined,
+        medications: profile?.medications ?? undefined,
+        allergies: profile?.allergies ?? undefined,
         onboardingCompleted: !!profile,
         photoUrl,
       };

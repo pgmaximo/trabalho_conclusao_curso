@@ -8,6 +8,7 @@ import { AgendaScreen } from '@/screens/AgendaScreen';
 import { useAppointmentsData } from '@/hooks/useAppointmentsData';
 import { listAppointmentsForUser } from '@/services/appointmentService';
 import { restoreAppointmentReminders } from '@/services/appointmentNotifications';
+import { goBackOr } from '@/utils/goBack';
 
 export default function AppointmentsRoute() {
   const { appointments, isLoading, errorMessage, retry } = useAppointmentsData();
@@ -24,6 +25,7 @@ export default function AppointmentsRoute() {
       appointments={appointments}
       errorMessage={errorMessage}
       isLoading={isLoading}
+      onBack={() => goBackOr('/more')}
       onRetry={retry}
     />
   );

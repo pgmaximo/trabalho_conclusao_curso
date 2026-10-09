@@ -43,6 +43,9 @@ function userToFormState(user: UserProfile): EditProfileFormState {
       user.gender === 'female' ? 'female' : user.gender === 'male' ? 'male' : 'prefer_not_to_say',
     heightCm: heightCmToText(user.heightCm),
     weightKg: user.weightKg ? String(user.weightKg) : '',
+    chronicConditions: user.chronicConditions ?? '',
+    medications: user.medications ?? '',
+    allergies: user.allergies ?? '',
     tobaccoUse: boolToAnswer(user.isSmoker),
     sexuallyActive: boolToAnswer(user.sexuallyActive),
     physicalActivity: boolToAnswer(user.physicalActivity),
@@ -54,6 +57,8 @@ function userToFormState(user: UserProfile): EditProfileFormState {
 // DECISION: o formulário de edição alimenta o mesmo contrato do onboarding
 // (ProfileSetupFormValues); campos não editados aqui ficam vazios/unknown e são
 // ignorados por buildAmplifyUserProfileInput, preservando os valores no backend.
+// Os três campos clínicos SÃO editados aqui (correcoes-de-usabilidade, D10), e
+// por isso `handleSubmit` salva com `emptyClinicalFields: 'clear'`.
 function formStateToProfileValues(form: EditProfileFormState): ProfileSetupFormValues {
   return {
     fullName: form.fullName,
@@ -62,9 +67,9 @@ function formStateToProfileValues(form: EditProfileFormState): ProfileSetupFormV
     pregnancyStatus: form.pregnancyStatus,
     heightCm: form.heightCm,
     weightKg: form.weightKg,
-    chronicConditions: '',
-    medications: '',
-    allergies: '',
+    chronicConditions: form.chronicConditions,
+    medications: form.medications,
+    allergies: form.allergies,
     tobaccoUse: form.tobaccoUse,
     alcoholUse: form.alcoholUse,
     physicalActivity: form.physicalActivity,
@@ -90,7 +95,7 @@ export default function EditProfileRoute() {
   async function handleSubmit(form: EditProfileFormState) {
     setIsSaving(true);
     try {
-      await saveUserProfile(formStateToProfileValues(form));
+      await saveUserProfile(formStateToProfileValues(form), { emptyClinicalFields: 'clear' });
       await refreshUser();
       router.back();
     } catch (error) {

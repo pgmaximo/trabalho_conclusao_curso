@@ -18,7 +18,8 @@
 // - Exames
 // - Assistente (assistant, /ai)
 // - Remédios (medicines)
-// - Mais (hub: Consultas, Prevenção, Vacinação, Dados do smartwatch, Perfil)
+// - Mais (hub: Consultas, Prevenção, Vacinação, Dados do smartwatch, Memória do
+//   assistente, Perfil)
 //
 // =============================================================================
 

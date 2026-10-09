@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { BrandLogo } from '@/components/BrandLogo';
+import { Avatar } from '@/components/Avatar';
+import { BackButton } from '@/components/BackButton';
+import { Badge } from '@/components/Badge';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 import { useThemeContext, type ThemeMode } from '@/contexts/ThemeContext';
 import type { UserProfile } from '@/contexts/UserContext';
-import { requestDataExport } from '@/services/export/dataExportService';
 import {
   REMINDER_INTERVAL_OPTIONS,
   type ReminderIntervalsByGrade,
@@ -25,6 +26,8 @@ type ProfileScreenProps = {
   onSetReminderInterval: (grade: UspstfGrade, days: number) => void;
   onLogout: () => void;
   onEditProfile: () => void;
+  /** Volta para a tela de onde esta foi aberta (o Início ou o hub Mais). */
+  onBack?: () => void;
 };
 
 const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
@@ -79,20 +82,13 @@ export function ProfileScreen({
   onSetReminderInterval,
   onLogout,
   onEditProfile,
+  onBack,
 }: ProfileScreenProps) {
   const { colorScheme } = useThemeContext();
   const colors = useThemeColors();
   const bmi = calculateBMI(user?.weightKg, user?.heightCm);
   const age = user?.birthDate ? calculateAge(user.birthDate) : null;
   const [activeIntervalGrade, setActiveIntervalGrade] = useState<UspstfGrade | null>(null);
-
-  const handleExportData = async () => {
-    await requestDataExport();
-    Alert.alert(
-      'Exportar meus dados',
-      'Em breve. Para solicitar seus dados agora, contate o suporte.',
-    );
-  };
 
   const healthItems = [
     { label: 'Peso', value: user?.weightKg ? `${user.weightKg} kg` : '—' },
@@ -120,13 +116,16 @@ export function ProfileScreen({
     <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
+        {onBack ? (
+          <View className="flex-row">
+            <BackButton onPress={onBack} />
+          </View>
+        ) : null}
         <View className="items-center">
-          <BrandLogo
-            accessible
-            accessibilityLabel="SuaSaude"
-            size="screen"
-            variant="symbol"
-          />
+          {/* O Canvas 4b e a spec do Perfil pedem o AVATAR da pessoa aqui (foto,
+              ou iniciais). A tela mostrava a logo do app, e a foto enviada em
+              "Editar perfil" não aparecia em lugar nenhum do Perfil. */}
+          <Avatar gender={user?.gender} name={user?.name} photoUrl={user?.photoUrl} size="md" />
           <Text className="mt-4 text-xl font-bold text-app-text dark:text-app-dark-text">
             {user?.name ?? '—'}
           </Text>
@@ -286,16 +285,21 @@ export function ProfileScreen({
               configuração, e mora agora na própria tela "Dados do smartwatch"
               (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D4). */}
           <Section title="Configurações" subtitle="Gerencie seus dados e sessão.">
-            <Pressable
-              className="mb-3 flex-row items-center justify-between rounded-app border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
-              onPress={handleExportData}
-              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            {/* DECISION (correcoes-de-usabilidade, D10): a exportação ainda não
+                existe (dataExportService devolve "unavailable"). A linha parecia
+                um botão comum e só dizia "Em breve" depois do toque. Agora o
+                estado fica à vista, como a spec do Perfil já pedia ("estado
+                'Em breve' explícito na UI"), e a linha não é tocável. */}
+            <View
+              accessibilityLabel="Exportar meus dados. Em breve."
+              accessible
+              className="mb-3 flex-row items-center justify-between gap-3 rounded-app border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
             >
-              <Text className="text-[15px] text-app-text dark:text-app-dark-text">
+              <Text className="flex-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
                 Exportar meus dados
               </Text>
-              <Ionicons color="#9CA3AF" name="chevron-forward" size={18} />
-            </Pressable>
+              <Badge label="Em breve" variant="neutral" />
+            </View>
 
             <Pressable
               className="items-center rounded-app border border-app-danger bg-app-dangerSoft py-4 dark:border-app-dark-danger dark:bg-app-dark-dangerSoft"

@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { lembrarConversaAberta } from '@/hooks/conversaAberta';
 import { ChatBotScreen } from '@/screens/ChatBotScreen';
 
 jest.mock('@expo/vector-icons/Ionicons', () => {
@@ -164,11 +165,83 @@ describe('abrir uma conversa vinda de fora da tela (M11)', () => {
     expect(await screen.findByText('resposta antiga')).toBeTruthy();
   });
 
-  it('sem conversa indicada, a tela abre nova como antes', async () => {
+  it('sem conversa indicada nem conversa aberta na sessao, a tela abre nova como antes', async () => {
     const { lerMensagens } = require('@/services/chatHistoryService');
+    // O teste acima deixou a conversa c-9 aberta, e a sessao a lembraria.
+    lembrarConversaAberta(null);
     lerMensagens.mockClear();
     renderChatBotScreen();
     await waitFor(() => expect(lerMensagens).not.toHaveBeenCalled());
+  });
+});
+
+// Trocar de aba desmonta esta tela. Quem saia no meio de uma conversa para
+// olhar um exame voltava a um chat em branco, e so achava a conversa pela
+// gaveta de historico (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D7).
+describe('voltar a aba do Assistente no meio de uma conversa', () => {
+  const { lerMensagens } = require('@/services/chatHistoryService');
+
+  const GRAVADAS = [
+    { id: 'm-1', role: 'user', content: 'posso tomar em jejum?', createdAt: null, citations: [] },
+    { id: 'm-2', role: 'assistant', content: 'resposta sobre o jejum', createdAt: null, citations: [] },
+  ];
+
+  beforeEach(() => {
+    lembrarConversaAberta(null);
+    lerMensagens.mockReset();
+    lerMensagens.mockResolvedValue([]);
+    mockSendMessage.mockReset();
+    mockSendMessage.mockResolvedValue({ text: 'resposta sobre o jejum', citations: [] });
+  });
+
+  async function perguntar(texto: string) {
+    fireEvent.changeText(screen.getByPlaceholderText(/digite sua pergunta/i), texto);
+    fireEvent.press(screen.getByLabelText('Enviar mensagem'));
+    await screen.findByText('resposta sobre o jejum');
+  }
+
+  it('reabre a conversa que estava aberta', async () => {
+    const primeira = renderChatBotScreen();
+    await perguntar('posso tomar em jejum?');
+    // A conversa so ganha id depois de gravada.
+    const { criarConversa } = require('@/services/chatHistoryService');
+    await waitFor(() => expect(criarConversa).toHaveBeenCalled());
+    await waitFor(() => expect(lerMensagens).not.toHaveBeenCalled());
+    primeira.unmount();
+
+    lerMensagens.mockResolvedValue(GRAVADAS);
+    renderChatBotScreen();
+
+    await waitFor(() => expect(lerMensagens).toHaveBeenCalledWith('c-1'));
+    expect(await screen.findByText('posso tomar em jejum?')).toBeTruthy();
+    expect(screen.getByText('resposta sobre o jejum')).toBeTruthy();
+  });
+
+  it('depois de "Nova conversa", volta a abrir em branco', async () => {
+    const primeira = renderChatBotScreen();
+    await perguntar('posso tomar em jejum?');
+    const { criarConversa } = require('@/services/chatHistoryService');
+    await waitFor(() => expect(criarConversa).toHaveBeenCalled());
+
+    fireEvent.press(screen.getByLabelText('Histórico de conversas'));
+    fireEvent.press(screen.getByLabelText('Nova conversa'));
+    primeira.unmount();
+
+    lerMensagens.mockClear();
+    renderChatBotScreen();
+
+    await waitFor(() => expect(lerMensagens).not.toHaveBeenCalled());
+    expect(screen.getByText('Como posso ajudar?')).toBeTruthy();
+  });
+
+  it('se a conversa lembrada nao existe mais, fica no chat novo em vez de uma tela vazia', async () => {
+    lembrarConversaAberta('c-apagada');
+    lerMensagens.mockResolvedValue([]);
+
+    renderChatBotScreen();
+
+    await waitFor(() => expect(lerMensagens).toHaveBeenCalledWith('c-apagada'));
+    expect(screen.getByText('Como posso ajudar?')).toBeTruthy();
   });
 });
 

@@ -1,5 +1,7 @@
 # EPIC: Medicamentos — Doses e Estoque (Bloco 3)
 
+> **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D2 e D8), o cartão da dose mostra o horário em destaque na segunda linha; a dose não tomada 60 minutos depois do horário aparece como "Atrasado" e continua contando como pendente; o aviso sem pendência diz "Nenhum lembrete pendente para hoje"; e o formulário só mostra o erro de um campo depois que a pessoa passa por ele.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: tela **3d** ("Medicamentos — doses e estoque") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 369–415). Telas relacionadas do mesmo fluxo, consultadas apenas para completude de campos (têm EPICs próprias, fora de escopo de implementação aqui): **3f** "Novo lembrete de medicamento" (linhas 469–549) e **3g** "Editar medicamento — com exclusão confirmada" (linhas 551+).
 - Rota/arquivo no código (existente): `src/app/(app)/medicines.tsx` (rota `/medicines`, aba "Remédios" da tab bar) → renderiza `src/screens/MedicinesScreen.tsx`, alimentado por `src/hooks/useMedicinesData.ts`, hoje 100% sobre `src/mocks/api/medicinesApi.ts` / `src/mocks/medicines.ts` (`CODE_INVENTORY.md` linha 113).

@@ -11,6 +11,7 @@ import { generateClient } from 'aws-amplify/data';
 
 import type { Schema } from '../../amplify/data/resource';
 import type { LabResultView } from './extractionService';
+import { backendError } from '@/services/backendError';
 
 const client = generateClient<Schema>();
 
@@ -44,7 +45,7 @@ export type AnalyteOption = {
 };
 
 function lancarSeErro(errors?: { message: string }[] | null): void {
-  if (errors?.length) throw new Error(errors.map((e) => e.message).filter(Boolean).join('; '));
+  if (errors?.length) throw backendError(errors, 'Não foi possível carregar a evolução dos resultados.');
 }
 
 export async function listLabResultsByAnalyte(analyteCode: string): Promise<LabResultView[]> {

@@ -250,3 +250,32 @@ describe('o que esta tela NÃO tem', () => {
     expect(screen.queryByText(new RegExp(raiz, 'i'))).toBeNull();
   });
 });
+
+// Correcoes da tela (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D7).
+describe('enquanto a leitura nao volta', () => {
+  it('nao afirma que nada foi guardado, nem que a memoria esta ligada', () => {
+    render(<AssistantMemoryScreen state={estado({ carregando: true, fatos: [] })} />);
+
+    expect(screen.queryByText(/Ainda não guardei nada/)).toBeNull();
+    expect(screen.queryByText('Memória ligada')).toBeNull();
+    expect(screen.queryByText('Memória desligada')).toBeNull();
+  });
+
+  it('depois de carregar sem fatos, ai sim diz que nao ha nada guardado', () => {
+    render(<AssistantMemoryScreen state={estado({ carregando: false, fatos: [] })} />);
+
+    expect(screen.getByText(/Ainda não guardei nada/)).toBeTruthy();
+    expect(screen.getByText('Memória ligada')).toBeTruthy();
+  });
+});
+
+describe('sair da tela', () => {
+  it('tem botao de voltar', () => {
+    const onBack = jest.fn();
+    render(<AssistantMemoryScreen onBack={onBack} state={estado()} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Voltar' }));
+
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+});

@@ -162,3 +162,40 @@ describe('profile setup payload helpers', () => {
     expect(input).not.toHaveProperty('allergies');
   });
 });
+
+// A edicao do perfil passou a MOSTRAR os tres campos clinicos
+// (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D10). Ali, apagar o
+// texto e uma escolha da pessoa, e precisa chegar ao backend.
+describe('campos clinicos vazios na edicao do perfil', () => {
+  const base: ProfileSetupFormValues = {
+    fullName: 'Maria Souza',
+    birthDate: '10/05/1990',
+    biologicalSex: 'female',
+    pregnancyStatus: 'unknown',
+    heightCm: '165',
+    weightKg: '68',
+    chronicConditions: '',
+    medications: 'Losartana',
+    allergies: '   ',
+    tobaccoUse: 'unknown',
+    alcoholUse: 'unknown',
+    physicalActivity: 'unknown',
+    sexuallyActive: 'unknown',
+  };
+
+  it('com `clear`, o campo vazio vai como null e apaga o que estava guardado', () => {
+    const input = buildAmplifyUserProfileInput(base, { emptyClinicalFields: 'clear' });
+
+    expect(input.chronicConditions).toBeNull();
+    expect(input.allergies).toBeNull();
+    expect(input.medications).toBe('Losartana');
+  });
+
+  it('sem a opcao, continua omitindo o campo vazio (o cadastro inicial nao apaga nada)', () => {
+    const input = buildAmplifyUserProfileInput(base);
+
+    expect(input).not.toHaveProperty('chronicConditions');
+    expect(input).not.toHaveProperty('allergies');
+    expect(input.medications).toBe('Losartana');
+  });
+});

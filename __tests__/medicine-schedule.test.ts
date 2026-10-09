@@ -2,7 +2,7 @@ jest.mock('aws-amplify/data', () => ({ generateClient: jest.fn(() => ({})) }));
 
 import type { MedicineRecord } from '@/services/medicineService';
 import { validateMedicineReminder } from '@/services/medicineService';
-import { getMedicineDoseTimesForDate } from '@/utils/medicineSchedule';
+import { getMedicineDoseTimesForDate, isDoseLate } from '@/utils/medicineSchedule';
 
 function medicine(overrides: Partial<MedicineRecord> = {}): MedicineRecord {
   return {
@@ -39,5 +39,34 @@ describe('medicine validation', () => {
     expect(validateMedicineReminder(invalidDate)).toContainEqual(expect.objectContaining({ field: 'startDate' }));
     const inverted = medicine({ id: undefined as never, startDate: '2026-09-10', endDate: '2026-09-01' });
     expect(validateMedicineReminder(inverted)).toContainEqual(expect.objectContaining({ field: 'endDate' }));
+  });
+});
+
+// Uma dose nao tomada ficava "Pendente" o dia inteiro, mesmo horas depois do
+// horario: o status de atraso existia no cartao e nunca era produzido
+// (specs/00-fundacao/correcoes-de-usabilidade/spec.md, D8).
+describe('isDoseLate', () => {
+  const as = (hora: number, minuto: number) => new Date(2026, 8, 1, hora, minuto);
+
+  it('nao considera atrasada a dose cujo horario ainda nao chegou', () => {
+    expect(isDoseLate('08:00', as(7, 59))).toBe(false);
+  });
+
+  it('da uma hora de tolerancia depois do horario', () => {
+    expect(isDoseLate('08:00', as(8, 30))).toBe(false);
+    expect(isDoseLate('08:00', as(9, 0))).toBe(false);
+  });
+
+  it('considera atrasada a dose que passou da tolerancia', () => {
+    expect(isDoseLate('08:00', as(9, 1))).toBe(true);
+    expect(isDoseLate('08:00', as(20, 0))).toBe(true);
+  });
+
+  it('aceita outra tolerancia', () => {
+    expect(isDoseLate('08:00', as(8, 20), 15)).toBe(true);
+  });
+
+  it('nao acusa atraso num horario ilegivel', () => {
+    expect(isDoseLate('lixo', as(23, 0))).toBe(false);
   });
 });

@@ -15,6 +15,7 @@ import type { Schema } from '../../amplify/data/resource';
 // aplicativo. A pessoa que corrige uma linha digita "32,5" pelo mesmo motivo
 // que o laudo escreve "32,5", e ler isso com parseFloat devolveria 32 (D23).
 import { parseDecimal } from '../../amplify/functions/extract-document-data/numberParser';
+import { backendError } from '@/services/backendError';
 import { todasAsPaginas } from '@/services/todasAsPaginas';
 
 const client = generateClient<Schema>();
@@ -68,8 +69,8 @@ export type LabResultView = {
   reviewStatus: 'AUTO' | 'PENDENTE_DE_REVISAO' | 'CONFIRMADO_PELO_USUARIO';
 };
 
-function lancarSeErro(errors?: { message: string }[] | null): void {
-  if (errors?.length) throw new Error(errors.map((e) => e.message).filter(Boolean).join('; '));
+function lancarSeErro(errors: { message: string }[] | null | undefined, mensagem: string): void {
+  if (errors?.length) throw backendError(errors, mensagem);
 }
 
 /**
@@ -79,12 +80,12 @@ function lancarSeErro(errors?: { message: string }[] | null): void {
  */
 export async function startExtraction(documentId: string): Promise<void> {
   const { errors } = await client.mutations.startDocumentExtraction({ documentId });
-  lancarSeErro(errors);
+  lancarSeErro(errors, 'Não foi possível iniciar a leitura do documento.');
 }
 
 export async function fetchExtractionState(documentId: string): Promise<ExtractionState> {
   const { data: doc, errors } = await client.models.MedicalDocument.get({ id: documentId });
-  lancarSeErro(errors);
+  lancarSeErro(errors, 'Não foi possível carregar a leitura do documento.');
 
   // Todas as paginas (Bloco 11). Antes a tela lia a primeira e parava.
   const linhas = await todasAsPaginas((nextToken) =>
@@ -108,7 +109,7 @@ export async function confirmLabResult(id: string): Promise<void> {
     reviewStatus: 'CONFIRMADO_PELO_USUARIO',
     correctedAt: new Date().toISOString(),
   });
-  lancarSeErro(errors);
+  lancarSeErro(errors, 'Não foi possível confirmar o resultado.');
 }
 
 export type CorrectionResult = { ok: true } | { ok: false; message: string };
@@ -143,7 +144,8 @@ export async function correctLabResult(
     correctedAt: new Date().toISOString(),
   });
   if (errors?.length) {
-    return { ok: false, message: errors.map((e) => e.message).filter(Boolean).join('; ') };
+    // `backendError` registra o detalhe técnico no console; a pessoa lê a frase.
+    return { ok: false, message: backendError(errors, 'Não foi possível salvar a correção. Tente novamente.').message };
   }
   return { ok: true };
 }

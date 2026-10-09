@@ -13,18 +13,18 @@ export function getTodayDate(): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Formata uma data de YYYY-MM-DD para DD/MM/YYYY para exibição */
+/** Formata uma data de YYYY-MM-DD para DD/MM/AAAA para exibição */
 export function formatDateForDisplay(dateString: string): string {
-  if (!dateString) return 'DD/MM/YYYY';
+  if (!dateString) return 'DD/MM/AAAA';
   try {
     const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
   } catch {
-    return 'DD/MM/YYYY';
+    return 'DD/MM/AAAA';
   }
 }
 
-/** Converte uma data de DD/MM/YYYY para YYYY-MM-DD para armazenamento */
+/** Converte uma data de DD/MM/AAAA para YYYY-MM-DD para armazenamento */
 export function formatDateForStorage(displayDate: string): string {
   try {
     const [day, month, year] = displayDate.split('/');
