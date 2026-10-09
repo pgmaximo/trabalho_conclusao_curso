@@ -1,5 +1,7 @@
 # EPIC: Exames e Receitas — Lista, Filtros e Bottom Sheet (Bloco 3)
 
+> **Reconciliação (2026-10-09):** a pedido do dono do projeto, o botão de adicionar (FAB) desceu para o rodapé da página: `bottom: 16`, logo acima da barra de abas. O `bottom:100px` do §3 parte do fundo da moldura do celular do Canvas, que inclui a barra de abas (64px) e a faixa do indicador (22px); no app a tela termina no topo da barra, e os mesmos 100 deixavam o botão flutuando no meio da lista. O respiro no fim da lista passou de 128 para 96dp.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: tela **3a** ("Exames & Receitas — lista, filtros e bottom sheet") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 236–292).
 - Rota/arquivo no código (existente): `src/app/(app)/exams.tsx` (rota `/exams`, aba "Exames" da tab bar) → renderiza `src/screens/ExamsScreen.tsx`, alimentado por `src/hooks/useExamsData.ts`.

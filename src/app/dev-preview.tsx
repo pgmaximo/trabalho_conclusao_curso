@@ -21,6 +21,7 @@ import { AddVaccineScreen } from '@/screens/AddVaccineScreen';
 import { AgendaScreen } from '@/screens/AgendaScreen';
 import { AssistantMemoryScreen } from '@/screens/AssistantMemoryScreen';
 import { EditProfileScreen } from '@/screens/EditProfileScreen';
+import { ExamsScreen } from '@/screens/ExamsScreen';
 import { HealthDashboardScreen } from '@/screens/HealthDashboardScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { MedicinesScreen } from '@/screens/MedicinesScreen';
@@ -299,6 +300,37 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       </View>
       <BottomTabBar
         activeTab="dashboard"
+        items={APP_TABS.map(({ icon, label, id }) => ({ icon, label, id }))}
+        onTabPress={noop}
+      />
+    </View>
+  ),
+  // Exames dentro da moldura do app, com lista longa o bastante para rolar por
+  // baixo do botão de adicionar.
+  'exams-in-shell': () => (
+    <View className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <View className="flex-1">
+        <ExamsScreen
+          activeFilter="Todos"
+          documents={[
+            ...PREVIEW_EXAMS,
+            previewDocument('doc-3', 'Glicemia em jejum', 'Exame · 02/09/2026', '2026-09-02'),
+            previewDocument('doc-4', 'TSH e T4 livre', 'Exame · 20/08/2026', '2026-08-20'),
+            previewDocument('doc-5', 'Vitamina D', 'Exame · 11/08/2026', '2026-08-11'),
+            previewDocument('doc-6', 'Urina tipo 1', 'Exame · 30/07/2026', '2026-07-30'),
+          ]}
+          errorMessage={null}
+          filterOptions={['Todos', 'Exames', 'Receitas', 'Alterados']}
+          hasAnyDocuments
+          isLoading={false}
+          onFilterChange={noop}
+          onRetry={noop}
+          onSearchChange={noop}
+          searchQuery=""
+        />
+      </View>
+      <BottomTabBar
+        activeTab="exams"
         items={APP_TABS.map(({ icon, label, id }) => ({ icon, label, id }))}
         onTabPress={noop}
       />

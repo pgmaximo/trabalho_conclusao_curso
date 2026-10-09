@@ -175,7 +175,9 @@ export function ExamsScreen({
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <View className="flex-1">
-        <ScrollView contentContainerClassName="px-6 pt-6 pb-32" showsVerticalScrollIndicator={false}>
+        {/* `pb-24` (96dp): o botão de adicionar ocupa 72dp do rodapé (16 + 56), e
+            o último documento da lista precisa rolar para cima dele. */}
+        <ScrollView contentContainerClassName="px-6 pt-6 pb-24" showsVerticalScrollIndicator={false}>
           {isLoading ? (
             <ScreenSkeleton blocks={3} />
           ) : errorMessage ? (
@@ -343,10 +345,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
   },
+  // `bottom: 16`, e não os 100 do Canvas 3a: lá a medida parte do fundo da
+  // MOLDURA do celular, que inclui a barra de abas (64px) e a faixa do
+  // indicador (22px) — uns 14px acima da barra. Aqui a tela termina no topo da
+  // barra, e os mesmos 100 deixavam o botão flutuando no meio da lista.
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 100,
+    bottom: 16,
     width: 56,
     height: 56,
     borderRadius: 28,
