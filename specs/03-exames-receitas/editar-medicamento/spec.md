@@ -1,5 +1,7 @@
 # EPIC: Editar medicamento — com exclusão confirmada
 
+> **Reconciliação (2026-10-09, correções menores):** por decisão explícita em `specs/00-fundacao/correcoes-menores/spec.md` (D4), os três campos opcionais ficam atrás de "Mais opções", que abre já mostrando quando algum deles tem valor; e o estoque ganhou as unidades "Doses" e "Unidades".
+
 > **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2 e D5), o botão de saída do medicamento não encontrado diz "Voltar para Remédios", e salvar ou excluir é confirmado por um aviso no rodapé da tela Remédios.
 
 ## 1. Identificação

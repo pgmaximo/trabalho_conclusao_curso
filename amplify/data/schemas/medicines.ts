@@ -14,7 +14,10 @@ export const medicinesSchema = {
       endDate: a.date(), // nulo = "sem data de término"
       currentStock: a.integer().required(),
       initialStock: a.integer().required(), // denominador do percentual da barra de estoque
-      unit: a.enum(['COMP', 'ML', 'CAPS']),
+      // A mesma lista de `src/utils/medicineUnit.ts` (o formulário). DOSE e UNIT
+      // cobrem o que não é comprimido, cápsula nem líquido: canetas, sprays,
+      // pomadas, sachês.
+      unit: a.enum(['COMP', 'ML', 'CAPS', 'DOSE', 'UNIT']),
       lowStockThreshold: a.integer(), // ausente = nunca alerta
       notes: a.string(),
       active: a.boolean().required().default(true),

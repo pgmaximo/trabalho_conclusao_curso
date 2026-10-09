@@ -7,18 +7,11 @@ type FilterChipsProps = {
   options: string[];
   activeFilter: string;
   onFilterChange: (filter: string) => void;
-  /**
-   * Opções desabilitadas — não disparam `onFilterChange` e recebem indicação visual
-   * "Em breve" (ex.: filtro "Alterados" em 3a, sem dado real de status de resultado,
-   * ver specs/03-exames-receitas/lista/plan.md §2).
-   */
-  disabledOptions?: string[];
 };
 
 type ChipProps = {
   option: string;
   isActive: boolean;
-  isDisabled: boolean;
   colors: ThemeColors;
   onPress: () => void;
 };
@@ -26,21 +19,19 @@ type ChipProps = {
 // `style` de Pressable NÃO pode ser função aqui — sem `className`, o NativeWind
 // (jsxImportSource global) descarta o resultado da função e o chip renderiza sem
 // nenhum estilo (bug relatado: filtro sem o visual sólido de seleção).
-function Chip({ option, isActive, isDisabled, colors, onPress }: ChipProps) {
+function Chip({ option, isActive, colors, onPress }: ChipProps) {
   const [isPressed, setIsPressed] = useState(false);
 
   return (
     <Pressable
-      disabled={isDisabled}
-      accessibilityState={{ disabled: isDisabled, selected: isActive }}
+      accessibilityState={{ selected: isActive }}
       style={[
         styles.chip,
         {
-          borderColor: isDisabled ? colors.border : isActive ? colors.primary : colors.border,
-          backgroundColor: isDisabled ? colors.surfaceMuted : isActive ? colors.primary : colors.surface,
-          opacity: isDisabled ? 0.6 : 1,
+          borderColor: isActive ? colors.primary : colors.border,
+          backgroundColor: isActive ? colors.primary : colors.surface,
         },
-        isPressed && !isDisabled && styles.chipPressed,
+        isPressed && styles.chipPressed,
       ]}
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
@@ -49,12 +40,11 @@ function Chip({ option, isActive, isDisabled, colors, onPress }: ChipProps) {
       <Text
         style={[
           FONTS.rotulo,
-          { color: isDisabled ? colors.textMuted : isActive ? colors.onPrimary : colors.textSecondary },
-          isActive && !isDisabled ? { fontWeight: '600' } : null,
+          { color: isActive ? colors.onPrimary : colors.textSecondary },
+          isActive ? { fontWeight: '600' } : null,
         ]}
       >
         {option}
-        {isDisabled ? ' · Em breve' : ''}
       </Text>
     </Pressable>
   );
@@ -63,7 +53,7 @@ function Chip({ option, isActive, isDisabled, colors, onPress }: ChipProps) {
 // Padrão de chip selecionado/não-selecionado do Canvas 1a (DESIGN_TOKENS.md §4
 // "Segmented/chip selectors"), reutilizável para filtros de lista, sexo,
 // tabagismo, sim/não, tipo de consulta etc. Scroll horizontal conforme Canvas 3a §3.
-export function FilterChips({ options, activeFilter, onFilterChange, disabledOptions }: FilterChipsProps) {
+export function FilterChips({ options, activeFilter, onFilterChange }: FilterChipsProps) {
   const colors = useThemeColors();
 
   return (
@@ -77,7 +67,6 @@ export function FilterChips({ options, activeFilter, onFilterChange, disabledOpt
           key={option}
           option={option}
           isActive={activeFilter === option}
-          isDisabled={disabledOptions?.includes(option) ?? false}
           colors={colors}
           onPress={() => onFilterChange(option)}
         />

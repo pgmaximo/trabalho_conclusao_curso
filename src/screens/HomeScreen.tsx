@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View, type DimensionValue } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Avatar } from '@/components/Avatar';
 import { EmptyState } from '@/components/EmptyState';
 import { QuickAccessButton } from '@/components/QuickAccessButton';
-import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 import { parseScheduledAt } from '@/services/agendaDateRange';
@@ -85,6 +84,22 @@ type HomeScreenProps = {
    *  ainda sendo analisada": o Início só enxerga a análise que já ficou pronta. */
   smartwatchAnalysisReady?: boolean | null;
 };
+
+// A caixa e o tamanho do texto de cada linha das duas listas do Início. Ficam
+// em constantes porque o esqueleto de carregamento usa as MESMAS: ele guarda o
+// lugar exato da linha que vai entrar (ver `GhostLine`, mais abaixo). Mudou a
+// linha, mudou o esqueleto junto.
+const DOCUMENT_ROW_CLASS =
+  'mb-3 flex-row items-center gap-3 rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface';
+const DOCUMENT_TITLE_CLASS = 'text-[15px] font-semibold';
+const DOCUMENT_SUBTITLE_CLASS = 'text-[13px]';
+const APPOINTMENT_CARD_CLASS =
+  'mb-3 min-h-[48px] flex-row overflow-hidden rounded-card border border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface';
+const APPOINTMENT_TITLE_CLASS = 'text-[17px] font-semibold';
+const APPOINTMENT_WHEN_CLASS = 'text-[16px]';
+
+// Quantas linhas cada lista do Início mostra (ver `dashboard.tsx`).
+const HOME_LIST_ROWS = [0, 1];
 
 const APPOINTMENT_TYPE_LABEL: Record<AppointmentType, string> = {
   consulta: 'Consulta',
@@ -251,7 +266,7 @@ export function HomeScreen({
           title="Últimos documentos"
         >
           {examsLoading ? (
-            <ScreenSkeleton blocks={2} />
+            <RecentDocumentsSkeleton />
           ) : examsError ? (
             <EmptyState
               actionLabel="Tentar novamente"
@@ -265,16 +280,16 @@ export function HomeScreen({
             recentExams.map((exam) => (
               <Pressable
                 key={exam.id}
-                className="mb-3 flex-row items-center gap-3 rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
+                className={DOCUMENT_ROW_CLASS}
                 onPress={() => onNavigateToExamDetail(exam.id)}
                 style={({ pressed }) => [pressed && { opacity: 0.7 }]}
               >
                 <Ionicons color={colors.primary} name="document-text-outline" size={22} />
                 <View className="flex-1">
-                  <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">
+                  <Text className={`${DOCUMENT_TITLE_CLASS} text-app-text dark:text-app-dark-text`}>
                     {exam.title}
                   </Text>
-                  <Text className="text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                  <Text className={`${DOCUMENT_SUBTITLE_CLASS} text-app-textSecondary dark:text-app-dark-textSecondary`}>
                     {exam.subtitle}
                   </Text>
                 </View>
@@ -295,7 +310,7 @@ export function HomeScreen({
           title="Próximos compromissos"
         >
           {appointmentsLoading ? (
-            <ScreenSkeleton blocks={2} />
+            <UpcomingAppointmentsSkeleton />
           ) : appointmentsError ? (
             <EmptyState
               actionLabel="Tentar novamente"
@@ -373,6 +388,76 @@ function resumoDasVacinas({ overdue, pending, applied }: VaccineDoseCounts): str
     return applied === 1 ? '1 aplicada' : `${applied} aplicadas`;
   }
   return 'Nenhuma dose';
+}
+
+// DECISION (specs/00-fundacao/correcoes-menores/spec.md, D2): enquanto uma
+// lista do Início carrega, o lugar dela é guardado por linhas com a forma das
+// linhas de verdade. Antes era o esqueleto de tela inteira (duas barras de
+// título e dois cartões de três linhas), perto do dobro da altura do que
+// entrava no lugar: quando o dado chegava, o resto da página pulava para cima.
+
+// Uma linha de texto do esqueleto. O texto invisível é o que dá a altura: ele
+// ocupa o que a linha de verdade vai ocupar, em qualquer aparelho e com
+// qualquer tamanho de fonte. A barra cinza fica por cima, no meio.
+function GhostLine({
+  textClassName,
+  width,
+  className,
+}: {
+  textClassName: string;
+  width: DimensionValue;
+  className?: string;
+}) {
+  return (
+    <View className={className}>
+      <Text className={textClassName} style={GHOST_TEXT_STYLE}>
+        {'\u00A0'}
+      </Text>
+      <View
+        className="absolute h-3 rounded-full bg-app-border dark:bg-app-dark-border"
+        style={{ marginTop: -6, top: '50%', width }}
+      />
+    </View>
+  );
+}
+
+const GHOST_TEXT_STYLE = { opacity: 0 };
+
+function RecentDocumentsSkeleton() {
+  return (
+    <View accessibilityLabel="Carregando seus documentos" accessible>
+      {HOME_LIST_ROWS.map((row) => (
+        <View className={DOCUMENT_ROW_CLASS} key={row} testID="documento-carregando">
+          {/* O lugar do ícone de documento (22dp). */}
+          <View
+            className="rounded-md bg-app-border dark:bg-app-dark-border"
+            style={{ height: 22, width: 22 }}
+          />
+          <View className="flex-1">
+            <GhostLine textClassName={DOCUMENT_TITLE_CLASS} width="62%" />
+            <GhostLine textClassName={DOCUMENT_SUBTITLE_CLASS} width="40%" />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function UpcomingAppointmentsSkeleton() {
+  return (
+    <View accessibilityLabel="Carregando seus compromissos" accessible>
+      {HOME_LIST_ROWS.map((row) => (
+        <View className={APPOINTMENT_CARD_CLASS} key={row} testID="compromisso-carregando">
+          {/* O lugar da faixa colorida do tipo do compromisso. */}
+          <View className="w-1 bg-app-border dark:bg-app-dark-border" />
+          <View className="flex-1 p-4">
+            <GhostLine textClassName={APPOINTMENT_TITLE_CLASS} width="58%" />
+            <GhostLine className="mt-1" textClassName={APPOINTMENT_WHEN_CLASS} width="78%" />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
 }
 
 function SectionLink({ label, onPress }: { label: string; onPress?: () => void }) {
@@ -543,7 +628,7 @@ function UpcomingAppointmentCard({
   return (
     <Pressable
       accessibilityRole="button"
-      className="mb-3 min-h-[48px] flex-row overflow-hidden rounded-card border border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface"
+      className={APPOINTMENT_CARD_CLASS}
       // `AppointmentEntry.id` e `string | number`; a conversao acontece aqui, no
       // ponto de chamada, para a rota receber sempre uma string.
       onPress={() => onPress?.(String(appointment.id))}
@@ -551,10 +636,10 @@ function UpcomingAppointmentCard({
     >
       <View className={`w-1 ${APPOINTMENT_BAR_CLASS[appointment.type]}`} />
       <View className="flex-1 p-4">
-        <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+        <Text className={`${APPOINTMENT_TITLE_CLASS} text-app-text dark:text-app-dark-text`}>
           {APPOINTMENT_TYPE_LABEL[appointment.type]} · {appointment.title}
         </Text>
-        <Text className="mt-1 text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
+        <Text className={`mt-1 ${APPOINTMENT_WHEN_CLASS} text-app-textSecondary dark:text-app-dark-textSecondary`}>
           {formatAppointmentWhen(appointment.scheduledAt)}, {appointment.time} · {appointment.location}
         </Text>
       </View>

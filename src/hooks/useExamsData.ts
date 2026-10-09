@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 
+import { MEDICAL_DOCUMENT_FILTERS } from '@/constants/documentFilters';
 import { useAsyncResource } from '@/hooks/useAsyncResource';
 import type { DocumentValidityStatus, MedicalDocument, MedicalDocumentFilter } from '@/types/models';
 import { formatDateForDisplay, getTodayDate } from '@/utils/date';
@@ -161,30 +162,13 @@ async function fetchMedicalDocuments(): Promise<MedicalDocument[]> {
 }
 
 /**
- * Get available filter options
- */
-function getMedicalDocumentFilters(): MedicalDocumentFilter[] {
-  return ['Todos', 'Exames', 'Receitas', 'Alterados'];
-}
-
-/**
  * Filter documents based on search query and active filter.
- *
- * "Alterados" nunca tem correspondência real: o schema `MedicalDocument` não tem nenhum
- * campo de resultado clínico (Normal/Alterado), então este filtro retorna sempre lista
- * vazia — comportamento honesto e documentado (não simula dado falso), ver
- * specs/03-exames-receitas/lista/plan.md §2. A UI (`ExamsScreen`) trata o chip como
- * desabilitado com indicação "Em breve".
  */
 function filterMedicalDocuments(
   documents: MedicalDocument[],
   searchQuery: string,
   activeFilter: MedicalDocumentFilter,
 ): MedicalDocument[] {
-  if (activeFilter === 'Alterados') {
-    return [];
-  }
-
   return documents.filter((doc) => {
     // Filter by category
     if (activeFilter !== 'Todos' && doc.category !== activeFilter) {
@@ -221,7 +205,7 @@ export function useExamsData() {
   const documents = data ?? [];
 
   return {
-    filterOptions: getMedicalDocumentFilters(),
+    filterOptions: MEDICAL_DOCUMENT_FILTERS,
     searchQuery,
     setSearchQuery,
     activeFilter,

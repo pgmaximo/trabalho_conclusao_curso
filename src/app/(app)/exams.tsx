@@ -11,7 +11,7 @@
 // Funcionalidades:
 // - Listagem completa de documentos médicos (exames, receitas)
 // - Busca por nome ou tipo de documento
-// - Filtros por categoria (Todos, Exames, Receitas, Alterados)
+// - Filtros por categoria (Todos, Exames, Receitas)
 // - Visualização detalhada de cada documento
 //
 // Dados Gerenciados:
@@ -36,7 +36,7 @@ export default function ExamsRoute() {
   // Renderiza a tela de exames com todos os dados e callbacks
   return (
     <ExamsScreen
-      // Array de opções de filtro disponíveis (Todos, Exames, Receitas, Alterados)
+      // Array de opções de filtro disponíveis (Todos, Exames, Receitas)
       filterOptions={exams.filterOptions}
       
       // Texto atual digitado no campo de busca

@@ -356,7 +356,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
             previewDocument('doc-6', 'Urina tipo 1', 'Exame · 30/07/2026', '2026-07-30'),
           ]}
           errorMessage={null}
-          filterOptions={['Todos', 'Exames', 'Receitas', 'Alterados']}
+          filterOptions={['Todos', 'Exames', 'Receitas']}
           hasAnyDocuments
           isLoading={false}
           onFilterChange={noop}
@@ -403,6 +403,18 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       examsLoading
       pendingDosesToday={null}
       smartwatchAnalysisReady={null}
+      vaccineDoseCounts={null}
+    />
+  ),
+  // O mesmo "home-loading", com as duas listas já carregadas: só elas mudam.
+  // Serve para medir se a página pula quando o dado chega.
+  'home-loaded-same': () => (
+    <HomeScreen
+      {...HOME_BASE_PROPS}
+      pendingDosesToday={null}
+      recentExams={PREVIEW_EXAMS.slice(0, 2)}
+      smartwatchAnalysisReady={null}
+      upcomingAppointments={PREVIEW_APPOINTMENTS.slice(0, 2)}
       vaccineDoseCounts={null}
     />
   ),

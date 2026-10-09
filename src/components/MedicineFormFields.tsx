@@ -3,16 +3,19 @@
 // Descrição: Campos de formulário compartilhados entre "Novo lembrete de
 // medicamento" (3f) e "Editar medicamento" (3g) — nome, dosagem, forma,
 // horários dinâmicos, frequência (com sub-blocos condicionais), datas,
-// estoque/unidade, aviso de estoque baixo, observações e lembretes ativos.
+// estoque/unidade e, atrás de "Mais opções", aviso de estoque baixo,
+// observações e lembretes ativos.
 // =============================================================================
 
 import React, { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { DateInput } from '@/components/DateInput';
 import { DoseTimeRow } from '@/components/DoseTimeRow';
 import { FormField } from '@/components/FormField';
 import { SelectableChip } from '@/components/SelectableChip';
+import { useThemeColors } from '@/constants/theme';
 import {
   validateMedicineReminder,
   type MedicineForm,
@@ -20,6 +23,7 @@ import {
   type MedicineInput,
   type MedicineUnit,
 } from '@/services/medicineService';
+import { MEDICINE_UNIT_OPTIONS } from '@/utils/medicineUnit';
 
 export type MedicineFormState = {
   name: string;
@@ -80,12 +84,6 @@ const WEEKDAY_OPTIONS: { value: string; label: string }[] = [
   { value: 'SUN', label: 'Dom' },
 ];
 
-const UNIT_OPTIONS: { value: MedicineUnit; label: string }[] = [
-  { value: 'COMP', label: 'Comp.' },
-  { value: 'ML', label: 'ml' },
-  { value: 'CAPS', label: 'Cáps.' },
-];
-
 /** Converte o estado do formulário (datas DD/MM/AAAA, números como texto) para o
  * `MedicineInput` consumido por `createMedicine`/`updateMedicine`. `initialStock` não é um
  * campo do formulário (não existe no Canvas) — quem chama decide o valor
@@ -143,6 +141,19 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
   // aparece depois que a pessoa passou por ele: ao sair de um campo de texto,
   // ou ao mexer num grupo de opções ou numa data.
   const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
+  const colors = useThemeColors();
+
+  // DECISION (specs/00-fundacao/correcoes-menores/spec.md, D4): os três campos
+  // que quase ninguém preenche (aviso de estoque, observações, lembretes
+  // ligados ou desligados) ficam atrás de "Mais opções". Eram 12 campos numa
+  // rolagem só. Nenhum dos três pode dar erro, então nada fica escondido
+  // impedindo de salvar.
+  //
+  // Ao editar um medicamento em que algum deles já tem valor, a seção abre
+  // mostrando: escondido, o que a pessoa salvou pareceria ter sumido.
+  const [showMoreOptions, setShowMoreOptions] = useState(
+    () => form.lowStockThreshold !== '' || form.notes.trim() !== '' || !form.active,
+  );
 
   function touch(field: string) {
     setTouched((current) => (current.has(field) ? current : new Set(current).add(field)));
@@ -334,7 +345,7 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
           Unidade
         </Text>
         <View className="flex-row flex-wrap gap-2">
-          {UNIT_OPTIONS.map((option) => (
+          {MEDICINE_UNIT_OPTIONS.map((option) => (
             <SelectableChip
               key={option.value}
               label={option.label}
@@ -349,33 +360,60 @@ export function MedicineFormFields({ form, onChange, fieldErrors = {} }: Medicin
         <GroupError message={errorOf('unit')} />
       </View>
 
-      <FormField
-        label="Avisar quando restar menos de (opcional)"
-        inputMode="numeric"
-        placeholder="Ex.: 10"
-        value={form.lowStockThreshold}
-        onChangeText={(text) => onChange({ lowStockThreshold: text.replace(/\D/g, '') })}
-      />
-
-      <FormField
-        label="Observações (opcional)"
-        multiline
-        numberOfLines={4}
-        placeholder="Anotações sobre este medicamento"
-        style={{ minHeight: 100, textAlignVertical: 'top' }}
-        value={form.notes}
-        onChangeText={(text) => onChange({ notes: text })}
-      />
-
-      <View className="mt-6">
-        <Text className="mb-3 text-[16px] font-semibold text-app-text dark:text-app-dark-text">
-          Lembretes
-        </Text>
-        <View className="flex-row gap-2">
-          <SelectableChip label="Ativos" selected={form.active} onPress={() => onChange({ active: true })} />
-          <SelectableChip label="Inativos" selected={!form.active} onPress={() => onChange({ active: false })} />
+      {/* O botão diz o que há dentro: ninguém precisa abrir para descobrir. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showMoreOptions }}
+        onPress={() => setShowMoreOptions((current) => !current)}
+        style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+        className="mt-8 min-h-14 flex-row items-center justify-between gap-3 rounded-field border-[1.5px] border-app-border bg-app-surface px-4 py-3 dark:border-app-dark-border dark:bg-app-dark-surface"
+      >
+        <View className="flex-1">
+          <Text className="text-[16px] font-semibold text-app-text dark:text-app-dark-text">
+            Mais opções
+          </Text>
+          <Text className="mt-0.5 text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
+            Aviso de estoque, observações e lembretes
+          </Text>
         </View>
-      </View>
+        <Ionicons
+          color={colors.textSecondary}
+          name={showMoreOptions ? 'chevron-up' : 'chevron-down'}
+          size={20}
+        />
+      </Pressable>
+
+      {showMoreOptions ? (
+        <>
+          <FormField
+            label="Avisar quando restar menos de (opcional)"
+            inputMode="numeric"
+            placeholder="Ex.: 10"
+            value={form.lowStockThreshold}
+            onChangeText={(text) => onChange({ lowStockThreshold: text.replace(/\D/g, '') })}
+          />
+
+          <FormField
+            label="Observações (opcional)"
+            multiline
+            numberOfLines={4}
+            placeholder="Anotações sobre este medicamento"
+            style={{ minHeight: 100, textAlignVertical: 'top' }}
+            value={form.notes}
+            onChangeText={(text) => onChange({ notes: text })}
+          />
+
+          <View className="mt-6">
+            <Text className="mb-3 text-[16px] font-semibold text-app-text dark:text-app-dark-text">
+              Lembretes
+            </Text>
+            <View className="flex-row gap-2">
+              <SelectableChip label="Ativos" selected={form.active} onPress={() => onChange({ active: true })} />
+              <SelectableChip label="Inativos" selected={!form.active} onPress={() => onChange({ active: false })} />
+            </View>
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }

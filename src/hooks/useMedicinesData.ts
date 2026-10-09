@@ -24,12 +24,7 @@ import {
 } from '@/utils/medicineSchedule';
 import { syncMedicineReminders } from '@/services/medicineReminderService';
 import { findInteractions } from '@/services/drugInteractionService';
-
-const UNIT_LABELS: Record<string, string> = {
-  COMP: 'comp.',
-  ML: 'ml',
-  CAPS: 'caps.',
-};
+import { medicineUnitLabel } from '@/utils/medicineUnit';
 
 function parseTakenToday(takenToday: string | null | undefined, today: string): Set<string> {
   if (!takenToday) return new Set();
@@ -87,7 +82,7 @@ function deriveStocks(medicines: MedicineRecord[]): MedicineInventoryItem[] {
     id: medicine.id,
     name: medicine.name,
     quantity: medicine.currentStock,
-    unit: medicine.unit ? (UNIT_LABELS[medicine.unit] ?? medicine.unit) : '',
+    unit: medicineUnitLabel(medicine.unit, medicine.currentStock),
     status: deriveStockStatus(medicine),
     percentage: medicine.initialStock > 0
       ? Math.max(0, Math.min(100, Math.round((medicine.currentStock / medicine.initialStock) * 100)))

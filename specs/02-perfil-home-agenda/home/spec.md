@@ -1,5 +1,7 @@
 # EPIC: Home — Resumo, Indicadores e Acesso Rápido (Bloco 2)
 
+> **Reconciliação (2026-10-09, correções menores):** por decisão explícita em `specs/00-fundacao/correcoes-menores/spec.md` (D2), enquanto uma lista do Início carrega, o lugar dela é guardado por duas linhas com a forma e a altura das linhas de verdade, e não mais pelo esqueleto de tela inteira: a página não pula quando o dado chega.
+
 > **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2), a seção "Últimos exames" passou a se chamar "Últimos documentos"; o Resumo de hoje conta "compromissos", e não "consultas"; e o botão da lista vazia de compromissos chama-se "Novo compromisso" e abre o formulário.
 
 > **Reconciliação (2026-09-25):** o "Acesso rápido" desta tela mudou por

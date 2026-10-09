@@ -40,11 +40,12 @@ export function AddAppointmentScreen() {
   const { colorScheme } = useColorScheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  // DECISION (spec.md §8, ambiguidade documentada): nenhum tipo vem
-  // pre-selecionado ao abrir a tela — nfInvalid do Canvas so cita nome/data/hora,
-  // nao tipo, entao um fallback silencioso ('CONSULTA') e usado so no payload
-  // se o usuario nunca tocar em um chip.
-  const [appointmentType, setAppointmentType] = useState<AppointmentType | null>(null);
+  // DECISION (specs/00-fundacao/correcoes-menores/spec.md, D3): "Consulta" já
+  // vem marcado. Antes nenhum tipo vinha marcado e, como o tipo não é
+  // obrigatório, quem não tocava num dos três tinha o compromisso salvo como
+  // consulta sem ver isso na tela: um exame marcado assim aparecia na Agenda
+  // com o selo e a cor de consulta. O que aparece marcado é o que será salvo.
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>('CONSULTA');
   const [appointmentName, setAppointmentName] = useState('');
   const [professionalName, setProfessionalName] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
@@ -68,7 +69,7 @@ export function AddAppointmentScreen() {
     try {
       const scheduledAtIso = `${scheduledDate}T${scheduledTime}`;
       await createAppointment({
-        appointmentType: appointmentType ?? 'CONSULTA',
+        appointmentType,
         appointmentName: appointmentName.trim(),
         professionalName: professionalName.trim(),
         scheduledAt: scheduledAtIso,

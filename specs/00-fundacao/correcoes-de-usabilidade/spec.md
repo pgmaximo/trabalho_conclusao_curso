@@ -48,7 +48,8 @@
 - **Termos de Uso e Política de Privacidade.** O login cita os dois, e eles não
   podem ser abertos. Não existe o texto de nenhum dos dois no repositório, e
   escrevê-los é decisão do dono do projeto.
-- **Filtro "Alterados · Em breve" em Exames.** Já diz "Em breve" à vista, por
+- **Filtro "Alterados · Em breve" em Exames.** *(Resolvido depois: o filtro saiu
+  da tela, em `specs/00-fundacao/correcoes-menores/spec.md`, D1.)* Já diz "Em breve" à vista, por
   decisão documentada em `specs/03-exames-receitas/lista/plan.md` (§2, Opção
   A). Fazê-lo funcionar pede classificar um resultado como alterado, o que o
   app evita de propósito (constituição §4).

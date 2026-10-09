@@ -21,11 +21,6 @@ import { RADII, useThemeColors } from '@/constants/theme';
 import type { MedicalDocument, MedicalDocumentFilter } from '@/types/models';
 import { useSelectedDocument } from '@/contexts/DocumentContext';
 
-// Filtro sem dado real de status de resultado clínico — ver
-// specs/03-exames-receitas/lista/plan.md §2 (Opção A). Desabilitado na UI em vez de
-// aparentar funcionar e nunca retornar resultado.
-const DISABLED_FILTERS: MedicalDocumentFilter[] = ['Alterados'];
-
 type ExamsScreenProps = {
   filterOptions: MedicalDocumentFilter[];
   searchQuery: string;
@@ -219,7 +214,6 @@ export function ExamsScreen({
                 options={filterOptions}
                 activeFilter={activeFilter}
                 onFilterChange={(value) => onFilterChange(value as MedicalDocumentFilter)}
-                disabledOptions={DISABLED_FILTERS}
               />
 
               <Section title="Documentos disponíveis">

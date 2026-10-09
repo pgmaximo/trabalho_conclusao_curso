@@ -1,5 +1,7 @@
 # EPIC: Perfil, Home e Agenda — Novo agendamento
 
+> **Reconciliação (2026-10-09, correções menores):** por decisão explícita em `specs/00-fundacao/correcoes-menores/spec.md` (D3), o formulário abre com "Consulta" já marcado. A §8 previa esse caso ("caso a equipe prefira pré-selecionar \"Consulta\"… documentar a escolha como desvio consciente do Canvas"): sem tipo marcado, o compromisso era salvo como consulta sem a pessoa ver.
+
 > **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2, D3 e D5), a tela se chama "Novo compromisso" (campo "Nome do compromisso", botão "Salvar compromisso"), usa o cabeçalho das telas de formulário (título de 20px) e, ao salvar, a Agenda mostra "Compromisso salvo.".
 
 ## 1. Identificação

@@ -2,12 +2,14 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { invalidateMedicinesCache } from '@/hooks/medicinesCache';
 import { backendError, technicalDetail } from '@/services/backendError';
+import type { MedicineUnit } from '@/utils/medicineUnit';
 
 const client = generateClient<Schema>();
 
 export type MedicineForm = 'PILL' | 'DROPS' | 'INJECTION' | 'OTHER';
 export type MedicineFrequencyType = 'DAILY' | 'SPECIFIC_DAYS' | 'EVERY_X_HOURS';
-export type MedicineUnit = 'COMP' | 'ML' | 'CAPS';
+// A lista de unidades mora em `medicineUnit.ts`, junto dos rótulos.
+export type { MedicineUnit };
 
 export interface MedicineInput {
   name: string;

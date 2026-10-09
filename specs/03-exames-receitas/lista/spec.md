@@ -1,5 +1,7 @@
 # EPIC: Exames e Receitas — Lista, Filtros e Bottom Sheet (Bloco 3)
 
+> **Reconciliação (2026-10-09, correções menores):** por decisão explícita em `specs/00-fundacao/correcoes-menores/spec.md` (D1), o filtro "Alterados" saiu da tela. Os filtros são Todos, Exames e Receitas; não há mais chip desabilitado com "Em breve". É um desvio consciente do Canvas 3a.
+
 > **Reconciliação (2026-10-09):** a pedido do dono do projeto, o botão de adicionar (FAB) desceu para o rodapé da página: `bottom: 16`, logo acima da barra de abas. O `bottom:100px` do §3 parte do fundo da moldura do celular do Canvas, que inclui a barra de abas (64px) e a faixa do indicador (22px); no app a tela termina no topo da barra, e os mesmos 100 deixavam o botão flutuando no meio da lista. O respiro no fim da lista passou de 128 para 96dp.
 
 ## 1. Identificação

@@ -65,9 +65,9 @@ export interface DashboardSnapshot {
 // TIPOS DE DOCUMENTOS MÉDICOS
 // =============================================================================
 
-// Tipo para filtro de documentos médicos (Canvas 3a: Todos/Exames/Receitas/Alterados —
-// "Alterados" substitui o antigo "Laudos", que não correspondia a nenhum documentType real)
-export type MedicalDocumentFilter = 'Todos' | 'Exames' | 'Receitas' | 'Alterados';
+// Tipo para filtro de documentos médicos. O Canvas 3a tinha um quarto filtro,
+// "Alterados", que saiu: ver src/constants/documentFilters.ts.
+export type MedicalDocumentFilter = 'Todos' | 'Exames' | 'Receitas';
 
 // Status de validade de receita, calculado localmente (expirationDate vs. hoje) — nunca persistido.
 // Não existe equivalente para exames (nenhuma fonte real de resultado clínico no schema —

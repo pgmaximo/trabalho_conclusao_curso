@@ -1,5 +1,7 @@
 # EPIC: Medicamentos — Novo lembrete de medicamento
 
+> **Reconciliação (2026-10-09, correções menores):** por decisão explícita em `specs/00-fundacao/correcoes-menores/spec.md` (D4), o aviso de estoque, as observações e os lembretes ligados ou desligados ficam atrás de "Mais opções"; e o estoque ganhou as unidades "Doses" e "Unidades", o que pede implantar a mudança do banco.
+
 > **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2, D3 e D5), a tela se chama "Adicionar medicamento", o nome do botão que a abre; usa o `DetailHeader`; e, ao salvar, a tela Remédios mostra "Medicamento salvo.".
 
 ## 1. Identificação
