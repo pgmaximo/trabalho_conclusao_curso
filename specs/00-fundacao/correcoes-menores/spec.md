@@ -4,8 +4,8 @@
 
 - **Origem:** a auditoria de usabilidade de
   `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (2026-10-09). Esta EPIC
-  cobre o que o dono do projeto escolheu do grupo "coisas menores" (itens 1, 3
-  e 4) e a retirada do filtro "Alterados · Em breve", que as duas EPICs
+  cobre o que o dono do projeto escolheu do grupo "coisas menores" (itens 1, 3,
+  4 e 7) e a retirada do filtro "Alterados · Em breve", que as duas EPICs
   anteriores tinham deixado de fora.
 - **Restrição do pedido:** a mesma das EPICs anteriores. Não mudar a
   usabilidade geral nem a identidade do app.
@@ -19,6 +19,7 @@
 | D2 | **O Início pulava quando o dado chegava.** Enquanto documentos e compromissos carregavam, cada seção mostrava o esqueleto de tela inteira (duas barras de título e dois cartões de três linhas), perto do dobro da altura das duas linhas que entravam no lugar. | Cada lista guarda o lugar com duas linhas que têm a caixa e a altura das linhas de verdade. A altura vem de um texto invisível com a mesma classe do texto real, então vale para qualquer aparelho e tamanho de fonte. Medido no navegador, em 360dp e 390dp: a página tem a mesma altura carregando e carregada (seção de documentos 219dp, de compromissos 287dp). | `HomeScreen.tsx` |
 | D3 | **Compromisso salvo como "Consulta" sem a pessoa ver.** O formulário abria sem tipo marcado, o tipo não é obrigatório, e o que ia para o banco sem toque era "Consulta". Um exame marcado assim aparecia na Agenda com selo e cor de consulta. | "Consulta" já vem marcado. O que aparece marcado é o que será salvo. | `AddAppointmentScreen.tsx` |
 | D4 | **Formulário de medicamento.** Eram 12 campos numa rolagem só. E as unidades do estoque (Comp., ml, Cáps.) não cobriam as formas que o próprio formulário oferece (Gotas, Injeção, Outro), sendo a unidade obrigatória: uma caneta de insulina virava "3 comp.". | Os três campos que quase ninguém preenche (aviso de estoque, observações, lembretes ligados ou desligados) ficam atrás de "Mais opções". O estoque ganhou as unidades "Doses" e "Unidades". Ver §2.2. | `MedicineFormFields.tsx`, `src/utils/medicineUnit.ts`, `amplify/data/schemas/medicines.ts`, `useMedicinesData.ts` |
+| D5 | **Emoji de alerta em Remédios.** O aviso de interação medicamentosa usava o emoji de alerta como ícone. Emoji é desenhado por cada fabricante de celular do seu jeito e não segue o tema: era o mesmo triângulo amarelo no claro e no escuro, na interação grave e na leve. | O aviso usa um ícone do app, da cor do aviso, e o desenho muda com a gravidade, como nos selos de status: triângulo na interação grave, exclamação na leve. A folha que mostra a mesma interação ao salvar um medicamento passou a usar os mesmos ícones (usava o triângulo nas duas). Um teste reprova emoji como ícone em telas e componentes. | `AlertBanner.tsx`, `MedicinesScreen.tsx`, `DrugInteractionSheet.tsx` |
 
 ### 2.1 O filtro "Alterados" (D1)
 
@@ -72,8 +73,8 @@ foi editado à mão.
 ## 3. Fora de escopo
 
 - **Item 2 da auditoria** (lista de documentos vazia do Início sem botão de
-  adicionar) e os itens 5, 6 e 7 (as 21 vacinas em chips, o detalhe do exame
-  sem pré-visualização, o emoji de alerta em Remédios): não pedidos nesta leva.
+  adicionar) e os itens 5 e 6 (as 21 vacinas em chips, o detalhe do exame sem
+  pré-visualização): não pedidos nesta leva.
 - **Filtrar as unidades pela forma escolhida** (só "Comp." e "Cáps." para
   Comprimido). As cinco aparecem sempre, como as três apareciam.
 - **O esqueleto das outras telas.** O `ScreenSkeleton` continua como está: nas
@@ -81,8 +82,9 @@ foi editado à mão.
 
 ## 4. Critérios de aceite
 
-- [x] D1 a D4 cobertos por teste (ver `__tests__/filtrosDeExames`,
-      `homeCarregando`, `tipoDoCompromisso`, `formularioDeMedicamentoOpcoes`).
+- [x] D1 a D5 cobertos por teste (ver `__tests__/filtrosDeExames`,
+      `homeCarregando`, `tipoDoCompromisso`, `formularioDeMedicamentoOpcoes`,
+      `avisoDeInteracao`).
 - [x] `npm run validate` verde.
 - [x] Telas alteradas conferidas no navegador, pela rota `/dev-preview`, em
       360dp, claro e escuro; o Início medido carregando e carregado, em 360dp

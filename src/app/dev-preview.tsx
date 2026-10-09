@@ -38,8 +38,10 @@ import { AvisoDeSucesso } from '@/components/AvisoDeSucesso';
 import { BottomTabBar } from '@/components/BottomTabBar';
 import { MarkDoseAppliedSheet } from '@/components/MarkDoseAppliedSheet';
 import { APP_TABS } from '@/constants/navigation';
+import { DRUG_INTERACTION_PAIRS } from '@/data/drugInteractions/pairs';
 import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import type { UserProfile } from '@/contexts/UserContext';
+import type { DrugInteractionMatch } from '@/services/drugInteractionService';
 import type { HealthImport } from '@/types/healthInsights';
 import type {
   AppointmentEntry,
@@ -318,6 +320,24 @@ function AgendaComAvisoDeSalvo() {
   );
 }
 
+// Um aviso de interação grave e um leve, tirados da lista de verdade.
+const PREVIEW_INTERACTIONS: DrugInteractionMatch[] = (['danger', 'warning'] as const).flatMap(
+  (severity) => {
+    const pair = DRUG_INTERACTION_PAIRS.find((item) => item.severity === severity);
+    if (!pair) return [];
+    return [
+      {
+        pair,
+        severity,
+        medicineA: { id: `${pair.id}-a`, name: pair.a },
+        medicineB: { id: `${pair.id}-b`, name: pair.b },
+        riskPt: pair.riskPt,
+        mechanismPt: pair.mechanismPt,
+      },
+    ];
+  },
+);
+
 const PREVIEWS: Record<string, () => React.ReactElement> = {
   // O Início dentro da moldura do app (conteúdo + barra de abas), como o
   // AppShell monta — para ver a barra no contexto, e não solta.
@@ -436,6 +456,19 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
         { id: 'm1', name: 'Losartana', quantity: 22, unit: 'comp.', status: 'ok', percentage: 73 },
         { id: 'm2', name: 'Metformina', quantity: 4, unit: 'comp.', status: 'low', percentage: 13 },
       ]}
+    />
+  ),
+  'medicines-with-interactions': () => (
+    <MedicinesScreen
+      errorMessage={null}
+      hasMedicines
+      interactions={PREVIEW_INTERACTIONS}
+      isLoading={false}
+      medicines={[]}
+      onRetry={noop}
+      onToggleMedicineStatus={async () => {}}
+      pendingCount={0}
+      stocks={[]}
     />
   ),
   'add-medicine': () => <AddMedicineScreen />,

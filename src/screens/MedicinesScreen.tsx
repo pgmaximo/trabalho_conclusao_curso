@@ -132,9 +132,10 @@ export function MedicinesScreen({
             {interactions.length > 0 ? (
               <View className="mb-4">
                 {interactions.map((match) => (
+                  // O ícone é o do tipo do aviso: triângulo na interação grave,
+                  // exclamação na leve. Era um emoji, igual nas duas.
                   <AlertBanner
                     key={match.pair.id}
-                    icon="⚠️"
                     type={match.severity === 'danger' ? 'danger' : 'warning'}
                     title={`${match.medicineA.name} + ${match.medicineB.name}`}
                     message={match.riskPt}

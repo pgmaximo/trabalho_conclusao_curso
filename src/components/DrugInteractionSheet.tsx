@@ -8,6 +8,7 @@ import React from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { ALERT_ICON } from '@/components/AlertBanner';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { FONTS, SPACING, useThemeColors } from '@/constants/theme';
@@ -35,7 +36,9 @@ export function DrugInteractionSheet({ visible, matches, onClose }: DrugInteract
         return (
           <View key={match.pair.id} style={[styles.card, { backgroundColor, borderColor }]}>
             <View style={styles.cardHeader}>
-              <Ionicons color={textColor} name="warning" size={16} />
+              {/* O mesmo ícone do aviso da tela Remédios, que mostra esta mesma
+                  interação depois: triângulo na grave, exclamação na leve. */}
+              <Ionicons color={textColor} name={ALERT_ICON[match.severity]} size={16} />
               <Text style={[styles.cardTitle, { color: textColor }]}>
                 {match.medicineA.name} + {match.medicineB.name}
               </Text>
