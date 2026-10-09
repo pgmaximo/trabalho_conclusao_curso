@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -146,37 +145,34 @@ describe('EditProfileScreen', () => {
     await waitFor(() => expect(onUploadPhoto).toHaveBeenCalledWith('file:///local/photo.jpg'));
   });
 
-  it('shows a permission alert and never uploads when media library access is denied', async () => {
+  // As duas falhas da foto apareciam em pop-up do sistema. Agora aparecem na
+  // tela, embaixo da foto (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
+  it('says on screen that photo access is needed, and never uploads, when access is denied', async () => {
     mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false });
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const onUploadPhoto = jest.fn();
 
     renderEditProfileScreen({ onUploadPhoto });
     fireEvent.press(screen.getByLabelText('Alterar foto'));
 
-    await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith(
-        'Permissão necessária',
+    expect(
+      await screen.findByText(
         'Habilite o acesso às fotos nas configurações do dispositivo para trocar sua foto de perfil.',
       ),
-    );
+    ).toBeTruthy();
     expect(onUploadPhoto).not.toHaveBeenCalled();
   });
 
-  it('shows an error alert and never claims success when the upload fails', async () => {
+  it('shows the error on screen and never claims success when the upload fails', async () => {
     mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true });
     mockLaunchImageLibraryAsync.mockResolvedValue({
       canceled: false,
       assets: [{ uri: 'file:///local/photo.jpg' }],
     });
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const onUploadPhoto = jest.fn().mockRejectedValue(new Error('Falha no upload da foto de perfil.'));
 
     renderEditProfileScreen({ onUploadPhoto });
     fireEvent.press(screen.getByLabelText('Alterar foto'));
 
-    await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith('Erro ao trocar foto', 'Falha no upload da foto de perfil.'),
-    );
+    expect(await screen.findByText('Falha no upload da foto de perfil.')).toBeTruthy();
   });
 });

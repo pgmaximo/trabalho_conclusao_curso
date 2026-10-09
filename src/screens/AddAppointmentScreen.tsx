@@ -16,9 +16,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
 import { DateInput } from '@/components/DateInput';
+import { DetailHeader } from '@/components/DetailHeader';
 import { FormField } from '@/components/FormField';
 import { InlineError } from '@/components/InlineError';
 import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import { createAppointment, type AppointmentType } from '@/services/appointmentService';
 import { maskTimeInput } from '@/utils/timeMask';
 
@@ -74,9 +76,10 @@ export function AddAppointmentScreen() {
         observations: observations.trim() || undefined,
       });
 
+      avisarSucesso('Compromisso salvo.');
       router.back();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Erro ao salvar agendamento.');
+      setSubmitError(error instanceof Error ? error.message : 'Não foi possível salvar o compromisso.');
     } finally {
       setIsSubmitting(false);
     }
@@ -91,21 +94,11 @@ export function AddAppointmentScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Pressable
-              accessibilityLabel="Voltar"
-              accessibilityRole="button"
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons color={colors.text} name="chevron-back" size={22} />
-            </Pressable>
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>Novo agendamento</Text>
-            </View>
-          </View>
+          {/* "Novo compromisso", e não "Novo agendamento": é a palavra da
+              Agenda e do Início para a mesma coisa (consistencia-e-textos, D2). */}
+          <DetailHeader onBack={() => router.back()} title="Novo compromisso" />
 
-          <View style={styles.section}>
+          <View>
             <Text style={styles.sectionTitle}>Tipo</Text>
             <View style={styles.typeRow}>
               {APPOINTMENT_TYPE_OPTIONS.map((option) => {
@@ -136,7 +129,7 @@ export function AddAppointmentScreen() {
 
           <View style={styles.section}>
             <FormField
-              label="Nome do agendamento"
+              label="Nome do compromisso"
               onChangeText={setAppointmentName}
               placeholder="Ex.: Consulta cardiologista"
               value={appointmentName}
@@ -199,7 +192,7 @@ export function AddAppointmentScreen() {
             disabledReason={disabledReason}
             loading={isSubmitting}
             onPress={handleSubmit}
-            title="Salvar agendamento"
+            title="Salvar compromisso"
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -218,33 +211,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     content: {
       paddingHorizontal: SIZES.large,
-      paddingTop: SIZES.base,
+      paddingTop: SIZES.large,
       paddingBottom: SIZES.large * 2,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: SIZES.large,
-      gap: SIZES.base,
-    },
-    backButton: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-      borderCurve: 'continuous',
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    titleContainer: {
-      flex: 1,
-      justifyContent: 'center',
-    },
-    title: {
-      ...FONTS.title,
-      color: colors.text,
     },
     section: {
       marginTop: SIZES.large,

@@ -34,7 +34,7 @@ type HistoryDrawerProps = {
  * seria a tela mentindo sobre o que o banco faz.
  */
 const AVISO_DE_RETENCAO =
-  'Suas conversas ficam guardadas aqui até você apagar. Você pode apagar qualquer uma quando quiser.';
+  'Suas conversas ficam guardadas aqui até você excluir. Você pode excluir qualquer uma quando quiser.';
 
 export function HistoryDrawer({
   visible,
@@ -144,7 +144,7 @@ export function HistoryDrawer({
 
                         {onDelete ? (
                           <Pressable
-                            accessibilityLabel={`Apagar conversa ${item.title}`}
+                            accessibilityLabel={`Excluir conversa ${item.title}`}
                             accessibilityRole="button"
                             className="size-10 items-center justify-center rounded-xl"
                             style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}
@@ -158,7 +158,7 @@ export function HistoryDrawer({
                       {aConfirmar === item.id ? (
                         <DeleteConfirmPanel
                           isDeleting={apagando}
-                          message="Apagar esta conversa? Ela some de vez, e não pode ser desfeita."
+                          message="Excluir esta conversa? Ela some de vez, e essa ação não pode ser desfeita."
                           onCancel={() => setAConfirmar(null)}
                           onConfirm={() => void confirmarExclusao(item.id)}
                         />

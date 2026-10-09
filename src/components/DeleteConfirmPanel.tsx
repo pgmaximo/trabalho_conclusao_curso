@@ -22,6 +22,12 @@ type DeleteConfirmPanelProps = {
   isDeleting?: boolean;
   confirmLabel?: string;
   confirmingLabel?: string;
+  /**
+   * Nome dos botões para o leitor de tela. O padrão fala em "exclusão"; quem usa
+   * o painel para confirmar outra coisa (sair da conta) troca os dois.
+   */
+  cancelAccessibilityLabel?: string;
+  confirmAccessibilityLabel?: string;
 };
 
 export function DeleteConfirmPanel({
@@ -31,6 +37,8 @@ export function DeleteConfirmPanel({
   isDeleting = false,
   confirmLabel = 'Excluir',
   confirmingLabel = 'Excluindo…',
+  cancelAccessibilityLabel = 'Cancelar exclusão',
+  confirmAccessibilityLabel = 'Confirmar exclusão',
 }: DeleteConfirmPanelProps) {
   return (
     <View
@@ -51,7 +59,7 @@ export function DeleteConfirmPanel({
 
       <View className="mt-4 flex-row gap-[10px]">
         <Pressable
-          accessibilityLabel="Cancelar exclusão"
+          accessibilityLabel={cancelAccessibilityLabel}
           accessibilityRole="button"
           disabled={isDeleting}
           onPress={onCancel}
@@ -63,7 +71,7 @@ export function DeleteConfirmPanel({
           </Text>
         </Pressable>
         <Pressable
-          accessibilityLabel="Confirmar exclusão"
+          accessibilityLabel={confirmAccessibilityLabel}
           accessibilityRole="button"
           disabled={isDeleting}
           onPress={onConfirm}

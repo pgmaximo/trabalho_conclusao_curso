@@ -5,15 +5,15 @@
 // =============================================================================
 
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
+import { DetailHeader } from '@/components/DetailHeader';
 import { InlineError } from '@/components/InlineError';
 import {
   EMPTY_MEDICINE_FORM,
@@ -23,7 +23,7 @@ import {
   type MedicineFormState,
 } from '@/components/MedicineFormFields';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
-import { useThemeColors } from '@/constants/theme';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import {
   deleteMedicine,
   getMedicineById,
@@ -58,7 +58,6 @@ function recordToForm(record: MedicineRecord): MedicineFormState {
 
 export function EditMedicineScreen({ id }: EditMedicineScreenProps) {
   const { colorScheme } = useColorScheme();
-  const colors = useThemeColors();
 
   const [medicine, setMedicine] = useState<MedicineRecord | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -118,9 +117,10 @@ export function EditMedicineScreen({ id }: EditMedicineScreenProps) {
         console.error('Erro ao agendar lembretes do medicamento:', reminderError);
       }
 
+      avisarSucesso('Medicamento salvo.');
       router.replace('/medicines');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao atualizar o medicamento.';
+      const message = error instanceof Error ? error.message : 'Não foi possível salvar o medicamento.';
       setSaveError(message);
     } finally {
       setIsSubmitting(false);
@@ -142,9 +142,10 @@ export function EditMedicineScreen({ id }: EditMedicineScreenProps) {
         console.error('Erro ao cancelar lembretes do medicamento:', reminderError);
       }
 
+      avisarSucesso('Medicamento excluído.');
       router.replace('/medicines');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao excluir o medicamento.';
+      const message = error instanceof Error ? error.message : 'Não foi possível excluir o medicamento.';
       setDeleteError(message);
       setIsConfirmingDelete(false);
     } finally {
@@ -161,20 +162,7 @@ export function EditMedicineScreen({ id }: EditMedicineScreenProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View className="mb-6 flex-row items-center gap-3">
-            <Pressable
-              accessibilityLabel="Voltar"
-              accessibilityRole="button"
-              onPress={() => router.back()}
-              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-              className="size-12 items-center justify-center rounded-field border-[1.5px] border-app-border dark:border-app-dark-border"
-            >
-              <Ionicons color={colors.text} name="chevron-back" size={22} />
-            </Pressable>
-            <Text className="flex-1 text-[20px] font-semibold text-app-text dark:text-app-dark-text">
-              Editar medicamento
-            </Text>
-          </View>
+          <DetailHeader onBack={() => router.back()} title="Editar medicamento" />
 
           {isLoading ? (
             <ScreenSkeleton blocks={3} />
@@ -183,7 +171,7 @@ export function EditMedicineScreen({ id }: EditMedicineScreenProps) {
               <Text className="mb-4 text-center text-[17px] text-app-textSecondary dark:text-app-dark-textSecondary">
                 Medicamento não encontrado.
               </Text>
-              <Button title="Voltar para Medicamentos" onPress={() => router.replace('/medicines')} />
+              <Button title="Voltar para Remédios" onPress={() => router.replace('/medicines')} />
             </View>
           ) : (
             <>

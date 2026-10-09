@@ -1,5 +1,7 @@
 # EPIC: Barra de navegação com o Assistente de IA + Início como porta de entrada
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2), o destino que esta spec chama de "Consultas" passou a se chamar "Agenda" no hub Mais e no Início, como a própria tela; e as descrições do hub foram encurtadas para caber em uma linha.
+
 > **Reconciliação (2026-10-09):** por decisão explícita em
 > `specs/02-perfil-home-agenda/home-acesso-completo/spec.md` (D1, D2 e D8), a
 > grade 2×2 do "Acesso rápido" (D6) passou a 2×3, com Vacinação e Smartwatch;

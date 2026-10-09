@@ -14,9 +14,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 
-import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { DetailHeader } from '@/components/DetailHeader';
 import { InlineError } from '@/components/InlineError';
 import { useThemeColors } from '@/constants/theme';
 import {
@@ -116,7 +116,7 @@ export function ImportHealthDataScreen() {
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
       <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
-        <BackHeader onBack={() => router.back()} title="Importar dados de saúde" />
+        <DetailHeader onBack={() => router.back()} title="Importar dados de saúde" />
         {!consentAccepted ? (
           <ConsentStep onAccept={() => setConsentAccepted(true)} />
         ) : (
@@ -211,12 +211,17 @@ function ConsentStep({ onAccept }: ConsentStepProps) {
           Antes de importar
         </Text>
         <Text className="mb-3 text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
-          Os arquivos que você enviar são processados pela Amazon Bedrock, dentro da conta AWS deste projeto — seus
-          dados não são compartilhados com nenhum outro serviço, e a Bedrock não usa o conteúdo para treinar modelos.
+          {/* Sem "conta AWS" nem "a Bedrock" solta: o nome do serviço fica,
+              porque a pessoa tem o direito de saber quem processa o dado,
+              mas a frase diz primeiro o que ele faz
+              (specs/00-fundacao/consistencia-e-textos/spec.md, D8). */}
+          Os arquivos que você enviar são analisados por inteligência artificial, em um serviço de nuvem contratado
+          por este app (Amazon Bedrock). Seus dados não são compartilhados com nenhum outro serviço e não são usados
+          para treinar modelos de IA.
         </Text>
         <Text className="mb-3 text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
-          Os arquivos brutos ficam guardados por até 30 dias e depois são apagados automaticamente. Você pode excluir
-          uma importação (e seus arquivos) a qualquer momento.
+          Os arquivos que você envia ficam guardados por até 30 dias e depois são excluídos automaticamente. Você
+          pode excluir uma importação (e seus arquivos) a qualquer momento.
         </Text>
         <Text className="text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
           A análise gerada é um apoio informativo — nunca um diagnóstico. Consulte sempre um profissional de saúde.

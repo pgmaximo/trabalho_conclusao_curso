@@ -37,6 +37,7 @@ import {
   LgpdNotice,
   REVIEW_STEP_CONFIRMATION_TEXT,
 } from '@/components/profileSetup/ProfileSetupNotice';
+import { InlineError } from '@/components/InlineError';
 import { ProfileSetupReview } from '@/components/profileSetup/ProfileSetupReview';
 import { type ThemeColors, useThemeColors } from '@/constants/theme';
 import {
@@ -48,6 +49,9 @@ import {
 type OnboardingScreenProps = {
   onBack: () => void;
   onComplete: (values: ProfileSetupFormValues) => void | Promise<void>;
+  /** Por que o perfil não foi salvo, na última tentativa. Aparece junto do
+   *  botão "Concluir perfil", que é onde a pessoa está olhando. */
+  submitError?: string | null;
 };
 
 type StepKey = 'personal' | 'clinical' | 'habits' | 'review';
@@ -120,7 +124,7 @@ function formatHeightInput(value: string) {
   return value.replace(/\D/g, '').slice(0, 3);
 }
 
-export function OnboardingScreen({ onBack, onComplete }: OnboardingScreenProps) {
+export function OnboardingScreen({ onBack, onComplete, submitError }: OnboardingScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
@@ -238,6 +242,7 @@ export function OnboardingScreen({ onBack, onComplete }: OnboardingScreenProps) 
           currentStep={currentStep}
           isLastStep={isLastStep}
           isSubmitting={isSubmitting}
+          errorMessage={isLastStep ? submitError : null}
           paddingBottom={footerPaddingBottom}
           onBack={goBack}
           onNext={goNext}
@@ -773,6 +778,7 @@ function Footer({
   currentStep,
   isLastStep,
   isSubmitting,
+  errorMessage,
   onBack,
   onNext,
   paddingBottom,
@@ -780,6 +786,7 @@ function Footer({
   currentStep: number;
   isLastStep: boolean;
   isSubmitting: boolean;
+  errorMessage?: string | null;
   onBack: () => void;
   onNext: () => void;
   paddingBottom: number;
@@ -823,6 +830,7 @@ function Footer({
 
   return (
     <View style={[styles.footer, { paddingBottom }]}>
+      {errorMessage ? <InlineError message={errorMessage} /> : null}
       <View
         style={[
           styles.footerButtons,

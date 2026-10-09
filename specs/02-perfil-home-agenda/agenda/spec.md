@@ -1,5 +1,7 @@
 # EPIC: Agenda — Calendário, Lista do Dia e Novo Agendamento (Bloco 2)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2, D4 e D5), o botão de marcar chama-se "Novo compromisso"; a falha ao abrir o Google Calendar aparece na tela; e a Agenda mostra "Compromisso salvo." ou "Compromisso excluído." quando a pessoa volta de um formulário.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: tela **2c** ("Agenda — calendário, lista do dia e novo agendamento") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 796–840). Tela **2d** ("Novo agendamento", linha 842+) é a tela de destino do FAB, mas está **fora do escopo** deste EPIC (mapeia para `AddAppointmentScreen.tsx`, já existente, própria unidade rastreável por regra 6 da constituição).
 - Rota/arquivo no código (existente): `src/app/(app)/appointments.tsx` (rota `/appointments`, aba "Consultas" da tab bar) → renderiza `src/screens/AgendaScreen.tsx`, alimentado por `src/hooks/useAppointmentsData.ts`.

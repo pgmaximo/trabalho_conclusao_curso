@@ -7,12 +7,13 @@
  * antigo AddVaccineSheet.tsx (removido) para o subconjunto "já aplicada".
  */
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import { View } from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { DateInput } from '@/components/DateInput';
 import { FormField } from '@/components/FormField';
+import { InlineError } from '@/components/InlineError';
 import { getTodayDate } from '@/utils/date';
 import type { VaccineDoseItem } from '@/types/models';
 
@@ -27,13 +28,24 @@ type MarkDoseAppliedSheetProps = {
   visible: boolean;
   dose: VaccineDoseItem | null;
   isSaving: boolean;
+  /** A falha da última tentativa de salvar, mostrada dentro da folha. */
+  errorMessage?: string | null;
   onClose: () => void;
-  onSubmit: (input: MarkDoseAppliedInput) => void | Promise<void>;
+  /** Devolver `false` diz que não salvou: a folha fica aberta, com o que a
+   *  pessoa digitou. */
+  onSubmit: (input: MarkDoseAppliedInput) => void | boolean | Promise<void | boolean>;
 };
 
 const EMPTY_FORM = { date: getTodayDate(), location: '', lot: '', manufacturer: '' };
 
-export function MarkDoseAppliedSheet({ visible, dose, isSaving, onClose, onSubmit }: MarkDoseAppliedSheetProps) {
+export function MarkDoseAppliedSheet({
+  visible,
+  dose,
+  isSaving,
+  errorMessage,
+  onClose,
+  onSubmit,
+}: MarkDoseAppliedSheetProps) {
   const [form, setForm] = useState(EMPTY_FORM);
 
   function update<K extends keyof typeof EMPTY_FORM>(key: K, value: (typeof EMPTY_FORM)[K]) {
@@ -49,25 +61,30 @@ export function MarkDoseAppliedSheet({ visible, dose, isSaving, onClose, onSubmi
     onClose();
   }
 
+  // O que falta aparece embaixo do botão, e não num pop-up do sistema
+  // (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
+  const disabledReason = !form.date
+    ? 'Informe a data em que a dose foi aplicada.'
+    : form.date > getTodayDate()
+      ? 'A data de aplicação não pode estar no futuro.'
+      : undefined;
+
   async function handleSubmit() {
-    if (!form.date) {
-      Alert.alert('Informe a data', 'Selecione a data em que a dose foi aplicada.');
+    if (disabledReason) {
       return;
     }
 
-    if (form.date > getTodayDate()) {
-      Alert.alert('Data inválida', 'A data de aplicação não pode estar no futuro.');
-      return;
-    }
-
-    await onSubmit({
+    const saved = await onSubmit({
       appliedDate: form.date,
       location: form.location.trim() || undefined,
       lot: form.lot.trim() || undefined,
       manufacturer: form.manufacturer.trim() || undefined,
     });
 
-    reset();
+    // Se não salvou, o que a pessoa digitou fica onde está.
+    if (saved !== false) {
+      reset();
+    }
   }
 
   if (!dose) {
@@ -105,7 +122,19 @@ export function MarkDoseAppliedSheet({ visible, dose, isSaving, onClose, onSubmi
         onChangeText={(text) => update('manufacturer', text)}
       />
 
-      <Button loading={isSaving} onPress={handleSubmit} title="Salvar" />
+      {errorMessage ? (
+        <View style={{ marginTop: 16 }}>
+          <InlineError message={errorMessage} />
+        </View>
+      ) : null}
+
+      <Button
+        disabled={Boolean(disabledReason)}
+        disabledReason={disabledReason}
+        loading={isSaving}
+        onPress={handleSubmit}
+        title="Salvar"
+      />
     </BottomSheet>
   );
 }

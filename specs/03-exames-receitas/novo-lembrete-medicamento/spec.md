@@ -1,5 +1,7 @@
 # EPIC: Medicamentos — Novo lembrete de medicamento
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2, D3 e D5), a tela se chama "Adicionar medicamento", o nome do botão que a abre; usa o `DetailHeader`; e, ao salvar, a tela Remédios mostra "Medicamento salvo.".
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 3f ("Novo lembrete de medicamento") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 469-551, entre 3e "Prevenção" e 3g "Editar medicamento — com exclusão confirmada").
 - Rota/arquivo no código: **proposto: `src/app/add-medicine.tsx`** (rota `/add-medicine`) → `src/screens/AddMedicineScreen.tsx` (`AddMedicineScreen`). Não existe hoje nenhuma tela equivalente — confirmado via `Glob src/screens/*.tsx` (17 telas listadas, nenhuma de criação/edição de medicamento) e via `GAP_ANALYSIS.md` linha 45 (`3f Novo lembrete de medicamento | Não | Sim | CRIAR | P1`). `MedicinesScreen.tsx` (`/medicines`) tem um botão "+" no header (`ScreenHeader action`) já desenhado mas com `onPress={() => {}}` vazio — é o gancho de entrada natural para esta tela (ver §4).

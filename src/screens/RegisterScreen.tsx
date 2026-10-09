@@ -2,7 +2,6 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,6 +16,7 @@ import { useColorScheme } from 'nativewind';
 import { AuthInput } from '@/components/AuthInput';
 import { AuthAppHeader } from '@/components/AuthAppHeader';
 import { Button } from '@/components/Button';
+import { PasswordVisibilityToggle } from '@/components/PasswordVisibilityToggle';
 import { SectionDivider } from '@/components/SectionDivider';
 import { SocialButton } from '@/components/SocialButton';
 import { useThemeColors } from '@/constants/theme';
@@ -25,7 +25,6 @@ import { initializeUserSession } from '@/services/auth/userSessionService';
 import { blurActiveWebElement } from '@/utils/webFocus';
 
 const googleLogo = require('../../assets/images/google_Glogo.png');
-const disabledSubmitReason = 'Complete os itens acima para continuar.';
 const mismatchMessage = 'As senhas não são iguais.';
 
 type PasswordRequirement = {
@@ -61,31 +60,45 @@ export function RegisterScreen({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const [registerErrorMessage, setRegisterErrorMessage] = useState<string | null>(null);
 
   const passwordRequirements = getPasswordRequirements(password);
   const isPasswordRequirementsVisible = isPasswordFocused || password.length > 0;
   const isPasswordValid = passwordRequirements.every((requirement) => requirement.isMet);
   const mismatch = confirmPassword.length > 0 && password !== confirmPassword;
-  const notAllOk = !isPasswordValid;
+
+  // DECISION (specs/00-fundacao/consistencia-e-textos/spec.md, D4): o botão diz
+  // o que falta, um item de cada vez e na ordem dos campos. Antes ele só
+  // desabilitava pela senha; e-mail vazio e senhas diferentes eram avisados por
+  // um pop-up do sistema, depois do toque.
+  const disabledReason = !email.trim()
+    ? 'Informe seu e-mail.'
+    : !password
+      ? 'Crie uma senha.'
+      : !isPasswordValid
+        ? 'A senha ainda não atende a todos os itens da lista.'
+        : !confirmPassword
+          ? 'Repita a senha para confirmar.'
+          : mismatch
+            ? 'Corrija a confirmação da senha.'
+            : undefined;
+
+  function clearRegisterError() {
+    if (registerErrorMessage) {
+      setRegisterErrorMessage(null);
+    }
+  }
 
   async function handleRegister() {
+    if (disabledReason) {
+      return;
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
 
-    if (!normalizedEmail || !password || !confirmPassword) {
-      Alert.alert('Atenção', 'Por favor, preencha todos os campos.');
-      return;
-    }
-
-    if (!isPasswordValid) {
-      Alert.alert('Atenção', 'Sua senha ainda não atende a todos os requisitos.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Atenção', 'As senhas não coincidem.');
-      return;
-    }
-
+    setRegisterErrorMessage(null);
     setIsLoading(true);
 
     try {
@@ -101,7 +114,8 @@ export function RegisterScreen({
       });
 
       if (nextStep.signUpStep === 'CONFIRM_SIGN_UP') {
-        Alert.alert('Quase lá!', 'Enviamos um código de confirmação para o seu e-mail.');
+        // Sem pop-up de "enviamos um código": a tela de confirmação abre
+        // dizendo exatamente isso, com o e-mail.
         // DECISION: Passa password para ConfirmScreen para auto-signin apos confirmar email
         onRegisterSuccess(normalizedEmail, password);
       }
@@ -113,7 +127,7 @@ export function RegisterScreen({
       if (error.name === 'InvalidPasswordException') message = 'A senha não atende aos requisitos mínimos de segurança.';
       if (error.name === 'InvalidParameterException') message = 'Verifique se o e-mail está em um formato válido.';
 
-      Alert.alert('Erro no Cadastro', message);
+      setRegisterErrorMessage(message);
     } finally {
       setIsLoading(false);
     }
@@ -121,6 +135,7 @@ export function RegisterScreen({
 
   async function handleGoogleRegister() {
     blurActiveWebElement();
+    setRegisterErrorMessage(null);
     setIsLoading(true);
 
     try {
@@ -130,7 +145,7 @@ export function RegisterScreen({
       onGoogleAuthSuccess();
     } catch (error: any) {
       console.log('Erro no cadastro com Google:', serializeAuthError(error));
-      Alert.alert('Erro', 'Nao foi possivel conectar com o Google.');
+      setRegisterErrorMessage('Não foi possível conectar com o Google.');
       setIsLoading(false);
     }
   }
@@ -160,20 +175,36 @@ export function RegisterScreen({
               icon={<MaterialIcons color={colors.placeholder} name="email" size={20} />}
               keyboardType="email-address"
               label="E-mail"
-              onChangeText={setEmail}
+              onChangeText={(value) => {
+                clearRegisterError();
+                setEmail(value);
+              }}
               placeholder="seu@email.com"
               value={email}
             />
 
+            {/* Os dois campos de senha têm o olho do Login: quem cria a senha
+                precisa conferir o que digitou mais do que quem só a repete
+                (specs/00-fundacao/consistencia-e-textos/spec.md, D6). */}
             <AuthInput
               editable={!isLoading}
               icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
               label="Senha"
               onBlur={() => setIsPasswordFocused(false)}
-              onChangeText={setPassword}
+              onChangeText={(value) => {
+                clearRegisterError();
+                setPassword(value);
+              }}
               onFocus={() => setIsPasswordFocused(true)}
               placeholder="Crie uma senha"
-              secureTextEntry
+              secureTextEntry={!isPasswordVisible}
+              trailingAction={
+                <PasswordVisibilityToggle
+                  disabled={isLoading}
+                  onToggle={() => setIsPasswordVisible((current) => !current)}
+                  visible={isPasswordVisible}
+                />
+              }
               value={password}
             />
 
@@ -209,15 +240,37 @@ export function RegisterScreen({
               hasError={mismatch}
               icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
               label="Confirmar senha"
-              onChangeText={setConfirmPassword}
+              onChangeText={(value) => {
+                clearRegisterError();
+                setConfirmPassword(value);
+              }}
               placeholder="Repita a senha"
-              secureTextEntry
+              secureTextEntry={!isConfirmPasswordVisible}
+              trailingAction={
+                <PasswordVisibilityToggle
+                  disabled={isLoading}
+                  onToggle={() => setIsConfirmPasswordVisible((current) => !current)}
+                  target="confirmação da senha"
+                  visible={isConfirmPasswordVisible}
+                />
+              }
               value={confirmPassword}
             />
 
+            {/* A falha ao criar a conta aparece aqui, como no Login, e não num
+                pop-up do sistema. */}
+            {registerErrorMessage ? (
+              <Text
+                accessibilityRole="alert"
+                className="mt-3 text-[16px] leading-[22px] text-app-danger dark:text-app-dark-danger"
+              >
+                {registerErrorMessage}
+              </Text>
+            ) : null}
+
             <Button
-              disabled={notAllOk}
-              disabledReason={disabledSubmitReason}
+              disabled={Boolean(disabledReason)}
+              disabledReason={disabledReason}
               loading={isLoading}
               loadingTitle="Criando conta..."
               onPress={handleRegister}
@@ -236,15 +289,17 @@ export function RegisterScreen({
             </View>
           </View>
 
+          {/* O mesmo link do Login ("Não tem conta? Criar conta"), no mesmo
+              tamanho e na mesma cor. Aqui ele era menor e verde. */}
           <Pressable
-            className="mt-6 self-center"
+            className="mt-[18px] self-center"
             disabled={isLoading}
             onPress={onNavigateToLogin}
             style={({ pressed }) => [pressed && { opacity: 0.7 }]}
           >
-            <Text className="text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
+            <Text className="text-[17px] leading-[23px] text-app-textSecondary dark:text-app-dark-textSecondary">
               Já tem conta?{' '}
-              <Text className="font-semibold text-app-primary dark:text-app-dark-primary">
+              <Text className="font-semibold text-app-secondary dark:text-app-dark-secondary">
                 Entrar
               </Text>
             </Text>

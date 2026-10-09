@@ -1,5 +1,7 @@
 # EPIC: Detalhe do documento — visualizar/editar/excluir
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D5), excluir um documento é confirmado na tela de Exames por "Documento excluído."; a navegação imediata deixou de ser a única confirmação.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 3c ("Detalhe do documento — visualizar/editar/excluir") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 324-367).
 - Rota/arquivo no código (existente): `document-detail` → `src/app/(app)/document-detail.tsx` (lê `selectedDocument` de `DocumentContext`, converte `MedicalDocument` → `MedicalDocumentMetadata`) → `src/screens/DocumentDetailScreen.tsx` (`DocumentDetailScreen`).

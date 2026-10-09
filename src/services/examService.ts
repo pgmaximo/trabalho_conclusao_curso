@@ -17,7 +17,7 @@ import { uploadFileToS3 } from '@/services/upload';
 import { startExtraction } from '@/services/extractionService';
 import { prepararArquivoParaEnvio } from '@/services/imagemParaEnvio';
 import { todasAsPaginas } from '@/services/todasAsPaginas';
-import { backendError } from '@/services/backendError';
+import { BackendError, backendError } from '@/services/backendError';
 
 const client = generateClient<Schema>();
 
@@ -589,7 +589,14 @@ export async function deleteExamDocument(
     
     return data;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erro desconhecido';
-    throw new Error(`Erro ao deletar documento: ${message}`);
+    // O que os passos acima já escreveram para a pessoa segue como está. O
+    // resto (uma falha do S3, da rede) vira uma frase só, e o erro original
+    // fica no console. Antes, as duas coisas saíam embrulhadas em "Erro ao
+    // deletar documento: ...".
+    if (error instanceof BackendError) {
+      throw error;
+    }
+    console.warn('Não foi possível excluir o documento:', error);
+    throw new Error('Não foi possível excluir o documento.');
   }
 }

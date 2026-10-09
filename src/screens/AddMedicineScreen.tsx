@@ -2,17 +2,21 @@
 // Arquivo: AddMedicineScreen.tsx
 // Descrição: Tela 3f do Canvas — "Novo lembrete de medicamento". Criação pura,
 // todos os campos começam vazios.
+//
+// O título é "Adicionar medicamento": é o nome do botão que abre a tela, e faz
+// par com "Editar medicamento"
+// (specs/00-fundacao/consistencia-e-textos/spec.md, D2).
 // =============================================================================
 
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
+import { DetailHeader } from '@/components/DetailHeader';
 import { DrugInteractionSheet } from '@/components/DrugInteractionSheet';
 import { InlineError } from '@/components/InlineError';
 import {
@@ -22,14 +26,13 @@ import {
   validateMedicineForm,
   type MedicineFormState,
 } from '@/components/MedicineFormFields';
-import { useThemeColors } from '@/constants/theme';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import { createMedicine, listMedicinesForUser } from '@/services/medicineService';
 import { syncMedicineReminders } from '@/services/medicineReminderService';
 import { findInteractionsForCandidate, type DrugInteractionMatch } from '@/services/drugInteractionService';
 
 export function AddMedicineScreen() {
   const { colorScheme } = useColorScheme();
-  const colors = useThemeColors();
 
   const [form, setForm] = useState<MedicineFormState>(EMPTY_MEDICINE_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,18 +78,25 @@ export function AddMedicineScreen() {
         console.error('Erro ao verificar interações medicamentosas:', interactionError);
       }
 
-      router.replace('/medicines');
+      voltarParaRemedios();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao salvar o lembrete.';
+      const message = error instanceof Error ? error.message : 'Não foi possível salvar o medicamento.';
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  // O medicamento já está salvo nos dois caminhos que chegam aqui: direto, ou
+  // depois de a pessoa fechar o aviso de interação.
+  function voltarParaRemedios() {
+    avisarSucesso('Medicamento salvo.');
+    router.replace('/medicines');
+  }
+
   function handleCloseInteractionSheet() {
     setIsInteractionSheetVisible(false);
-    router.replace('/medicines');
+    voltarParaRemedios();
   }
 
   return (
@@ -98,20 +108,7 @@ export function AddMedicineScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View className="mb-6 flex-row items-center gap-3">
-            <Pressable
-              accessibilityLabel="Voltar"
-              accessibilityRole="button"
-              onPress={() => router.back()}
-              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-              className="size-12 items-center justify-center rounded-field border-[1.5px] border-app-border dark:border-app-dark-border"
-            >
-              <Ionicons color={colors.text} name="chevron-back" size={22} />
-            </Pressable>
-            <Text className="flex-1 text-[20px] font-semibold text-app-text dark:text-app-dark-text">
-              Novo lembrete
-            </Text>
-          </View>
+          <DetailHeader onBack={() => router.back()} title="Adicionar medicamento" />
 
           {submitError ? <InlineError message={submitError} /> : null}
 

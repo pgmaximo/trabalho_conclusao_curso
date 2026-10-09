@@ -1,5 +1,7 @@
 # EPIC: Memória do usuário — o que o assistente lembra de uma conversa para a outra (Bloco 7)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2), a tela diz "excluir" onde esta spec diz "apagar" ("Excluir este fato", "Excluir tudo", "Desligar e excluir tudo").
+
 > **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D6 e D7), a tela "O que eu lembro" ganhou botão de voltar, área segura e estado de carregamento, e passou a ter entrada também no hub Mais; e o Assistente reabre a conversa que estava aberta quando a pessoa volta à aba.
 
 ## 1. Identificação

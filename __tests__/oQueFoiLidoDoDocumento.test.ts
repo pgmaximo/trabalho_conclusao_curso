@@ -115,7 +115,9 @@ describe('deleteExamDocument leva junto o que foi lido (E3)', () => {
         : { data: { id }, errors: undefined },
     );
 
-    await expect(deleteExamDocument('doc-1', 'exams/a.pdf')).rejects.toThrow(/Erro ao deletar documento/);
+    await expect(deleteExamDocument('doc-1', 'exams/a.pdf')).rejects.toThrow(
+      'Não foi possível excluir os resultados lidos do documento.',
+    );
     expect(mockRemoverArquivo).not.toHaveBeenCalled();
     expect(mockApagarDocumento).not.toHaveBeenCalled();
   });

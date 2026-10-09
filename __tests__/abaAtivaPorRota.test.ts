@@ -83,8 +83,9 @@ describe('APP_TABS', () => {
 });
 
 describe('MORE_MENU_ITEMS', () => {
-  it('abre com Consultas, que continua levando a agenda', () => {
-    expect(MORE_MENU_ITEMS[0]).toMatchObject({ label: 'Consultas', href: '/appointments', icon: 'calendar' });
+  it('abre com a Agenda, com o nome da tela que ela abre', () => {
+    // Chamava-se "Consultas" (consistencia-e-textos, D2).
+    expect(MORE_MENU_ITEMS[0]).toMatchObject({ label: 'Agenda', href: '/appointments', icon: 'calendar' });
   });
 
   it('nao repete o Assistente, que agora esta na barra', () => {

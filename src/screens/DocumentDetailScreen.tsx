@@ -35,6 +35,7 @@ import { HachuraPlaceholder } from '@/components/HachuraPlaceholder';
 import { InlineError } from '@/components/InlineError';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
 import { useThemeColors } from '@/constants/theme';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import type { UseDocumentExtractionResult } from '@/hooks/useDocumentExtraction';
 import {
   getDocumentDownloadUrl,
@@ -147,11 +148,12 @@ export function DocumentDetailScreen({ document, extraction }: DocumentDetailScr
 
     try {
       await deleteExamDocument(document.id, document.s3FileName, document.extraPageKeys ?? []);
+      avisarSucesso('Documento excluído.');
       router.replace('/exams');
     } catch (error) {
       // Painel fecha e o usuário permanece na tela do documento para nova tentativa —
       // spec.md cenário "Confirmar exclusão (erro)".
-      const message = error instanceof Error ? error.message : 'Erro ao excluir documento.';
+      const message = error instanceof Error ? error.message : 'Não foi possível excluir o documento.';
       setDeleteError(message);
       setIsConfirmingDelete(false);
     } finally {

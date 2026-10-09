@@ -5,12 +5,12 @@
  * UserContext e volta para a tela de Perfil.
  */
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
 import { router } from 'expo-router';
 
 import { EditProfileScreen, type EditProfileFormState } from '@/screens/EditProfileScreen';
 import { saveUserProfile, updateUserPhotoKey } from '@/services/profileSetupRepository';
 import { uploadAvatarPhoto } from '@/services/avatarService';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import { useUserContext } from '@/contexts/UserContext';
 import type { UserProfile } from '@/contexts/UserContext';
 import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
@@ -80,6 +80,7 @@ function formStateToProfileValues(form: EditProfileFormState): ProfileSetupFormV
 export default function EditProfileRoute() {
   const { user, refreshUser } = useUserContext();
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!user) {
     router.replace('/dashboard');
@@ -94,14 +95,17 @@ export default function EditProfileRoute() {
 
   async function handleSubmit(form: EditProfileFormState) {
     setIsSaving(true);
+    setSaveError(null);
     try {
       await saveUserProfile(formStateToProfileValues(form), { emptyClinicalFields: 'clear' });
       await refreshUser();
+      avisarSucesso('Perfil atualizado.');
       router.back();
     } catch (error) {
       console.log('Erro ao editar perfil:', error);
-      Alert.alert(
-        'Erro ao salvar',
+      // Na própria tela, acima do botão, e não num pop-up do sistema
+      // (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
+      setSaveError(
         'Não foi possível salvar suas alterações agora. Verifique sua conexão e tente novamente.',
       );
     } finally {
@@ -117,6 +121,7 @@ export default function EditProfileRoute() {
       gender={user.gender}
       photoUrl={user.photoUrl}
       isSaving={isSaving}
+      saveError={saveError}
       onCancel={() => router.back()}
       onSubmit={handleSubmit}
       onUploadPhoto={handleUploadPhoto}

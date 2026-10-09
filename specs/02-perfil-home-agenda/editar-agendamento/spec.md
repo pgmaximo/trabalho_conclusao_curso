@@ -1,5 +1,7 @@
 # EPIC: Editar agendamento — com exclusão confirmada
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2, D3 e D5), a tela se chama "Editar compromisso" (botão "Excluir compromisso"), usa o cabeçalho das telas de formulário também enquanto carrega, e salvar ou excluir é confirmado na Agenda por um aviso no rodapé.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 2e ("Editar agendamento — com exclusão confirmada") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 874-918).
 - Rota/arquivo no código (existente): `edit-appointment?id=` → `src/app/edit-appointment.tsx` (lê `id` via `useLocalSearchParams`, retorna `null` se ausente) → `src/screens/EditAppointmentScreen.tsx` (`EditAppointmentScreen`).

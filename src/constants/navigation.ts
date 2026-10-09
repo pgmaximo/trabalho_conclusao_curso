@@ -19,12 +19,12 @@
 // - exams:     document-text        Exames     - Histórico médico
 // - assistant: chatbubble-ellipses  Assistente - Chat com a IA (href /ai), no centro
 // - medicines: medkit               Remédios   - Doses, estoque e lembretes
-// - more:      ellipsis-horizontal  Mais       - Hub: Consultas, Prevenção, Vacinação,
+// - more:      ellipsis-horizontal  Mais       - Hub: Agenda, Prevenção, Vacinação,
 //                                                smartwatch, memória do assistente
 //                                                e Perfil
 //
 // Ordem decidida em specs/00-fundacao/barra-de-navegacao (Opção 1 da proposta):
-// o Assistente saiu de "Mais" para a barra, e Consultas (uso mensal) cedeu o
+// o Assistente saiu de "Mais" para a barra, e a Agenda (uso mensal) cedeu o
 // lugar, indo para o topo do hub. A agenda continua a 1 toque pelo Início
 // (Acesso rápido e "Próximos compromissos").
 //
@@ -55,34 +55,41 @@ export const APP_TABS = [
 export type AppTabId = (typeof APP_TABS)[number]['id'];
 
 // Itens do hub "Mais" (tela de menu, ver src/screens/MoreScreen.tsx).
+//
+// A descrição cabe em UMA linha: olhado no navegador em 360dp, entram até 25
+// caracteres (IBM Plex Sans 16px); o que passa disso é cortado com reticências.
+// Quatro das seis estavam cortadas. O teste nomesDosDestinos cobra o limite.
 // Config estática local, sem dependência de dados remotos (spec.md §5).
 export const MORE_MENU_ITEMS = [
+  // DECISION (specs/00-fundacao/consistencia-e-textos/spec.md, D2): chamava-se
+  // "Consultas" aqui e no Início, e "Agenda" na própria tela. Ficou "Agenda":
+  // ela guarda também exames e cirurgias marcados.
   {
     id: 'appointments',
     icon: 'calendar',
-    label: 'Consultas',
-    description: 'Suas consultas marcadas',
+    label: 'Agenda',
+    description: 'Consultas e exames',
     href: '/appointments',
   },
   {
     id: 'prevention',
     icon: 'shield-checkmark',
     label: 'Prevenção & Alertas',
-    description: 'Itens preventivos e alertas de saúde',
+    description: 'Cuidados recomendados',
     href: '/prevention',
   },
   {
     id: 'vaccination',
     icon: 'medical',
     label: 'Carteira de vacinação',
-    description: 'Doses aplicadas e recomendadas',
+    description: 'Suas doses e campanhas',
     href: '/vaccination',
   },
   {
     id: 'health-data',
     icon: 'watch',
     label: 'Dados do smartwatch',
-    description: 'Insights do seu sono, passos e batimentos',
+    description: 'Sono, passos e batimentos',
     href: '/health-data',
   },
   // A memória mora dentro do Assistente (e acende a aba dele), mas só era
@@ -117,7 +124,7 @@ export const ROUTE_TAB_MAP = {
   ai: 'assistant',
   'assistant-memory': 'assistant', // aberto de dentro do Assistente de IA
   more: 'more',
-  // Consultas vive no hub Mais, como Prevenção e Vacinação — que também têm
+  // A Agenda vive no hub Mais, como Prevenção e Vacinação — que também têm
   // atalho no Início e mesmo assim acendem "Mais" (spec.md, D2).
   appointments: 'more',
   prevention: 'more',

@@ -127,6 +127,6 @@ describe('a memória cheia', () => {
     // que ela guardou coisa demais.
     const { MENSAGEM_CHEIA } = require('@/components/MemoryProposalCard');
     expect(MENSAGEM_CHEIA).not.toMatch(/você (guardou|excedeu|abusou)/i);
-    expect(MENSAGEM_CHEIA).toMatch(/apagar|apague/i);
+    expect(MENSAGEM_CHEIA).toMatch(/excluir|exclua/i);
   });
 });

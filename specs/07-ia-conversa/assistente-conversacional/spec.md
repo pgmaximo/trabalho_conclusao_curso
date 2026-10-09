@@ -1,5 +1,7 @@
 # EPIC: Assistente conversacional — a IA de comunicação com dado real (Bloco 7)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2), a tela diz "excluir" onde esta spec diz "apagar" (o botão da conversa, a pergunta de confirmação e a linha de retenção). O que a ação faz não mudou: excluir continua sendo sumir de verdade.
+
 ## 1. Identificação
 
 - **Origem:** o Claude Design desenha a tela **4a** ("Assistente de IA — chat

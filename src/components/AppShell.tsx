@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { router, Slot, usePathname } from 'expo-router';
 
 import { APP_TABS, getActiveTabId } from '@/constants/navigation';
+import { AvisoDeSucesso } from '@/components/AvisoDeSucesso';
 import { BottomTabBar } from '@/components/BottomTabBar';
 
 export function AppShell() {
@@ -13,6 +14,9 @@ export function AppShell() {
     <View className="flex-1 bg-app-background dark:bg-app-dark-background">
       <View className="flex-1">
         <Slot />
+        {/* Dentro da área das telas, e não por cima do app todo: assim o aviso
+            de "salvo" fica acima da barra de abas, e não sobre ela. */}
+        <AvisoDeSucesso />
       </View>
 
       <BottomTabBar

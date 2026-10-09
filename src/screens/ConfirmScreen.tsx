@@ -2,7 +2,6 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   NativeSyntheticEvent,
   Platform,
@@ -41,6 +40,9 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
   // ATTENTION: cooldown inicia em 60 pois o código já foi enviado pelo RegisterScreen
   const [cooldown, setCooldown] = useState(60);
   const [isResending, setIsResending] = useState(false);
+  // As falhas aparecem na tela, e não em pop-ups do sistema
+  // (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const inputRefs = useRef<(TextInput | null)[]>(Array(DIGIT_COUNT).fill(null));
 
   const codeFull = digits.every((digit) => digit.length === 1);
@@ -69,6 +71,7 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
     const sanitized = rawValue.replace(/[^0-9]/g, '');
     const value = sanitized.slice(-1);
 
+    setErrorMessage(null);
     setDigits((current) => {
       const next = [...current];
       next[index] = value;
@@ -101,13 +104,14 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
     }
 
     setIsResending(true);
+    setErrorMessage(null);
 
     try {
       await resendSignUpCode({ username: email });
       setCooldown(60);
     } catch (error) {
       console.log('Erro ao reenviar código:', error);
-      Alert.alert('Erro', 'Não foi possível reenviar o código.');
+      setErrorMessage('Não foi possível reenviar o código.');
     } finally {
       setIsResending(false);
     }
@@ -119,6 +123,7 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
     }
 
     setIsLoading(true);
+    setErrorMessage(null);
 
     try {
       await confirmSignUp({
@@ -156,12 +161,13 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
         // Nao eh bloqueante - pode ser que os tokens estejam disponiveis mesmo assim
       }
 
-      Alert.alert('Sucesso!', 'Sua conta foi confirmada com sucesso.');
+      // Sem pop-up de "conta confirmada": a tela seguinte, a do perfil de
+      // saúde, é a confirmação.
       blurActiveWebElement();
       onConfirmSuccess();
     } catch (error: any) {
       console.log('Erro na confirmação:', error);
-      Alert.alert('Erro', 'Código inválido ou expirado.');
+      setErrorMessage('Código inválido ou expirado.');
     } finally {
       setIsLoading(false);
     }
@@ -227,6 +233,15 @@ export function ConfirmScreen({ email, password, onConfirmSuccess, onBackToLogin
                 />
               ))}
             </View>
+
+            {errorMessage ? (
+              <Text
+                accessibilityRole="alert"
+                className="mt-3 text-[16px] leading-[22px] text-app-danger dark:text-app-dark-danger"
+              >
+                {errorMessage}
+              </Text>
+            ) : null}
 
             <Button
               disabled={!codeFull}

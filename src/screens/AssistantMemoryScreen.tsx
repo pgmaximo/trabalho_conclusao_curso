@@ -38,7 +38,7 @@ import type { MemoryKind } from '../../amplify/functions/chat-assistant/memoria/
 
 /** O art. 6º, VI (transparência) numa frase, e ela aparece inclusive vazia. */
 const ABERTURA =
-  'Eu só guardo o que você confirma, e você pode apagar quando quiser. Isto não são seus exames — é só o que ajuda a conversar do seu jeito.';
+  'Eu só guardo o que você confirma, e você pode excluir quando quiser. Isto não são seus exames — é só o que ajuda a conversar do seu jeito.';
 
 const VAZIO = 'Ainda não guardei nada. Quando você me contar algo que mude o jeito de eu responder, eu pergunto antes de guardar.';
 
@@ -169,7 +169,7 @@ function LinhaDeFato({ fato, state }: LinhaDeFatoProps) {
         </Pressable>
 
         <Pressable
-          accessibilityLabel="Apagar este fato"
+          accessibilityLabel="Excluir este fato"
           accessibilityRole="button"
           onPress={() => setAConfirmar(true)}
           className="size-9 items-center justify-center rounded-xl"
@@ -181,7 +181,7 @@ function LinhaDeFato({ fato, state }: LinhaDeFatoProps) {
       {aConfirmar ? (
         <View className="mt-3">
           <DeleteConfirmPanel
-            message="Apagar este fato? Ele some de vez, e não pode ser desfeita."
+            message="Excluir este fato? Ele some de vez, e essa ação não pode ser desfeita."
             onCancel={() => setAConfirmar(false)}
             onConfirm={() => void state.apagar(fato.id)}
           />
@@ -268,7 +268,7 @@ export function AssistantMemoryScreen({ state, onBack }: AssistantMemoryScreenPr
           <View className="mt-4">
             <Text className="text-[14px] leading-[20px] text-app-text dark:text-app-dark-text">
               Eu paro de guardar e de usar o que já está guardado. E o que já
-              guardei, você quer manter ou apagar?
+              guardei, você quer manter ou excluir?
             </Text>
             <View className="mt-3 gap-2">
               <Pressable
@@ -293,7 +293,7 @@ export function AssistantMemoryScreen({ state, onBack }: AssistantMemoryScreenPr
                 className="h-11 items-center justify-center rounded-field border-[1.5px] border-app-dangerBadgeBorder bg-app-dangerSoft dark:border-app-dark-dangerBadgeBorder dark:bg-app-dark-dangerSoft"
               >
                 <Text className="text-[14px] font-semibold text-app-danger dark:text-app-dark-danger">
-                  Desligar e apagar tudo
+                  Desligar e excluir tudo
                 </Text>
               </Pressable>
             </View>
@@ -320,13 +320,13 @@ export function AssistantMemoryScreen({ state, onBack }: AssistantMemoryScreenPr
               />
             ) : (
               <Pressable
-                accessibilityLabel="Apagar tudo o que eu lembro"
+                accessibilityLabel="Excluir tudo o que eu lembro"
                 accessibilityRole="button"
                 onPress={() => setConfirmandoTudo(true)}
                 className="h-11 items-center justify-center rounded-field border-[1.5px] border-app-dangerBadgeBorder dark:border-app-dark-dangerBadgeBorder"
               >
                 <Text className="text-[14px] font-semibold text-app-danger dark:text-app-dark-danger">
-                  Apagar tudo
+                  Excluir tudo
                 </Text>
               </Pressable>
             )}

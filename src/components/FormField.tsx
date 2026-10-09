@@ -93,7 +93,10 @@ export function FormField({
 
         <TextInput
           accessibilityLabel={label}
-          className={`flex-1 text-[17px] text-app-text dark:text-app-dark-text ${inputClassName ?? ''}`}
+          // `min-w-0`: no navegador, um <input> não encolhe abaixo da sua largura
+          // padrão, e empurrava para fora da caixa o que vem depois dele (o olho
+          // do campo de senha, em telas de 360dp). No celular não muda nada.
+          className={`min-w-0 flex-1 text-[17px] text-app-text dark:text-app-dark-text ${inputClassName ?? ''}`}
           placeholderTextColor={colors.placeholder}
           style={style}
           onBlur={(event) => {

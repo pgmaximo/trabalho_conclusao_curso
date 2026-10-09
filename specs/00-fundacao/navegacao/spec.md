@@ -1,5 +1,7 @@
 # EPIC: Fundação — Estrutura de Navegação (5 abas + Mais)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2 e D3), o item "Consultas" do hub Mais passou a se chamar "Agenda", e as telas do app usam um de dois cabeçalhos: o `ScreenHeader` (24px) ou o `DetailHeader` (20px).
+
 > **Reconciliação (2026-09-25):** a ordem das abas desta EPIC foi alterada por
 > decisão explícita em `specs/00-fundacao/barra-de-navegacao/spec.md` (D1):
 > a barra passou a ser Início · Exames · Assistente · Remédios · Mais, e

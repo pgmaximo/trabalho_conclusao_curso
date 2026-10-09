@@ -1,5 +1,7 @@
 # EPIC: Editar Perfil — Scroll Único
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D3, D4 e D5), a tela usa o cabeçalho das telas de formulário; as falhas (ao salvar, ao trocar a foto, sem permissão para as fotos) aparecem na tela, e não em pop-up do sistema; e, ao salvar, o Perfil mostra "Perfil atualizado.".
+
 > **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D10), esta tela passou a mostrar e editar condições crônicas, medicamentos em uso e alergias, antes só coletados no cadastro inicial.
 
 ## 1. Identificação

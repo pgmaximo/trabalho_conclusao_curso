@@ -56,10 +56,14 @@ type HomeScreenProps = {
   onNavigateToExamDetail: (id: string) => void;
   /** Abre o compromisso tocado (`/edit-appointment?id=`). Distinto de
    *  `onNavigateToAppointments`, que continua levando a Agenda a partir de
-   *  "Ver agenda", do botao do Resumo, do estado vazio e do Acesso rapido. */
+   *  "Ver agenda", do botao do Resumo e do Acesso rapido. */
   onNavigateToAppointmentDetail?: (id: string) => void;
   onNavigateToExams: () => void;
   onNavigateToAppointments?: () => void;
+  /** Abre o formulário de novo compromisso. É o destino do botão da lista
+   *  vazia: ele dizia "Agendar consulta" e levava à Agenda, onde havia outro
+   *  botão igual. Sem ele, o botão não é desenhado. */
+  onNavigateToNewAppointment?: () => void;
   onNavigateToMedicines?: () => void;
   onNavigateToPrevention?: () => void;
   onNavigateToVaccination?: () => void;
@@ -106,6 +110,7 @@ export function HomeScreen({
   onNavigateToAppointmentDetail,
   onNavigateToExams,
   onNavigateToAppointments,
+  onNavigateToNewAppointment,
   onNavigateToMedicines,
   onNavigateToPrevention,
   onNavigateToVaccination,
@@ -165,8 +170,8 @@ export function HomeScreen({
         ) : null}
 
         {/* DECISION (specs/00-fundacao/barra-de-navegacao/spec.md, D6): o Acesso
-            rápido subiu para logo depois do Resumo e ganhou Consultas e Exames.
-            Consultas saiu da barra, e o Início passou a ser a porta de entrada
+            rápido subiu para logo depois do Resumo e ganhou Agenda e Exames.
+            A Agenda saiu da barra, e o Início passou a ser a porta de entrada
             de 1 toque para ela, Exames e Remédios. "Análise IA" saiu: virou a
             aba Assistente.
 
@@ -182,11 +187,12 @@ export function HomeScreen({
             <QuickAccessButton
               detail={
                 appointmentsLoading || appointmentsError
-                  ? 'Sua agenda'
+                  ? 'Compromissos'
                   : resumoDoProximoCompromisso(upcomingAppointments)
               }
               icon="calendar-outline"
-              label="Consultas"
+              // "Agenda", como a tela que ele abre (consistencia-e-textos, D2).
+              label="Agenda"
               onPress={onNavigateToAppointments}
               tone="secondary"
             />
@@ -241,7 +247,8 @@ export function HomeScreen({
 
         <Section
           action={<SectionLink label="Ver todos" onPress={onNavigateToExams} />}
-          title="Últimos exames"
+          // "documentos", como a tela de Exames: a lista traz exames e receitas.
+          title="Últimos documentos"
         >
           {examsLoading ? (
             <ScreenSkeleton blocks={2} />
@@ -251,7 +258,7 @@ export function HomeScreen({
               description={examsError}
               icon="alert-circle-outline"
               onActionPress={onRetryExams}
-              title="Não foi possível carregar seus exames"
+              title="Não foi possível carregar seus documentos"
               tone="error"
             />
           ) : recentExams.length > 0 ? (
@@ -276,9 +283,9 @@ export function HomeScreen({
             ))
           ) : (
             <EmptyState
-              description="Seus exames aparecerão aqui após o upload."
+              description="Seus exames e receitas aparecem aqui depois de enviados."
               icon="document-text-outline"
-              title="Nenhum exame enviado"
+              title="Nenhum documento enviado"
             />
           )}
         </Section>
@@ -308,10 +315,10 @@ export function HomeScreen({
             ))
           ) : (
             <EmptyState
-              actionLabel={onNavigateToAppointments ? 'Agendar consulta' : undefined}
-              description="Quando você agendar uma consulta ou exame, ela aparecerá aqui."
+              actionLabel={onNavigateToNewAppointment ? 'Novo compromisso' : undefined}
+              description="Quando você marcar uma consulta ou um exame, o compromisso aparece aqui."
               icon="calendar-outline"
-              onActionPress={onNavigateToAppointments}
+              onActionPress={onNavigateToNewAppointment}
               title="Nenhum compromisso agendado"
             />
           )}

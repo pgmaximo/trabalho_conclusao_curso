@@ -7,14 +7,15 @@
  * pendente/atrasada sem recadastrar a vacina do zero).
  */
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
 import { router } from 'expo-router';
 
 import { MarkDoseAppliedSheet, type MarkDoseAppliedInput } from '@/components/MarkDoseAppliedSheet';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import { useVaccinationData } from '@/hooks/useVaccinationData';
 import { deleteVaccineDose, markDoseApplied } from '@/services/vaccinationService';
 import type { VaccineDoseItem } from '@/types/models';
+import { goBackOr } from '@/utils/goBack';
 
 export default function VaccinationRoute() {
   const {
@@ -35,11 +36,18 @@ export default function VaccinationRoute() {
 
   const [doseToMark, setDoseToMark] = useState<VaccineDoseItem | null>(null);
   const [isMarking, setIsMarking] = useState(false);
+  // As falhas aparecem na tela, junto de onde aconteceram, e não num pop-up do
+  // sistema (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
+  const [markError, setMarkError] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
-  async function handleConfirmMarkApplied(input: MarkDoseAppliedInput) {
-    if (!doseToMark) return;
+  // Devolve `false` quando não salvou: a folha fica aberta, com o que a pessoa
+  // digitou e o erro.
+  async function handleConfirmMarkApplied(input: MarkDoseAppliedInput): Promise<boolean> {
+    if (!doseToMark) return false;
 
     setIsMarking(true);
+    setMarkError(null);
     try {
       await markDoseApplied({
         id: doseToMark.id,
@@ -51,10 +59,14 @@ export default function VaccinationRoute() {
         manufacturer: input.manufacturer,
       });
       setDoseToMark(null);
+      avisarSucesso('Dose marcada como aplicada.');
       retry();
+      return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao marcar a vacina como aplicada.';
-      Alert.alert('Erro ao salvar', message);
+      setMarkError(
+        error instanceof Error ? error.message : 'Não foi possível marcar a dose como aplicada.',
+      );
+      return false;
     } finally {
       setIsMarking(false);
     }
@@ -63,10 +75,12 @@ export default function VaccinationRoute() {
   // Um erro aqui sobe para a tela, que o mostra junto do registro.
   async function handleDeleteDose(item: VaccineDoseItem) {
     await deleteVaccineDose(item.id);
+    avisarSucesso('Registro de vacina excluído.');
     retry();
   }
 
   async function handleRequestLocation() {
+    setLocationError(null);
     const location = await requestLocation();
     if (!location) {
       // Não afirmamos que é falta de permissão/configuração — isso já
@@ -75,9 +89,8 @@ export default function VaccinationRoute() {
       // em locationService.ts#resolvePosition). Culpar a configuração do
       // usuário quando não sabemos a causa real só manda a pessoa checar
       // algo que já está certo.
-      Alert.alert(
-        'Não foi possível obter sua localização agora',
-        'Isso pode acontecer mesmo com a localização ativada e a permissão concedida — o GPS às vezes demora para responder. Tente novamente em alguns segundos.',
+      setLocationError(
+        'Não foi possível obter sua localização agora. Isso pode acontecer mesmo com a localização ativada: o GPS às vezes demora para responder. Tente de novo em alguns segundos.',
       );
     }
   }
@@ -99,7 +112,12 @@ export default function VaccinationRoute() {
         onAddVaccine={() => router.push('/add-vaccine')}
         onRetry={retry}
         onRequestLocation={handleRequestLocation}
-        onMarkDoseApplied={setDoseToMark}
+        locationError={locationError}
+        onBack={() => goBackOr('/more')}
+        onMarkDoseApplied={(item) => {
+          setMarkError(null);
+          setDoseToMark(item);
+        }}
         onDeleteDose={handleDeleteDose}
       />
 
@@ -107,7 +125,11 @@ export default function VaccinationRoute() {
         visible={doseToMark !== null}
         dose={doseToMark}
         isSaving={isMarking}
-        onClose={() => setDoseToMark(null)}
+        errorMessage={markError}
+        onClose={() => {
+          setMarkError(null);
+          setDoseToMark(null);
+        }}
         onSubmit={handleConfirmMarkApplied}
       />
     </>

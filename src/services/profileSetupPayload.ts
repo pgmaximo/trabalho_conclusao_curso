@@ -87,7 +87,7 @@ function toAwsDate(value: string) {
   const parsedBirthDate = parseBrazilianDate(value);
 
   if (!parsedBirthDate) {
-    throw new Error('Data de nascimento invalida para salvar o perfil.');
+    throw new Error('Data de nascimento inválida para salvar o perfil.');
   }
 
   const year = parsedBirthDate.getFullYear();

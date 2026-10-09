@@ -15,16 +15,16 @@ const optionalNumericText = (fieldLabel: string) =>
     .string()
     .trim()
     .refine((value) => value.length === 0 || /^\d+([,.]\d+)?$/.test(value), {
-      message: `${fieldLabel} deve ser numerico`,
+      message: `${fieldLabel} deve ser um número`,
     });
 
 export const profileSetupSchema = z.object({
-  fullName: z.string().trim().min(1, 'Nome completo e obrigatorio'),
+  fullName: z.string().trim().min(1, 'Informe seu nome completo.'),
   birthDate: z
     .string()
     .trim()
-    .min(1, 'Data de nascimento e obrigatoria')
-    .regex(/^\d{2}\/\d{2}\/\d{4}$/, 'Data de nascimento deve estar no formato DD/MM/AAAA'),
+    .min(1, 'Informe sua data de nascimento.')
+    .regex(/^\d{2}\/\d{2}\/\d{4}$/, 'Use o formato DD/MM/AAAA.'),
   biologicalSex: z.enum(biologicalSexFormOptions),
   pregnancyStatus: z.enum(optionalAnswerOptions),
   heightCm: optionalNumericText('Altura'),

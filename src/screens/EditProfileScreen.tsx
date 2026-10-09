@@ -12,7 +12,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -24,10 +23,11 @@ import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Avatar } from '@/components/Avatar';
+import { DetailHeader } from '@/components/DetailHeader';
 import { FormField } from '@/components/FormField';
+import { InlineError } from '@/components/InlineError';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 
@@ -58,6 +58,8 @@ type EditProfileScreenProps = {
   gender?: 'male' | 'female' | 'other' | undefined;
   photoUrl?: string;
   isSaving: boolean;
+  /** A falha da última tentativa de salvar, mostrada acima do botão. */
+  saveError?: string | null;
   onCancel: () => void;
   onSubmit: (values: EditProfileFormState) => void | Promise<void>;
   /** Faz upload real da foto (URI local) e persiste a key no UserProfile. */
@@ -97,6 +99,7 @@ export function EditProfileScreen({
   gender,
   photoUrl,
   isSaving,
+  saveError,
   onCancel,
   onSubmit,
   onUploadPhoto,
@@ -108,6 +111,9 @@ export function EditProfileScreen({
   const [previewPhotoUri, setPreviewPhotoUri] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isChangePhotoPressed, setIsChangePhotoPressed] = useState(false);
+  // As falhas da foto aparecem embaixo dela, e não num pop-up do sistema
+  // (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   function update<K extends keyof EditProfileFormState>(key: K, value: EditProfileFormState[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -136,11 +142,12 @@ export function EditProfileScreen({
   async function handleChangePhoto() {
     if (isUploadingPhoto) return;
 
+    setPhotoError(null);
+
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
-          'Permissão necessária',
+        setPhotoError(
           'Habilite o acesso às fotos nas configurações do dispositivo para trocar sua foto de perfil.',
         );
         return;
@@ -163,9 +170,9 @@ export function EditProfileScreen({
       await onUploadPhoto(localUri);
     } catch (error) {
       setPreviewPhotoUri(null);
-      const message =
-        error instanceof Error ? error.message : 'Não foi possível enviar sua foto agora.';
-      Alert.alert('Erro ao trocar foto', message);
+      setPhotoError(
+        error instanceof Error ? error.message : 'Não foi possível enviar sua foto agora.',
+      );
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -177,32 +184,20 @@ export function EditProfileScreen({
     <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-1">
-        <Pressable
-          accessibilityLabel="Voltar"
-          accessibilityRole="button"
-          onPress={onCancel}
-          className="size-11 items-center justify-center rounded-full"
-          style={({ pressed }) => [pressed && { opacity: 0.6 }]}
-        >
-          <Ionicons color={colorScheme === 'dark' ? '#F8FAFC' : '#0F172A'} name="chevron-back" size={26} />
-        </Pressable>
-        <Text className="text-[17px] font-bold text-app-text dark:text-app-dark-text">
-          Editar perfil
-        </Text>
-        <View className="size-11" />
-      </View>
-
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
         <ScrollView
-          contentContainerClassName="px-6 pb-8 pt-2"
+          contentContainerClassName="px-6 pb-8 pt-6"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* O cabeçalho das telas de formulário. Era um título de 17px
+              centralizado, com uma seta sem borda, só desta tela
+              (specs/00-fundacao/consistencia-e-textos/spec.md, D3). */}
+          <DetailHeader onBack={onCancel} title="Editar perfil" />
+
           <View className="mb-8 items-center">
             <Avatar
               name={displayName}
@@ -233,6 +228,11 @@ export function EditProfileScreen({
               <Text className="mt-3 text-[13px] text-app-textSecondary dark:text-app-dark-textSecondary">
                 {email}
               </Text>
+            ) : null}
+            {photoError ? (
+              <View className="mt-4 self-stretch">
+                <InlineError message={photoError} />
+              </View>
             ) : null}
           </View>
 
@@ -388,6 +388,8 @@ export function EditProfileScreen({
               </View>
             ) : null}
           </Section>
+
+          {saveError ? <InlineError message={saveError} /> : null}
 
           <Pressable
             accessibilityLabel="Salvar alterações"

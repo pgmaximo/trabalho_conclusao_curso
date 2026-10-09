@@ -1,5 +1,7 @@
 # EPIC: Editar medicamento — com exclusão confirmada
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2 e D5), o botão de saída do medicamento não encontrado diz "Voltar para Remédios", e salvar ou excluir é confirmado por um aviso no rodapé da tela Remédios.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 3g ("Editar medicamento — com exclusão confirmada") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 551-618).
 - Rota/arquivo no código (**proposto, novo — CRIAR**): `edit-medicine` → `src/app/edit-medicine.tsx` (rota top-level, fora do grupo `(app)`, espelhando o padrão já existente de `src/app/edit-appointment.tsx` para a tela 2e) → `src/screens/EditMedicineScreen.tsx` (`EditMedicineScreen`). A rota recebe o id do medicamento via query param `?id=` (`useLocalSearchParams<{ id?: string }>()`), nunca via contexto/estado global efêmero — decisão deliberada, ver seção 5.

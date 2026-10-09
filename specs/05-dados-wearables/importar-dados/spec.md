@@ -1,5 +1,7 @@
 # EPIC: Importar dados de wearables (Bloco 4)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D3 e D8), a tela usa o cabeçalho das telas de formulário, e o texto de consentimento diz primeiro o que acontece com os arquivos ("analisados por inteligência artificial, em um serviço de nuvem contratado por este app (Amazon Bedrock)"), sem "conta AWS".
+
 > **Reconciliação (2026-10-09):** a entrada desta tela saiu de Perfil >
 > Configurações. Ela é aberta pela tela "Dados do smartwatch" (`/health-data`):
 > pelo botão do estado vazio ou de falha, e pela ação "Importar" do cabeçalho

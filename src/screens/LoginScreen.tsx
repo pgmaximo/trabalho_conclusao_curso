@@ -17,6 +17,7 @@ import { signIn, signOut } from 'aws-amplify/auth';
 import { AuthAppHeader } from '@/components/AuthAppHeader';
 import { AuthInput } from '@/components/AuthInput';
 import { Button } from '@/components/Button';
+import { PasswordVisibilityToggle } from '@/components/PasswordVisibilityToggle';
 import { SectionDivider } from '@/components/SectionDivider';
 import { SocialButton } from '@/components/SocialButton';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
@@ -55,7 +56,6 @@ export function LoginScreen({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isTogglePressed, setIsTogglePressed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginErrorMessage, setLoginErrorMessage] = useState<string | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -223,28 +223,11 @@ export function LoginScreen({
               placeholder="Digite sua senha"
               secureTextEntry={!isPasswordVisible}
               trailingAction={
-                <Pressable
-                  accessibilityLabel={isPasswordVisible ? 'Ocultar senha' : 'Mostrar senha'}
-                  accessibilityRole="button"
-                  className="size-11 items-center justify-center"
+                <PasswordVisibilityToggle
                   disabled={isLoading}
-                  hitSlop={4}
-                  onPress={togglePasswordVisibility}
-                  onPressIn={() => setIsTogglePressed(true)}
-                  onPressOut={() => setIsTogglePressed(false)}
-                  // `style` NÃO pode ser função aqui — sem `className`, o NativeWind
-                  // (jsxImportSource global) descarta o resultado da função e o Pressable
-                  // renderiza sem nenhum estilo.
-                  style={[isTogglePressed && { opacity: 0.7 }]}
-                >
-                  {/* Olho, e nao a palavra "Mostrar": o texto nao cabia na caixa em
-                      tela de celular. O nome do botao fica no accessibilityLabel. */}
-                  <MaterialIcons
-                    color={colors.secondary}
-                    name={isPasswordVisible ? 'visibility-off' : 'visibility'}
-                    size={22}
-                  />
-                </Pressable>
+                  onToggle={togglePasswordVisibility}
+                  visible={isPasswordVisible}
+                />
               }
               value={password}
             />

@@ -71,7 +71,9 @@ function resumoDoQueFalta(todayUpcoming: HomeAppointment[]): string {
   }
 
   const [next] = todayUpcoming;
-  const label = todayUpcoming.length === 1 ? 'consulta' : 'consultas';
+  // "compromisso", e não "consulta": a agenda guarda também exames e
+  // cirurgias, e é a palavra das outras frases deste card.
+  const label = todayUpcoming.length === 1 ? 'compromisso' : 'compromissos';
 
   return `${todayUpcoming.length} ${label} às ${next.time}`;
 }

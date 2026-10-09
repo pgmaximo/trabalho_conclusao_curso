@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { AgendaMonthLayer } from '@/components/AgendaMonthLayer';
 import { AppointmentCard } from '@/components/AppointmentCard';
 import { EmptyState } from '@/components/EmptyState';
+import { InlineError } from '@/components/InlineError';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { useThemeColors } from '@/constants/theme';
@@ -48,13 +49,17 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry, o
   const listRef = useRef<FlatList<Row>>(null);
   const [todayVisible, setTodayVisible] = useState(true);
   const [monthLayerOpen, setMonthLayerOpen] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
+  // A falha aparece na tela, e não num pop-up do sistema com o texto técnico
+  // do erro (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
   const handleGoogleCalendarSync = async (appointment: AppointmentEntry) => {
+    setSyncError(null);
     try {
       await Linking.openURL(buildGoogleCalendarUrl(appointment));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Não foi possível abrir o Google Calendar.';
-      alert(message);
+      console.warn('Não foi possível abrir o Google Calendar:', error);
+      setSyncError('Não foi possível abrir o Google Calendar.');
     }
   };
 
@@ -146,7 +151,7 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry, o
               onPress={() => router.push('/add-appointment')}
               style={({ pressed }) => [pressed && { opacity: 0.85 }]}
             >
-              <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Agendar consulta</Text>
+              <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Novo compromisso</Text>
             </Pressable>
           </View>
         );
@@ -190,7 +195,8 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry, o
                 <Ionicons color={colors.text} name="calendar-outline" size={20} />
               </Pressable>
               <Pressable
-                accessibilityLabel="Agendar consulta"
+                // O nome da tela que o botão abre (consistencia-e-textos, D2).
+                accessibilityLabel="Novo compromisso"
                 accessibilityRole="button"
                 className="h-10 w-10 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
                 onPress={() => router.push('/add-appointment')}
@@ -201,6 +207,8 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry, o
             </View>
           }
         />
+
+        {syncError ? <InlineError message={syncError} /> : null}
 
         {isLoading ? (
           <ScreenSkeleton blocks={3} />
@@ -215,8 +223,8 @@ export function AgendaScreen({ appointments, isLoading, errorMessage, onRetry, o
           />
         ) : rows.length === 0 ? (
           <EmptyState
-            actionLabel="Agendar consulta"
-            description="Quando você agendar uma consulta ou exame, ela aparecerá aqui."
+            actionLabel="Novo compromisso"
+            description="Quando você marcar uma consulta ou um exame, o compromisso aparece aqui."
             icon="calendar-outline"
             onActionPress={() => router.push('/add-appointment')}
             title="Você ainda não tem compromissos"

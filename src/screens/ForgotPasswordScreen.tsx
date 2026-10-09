@@ -1,9 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,6 +17,7 @@ import { useColorScheme } from 'nativewind';
 import { AuthInput } from '@/components/AuthInput';
 import { BackHeader } from '@/components/BackHeader';
 import { Button } from '@/components/Button';
+import { PasswordVisibilityToggle } from '@/components/PasswordVisibilityToggle';
 import { SuccessSnackbar } from '@/components/SuccessSnackbar';
 import { useThemeColors } from '@/constants/theme';
 import { serializeAuthError } from '@/services/auth';
@@ -29,6 +29,10 @@ type ForgotPasswordScreenProps = {
 
 type Step = 1 | 2;
 
+// Tempo para a pessoa ler que a senha foi alterada antes de a tela trocar
+// (o mesmo do "Bem-vindo(a) de volta!" do Login).
+const SUCCESS_NAVIGATION_DELAY_MS = 900;
+
 export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
@@ -38,7 +42,13 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
   const [confirmPassword, setConfirmPassword] = useState('');
   const [step, setStep] = useState<Step>(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [showSuccessSnackbar, setShowSuccessSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  // As falhas e o que falta aparecem na tela, e não em pop-ups do sistema
+  // (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stepLabel = step === 1 ? 'Passo 1 de 2' : 'Passo 2 de 2';
 
@@ -47,8 +57,23 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
     return () => {
       setNewPassword('');
       setConfirmPassword('');
+      if (navigationTimer.current) {
+        clearTimeout(navigationTimer.current);
+      }
     };
   }, []);
+
+  const mismatch = confirmPassword.length > 0 && newPassword !== confirmPassword;
+  const emailReason = !email.trim() ? 'Informe seu e-mail.' : undefined;
+  const newPasswordReason = !code.trim()
+    ? 'Digite o código de 6 dígitos.'
+    : !newPassword
+      ? 'Crie a nova senha.'
+      : !confirmPassword
+        ? 'Repita a nova senha para confirmar.'
+        : mismatch
+          ? 'Corrija a confirmação da senha.'
+          : undefined;
 
   function handleBackToLogin() {
     blurActiveWebElement();
@@ -59,6 +84,7 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
   // API novamente — e-mail permanece preenchido/editável, código e senhas
   // digitados são descartados pois um novo código precisará ser solicitado.
   function goToStep1() {
+    setErrorMessage(null);
     setStep(1);
     setCode('');
     setNewPassword('');
@@ -77,21 +103,21 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
   async function handleSendCode() {
     const normalizedEmail = email.trim().toLowerCase();
 
-    if (!normalizedEmail) {
-      Alert.alert('Atenção', 'Digite seu e-mail para recuperar a senha.');
+    if (emailReason) {
       return;
     }
 
+    setErrorMessage(null);
     setIsLoading(true);
 
     try {
       await resetPassword({ username: normalizedEmail });
       setEmail(normalizedEmail);
       setStep(2);
-      setShowSuccessSnackbar(true);
+      setSnackbarMessage('Código enviado para seu e-mail');
     } catch (error: any) {
       console.log('Erro ao solicitar recuperacao:', serializeAuthError(error));
-      Alert.alert('Erro', getResetRequestMessage(error));
+      setErrorMessage(getResetRequestMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -100,17 +126,15 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
   async function handleConfirmPassword() {
     const normalizedEmail = email.trim().toLowerCase();
 
-    if (!normalizedEmail || !code || !newPassword || !confirmPassword) {
-      Alert.alert('Atenção', 'Preencha todos os campos.');
+    if (!normalizedEmail || newPasswordReason) {
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Atenção', 'As senhas não coincidem.');
-      return;
-    }
-
+    setErrorMessage(null);
     setIsLoading(true);
+    // Com a senha alterada, a tela continua ocupada até trocar: o código já
+    // foi usado, e um segundo toque em "Alterar senha" só daria erro.
+    let changed = false;
 
     try {
       await confirmResetPassword({
@@ -122,13 +146,16 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
       setNewPassword('');
       setConfirmPassword('');
 
-      Alert.alert('Senha atualizada', 'Sua senha foi alterada com sucesso.');
-      handleBackToLogin();
+      changed = true;
+      setSnackbarMessage('Senha alterada. Entre com a nova senha.');
+      navigationTimer.current = setTimeout(handleBackToLogin, SUCCESS_NAVIGATION_DELAY_MS);
     } catch (error: any) {
       console.log('Erro ao confirmar recuperacao:', serializeAuthError(error));
-      Alert.alert('Erro', getConfirmResetMessage(error));
+      setErrorMessage(getConfirmResetMessage(error));
     } finally {
-      setIsLoading(false);
+      if (!changed) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -203,10 +230,22 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                   icon={<MaterialIcons color={colors.placeholder} name="email" size={20} />}
                   keyboardType="email-address"
                   label="E-mail"
-                  onChangeText={setEmail}
+                  onChangeText={(value) => {
+                    setErrorMessage(null);
+                    setEmail(value);
+                  }}
                   placeholder="Digite seu e-mail"
                   value={email}
                 />
+
+                {errorMessage ? (
+                  <Text
+                    accessibilityRole="alert"
+                    className="mt-3 text-[16px] leading-[22px] text-app-danger dark:text-app-dark-danger"
+                  >
+                    {errorMessage}
+                  </Text>
+                ) : null}
 
                 {isLoading ? (
                   <ActivityIndicator
@@ -215,7 +254,12 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                     style={{ marginBottom: 24, marginTop: 12 }}
                   />
                 ) : (
-                  <Button onPress={handleSendCode} title="Enviar código" />
+                  <Button
+                    disabled={Boolean(emailReason)}
+                    disabledReason={emailReason}
+                    onPress={handleSendCode}
+                    title="Enviar código"
+                  />
                 )}
               </>
             ) : (
@@ -239,7 +283,10 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                   inputClassName="text-center text-xl"
                   keyboardType="number-pad"
                   label="Código de 6 dígitos"
-                  onChangeText={setCode}
+                  onChangeText={(value) => {
+                    setErrorMessage(null);
+                    setCode(value);
+                  }}
                   placeholder="000000"
                   style={{ letterSpacing: 0.3 * 20 }}
                   value={code}
@@ -251,19 +298,46 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                   label="Nova senha"
                   onChangeText={setNewPassword}
                   placeholder="Mínimo 8 caracteres, 1 número, 1 especial"
-                  secureTextEntry
+                  secureTextEntry={!isNewPasswordVisible}
+                  trailingAction={
+                    <PasswordVisibilityToggle
+                      disabled={isLoading}
+                      onToggle={() => setIsNewPasswordVisible((current) => !current)}
+                      target="nova senha"
+                      visible={isNewPasswordVisible}
+                    />
+                  }
                   value={newPassword}
                 />
 
                 <AuthInput
                   editable={!isLoading}
+                  errorMessage={mismatch ? 'As senhas não são iguais.' : undefined}
+                  hasError={mismatch}
                   icon={<MaterialIcons color={colors.placeholder} name="lock" size={20} />}
                   label="Confirmar nova senha"
                   onChangeText={setConfirmPassword}
                   placeholder="Confirme a nova senha"
-                  secureTextEntry
+                  secureTextEntry={!isConfirmPasswordVisible}
+                  trailingAction={
+                    <PasswordVisibilityToggle
+                      disabled={isLoading}
+                      onToggle={() => setIsConfirmPasswordVisible((current) => !current)}
+                      target="confirmação da nova senha"
+                      visible={isConfirmPasswordVisible}
+                    />
+                  }
                   value={confirmPassword}
                 />
+
+                {errorMessage ? (
+                  <Text
+                    accessibilityRole="alert"
+                    className="mt-3 text-[16px] leading-[22px] text-app-danger dark:text-app-dark-danger"
+                  >
+                    {errorMessage}
+                  </Text>
+                ) : null}
 
                 {isLoading ? (
                   <ActivityIndicator
@@ -273,7 +347,12 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
                   />
                 ) : (
                   <View className="gap-3">
-                    <Button onPress={handleConfirmPassword} title="Alterar senha" />
+                    <Button
+                      disabled={Boolean(newPasswordReason)}
+                      disabledReason={newPasswordReason}
+                      onPress={handleConfirmPassword}
+                      title="Alterar senha"
+                    />
                     <Button onPress={goToStep1} title="Trocar o e-mail" variant="secondary" />
                   </View>
                 )}
@@ -297,9 +376,9 @@ export function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordScreenProp
       </KeyboardAvoidingView>
 
       <SuccessSnackbar
-        message="Código enviado para seu e-mail"
-        onHide={() => setShowSuccessSnackbar(false)}
-        visible={showSuccessSnackbar}
+        message={snackbarMessage ?? ''}
+        onHide={() => setSnackbarMessage(null)}
+        visible={snackbarMessage !== null}
       />
     </SafeAreaView>
   );

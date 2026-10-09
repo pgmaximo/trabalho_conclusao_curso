@@ -1,5 +1,7 @@
 # EPIC: Medicamentos — Doses e Estoque (Bloco 3)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2, D3 e D5), o título da tela é "Remédios", como a aba; o formulário "Novo lembrete" passou a se chamar "Adicionar medicamento"; e salvar ou excluir um medicamento é confirmado por um aviso no rodapé.
+
 > **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D2 e D8), o cartão da dose mostra o horário em destaque na segunda linha; a dose não tomada 60 minutos depois do horário aparece como "Atrasado" e continua contando como pendente; o aviso sem pendência diz "Nenhum lembrete pendente para hoje"; e o formulário só mostra o erro de um campo depois que a pessoa passa por ele.
 
 ## 1. Identificação

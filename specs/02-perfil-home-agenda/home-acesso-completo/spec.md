@@ -1,5 +1,7 @@
 # EPIC: Início com acesso a todas as funcionalidades
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2), o atalho "Consultas" passou a se chamar "Agenda", e a sua linha de apoio, sem dado, diz "Compromissos".
+
 ## 1. Identificação
 
 - **Origem:** pedido do dono do projeto (2026-10-09): "a interface ficou

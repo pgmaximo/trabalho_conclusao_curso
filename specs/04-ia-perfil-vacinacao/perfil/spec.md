@@ -1,5 +1,7 @@
 # EPIC: Perfil — Dados de Saúde e Preferências (Bloco 4)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D1 e D8), "Sair da conta" pede confirmação, com o painel das exclusões; e cada grau dos lembretes de prevenção vem com uma linha que diz o que ele quer dizer.
+
 > **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D6 e D10), o topo do Perfil voltou a mostrar o avatar da pessoa; a linha "Exportar meus dados" mostra o selo "Em breve" e não é tocável; e a tela ganhou botão de voltar.
 
 ## 1. Identificação

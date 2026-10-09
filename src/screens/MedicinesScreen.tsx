@@ -2,6 +2,10 @@
 // Arquivo: MedicinesScreen.tsx
 // Descrição: Tela 3d do Canvas — "Medicamentos — doses e estoque". Banner de
 // lembretes ativos (contagem real), lista de doses de hoje e estoques.
+//
+// O título é "Remédios", o nome da aba e do atalho do Início que trazem aqui
+// (specs/00-fundacao/consistencia-e-textos/spec.md, D2). Cada item continua
+// sendo um "medicamento".
 // =============================================================================
 
 import React, { useState } from 'react';
@@ -16,6 +20,7 @@ import { AlertBanner } from '@/components/AlertBanner';
 import { EmptyState } from '@/components/EmptyState';
 import { MedicineCard } from '@/components/MedicineCard';
 import { MedicineStock } from '@/components/MedicineStock';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { InlineError } from '@/components/InlineError';
@@ -66,7 +71,7 @@ export function MedicinesScreen({
     try {
       await onToggleMedicineStatus(doseId);
     } catch (error) {
-      setToggleError(error instanceof Error ? error.message : 'Nao foi possivel atualizar a dose.');
+      setToggleError(error instanceof Error ? error.message : 'Não foi possível atualizar a dose.');
     } finally {
       setTogglingDoseId(null);
     }
@@ -76,20 +81,20 @@ export function MedicinesScreen({
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
-        <View className="mb-6 flex-row items-center justify-between gap-3">
-          <Text className="text-[26px] font-semibold text-app-text dark:text-app-dark-text">
-            Medicamentos
-          </Text>
-          <Pressable
-            accessibilityLabel="Adicionar medicamento"
-            accessibilityRole="button"
-            onPress={goToAddMedicine}
-            style={({ pressed }) => [pressed && { opacity: 0.85 }]}
-            className="size-12 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
-          >
-            <Ionicons color={colors.onPrimary} name="add" size={24} />
-          </Pressable>
-        </View>
+        <ScreenHeader
+          title="Remédios"
+          action={
+            <Pressable
+              accessibilityLabel="Adicionar medicamento"
+              accessibilityRole="button"
+              onPress={goToAddMedicine}
+              style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+              className="size-12 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
+            >
+              <Ionicons color={colors.onPrimary} name="add" size={24} />
+            </Pressable>
+          }
+        />
 
         {isLoading ? (
           <ScreenSkeleton blocks={3} />

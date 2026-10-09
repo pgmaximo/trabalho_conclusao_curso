@@ -132,8 +132,8 @@ describe('OnboardingScreen', () => {
 
     fireEvent.press(screen.getByText('Continuar'));
 
-    expect(await screen.findByText('Nome completo e obrigatorio')).toBeTruthy();
-    expect(await screen.findByText('Data de nascimento e obrigatoria')).toBeTruthy();
+    expect(await screen.findByText('Informe seu nome completo.')).toBeTruthy();
+    expect(await screen.findByText('Informe sua data de nascimento.')).toBeTruthy();
     expect(screen.getByText('Pessoais')).toBeTruthy();
   });
 
@@ -143,7 +143,7 @@ describe('OnboardingScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Data de nascimento'), '06052000');
     fireEvent.press(screen.getByText('Continuar'));
 
-    expect(await screen.findByText('Nome completo e obrigatorio')).toBeTruthy();
+    expect(await screen.findByText('Informe seu nome completo.')).toBeTruthy();
     expect(screen.getByText('Pessoais')).toBeTruthy();
   });
 

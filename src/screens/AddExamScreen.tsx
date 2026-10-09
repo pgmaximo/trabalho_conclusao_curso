@@ -23,6 +23,7 @@ import { FormField } from '@/components/FormField';
 import { HachuraPlaceholder } from '@/components/HachuraPlaceholder';
 import { InlineError } from '@/components/InlineError';
 import { FONTS, RADII, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import {
   getTodayDate,
   createExamDocument,
@@ -118,9 +119,10 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
         folhasAdicionais: folhas,
       });
 
+      avisarSucesso('Documento salvo.');
       router.back();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao salvar documento';
+      const message = error instanceof Error ? error.message : 'Não foi possível salvar o documento.';
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -296,8 +298,8 @@ export function AddExamScreen({ fileName, filePath, fileSize }: AddExamScreenPro
                 style={styles.infoIcon}
               />
               <Text style={styles.infoText}>
-                Seus documentos serão salvos de forma segura. Você pode editar ou deletar
-                posteriormente.
+                Seus documentos serão salvos de forma segura. Você pode editar ou excluir
+                depois.
               </Text>
             </View>
           </Card>
@@ -328,7 +330,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   content: {
     paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.base,
+    // 24, como nos outros formulários: o cabeçalho fica na mesma altura.
+    paddingTop: SIZES.large,
     paddingBottom: SIZES.large * 2,
   },
   fileCard: {

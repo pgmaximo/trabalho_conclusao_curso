@@ -140,20 +140,20 @@ describe('correção — art. 18, III', () => {
 describe('eliminação — art. 18, IV e VI', () => {
   it('apagar um pede confirmação inline, e nunca com alerta do sistema', () => {
     render(<AssistantMemoryScreen state={estado()} />);
-    fireEvent.press(screen.getAllByLabelText(/apagar este fato/i)[0]);
+    fireEvent.press(screen.getAllByLabelText(/excluir este fato/i)[0]);
     expect(screen.getByText(/não pode ser desfeita/i)).toBeTruthy();
   });
 
   it('a confirmação é sobre UM fato, e não sobre a lista', () => {
     render(<AssistantMemoryScreen state={estado()} />);
-    fireEvent.press(screen.getAllByLabelText(/apagar este fato/i)[1]);
+    fireEvent.press(screen.getAllByLabelText(/excluir este fato/i)[1]);
     expect(screen.getAllByText(/não pode ser desfeita/i)).toHaveLength(1);
   });
 
   it('confirmar chama quem apaga, com o id certo', () => {
     const apagar = jest.fn();
     render(<AssistantMemoryScreen state={estado({ apagar })} />);
-    fireEvent.press(screen.getAllByLabelText(/apagar este fato/i)[0]);
+    fireEvent.press(screen.getAllByLabelText(/excluir este fato/i)[0]);
     fireEvent.press(screen.getByText('Excluir'));
     expect(apagar).toHaveBeenCalledWith('f-1');
   });
@@ -161,7 +161,7 @@ describe('eliminação — art. 18, IV e VI', () => {
   it('cancelar não apaga', () => {
     const apagar = jest.fn();
     render(<AssistantMemoryScreen state={estado({ apagar })} />);
-    fireEvent.press(screen.getAllByLabelText(/apagar este fato/i)[0]);
+    fireEvent.press(screen.getAllByLabelText(/excluir este fato/i)[0]);
     fireEvent.press(screen.getByText('Cancelar'));
     expect(apagar).not.toHaveBeenCalled();
   });
@@ -169,7 +169,7 @@ describe('eliminação — art. 18, IV e VI', () => {
   it('apagar todos existe e pede confirmação própria', () => {
     const apagarTudo = jest.fn();
     render(<AssistantMemoryScreen state={estado({ apagarTudo })} />);
-    fireEvent.press(screen.getByLabelText(/apagar tudo o que eu lembro/i));
+    fireEvent.press(screen.getByLabelText(/excluir tudo o que eu lembro/i));
     // A afirmação é sobre a MENSAGEM do painel, e não sobre o rótulo do botão:
     // procurar por "apagar tudo" acharia o próprio botão e o teste passaria
     // sem que painel nenhum tivesse aberto.
@@ -201,7 +201,7 @@ describe('revogação — art. 18, IX, e o art. 8º, §5', () => {
     render(<AssistantMemoryScreen state={estado()} />);
     fireEvent.press(screen.getByLabelText(/desligar a memória/i));
     expect(screen.getByText(/manter o que já está guardado/i)).toBeTruthy();
-    expect(screen.getByText(/desligar e apagar tudo/i)).toBeTruthy();
+    expect(screen.getByText(/desligar e excluir tudo/i)).toBeTruthy();
   });
 
   it('desligar sem apagar desliga e mantém os fatos', () => {
@@ -219,7 +219,7 @@ describe('revogação — art. 18, IX, e o art. 8º, §5', () => {
     const apagarTudo = jest.fn();
     render(<AssistantMemoryScreen state={estado({ definirLigada, apagarTudo })} />);
     fireEvent.press(screen.getByLabelText(/desligar a memória/i));
-    fireEvent.press(screen.getByText(/desligar e apagar tudo/i));
+    fireEvent.press(screen.getByText(/desligar e excluir tudo/i));
     expect(definirLigada).toHaveBeenCalledWith(false);
     expect(apagarTudo).toHaveBeenCalled();
   });

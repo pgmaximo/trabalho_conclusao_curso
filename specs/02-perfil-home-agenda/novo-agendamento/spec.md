@@ -1,5 +1,7 @@
 # EPIC: Perfil, Home e Agenda — Novo agendamento
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2, D3 e D5), a tela se chama "Novo compromisso" (campo "Nome do compromisso", botão "Salvar compromisso"), usa o cabeçalho das telas de formulário (título de 20px) e, ao salvar, a Agenda mostra "Compromisso salvo.".
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 2d ("Novo agendamento") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 842-872, entre 2c "Agenda" e 2e "Editar agendamento — com exclusão confirmada")
 - Rota/arquivo no código (existente): `src/app/add-appointment.tsx` (rota `/add-appointment`) → `src/screens/AddAppointmentScreen.tsx` (`AddAppointmentScreen`)

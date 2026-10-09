@@ -1,5 +1,7 @@
 # EPIC: Perfil de Saúde — Wizard 4 Etapas
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D4 e D7), a falha ao salvar o perfil aparece junto do botão "Concluir perfil", e não em pop-up do sistema; e as frases de validação ganharam acento e passaram a ser as mesmas de "Editar perfil".
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 2a ("Perfil de Saúde — wizard 4 etapas") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 627-729)
 - Rota/arquivo no código (existente): `src/app/profile-setup.tsx` (rota `/profile-setup`) → `src/screens/OnboardingScreen.tsx` (`OnboardingScreen`)

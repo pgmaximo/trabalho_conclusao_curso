@@ -1,5 +1,7 @@
 # EPIC: Autenticação — Cadastro (checklist de senha ao vivo)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D4 e D6), o cadastro não abre mais pop-ups do sistema: o botão "Criar conta" diz o que falta, a falha ao criar a conta aparece na tela, e não há aviso de "enviamos um código" antes da tela de confirmação. Os dois campos de senha têm o olho de mostrar a senha, e o link "Já tem conta? Entrar" tem o tamanho e a cor do link do Login.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 1d (Tela 2 — Cadastro, checklist de senha ao vivo) em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 1182-1210)
 - Rota/arquivo no código (existente): `src/app/register.tsx` (rota `/register`) → `src/screens/RegisterScreen.tsx` (`RegisterScreen`)

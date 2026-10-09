@@ -1,5 +1,7 @@
 # EPIC: Carteira de Vacinação (Bloco 4)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D3, D4 e D5), a Carteira usa o cabeçalho das telas do hub (título de 24px); "Adicionar vacina" e "Marcar como aplicada" desabilitam o botão e dizem o que falta, em vez de abrir pop-up; as falhas (ao marcar a dose, ao obter a localização) aparecem na tela; e salvar, marcar e excluir são confirmados por um aviso no rodapé.
+
 > **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D3), marcar uma dose como aplicada deixou de ser um toque no selo de status e virou o botão "Marcar como aplicada"; e cada registro pode ser excluído, com confirmação.
 
 ## 1. Identificação

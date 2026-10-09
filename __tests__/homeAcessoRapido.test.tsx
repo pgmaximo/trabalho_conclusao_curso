@@ -92,7 +92,7 @@ function textosEmOrdem(): string[] {
 
 describe('Home - Acesso rapido', () => {
   it.each([
-    ['Consultas', 'onNavigateToAppointments'],
+    ['Agenda', 'onNavigateToAppointments'],
     ['Exames', 'onNavigateToExams'],
     ['Remédios', 'onNavigateToMedicines'],
     ['Prevenção', 'onNavigateToPrevention'],
@@ -112,12 +112,12 @@ describe('Home - Acesso rapido', () => {
     expect(screen.queryByText('Análise IA')).toBeNull();
   });
 
-  it('vem logo depois do Resumo de hoje, antes de Ultimos exames', () => {
+  it('vem logo depois do Resumo de hoje, antes de Ultimos documentos', () => {
     renderHome();
     const textos = textosEmOrdem();
 
     expect(textos.indexOf('Acesso rápido')).toBeGreaterThan(textos.indexOf('Resumo de hoje'));
-    expect(textos.indexOf('Acesso rápido')).toBeLessThan(textos.indexOf('Últimos exames'));
+    expect(textos.indexOf('Acesso rápido')).toBeLessThan(textos.indexOf('Últimos documentos'));
   });
 
   // Toda linha de apoio cabe em UMA linha. Medido no navegador em 360dp: o
@@ -126,7 +126,7 @@ describe('Home - Acesso rapido', () => {
   // guardados") quebravam em duas, e os atalhos ficavam desalinhados entre si
   // (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D8).
 
-  it('mostra no atalho de Consultas quando e o proximo compromisso', () => {
+  it('mostra no atalho da Agenda quando e o proximo compromisso', () => {
     renderHome({ upcomingAppointments: [AMANHA] });
     expect(screen.getByText('Amanhã, 08:00')).toBeTruthy();
   });
@@ -184,7 +184,7 @@ describe('Home - Acesso rapido', () => {
   // que nao tem fonte de dado no Inicio, e inclusive enquanto o dado carrega.
   describe('sem o dado, a linha descreve o destino', () => {
     const DESCRICOES = [
-      'Sua agenda',
+      'Compromissos',
       'Seu histórico',
       'Doses de hoje',
       'Orientações',

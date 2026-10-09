@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { confirmResetPassword, confirmSignUp, resetPassword, signIn } from 'aws-amplify/auth';
 
@@ -22,8 +21,6 @@ jest.mock('aws-amplify/data', () => ({
 }));
 
 describe('auth support screens', () => {
-  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -61,7 +58,10 @@ describe('auth support screens', () => {
       });
     });
 
-    expect(onBackToLogin).toHaveBeenCalledTimes(1);
+    // A tela diz que a senha foi alterada e so entao volta para o Login
+    // (antes era um pop-up do sistema por cima da troca de tela).
+    expect(await view.findByText('Senha alterada. Entre com a nova senha.')).toBeTruthy();
+    await waitFor(() => expect(onBackToLogin).toHaveBeenCalledTimes(1), { timeout: 3000 });
   });
 
   it('validates empty reset e-mail before calling Amplify', () => {
@@ -69,11 +69,10 @@ describe('auth support screens', () => {
 
     fireEvent.press(screen.getByText('Enviar código'));
 
+    // O botao fica desabilitado e diz o motivo, em vez de abrir um pop-up
+    // (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
     expect(resetPassword).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Atenção',
-      'Digite seu e-mail para recuperar a senha.',
-    );
+    expect(screen.getByText('Informe seu e-mail.')).toBeTruthy();
   });
 
   it('confirms account sign-up with the provided e-mail and code', async () => {

@@ -70,11 +70,12 @@ describe('o que a tela diz sobre o que é guardado (D33)', () => {
     expect(screen.getByText(/ficam guardadas/i)).toBeTruthy();
   });
 
-  it('diz que a pessoa pode apagar', () => {
+  it('diz que a pessoa pode excluir', () => {
     // Guardar sem prazo e so defensavel porque apagar esta na mao dela. Dizer
     // uma coisa sem a outra seria contar metade da decisao.
     renderGaveta();
-    expect(screen.getByText(/apagar/i)).toBeTruthy();
+    // "excluir", o verbo do resto do app (consistencia-e-textos, D2).
+    expect(screen.getByText(/excluir/i)).toBeTruthy();
   });
 
   it('a linha aparece TAMBEM quando nao ha conversa nenhuma', () => {
@@ -120,14 +121,14 @@ describe('apagar uma conversa', () => {
   it('pede confirmacao antes, e nunca com alerta do sistema', () => {
     // Convencao do repositorio: painel inline, nunca `Alert.alert`.
     renderGaveta();
-    fireEvent.press(screen.getAllByLabelText(/apagar conversa/i)[0]);
+    fireEvent.press(screen.getAllByLabelText(/excluir conversa/i)[0]);
     expect(screen.getByText(/não pode ser desfeita/i)).toBeTruthy();
   });
 
   it('confirmar chama quem apaga de verdade, com o id da conversa', async () => {
     const onDelete = jest.fn().mockResolvedValue(undefined);
     renderGaveta({ onDelete });
-    fireEvent.press(screen.getAllByLabelText(/apagar conversa/i)[0]);
+    fireEvent.press(screen.getAllByLabelText(/excluir conversa/i)[0]);
     fireEvent.press(screen.getByText('Excluir'));
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith('c-1'));
   });
@@ -135,7 +136,7 @@ describe('apagar uma conversa', () => {
   it('cancelar NAO apaga', () => {
     const onDelete = jest.fn();
     renderGaveta({ onDelete });
-    fireEvent.press(screen.getAllByLabelText(/apagar conversa/i)[0]);
+    fireEvent.press(screen.getAllByLabelText(/excluir conversa/i)[0]);
     fireEvent.press(screen.getByText('Cancelar'));
     expect(onDelete).not.toHaveBeenCalled();
     expect(screen.queryByText(/não pode ser desfeita/i)).toBeNull();
@@ -145,7 +146,7 @@ describe('apagar uma conversa', () => {
     // Um painel que aparecesse em cima da lista inteira deixaria a pessoa sem
     // saber qual conversa esta prestes a sumir.
     renderGaveta();
-    fireEvent.press(screen.getAllByLabelText(/apagar conversa/i)[1]);
+    fireEvent.press(screen.getAllByLabelText(/excluir conversa/i)[1]);
     expect(screen.getAllByText(/não pode ser desfeita/i)).toHaveLength(1);
   });
 });

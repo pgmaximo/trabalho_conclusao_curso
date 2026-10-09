@@ -27,7 +27,7 @@ type Estado = 'perguntando' | 'guardado' | 'cheia';
  * não que ela guardou coisa demais.
  */
 export const MENSAGEM_CHEIA =
-  'Sua memória está cheia. Você pode apagar algo que não usa mais e tentar de novo.';
+  'Sua memória está cheia. Você pode excluir algo que não usa mais e tentar de novo.';
 
 type MemoryProposalCardProps = {
   proposta: PropostaConfirmada;

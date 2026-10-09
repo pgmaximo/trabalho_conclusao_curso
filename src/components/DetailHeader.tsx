@@ -1,18 +1,22 @@
 // =============================================================================
 // Arquivo: DetailHeader.tsx
-// Descrição: Cabeçalho "voltar + título + ação opcional" reutilizável para telas
-// de detalhe/edição empilhadas (stack push, não abas). Extraído do padrão inline
-// idêntico já usado em DocumentDetailScreen.tsx (3c), EditMedicineScreen.tsx (3g)
-// e EditAppointmentScreen.tsx (2e) — ver specs/design/GAP_ANALYSIS.md item 34.
-// Não confundir com BackHeader.tsx (fluxo de Autenticação, sem slot de ação) nem
-// com ScreenHeader.tsx (raiz de aba, sem botão "voltar").
+// Descrição: Cabeçalho "voltar + título + ação opcional" das telas que abrem POR
+// CIMA de outra: formulários (novo compromisso, novo medicamento, nova vacina,
+// editar perfil, importar dados) e detalhes (documento, evolução dos
+// resultados). Título em 20px.
+//
+// É um dos dois cabeçalhos do app depois do login. O outro é o ScreenHeader
+// (título em 24px), das telas a que se chega pela barra, pelo Início ou pelo
+// hub Mais. O BackHeader é só do fluxo de entrada (cadastro, confirmação,
+// recuperar senha). Antes havia cópias deste cabeçalho escritas à mão em seis
+// telas, com títulos de 17 a 28px
+// (specs/00-fundacao/consistencia-e-textos/spec.md, D3).
 // =============================================================================
 
 import React, { ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Text, View } from 'react-native';
 
-import { useThemeColors } from '@/constants/theme';
+import { BackButton } from '@/components/BackButton';
 
 type DetailHeaderProps = {
   title: string;
@@ -21,19 +25,9 @@ type DetailHeaderProps = {
 };
 
 export function DetailHeader({ title, onBack, action }: DetailHeaderProps) {
-  const colors = useThemeColors();
-
   return (
     <View className="mb-6 flex-row items-center gap-3">
-      <Pressable
-        accessibilityLabel="Voltar"
-        accessibilityRole="button"
-        onPress={onBack}
-        style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-        className="size-12 items-center justify-center rounded-field border-[1.5px] border-app-border dark:border-app-dark-border"
-      >
-        <Ionicons color={colors.text} name="chevron-back" size={22} />
-      </Pressable>
+      <BackButton onPress={onBack} />
 
       <Text className="flex-1 text-[20px] font-semibold text-app-text dark:text-app-dark-text">
         {title}

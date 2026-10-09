@@ -3,8 +3,7 @@
  * Rota de configuracao inicial do perfil.
  * Marca o setup como concluido e leva o usuario para o dashboard autenticado.
  */
-import React from 'react';
-import { Alert } from 'react-native';
+import React, { useState } from 'react';
 import { router } from 'expo-router';
 import { getCurrentUser } from 'aws-amplify/auth';
 
@@ -13,10 +12,16 @@ import { saveUserProfile, UserNotAuthenticatedError } from '@/services/profileSe
 import { useUserContext } from '@/contexts/UserContext';
 import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
 
+const SESSION_ENDED_MESSAGE = 'Sua sessão terminou. Entre de novo para concluir o perfil.';
+
 export default function ProfileSetupRoute() {
   const { refreshUser } = useUserContext();
+  // A falha aparece na tela, junto do botão, e não num pop-up do sistema
+  // (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function completeProfileSetup(values: ProfileSetupFormValues) {
+    setSubmitError(null);
     try {
       // DECISION: Verifica se o usuario esta realmente autenticado antes de salvar o perfil.
       // Isso fornece um diagnostico melhor se ha problemas de autenticacao.
@@ -25,10 +30,7 @@ export default function ProfileSetupRoute() {
         console.log('Usuario autenticado:', currentUser.userId);
       } catch (authError) {
         console.error('Erro: Usuario nao esta autenticado', authError);
-        Alert.alert(
-          'Erro de autenticação',
-          'Você não está autenticado. Por favor, faça login novamente ou complete o cadastro.',
-        );
+        setSubmitError(SESSION_ENDED_MESSAGE);
         return;
       }
 
@@ -40,16 +42,16 @@ export default function ProfileSetupRoute() {
       console.log('Erro ao salvar perfil:', error);
       
       // Fornece mensagens de erro mais descriptivas baseado no tipo de erro
-      let errorMessage = 'Não foi possível salvar seu perfil agora. Verifique sua conexão e tente novamente.';
-      if (error instanceof Error) {
-        if (error.message.includes('NoValidAuthTokens') || error.message.includes('federated jwt')) {
-          errorMessage = 'Sua sessão expirou. Por favor, faça login novamente.';
-        } else if (error instanceof UserNotAuthenticatedError) {
-          errorMessage = 'Você não está autenticado. Por favor, faça login para continuar.';
-        }
-      }
-      
-      Alert.alert('Erro ao salvar perfil', errorMessage);
+      const sessionEnded =
+        error instanceof UserNotAuthenticatedError ||
+        (error instanceof Error &&
+          (error.message.includes('NoValidAuthTokens') || error.message.includes('federated jwt')));
+
+      setSubmitError(
+        sessionEnded
+          ? SESSION_ENDED_MESSAGE
+          : 'Não foi possível salvar seu perfil agora. Verifique sua conexão e tente novamente.',
+      );
     }
   }
 
@@ -57,6 +59,7 @@ export default function ProfileSetupRoute() {
     <OnboardingScreen
       onBack={() => router.replace('/')}
       onComplete={completeProfileSetup}
+      submitError={submitError}
     />
   );
 }

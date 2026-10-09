@@ -1,5 +1,7 @@
 # EPIC: Exames & Receitas — Adicionar documento (preview e tipo)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D2 e D5), o cartão de informação diz "editar ou excluir", e não "deletar"; e, ao salvar, a tela de Exames mostra "Documento salvo.".
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 3b ("Adicionar documento — preview e tipo") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 293-324, imediatamente antes de 3c "Detalhe do documento")
 - Rota/arquivo no código (existente): `src/app/add-exam.tsx` (rota `/add-exam`) → `src/screens/AddExamScreen.tsx` (`AddExamScreen`)

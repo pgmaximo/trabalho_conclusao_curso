@@ -100,7 +100,7 @@ describe('buildTodaySummaryText', () => {
       compromisso(noMesmoDia(manha, 15), '15:00'),
     ];
 
-    expect(buildTodaySummaryText(lista, manha)).toBe('1 consulta às 15:00');
+    expect(buildTodaySummaryText(lista, manha)).toBe('1 compromisso às 15:00');
   });
 
   it('pluraliza quando ha mais de um por vir', () => {
@@ -110,7 +110,7 @@ describe('buildTodaySummaryText', () => {
       compromisso(noMesmoDia(manha, 18), '18:00'),
     ];
 
-    expect(buildTodaySummaryText(lista, manha)).toBe('2 consultas às 15:00');
+    expect(buildTodaySummaryText(lista, manha)).toBe('2 compromissos às 15:00');
   });
 
   it('ignora compromissos de outros dias', () => {
@@ -124,7 +124,7 @@ describe('buildDashboardTodaySummary', () => {
   it('compoe as duas clausulas quando ha compromisso por vir e remedio pendente', () => {
     const lista = [compromisso(noMesmoDia(AGORA, 16), '16:00')];
 
-    expect(buildDashboardTodaySummary(lista, 2, AGORA)).toBe('1 consulta às 16:00 · 2 medicamentos pendentes');
+    expect(buildDashboardTodaySummary(lista, 2, AGORA)).toBe('1 compromisso às 16:00 · 2 medicamentos pendentes');
   });
 
   it('mostra so os medicamentos quando todos os compromissos de hoje ja passaram', () => {

@@ -11,27 +11,34 @@
  * renderiza `null` e não expõe nada. Acesse via /dev-preview (lista todos
  * os previews disponíveis) ou /dev-preview?screen=<nome>.
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddAppointmentScreen } from '@/screens/AddAppointmentScreen';
 import { AddMedicineScreen } from '@/screens/AddMedicineScreen';
 import { AddVaccineScreen } from '@/screens/AddVaccineScreen';
 import { AgendaScreen } from '@/screens/AgendaScreen';
 import { AssistantMemoryScreen } from '@/screens/AssistantMemoryScreen';
+import { ConfirmScreen } from '@/screens/ConfirmScreen';
 import { EditProfileScreen } from '@/screens/EditProfileScreen';
 import { ExamsScreen } from '@/screens/ExamsScreen';
+import { ForgotPasswordScreen } from '@/screens/ForgotPasswordScreen';
 import { HealthDashboardScreen } from '@/screens/HealthDashboardScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
+import { ImportHealthDataScreen } from '@/screens/ImportHealthDataScreen';
 import { MedicinesScreen } from '@/screens/MedicinesScreen';
 import { MoreScreen } from '@/screens/MoreScreen';
 import { PreventionScreen } from '@/screens/PreventionScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
+import { RegisterScreen } from '@/screens/RegisterScreen';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
+import { AvisoDeSucesso } from '@/components/AvisoDeSucesso';
 import { BottomTabBar } from '@/components/BottomTabBar';
 import { MarkDoseAppliedSheet } from '@/components/MarkDoseAppliedSheet';
 import { APP_TABS } from '@/constants/navigation';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import type { UserProfile } from '@/contexts/UserContext';
 import type { HealthImport } from '@/types/healthInsights';
 import type {
@@ -185,6 +192,7 @@ const HOME_BASE_PROPS: React.ComponentProps<typeof HomeScreen> = {
   onNavigateToAppointmentDetail: noop,
   onNavigateToExams: noop,
   onNavigateToAppointments: noop,
+  onNavigateToNewAppointment: noop,
   onNavigateToMedicines: noop,
   onNavigateToPrevention: noop,
   onNavigateToVaccination: noop,
@@ -281,6 +289,34 @@ const READY_HEALTH_IMPORT: HealthImport = {
   createdAt: '2026-09-29T10:00:00.000Z',
   updatedAt: '2026-09-29T10:02:00.000Z',
 };
+
+// A Agenda dentro da moldura do app, logo depois de um compromisso ser salvo:
+// o aviso aparece acima da barra de abas, como o AppShell monta.
+function AgendaComAvisoDeSalvo() {
+  useEffect(() => {
+    avisarSucesso('Compromisso salvo.');
+  }, []);
+
+  return (
+    <View className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <View className="flex-1">
+        <AgendaScreen
+          appointments={PREVIEW_APPOINTMENTS}
+          errorMessage={null}
+          isLoading={false}
+          onBack={noop}
+          onRetry={noop}
+        />
+        <AvisoDeSucesso />
+      </View>
+      <BottomTabBar
+        activeTab="more"
+        items={APP_TABS.map(({ icon, label, id }) => ({ icon, label, id }))}
+        onTabPress={noop}
+      />
+    </View>
+  );
+}
 
 const PREVIEWS: Record<string, () => React.ReactElement> = {
   // O Início dentro da moldura do app (conteúdo + barra de abas), como o
@@ -509,6 +545,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       errorMessage={null}
       onRetry={noop}
       onAddVaccine={noop}
+      onBack={noop}
       onRequestLocation={noop}
       onMarkDoseApplied={noop}
     />
@@ -528,6 +565,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       errorMessage={null}
       onRetry={noop}
       onAddVaccine={noop}
+      onBack={noop}
       onRequestLocation={noop}
       onMarkDoseApplied={noop}
     />
@@ -547,6 +585,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       errorMessage="Falha de rede ao carregar sua carteira."
       onRetry={noop}
       onAddVaccine={noop}
+      onBack={noop}
       onRequestLocation={noop}
       onMarkDoseApplied={noop}
     />
@@ -566,6 +605,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       errorMessage={null}
       onRetry={noop}
       onAddVaccine={noop}
+      onBack={noop}
       onRequestLocation={noop}
       onMarkDoseApplied={noop}
       onDeleteDose={async () => {}}
@@ -586,6 +626,7 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       errorMessage={null}
       onRetry={noop}
       onAddVaccine={noop}
+      onBack={noop}
       onRequestLocation={noop}
       onMarkDoseApplied={noop}
     />
@@ -609,11 +650,20 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       errorMessage={null}
       onRetry={noop}
       onAddVaccine={noop}
+      onBack={noop}
       onRequestLocation={noop}
       onMarkDoseApplied={noop}
     />
   ),
   'add-vaccine': () => <AddVaccineScreen />,
+  'add-appointment': () => <AddAppointmentScreen />,
+  'agenda-saved-notice': () => <AgendaComAvisoDeSalvo />,
+  'import-health-data': () => <ImportHealthDataScreen />,
+  register: () => (
+    <RegisterScreen onGoogleAuthSuccess={noop} onNavigateToLogin={noop} onRegisterSuccess={noop} />
+  ),
+  'forgot-password': () => <ForgotPasswordScreen onBackToLogin={noop} />,
+  'confirm-account': () => <ConfirmScreen email="maria@exemplo.com" onConfirmSuccess={noop} />,
   'mark-dose-applied-sheet': () => (
     <MarkDoseAppliedSheet visible dose={PENDING_ITEM} isSaving={false} onClose={noop} onSubmit={noop} />
   ),

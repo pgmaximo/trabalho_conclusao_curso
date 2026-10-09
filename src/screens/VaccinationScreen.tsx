@@ -5,7 +5,7 @@
  * (Pendente/Atrasada), campanhas de vacinação com dado REAL do PNI/RNDS
  * (amplify/functions/get-vaccination-campaigns) e unidades de saúde
  * próximas reais do CNES ("Onde se vacinar"). Segunda-nível (acessada via
- * "Mais"), com cabeçalho próprio de voltar.
+ * "Mais" ou pelo Início), com o mesmo cabeçalho das outras telas do hub.
  *
  * A carteira aqui NÃO é o documento oficial — isso é dito explicitamente na
  * tela (RNDS/Meu SUS Digital exigem certificado ICP-Brasil, inacessível a
@@ -15,17 +15,16 @@ import React, { useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Badge } from '@/components/Badge';
 import { Card } from '@/components/Card';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
-import { DetailHeader } from '@/components/DetailHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { FilterChips } from '@/components/FilterChips';
 import { InlineError } from '@/components/InlineError';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
@@ -51,6 +50,10 @@ type VaccinationScreenProps = {
   onRetry: () => void;
   onAddVaccine: () => void;
   onRequestLocation: () => void;
+  /** Por que a localização não veio, na última tentativa. */
+  locationError?: string | null;
+  /** Volta para a tela de onde esta foi aberta (o Início ou o hub Mais). */
+  onBack?: () => void;
   onMarkDoseApplied: (item: VaccineDoseItem) => void;
   /** Exclui um registro lançado por engano. Sem ela, a tela não desenha a
    *  lixeira: a Carteira não mostra controle que não faz nada. */
@@ -396,6 +399,8 @@ export function VaccinationScreen({
   onRetry,
   onAddVaccine,
   onRequestLocation,
+  locationError,
+  onBack,
   onMarkDoseApplied,
   onDeleteDose,
 }: VaccinationScreenProps) {
@@ -448,9 +453,12 @@ export function VaccinationScreen({
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background" edges={['top']}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
-        <DetailHeader
+        {/* O cabeçalho das telas do hub (Agenda, Prevenção, Dados do
+            smartwatch), e não o das telas de formulário e detalhe
+            (specs/00-fundacao/consistencia-e-textos/spec.md, D3). */}
+        <ScreenHeader
           title="Carteira de vacinação"
-          onBack={() => router.back()}
+          onBack={onBack}
           action={
             <Pressable
               accessibilityLabel="Adicionar vacina"
@@ -503,6 +511,8 @@ export function VaccinationScreen({
             </Text>
           </Pressable>
         ) : null}
+
+        {!hasLocation && locationError ? <InlineError message={locationError} /> : null}
 
         {isLoading ? (
           <ScreenSkeleton blocks={3} />

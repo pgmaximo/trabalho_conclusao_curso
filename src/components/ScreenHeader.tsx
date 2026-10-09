@@ -49,8 +49,17 @@ export function ScreenHeader({
     );
   }
 
+  // Só com o título, a ação fica centrada com ele (era assim o cabeçalho
+  // escrito à mão de Remédios). Com subtítulo ou selo, ela acompanha o topo.
+  const titleOnly = !subtitle && !badgeLabel;
+
   return (
-    <View className="mb-6 flex-row items-start justify-between gap-3">
+    <View
+      className={[
+        'mb-6 flex-row justify-between gap-3',
+        titleOnly ? 'items-center' : 'items-start',
+      ].join(' ')}
+    >
       <View className="flex-1">
         <Text className="text-2xl font-bold text-app-text dark:text-app-dark-text">{title}</Text>
         {subtitle ? (
@@ -62,7 +71,7 @@ export function ScreenHeader({
           <Badge label={badgeLabel} variant={badgeVariant} style={{ marginTop: 8 }} />
         ) : null}
       </View>
-      {action ? <View className="pt-1">{action}</View> : null}
+      {action ? <View className={titleOnly ? undefined : 'pt-1'}>{action}</View> : null}
     </View>
   );
 }

@@ -141,7 +141,8 @@ export default function RootLayout() {
           enableVibrate: true,
         });
         await Notifications.setNotificationChannelAsync('medicine-reminders', {
-          name: 'Medicamentos',
+          // O nome do canal aparece nos ajustes do Android. É o nome da aba.
+          name: 'Remédios',
           importance: Notifications.AndroidImportance.HIGH,
           sound: 'default',
           vibrationPattern: [0, 250, 250, 250],

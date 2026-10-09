@@ -1,5 +1,7 @@
 # EPIC: Confirmação de conta (código + cooldown)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D4), o código inválido e a falha ao reenviar aparecem na tela, e não em pop-up do sistema; e não há pop-up de "conta confirmada".
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela 1e ("Tela 3 — Confirmação de conta (código + cooldown)") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 1211-1238).
 - Rota/arquivo no código (existente): `confirm` → `src/app/confirm.tsx` (recebe `email`/`password` via query params) → `src/screens/ConfirmScreen.tsx` (`ConfirmScreen`).

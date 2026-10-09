@@ -17,11 +17,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '@/components/Button';
 import { DateInput } from '@/components/DateInput';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
+import { DetailHeader } from '@/components/DetailHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { FormField } from '@/components/FormField';
 import { InlineError } from '@/components/InlineError';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/theme';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import {
   deleteAppointment,
   getAppointmentById,
@@ -90,7 +92,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
         setStatus('ready');
       } catch (error) {
         if (!mounted) return;
-        setSubmitError(error instanceof Error ? error.message : 'Erro ao carregar o agendamento.');
+        setSubmitError(error instanceof Error ? error.message : 'Não foi possível carregar o compromisso.');
         setStatus('error');
       }
     }
@@ -124,11 +126,11 @@ export function EditAppointmentScreen({ id }: { id: string }) {
         observations: observations.trim() || undefined,
       });
 
-      // Navegacao imediata serve como confirmacao (mesmo padrao ja adotado em
-      // 3c — ver specs/03-exames-receitas/detalhe-documento/tasks.md §5).
+      // A tela fecha, e a Agenda diz que salvou (consistencia-e-textos, D5).
+      avisarSucesso('Compromisso salvo.');
       router.back();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Erro ao atualizar agendamento.');
+      setSubmitError(error instanceof Error ? error.message : 'Não foi possível atualizar o compromisso.');
     } finally {
       setIsSubmitting(false);
     }
@@ -143,14 +145,19 @@ export function EditAppointmentScreen({ id }: { id: string }) {
 
     try {
       await deleteAppointment(appointment.id);
+      avisarSucesso('Compromisso excluído.');
       router.back();
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : 'Erro ao excluir agendamento.');
+      setDeleteError(error instanceof Error ? error.message : 'Não foi possível excluir o compromisso.');
       setIsConfirmingDelete(false);
     } finally {
       setIsDeleting(false);
     }
   }
+
+  // O mesmo cabeçalho nos três estados da tela (carregando, erro e pronto):
+  // carregando, ela era só o esqueleto, sem título e sem como sair.
+  const header = <DetailHeader onBack={() => router.back()} title="Editar compromisso" />;
 
   if (status === 'loading') {
     return (
@@ -158,6 +165,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <View style={styles.container}>
           <ScrollView contentContainerStyle={styles.content}>
+            {header}
             <ScreenSkeleton blocks={3} />
           </ScrollView>
         </View>
@@ -171,16 +179,17 @@ export function EditAppointmentScreen({ id }: { id: string }) {
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <View style={styles.container}>
           <ScrollView contentContainerStyle={styles.content}>
+            {header}
             <EmptyState
               actionLabel="Voltar para a Agenda"
               description={
                 status === 'notFound'
-                  ? 'Este agendamento não existe mais ou já foi excluído.'
-                  : submitError ?? 'Não foi possível carregar o agendamento.'
+                  ? 'Este compromisso não existe mais ou já foi excluído.'
+                  : submitError ?? 'Não foi possível carregar o compromisso.'
               }
               icon="alert-circle-outline"
               onActionPress={() => router.replace('/appointments')}
-              title={status === 'notFound' ? 'Agendamento não encontrado' : 'Erro ao carregar'}
+              title={status === 'notFound' ? 'Compromisso não encontrado' : 'Não foi possível carregar'}
               tone="error"
             />
           </ScrollView>
@@ -198,21 +207,9 @@ export function EditAppointmentScreen({ id }: { id: string }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Pressable
-              accessibilityLabel="Voltar"
-              accessibilityRole="button"
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons color={colors.text} name="chevron-back" size={22} />
-            </Pressable>
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>Editar agendamento</Text>
-            </View>
-          </View>
+          {header}
 
-          <View style={styles.section}>
+          <View>
             <Text style={styles.sectionTitle}>Tipo</Text>
             <View style={styles.typeRow}>
               {APPOINTMENT_TYPE_OPTIONS.map((option) => {
@@ -243,7 +240,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
 
           <View style={styles.section}>
             <FormField
-              label="Nome do agendamento"
+              label="Nome do compromisso"
               onChangeText={setAppointmentName}
               value={appointmentName}
             />
@@ -312,7 +309,7 @@ export function EditAppointmentScreen({ id }: { id: string }) {
               <Button
                 onPress={() => setIsConfirmingDelete(true)}
                 style={styles.deleteButton}
-                title="Excluir agendamento"
+                title="Excluir compromisso"
                 variant="destructive"
               />
             </>
@@ -334,33 +331,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     content: {
       paddingHorizontal: SIZES.large,
-      paddingTop: SIZES.base,
+      paddingTop: SIZES.large,
       paddingBottom: SIZES.large * 2,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: SIZES.large,
-      gap: SIZES.base,
-    },
-    backButton: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-      borderCurve: 'continuous',
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    titleContainer: {
-      flex: 1,
-      justifyContent: 'center',
-    },
-    title: {
-      ...FONTS.title,
-      color: colors.text,
     },
     section: {
       marginTop: SIZES.large,

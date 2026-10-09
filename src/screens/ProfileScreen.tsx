@@ -8,8 +8,11 @@ import { Avatar } from '@/components/Avatar';
 import { BackButton } from '@/components/BackButton';
 import { Badge } from '@/components/Badge';
 import { BottomSheet } from '@/components/BottomSheet';
+import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
+import { InlineError } from '@/components/InlineError';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
+import { GRADE_NAME_PT } from '@/constants/uspstfGrades';
 import { useThemeContext, type ThemeMode } from '@/contexts/ThemeContext';
 import type { UserProfile } from '@/contexts/UserContext';
 import {
@@ -24,7 +27,8 @@ type ProfileScreenProps = {
   onSetTheme: (t: ThemeMode) => void;
   reminderIntervals: ReminderIntervalsByGrade;
   onSetReminderInterval: (grade: UspstfGrade, days: number) => void;
-  onLogout: () => void;
+  /** Só é chamado depois de a pessoa confirmar que quer sair. */
+  onLogout: () => void | Promise<void>;
   onEditProfile: () => void;
   /** Volta para a tela de onde esta foi aberta (o Início ou o hub Mais). */
   onBack?: () => void;
@@ -89,6 +93,23 @@ export function ProfileScreen({
   const bmi = calculateBMI(user?.weightKg, user?.heightCm);
   const age = user?.birthDate ? calculateAge(user.birthDate) : null;
   const [activeIntervalGrade, setActiveIntervalGrade] = useState<UspstfGrade | null>(null);
+  const [isConfirmingLogout, setIsConfirmingLogout] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  async function handleConfirmLogout() {
+    setIsLoggingOut(true);
+    setLogoutError(null);
+
+    try {
+      await onLogout();
+    } catch {
+      setLogoutError('Não foi possível sair agora. Tente novamente.');
+      setIsConfirmingLogout(false);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
 
   const healthItems = [
     { label: 'Peso', value: user?.weightKg ? `${user.weightKg} kg` : '—' },
@@ -204,26 +225,34 @@ export function ProfileScreen({
 
           <Section
             title="Lembretes de prevenção"
-            subtitle="Toque em um grau para escolher de quanto em quanto tempo repetir o lembrete."
+            subtitle="Cada recomendação da tela Prevenção tem um grau. Toque em um grau para escolher de quanto em quanto tempo repetir o lembrete."
           >
             <View className="overflow-hidden rounded-card border border-app-border dark:border-app-dark-border">
               {REMINDER_GRADE_ORDER.map((grade, index) => (
                 <Pressable
                   key={grade}
                   accessibilityRole="button"
-                  accessibilityLabel={`Intervalo de lembrete para grau ${grade}`}
+                  accessibilityLabel={`Intervalo de lembrete para grau ${grade}, ${GRADE_NAME_PT[grade]}`}
                   onPress={() => setActiveIntervalGrade(grade)}
                   className={[
-                    'flex-row items-center justify-between bg-app-surface px-4 py-4 dark:bg-app-dark-surface',
+                    'flex-row items-center justify-between gap-3 bg-app-surface px-4 py-4 dark:bg-app-dark-surface',
                     index < REMINDER_GRADE_ORDER.length - 1
                       ? 'border-b border-app-border dark:border-app-dark-border'
                       : '',
                   ].join(' ')}
                   style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                 >
-                  <Text className="text-[15px] text-app-text dark:text-app-dark-text">
-                    Grau {grade}
-                  </Text>
+                  {/* "Grau A" sozinho não dizia nada a quem não conhece a
+                      classificação. O grau continua à vista, porque é ele que
+                      aparece no selo de cada recomendação da Prevenção. */}
+                  <View className="flex-1">
+                    <Text className="text-[15px] text-app-text dark:text-app-dark-text">
+                      Grau {grade}
+                    </Text>
+                    <Text className="mt-0.5 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                      {GRADE_NAME_PT[grade]}
+                    </Text>
+                  </View>
                   <View className="flex-row items-center gap-1.5">
                     <Text className="text-[15px] font-semibold text-app-primary dark:text-app-dark-primary">
                       {formatIntervalLabel(reminderIntervals[grade])}
@@ -237,7 +266,11 @@ export function ProfileScreen({
 
           <BottomSheet
             visible={activeIntervalGrade !== null}
-            title={activeIntervalGrade ? `Grau ${activeIntervalGrade}` : ''}
+            title={
+              activeIntervalGrade
+                ? `Grau ${activeIntervalGrade} · ${GRADE_NAME_PT[activeIntervalGrade]}`
+                : ''
+            }
             description="Escolha de quanto em quanto tempo repetir o lembrete para este grau."
             onClose={() => setActiveIntervalGrade(null)}
           >
@@ -301,15 +334,38 @@ export function ProfileScreen({
               <Badge label="Em breve" variant="neutral" />
             </View>
 
-            <Pressable
-              className="items-center rounded-app border border-app-danger bg-app-dangerSoft py-4 dark:border-app-dark-danger dark:bg-app-dark-dangerSoft"
-              onPress={onLogout}
-              style={({ pressed }) => [pressed && { opacity: 0.85 }]}
-            >
-              <Text className="text-[15px] font-semibold text-app-danger dark:text-app-dark-danger">
-                Sair da conta
-              </Text>
-            </Pressable>
+            {logoutError ? <InlineError message={logoutError} /> : null}
+
+            {/* DECISION (consistencia-e-textos, D1): sair pede confirmação,
+                com o mesmo painel das exclusões. O botão fica no fim de uma
+                tela que se rola com o dedão, e um toque sem querer tirava a
+                pessoa do app. */}
+            {isConfirmingLogout ? (
+              <DeleteConfirmPanel
+                cancelAccessibilityLabel="Cancelar e continuar na conta"
+                confirmAccessibilityLabel="Confirmar saída da conta"
+                confirmLabel="Sair"
+                confirmingLabel="Saindo…"
+                isDeleting={isLoggingOut}
+                message="Sair da conta neste aparelho? Você vai precisar entrar de novo para ver seus dados."
+                onCancel={() => setIsConfirmingLogout(false)}
+                onConfirm={() => void handleConfirmLogout()}
+              />
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                className="items-center rounded-app border border-app-danger bg-app-dangerSoft py-4 dark:border-app-dark-danger dark:bg-app-dark-dangerSoft"
+                onPress={() => {
+                  setLogoutError(null);
+                  setIsConfirmingLogout(true);
+                }}
+                style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+              >
+                <Text className="text-[15px] font-semibold text-app-danger dark:text-app-dark-danger">
+                  Sair da conta
+                </Text>
+              </Pressable>
+            )}
           </Section>
         </View>
       </ScrollView>

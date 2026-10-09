@@ -88,6 +88,7 @@ export default function DashboardRoute() {
       onNavigateToExams={() => router.push('/exams')}
       onNavigateToHealthData={() => router.push('/health-data')}
       onNavigateToMedicines={() => router.push('/medicines')}
+      onNavigateToNewAppointment={() => router.push('/add-appointment')}
       onNavigateToPrevention={() => router.push('/prevention')}
       onNavigateToProfile={() => router.push('/profile')}
       onNavigateToVaccination={() => router.push('/vaccination')}

@@ -49,11 +49,11 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   });
 
   if (errors?.length) {
-    throw backendError(errors, 'Não foi possível salvar o agendamento.');
+    throw backendError(errors, 'Não foi possível salvar o compromisso.');
   }
 
   if (!data) {
-    throw new Error('Não foi possível salvar o agendamento.');
+    throw new Error('Não foi possível salvar o compromisso.');
   }
 
   await invalidateAppointmentsCache();
@@ -117,11 +117,11 @@ export async function updateAppointment(id: string, input: Partial<CreateAppoint
   const { data, errors } = await client.models.Appointment.update({ id, ...updateData });
 
   if (errors?.length) {
-    throw backendError(errors, 'Não foi possível atualizar o agendamento.');
+    throw backendError(errors, 'Não foi possível atualizar o compromisso.');
   }
 
   if (!data) {
-    throw new Error('Resposta inesperada do servidor ao atualizar o agendamento.');
+    throw new Error('Não foi possível atualizar o compromisso.');
   }
 
   await invalidateAppointmentsCache();
@@ -146,7 +146,7 @@ export async function updateAppointment(id: string, input: Partial<CreateAppoint
 export async function deleteAppointment(id: string): Promise<void> {
   const { data, errors } = await client.models.Appointment.delete({ id });
   if (errors?.length) {
-    throw backendError(errors, 'Não foi possível excluir o agendamento.');
+    throw backendError(errors, 'Não foi possível excluir o compromisso.');
   }
 
   await cancelAppointmentReminder(await getStoredAppointmentNotificationId(id));

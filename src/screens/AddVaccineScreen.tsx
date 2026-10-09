@@ -17,21 +17,21 @@
  * src/services/vaccinationService.ts#registerAppliedDoseWithSeries.
  */
 import React, { useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/Button';
 import { DateInput } from '@/components/DateInput';
+import { DetailHeader } from '@/components/DetailHeader';
 import { FormField } from '@/components/FormField';
 import { InlineError } from '@/components/InlineError';
 import { SelectableChip } from '@/components/SelectableChip';
-import { useThemeColors } from '@/constants/theme';
 import { useUserContext } from '@/contexts/UserContext';
 import { CALENDARIO_NACIONAL_VACINACAO, findVacinaCatalogo } from '@/data/calendarioNacionalVacinacao';
+import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import { createVaccineDose, registerAppliedDoseWithSeries } from '@/services/vaccinationService';
 import { syncVaccineReminder } from '@/services/vaccineReminderService';
 import { getTodayDate } from '@/utils/date';
@@ -60,14 +60,13 @@ const EMPTY_FORM: FormState = {
 
 export function AddVaccineScreen() {
   const { colorScheme } = useColorScheme();
-  const colors = useThemeColors();
   const { user } = useUserContext();
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [search, setSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [nameError, setNameError] = useState<string | undefined>();
+  const [nameTouched, setNameTouched] = useState(false);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -83,31 +82,28 @@ export function AddVaccineScreen() {
     return CALENDARIO_NACIONAL_VACINACAO.filter((vacina) => vacina.nome.toLowerCase().includes(query));
   }, [search]);
 
+  const isNameMissing = isOutras && !form.customName.trim();
+  // Uma dose "já aplicada" não pode ter data no futuro — o seletor de data já
+  // bloqueia isso (maxDate abaixo), esta é uma segunda barreira caso o campo
+  // tenha sido preenchido antes de alternar "Já foi aplicada?" para "Sim".
+  const isAppliedInTheFuture = form.wasApplied === true && Boolean(form.date) && form.date > getTodayDate();
+
+  // DECISION (specs/00-fundacao/consistencia-e-textos/spec.md, D4): o que
+  // falta aparece embaixo do botão, uma coisa de cada vez, como nos outros
+  // formulários. Antes o botão ficava sempre aceso, e o toque abria um pop-up
+  // do sistema dizendo o que faltava.
+  const disabledReason = !form.catalogId
+    ? 'Escolha uma vacina da lista.'
+    : isNameMissing
+      ? 'Informe o nome da vacina.'
+      : form.wasApplied === null
+        ? 'Responda se a vacina já foi aplicada.'
+        : isAppliedInTheFuture
+          ? 'A data de aplicação não pode estar no futuro.'
+          : undefined;
+
   async function handleSubmit() {
-    if (!form.catalogId) {
-      Alert.alert('Selecione uma vacina', 'Escolha uma vacina da lista para continuar.');
-      return;
-    }
-
-    if (isOutras && !form.customName.trim()) {
-      setNameError('Informe o nome da vacina.');
-      return;
-    }
-    setNameError(undefined);
-
-    if (form.wasApplied === null) {
-      Alert.alert('Já foi aplicada?', 'Selecione "Sim" ou "Não" para continuar.');
-      return;
-    }
-
-    // Uma dose "já aplicada" não pode ter data no futuro — o seletor de data já
-    // bloqueia isso (maxDate abaixo), esta é uma segunda barreira caso o campo
-    // tenha sido preenchido antes de alternar "Já foi aplicada?" para "Sim".
-    if (form.wasApplied && form.date && form.date > getTodayDate()) {
-      Alert.alert(
-        'Data inválida',
-        'A data de aplicação não pode estar no futuro. Corrija a data ou selecione "Não" se ainda não foi aplicada.',
-      );
+    if (disabledReason || !form.catalogId) {
       return;
     }
 
@@ -154,9 +150,10 @@ export function AddVaccineScreen() {
         }
       }
 
+      avisarSucesso('Vacina salva.');
       router.replace('/vaccination');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao salvar a vacina.';
+      const message = error instanceof Error ? error.message : 'Não foi possível salvar a vacina.';
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -172,20 +169,7 @@ export function AddVaccineScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View className="mb-6 flex-row items-center gap-3">
-          <Pressable
-            accessibilityLabel="Voltar"
-            accessibilityRole="button"
-            onPress={() => router.back()}
-            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-            className="size-12 items-center justify-center rounded-field border-[1.5px] border-app-border dark:border-app-dark-border"
-          >
-            <Ionicons color={colors.text} name="chevron-back" size={22} />
-          </Pressable>
-          <Text className="flex-1 text-[20px] font-semibold text-app-text dark:text-app-dark-text">
-            Adicionar vacina
-          </Text>
-        </View>
+        <DetailHeader onBack={() => router.back()} title="Adicionar vacina" />
 
         {submitError ? <InlineError message={submitError} /> : null}
 
@@ -214,7 +198,9 @@ export function AddVaccineScreen() {
             placeholder="Ex.: Vacina de viagem"
             value={form.customName}
             onChangeText={(text) => update('customName', text)}
-            errorMessage={nameError}
+            onBlur={() => setNameTouched(true)}
+            // O erro do campo só aparece depois que a pessoa passa por ele.
+            errorMessage={nameTouched && isNameMissing ? 'Informe o nome da vacina.' : undefined}
           />
         ) : null}
 
@@ -304,7 +290,13 @@ export function AddVaccineScreen() {
         ) : null}
 
         <View className="mt-8">
-          <Button title="Salvar" onPress={handleSubmit} loading={isSubmitting} />
+          <Button
+            title="Salvar"
+            onPress={handleSubmit}
+            disabled={Boolean(disabledReason)}
+            disabledReason={disabledReason}
+            loading={isSubmitting}
+          />
         </View>
       </ScrollView>
       </KeyboardAvoidingView>

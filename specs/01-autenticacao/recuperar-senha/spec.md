@@ -1,5 +1,7 @@
 # EPIC: Autenticação — Recuperar senha (2 passos)
 
+> **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D4 e D6), os botões "Enviar código" e "Alterar senha" ficam desabilitados e dizem o que falta; as falhas aparecem na tela; "Senha alterada. Entre com a nova senha." aparece no rodapé antes de a tela voltar ao Login; e os campos de senha têm o olho de mostrar a senha.
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: Tela **1f** — "Tela 4 — Recuperar senha (2 passos, interativo)" em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 1239-1276).
 - Rota/arquivo no código (existente): `src/app/forgot-password.tsx` → `src/screens/ForgotPasswordScreen.tsx`.
