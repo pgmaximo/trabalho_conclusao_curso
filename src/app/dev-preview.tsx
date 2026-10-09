@@ -21,7 +21,9 @@ import { HealthDashboardScreen } from '@/screens/HealthDashboardScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
+import { BottomTabBar } from '@/components/BottomTabBar';
 import { MarkDoseAppliedSheet } from '@/components/MarkDoseAppliedSheet';
+import { APP_TABS } from '@/constants/navigation';
 import type { UserProfile } from '@/contexts/UserContext';
 import type { HealthImport } from '@/types/healthInsights';
 import type {
@@ -273,6 +275,28 @@ const READY_HEALTH_IMPORT: HealthImport = {
 };
 
 const PREVIEWS: Record<string, () => React.ReactElement> = {
+  // O Início dentro da moldura do app (conteúdo + barra de abas), como o
+  // AppShell monta — para ver a barra no contexto, e não solta.
+  'home-in-shell': () => (
+    <View className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <View className="flex-1">
+        <HomeScreen
+          {...HOME_BASE_PROPS}
+          examsCount={7}
+          pendingDosesToday={2}
+          recentExams={PREVIEW_EXAMS}
+          smartwatchAnalysisReady
+          upcomingAppointments={PREVIEW_APPOINTMENTS}
+          vaccineDoseCounts={{ overdue: 0, pending: 1, applied: 5 }}
+        />
+      </View>
+      <BottomTabBar
+        activeTab="dashboard"
+        items={APP_TABS.map(({ icon, label, id }) => ({ icon, label, id }))}
+        onTabPress={noop}
+      />
+    </View>
+  ),
   'home-with-data': () => (
     <HomeScreen
       {...HOME_BASE_PROPS}

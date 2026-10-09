@@ -4,10 +4,16 @@
 // =============================================================================
 //
 // Design: cada tab usa um Ionicon (variante cheia quando ativa, "-outline"
-// quando inativa). A tab ativa ganha uma cápsula suave (primarySoft) atrás do
+// quando inativa). A tab ativa ganha um círculo suave (primarySoft) atrás do
 // ícone + label na cor primária — affordance clara para baixo letramento digital.
-// O estado ativo não depende só de cor: cápsula, ícone cheio e rótulo semibold.
+// O estado ativo não depende só de cor: círculo, ícone cheio e rótulo semibold.
 // Totalmente reativa ao tema (claro/escuro) e respeita a safe area inferior.
+//
+// O destaque era uma cápsula larga (54×30dp), que lia como um retângulo. A
+// pedido do dono do projeto (2026-10-09) virou um círculo de 40dp, mais
+// amigável. Como o círculo é mais alto que a cápsula, o respiro de cima da
+// barra caiu de 8 para 4dp, e ela fecha em 80dp (a altura da barra do
+// Material 3) em vez de crescer para 84.
 //
 // Formatação (specs/00-fundacao/barra-de-navegacao/spec.md, D4 e D5):
 // - rótulo em 13px (era 10px, abaixo do piso de 11px com que o Canvas 1a
@@ -49,7 +55,7 @@ export function BottomTabBar({ items, activeTab, onTabPress }: BottomTabBarProps
     <View
       accessibilityRole="tablist"
       testID="barra-de-abas"
-      className="flex-row border-t border-app-border bg-app-surface px-1 pt-2 dark:border-app-dark-border dark:bg-app-dark-surface"
+      className="flex-row border-t border-app-border bg-app-surface px-1 pt-1 dark:border-app-dark-border dark:bg-app-dark-surface"
       style={{ paddingBottom: Math.max(insets.bottom, 10) }}
     >
       {items.map((item) => {
@@ -73,10 +79,16 @@ export function BottomTabBar({ items, activeTab, onTabPress }: BottomTabBarProps
             onPress={() => onTabPress(item.id)}
           >
             <View
+              testID={isActive ? 'aba-ativa-destaque' : 'aba-inativa-icone'}
+              // Forma em `style`, e não em className, para o teste conseguir
+              // conferi-la (o jest não resolve as classes do NativeWind). A aba
+              // inativa reserva o mesmo espaço, para o ícone não pular ao
+              // trocar de aba.
+              style={styles.areaDoIcone}
               className={
                 isActive
-                  ? 'mb-1 items-center justify-center rounded-full bg-app-primarySoft px-4 py-1 dark:bg-app-dark-primarySoft'
-                  : 'mb-1 items-center justify-center rounded-full px-4 py-1'
+                  ? 'mb-0.5 items-center justify-center bg-app-primarySoft dark:bg-app-dark-primarySoft'
+                  : 'mb-0.5 items-center justify-center'
               }
             >
               <Ionicons name={iconName} size={22} color={isActive ? colors.primary : colors.textSecondary} />
@@ -102,5 +114,6 @@ export function BottomTabBar({ items, activeTab, onTabPress }: BottomTabBarProps
 }
 
 const styles = StyleSheet.create({
+  areaDoIcone: { width: 40, height: 40, borderRadius: 20 },
   rotulo: { fontSize: 13, lineHeight: 16 },
 });

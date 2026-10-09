@@ -78,6 +78,34 @@ describe('BottomTabBar', () => {
     expect(contraste(themeTokens.dark.textSecondary, themeTokens.dark.surface)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // Pedido do dono do projeto (2026-10-09): o destaque atras do icone da aba
+  // ativa era uma capsula larga, que lia como um retangulo. Passou a ser um
+  // circulo, mais amigavel.
+  it('destaca a aba ativa com um circulo atras do icone, e so ela', () => {
+    renderBar('exams');
+
+    const destaques = screen.getAllByTestId('aba-ativa-destaque');
+    expect(destaques).toHaveLength(1);
+
+    const estilo = StyleSheet.flatten(destaques[0].props.style);
+    expect(estilo.width).toBe(estilo.height);
+    expect(estilo.borderRadius).toBeGreaterThanOrEqual(estilo.width / 2);
+  });
+
+  it('reserva o mesmo espaco para o icone nas abas inativas, para ele nao pular ao trocar de aba', () => {
+    renderBar('exams');
+
+    const ativo = StyleSheet.flatten(screen.getByTestId('aba-ativa-destaque').props.style);
+    const inativos = screen.getAllByTestId('aba-inativa-icone');
+
+    expect(inativos).toHaveLength(4);
+    for (const inativo of inativos) {
+      const estilo = StyleSheet.flatten(inativo.props.style);
+      expect(estilo.width).toBe(ativo.width);
+      expect(estilo.height).toBe(ativo.height);
+    }
+  });
+
   it('escreve os rotulos em 13px, acima do piso que o Canvas usou para descartar a barra de 7 abas', () => {
     renderBar('dashboard');
 

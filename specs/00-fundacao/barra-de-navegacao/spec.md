@@ -5,7 +5,15 @@
 > grade 2×2 do "Acesso rápido" (D6) passou a 2×3, com Vacinação e Smartwatch;
 > as linhas de apoio do C4 foram encurtadas para caber em uma linha ("Amanhã,
 > 08:00", "3 documentos", "Faltam 2 hoje"); e, sem o dado, a linha deixou de
-> sumir (D7) e passou a descrever o destino. A barra e o hub Mais não mudaram.
+> sumir (D7) e passou a descrever o destino. A ordem das abas e o hub Mais não
+> mudaram.
+>
+> **Reconciliação (2026-10-09, forma do destaque):** a pedido do dono do
+> projeto, o destaque atrás do ícone da aba ativa deixou de ser a cápsula larga
+> desenhada no §4 (54×30dp, que lia como um retângulo) e passou a ser um
+> círculo de 40dp, mais amigável. O respiro de cima da barra caiu de 8 para
+> 4dp, e a barra fecha em 80dp. Cor (`primarySoft`), ícone cheio e rótulo
+> semibold da aba ativa não mudaram.
 
 ## 1. Identificação
 
