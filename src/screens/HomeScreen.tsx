@@ -5,12 +5,14 @@ import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import { Avatar } from '@/components/Avatar';
 import { EmptyState } from '@/components/EmptyState';
 import { QuickAccessButton } from '@/components/QuickAccessButton';
 import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 import { parseScheduledAt } from '@/services/agendaDateRange';
+import type { VaccineDoseCounts } from '@/services/homeVaccination';
 import type { AppointmentEntry, AppointmentType, MedicalDocument } from '@/types/models';
 
 // DECISION (specs/02-perfil-home-agenda/home/spec.md §5): "Prevenção em atraso"
@@ -24,11 +26,17 @@ type PreventionAlert = {
 
 // Alerta de vacinação — diferente de PreventionAlert acima, este TEM fonte
 // real: doses "atrasada" do usuário ou uma campanha nacional ativa com dado
-// do PNI (ver src/hooks/useVaccinationAlert.ts). Prop própria, não reaproveita
+// do PNI (ver src/hooks/useHomeVaccination.ts). Prop própria, não reaproveita
 // preventionAlert, para as duas fontes não ficarem coladas por acidente.
 type VaccinationAlert = {
   title: string;
   subtitle: string;
+};
+
+type ProfileAvatar = {
+  name?: string;
+  gender?: 'male' | 'female' | 'other';
+  photoUrl?: string;
 };
 
 type HomeScreenProps = {
@@ -55,12 +63,23 @@ type HomeScreenProps = {
   onNavigateToMedicines?: () => void;
   onNavigateToPrevention?: () => void;
   onNavigateToVaccination?: () => void;
-  onNotificationPress?: () => void;
+  onNavigateToHealthData?: () => void;
+  /** Abre o Perfil pelo avatar do cabeçalho. Sem ele, o avatar não é desenhado:
+   *  o Início não mostra controle que não faz nada. */
+  onNavigateToProfile?: () => void;
+  profileAvatar?: ProfileAvatar;
   /** Total de documentos guardados, para a linha de apoio do atalho Exames. */
   examsCount?: number;
   /** Doses de hoje ainda não tomadas. `null` enquanto carrega ou se falhou:
-   *  nesse caso o atalho Remédios fica sem linha de apoio, em vez de dizer "0". */
+   *  nesse caso o atalho Remédios descreve o destino, em vez de dizer "0". */
   pendingDosesToday?: number | null;
+  /** Doses da carteira, para a linha de apoio do atalho Vacinação. `null`
+   *  enquanto carrega ou se falhou. */
+  vaccineDoseCounts?: VaccineDoseCounts | null;
+  /** Se há uma análise do smartwatch pronta. `null` enquanto carrega ou se
+   *  falhou. `false` cobre tanto "nunca importou" quanto "há uma importação
+   *  ainda sendo analisada": o Início só enxerga a análise que já ficou pronta. */
+  smartwatchAnalysisReady?: boolean | null;
 };
 
 const APPOINTMENT_TYPE_LABEL: Record<AppointmentType, string> = {
@@ -90,9 +109,13 @@ export function HomeScreen({
   onNavigateToMedicines,
   onNavigateToPrevention,
   onNavigateToVaccination,
-  onNotificationPress,
+  onNavigateToHealthData,
+  onNavigateToProfile,
+  profileAvatar,
   examsCount,
   pendingDosesToday,
+  vaccineDoseCounts,
+  smartwatchAnalysisReady,
 }: HomeScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
@@ -110,15 +133,25 @@ export function HomeScreen({
               {todayLabel}
             </Text>
           </View>
-          <Pressable
-            accessibilityLabel="Notificações"
-            accessibilityRole="button"
-            className="h-11 w-11 items-center justify-center rounded-app border border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface"
-            onPress={onNotificationPress}
-            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons color={colors.textSecondary} name="notifications-outline" size={18} />
-          </Pressable>
+          {/* DECISION (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D3):
+              o sino do Canvas 2b saiu. Não há central de notificações, e ele era
+              um botão sem ação. No lugar, o avatar abre o Perfil com um toque. */}
+          {onNavigateToProfile ? (
+            <Pressable
+              accessibilityLabel="Abrir perfil"
+              accessibilityRole="button"
+              className="h-12 w-12 items-center justify-center rounded-full"
+              onPress={onNavigateToProfile}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            >
+              <Avatar
+                gender={profileAvatar?.gender}
+                name={profileAvatar?.name}
+                photoUrl={profileAvatar?.photoUrl}
+                size="sm"
+              />
+            </Pressable>
+          ) : null}
         </View>
 
         <TodaySummaryCard text={todaySummaryText} onPress={onNavigateToAppointments} />
@@ -135,14 +168,21 @@ export function HomeScreen({
             rápido subiu para logo depois do Resumo e ganhou Consultas e Exames.
             Consultas saiu da barra, e o Início passou a ser a porta de entrada
             de 1 toque para ela, Exames e Remédios. "Análise IA" saiu: virou a
-            aba Assistente. As linhas de apoio só usam dado que esta tela já
-            recebeu, e somem enquanto ele carrega ou se falhou. */}
+            aba Assistente.
+
+            DECISION (specs/02-perfil-home-agenda/home-acesso-completo/spec.md,
+            D1, D2 e D8): a grade cresceu de 2×2 para 2×3 (Vacinação e
+            Smartwatch só eram alcançáveis pelo hub Mais), e todo atalho tem
+            SEMPRE uma linha de apoio, de uma linha só. Ela mostra um dado que
+            esta tela já recebeu; enquanto ele carrega, se falhou ou quando não
+            há fonte (Prevenção), mostra uma descrição neutra do destino —
+            nunca um número ou uma afirmação sobre os dados da pessoa. */}
         <Section title="Acesso rápido">
           <View className="flex-row gap-2.5">
             <QuickAccessButton
               detail={
                 appointmentsLoading || appointmentsError
-                  ? null
+                  ? 'Sua agenda'
                   : resumoDoProximoCompromisso(upcomingAppointments)
               }
               icon="calendar-outline"
@@ -153,7 +193,7 @@ export function HomeScreen({
             <QuickAccessButton
               detail={
                 examsLoading || examsError || examsCount === undefined
-                  ? null
+                  ? 'Seu histórico'
                   : resumoDosDocumentos(examsCount)
               }
               icon="document-text-outline"
@@ -163,16 +203,38 @@ export function HomeScreen({
           </View>
           <View className="mt-2.5 flex-row gap-2.5">
             <QuickAccessButton
-              detail={pendingDosesToday == null ? null : resumoDasDoses(pendingDosesToday)}
+              detail={pendingDosesToday == null ? 'Doses de hoje' : resumoDasDoses(pendingDosesToday)}
               icon="medkit-outline"
               label="Remédios"
               onPress={onNavigateToMedicines}
             />
             <QuickAccessButton
+              detail="Orientações"
               icon="shield-checkmark-outline"
               label="Prevenção"
               onPress={onNavigateToPrevention}
               tone="warning"
+            />
+          </View>
+          <View className="mt-2.5 flex-row gap-2.5">
+            <QuickAccessButton
+              detail={vaccineDoseCounts == null ? 'Sua carteira' : resumoDasVacinas(vaccineDoseCounts)}
+              icon="medical-outline"
+              label="Vacinação"
+              onPress={onNavigateToVaccination}
+            />
+            <QuickAccessButton
+              detail={
+                smartwatchAnalysisReady == null
+                  ? 'Sono e passos'
+                  : smartwatchAnalysisReady
+                    ? 'Análise pronta'
+                    : 'Sem análise'
+              }
+              icon="watch-outline"
+              label="Smartwatch"
+              onPress={onNavigateToHealthData}
+              tone="secondary"
             />
           </View>
         </Section>
@@ -260,27 +322,50 @@ export function HomeScreen({
   );
 }
 
+// As linhas de apoio abaixo cabem em UMA linha do atalho. Medido no navegador
+// em 360dp: sobram 121dp para o texto (IBM Plex Sans 16px), uns 14 caracteres.
+// As frases anteriores ("2 doses a tomar hoje", "7 documentos guardados")
+// quebravam em duas linhas só em alguns atalhos, e a grade ficava desalinhada.
+// Antes de alongar um texto daqui, meça de novo.
+
 function resumoDoProximoCompromisso(upcomingAppointments: AppointmentEntry[]): string {
   // `upcomingAppointments` já chega em ordem cronológica (selectUpcomingAppointments).
   const proximo = upcomingAppointments[0];
   if (!proximo) {
     return 'Nada agendado';
   }
-  return `Próximo: ${formatAppointmentWhen(proximo.scheduledAt)}, ${proximo.time}`;
+  return `${formatAppointmentWhen(proximo.scheduledAt)}, ${proximo.time}`;
 }
 
 function resumoDosDocumentos(quantidade: number): string {
   if (quantidade === 0) {
-    return 'Nenhum documento guardado';
+    return 'Nada guardado';
   }
-  return quantidade === 1 ? '1 documento guardado' : `${quantidade} documentos guardados`;
+  return quantidade === 1 ? '1 documento' : `${quantidade} documentos`;
 }
 
+// "Faltam", e não "2 doses hoje": o número é o que AINDA não foi tomado, não o
+// total do dia.
 function resumoDasDoses(doses: number): string {
   if (doses === 0) {
-    return 'Nenhuma dose a tomar hoje';
+    return 'Nada pendente';
   }
-  return doses === 1 ? '1 dose a tomar hoje' : `${doses} doses a tomar hoje`;
+  return doses === 1 ? 'Falta 1 hoje' : `Faltam ${doses} hoje`;
+}
+
+// As atrasadas vêm antes das pendentes, e as pendentes antes das aplicadas: a
+// linha diz primeiro o que pede ação.
+function resumoDasVacinas({ overdue, pending, applied }: VaccineDoseCounts): string {
+  if (overdue > 0) {
+    return overdue === 1 ? '1 atrasada' : `${overdue} atrasadas`;
+  }
+  if (pending > 0) {
+    return pending === 1 ? '1 pendente' : `${pending} pendentes`;
+  }
+  if (applied > 0) {
+    return applied === 1 ? '1 aplicada' : `${applied} aplicadas`;
+  }
+  return 'Nenhuma dose';
 }
 
 function SectionLink({ label, onPress }: { label: string; onPress?: () => void }) {

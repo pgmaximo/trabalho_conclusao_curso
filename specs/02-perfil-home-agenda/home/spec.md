@@ -6,6 +6,12 @@
 > Consultas (antes "Agenda"), Exames (no lugar de "Análise IA", que virou aba
 > da barra), Remédios e Prevenção, com linha de apoio de dado real quando o
 > Início já o tem.
+>
+> **Reconciliação (2026-10-09):** por decisão explícita em
+> `specs/02-perfil-home-agenda/home-acesso-completo/spec.md`, a grade do
+> "Acesso rápido" passou a 2×3 (entram Vacinação e Smartwatch — o "sem tile
+> extra Wearable" do §7 deixa de valer), o sino do cabeçalho deu lugar ao
+> avatar que abre o Perfil, e "Últimos exames" mostra 2 documentos.
 
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: tela **2b** ("Home — resumo, indicadores e acesso rápido") em `specs/design/raw/SuaSaude - Bloco 1 - Base e Autenticacao.dc.html` (linhas 730–794).

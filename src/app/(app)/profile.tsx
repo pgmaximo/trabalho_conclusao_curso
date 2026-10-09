@@ -27,7 +27,6 @@ export default function ProfileRoute() {
       onSetReminderInterval={setReminderIntervalForGrade}
       onLogout={handleLogout}
       onEditProfile={() => router.push('/edit-profile')}
-      onImportHealthData={() => router.push('/import-health-data')}
     />
   );
 }

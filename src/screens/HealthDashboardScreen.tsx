@@ -74,6 +74,14 @@ export function HealthDashboardScreen({
 
   const status = healthImport?.status;
 
+  // DECISION (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D4):
+  // quem já tem uma análise pronta importa de novo por aqui. Antes, esta tela
+  // só oferecia a importação vazia ou com falha, e o único outro caminho era
+  // Perfil > Configurações. Nos demais estados a ação não aparece: vazio e
+  // falha já têm o próprio botão, e não se importa por cima de uma análise em
+  // andamento.
+  const canImportAgain = !isLoading && !errorMessage && status === 'READY';
+
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background" edges={['top']}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
@@ -81,6 +89,20 @@ export function HealthDashboardScreen({
         <ScreenHeader
           title="Dados do smartwatch"
           subtitle="Insights sobre sono, passos e batimentos, gerados a partir dos seus próprios dados."
+          action={
+            canImportAgain ? (
+              <Pressable
+                accessibilityLabel="Importar novos dados do smartwatch"
+                accessibilityRole="button"
+                className="h-12 flex-row items-center gap-2 rounded-field border border-app-border px-3 dark:border-app-dark-border"
+                onPress={onImportPress}
+                style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
+              >
+                <Ionicons color={colors.iconMuted} name="cloud-upload-outline" size={18} />
+                <Text className="text-[14px] text-app-text dark:text-app-dark-text">Importar</Text>
+              </Pressable>
+            ) : undefined
+          }
         />
 
         <AiDisclaimerBanner />

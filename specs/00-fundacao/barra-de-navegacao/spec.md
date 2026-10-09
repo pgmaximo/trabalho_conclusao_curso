@@ -1,5 +1,12 @@
 # EPIC: Barra de navegação com o Assistente de IA + Início como porta de entrada
 
+> **Reconciliação (2026-10-09):** por decisão explícita em
+> `specs/02-perfil-home-agenda/home-acesso-completo/spec.md` (D1, D2 e D8), a
+> grade 2×2 do "Acesso rápido" (D6) passou a 2×3, com Vacinação e Smartwatch;
+> as linhas de apoio do C4 foram encurtadas para caber em uma linha ("Amanhã,
+> 08:00", "3 documentos", "Faltam 2 hoje"); e, sem o dado, a linha deixou de
+> sumir (D7) e passou a descrever o destino. A barra e o hub Mais não mudaram.
+
 ## 1. Identificação
 
 - **Origem:** pedido do dono do projeto ("o chat de IA está muito escondido,

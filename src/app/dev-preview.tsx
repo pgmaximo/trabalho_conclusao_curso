@@ -17,9 +17,16 @@ import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddVaccineScreen } from '@/screens/AddVaccineScreen';
+import { HealthDashboardScreen } from '@/screens/HealthDashboardScreen';
+import { HomeScreen } from '@/screens/HomeScreen';
+import { ProfileScreen } from '@/screens/ProfileScreen';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
 import { MarkDoseAppliedSheet } from '@/components/MarkDoseAppliedSheet';
+import type { UserProfile } from '@/contexts/UserContext';
+import type { HealthImport } from '@/types/healthInsights';
 import type {
+  AppointmentEntry,
+  MedicalDocument,
   VaccinationCampaignView,
   VaccinationSiteView,
   VaccineDoseItem,
@@ -89,7 +96,249 @@ const NEARBY_SITE: VaccinationSiteView = {
 
 const noop = () => {};
 
+const PREVIEW_USER: UserProfile = {
+  id: 'preview-user',
+  name: 'Maria Souza',
+  email: 'maria.souza@example.com',
+  gender: undefined,
+  birthDate: '1961-04-12',
+  weightKg: 68,
+  heightCm: 162,
+  isSmoker: false,
+  onboardingCompleted: true,
+};
+
+function previewDocument(id: string, title: string, subtitle: string, documentDate: string): MedicalDocument {
+  return {
+    id,
+    icon: 'document-text-outline',
+    title,
+    subtitle,
+    category: 'Exames',
+    documentType: 'exam',
+    documentName: title,
+    documentDate,
+    expirationDate: null,
+    s3FileName: `${id}.pdf`,
+    originalFileName: `${id}.pdf`,
+  };
+}
+
+const PREVIEW_EXAMS: MedicalDocument[] = [
+  previewDocument('doc-1', 'Hemograma completo', 'Exame · 02/10/2026', '2026-10-02'),
+  previewDocument('doc-2', 'Colesterol total e frações', 'Exame · 18/09/2026', '2026-09-18'),
+];
+
+// Datas relativas a hoje: fixas, o compromisso cairia no passado e o preview
+// deixaria de mostrar "Amanhã".
+function previewScheduledAt(daysFromToday: number, time: string): string {
+  const today = new Date();
+  const target = new Date(today.getFullYear(), today.getMonth(), today.getDate() + daysFromToday);
+  const year = target.getFullYear();
+  const month = String(target.getMonth() + 1).padStart(2, '0');
+  const day = String(target.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}T${time}`;
+}
+
+const PREVIEW_APPOINTMENTS: AppointmentEntry[] = [
+  {
+    id: 'apt-1',
+    time: '08:00',
+    title: 'Cardiologista',
+    location: 'Clínica Central',
+    type: 'consulta',
+    scheduledAt: previewScheduledAt(1, '08:00'),
+  },
+  {
+    id: 'apt-2',
+    time: '14:30',
+    title: 'Ultrassom abdominal',
+    location: 'Laboratório São Lucas',
+    type: 'exame',
+    scheduledAt: previewScheduledAt(6, '14:30'),
+  },
+];
+
+const HOME_BASE_PROPS: React.ComponentProps<typeof HomeScreen> = {
+  greeting: 'Boa tarde, Maria',
+  todayLabel: 'sexta-feira, 9 de outubro de 2026',
+  todaySummaryText: 'Nenhum compromisso ou pendência para hoje.',
+  recentExams: [],
+  examsLoading: false,
+  examsError: null,
+  onRetryExams: noop,
+  upcomingAppointments: [],
+  appointmentsLoading: false,
+  appointmentsError: null,
+  onRetryAppointments: noop,
+  onNavigateToExamDetail: noop,
+  onNavigateToAppointmentDetail: noop,
+  onNavigateToExams: noop,
+  onNavigateToAppointments: noop,
+  onNavigateToMedicines: noop,
+  onNavigateToPrevention: noop,
+  onNavigateToVaccination: noop,
+  onNavigateToHealthData: noop,
+  onNavigateToProfile: noop,
+  profileAvatar: { name: PREVIEW_USER.name },
+};
+
+const READY_HEALTH_IMPORT: HealthImport = {
+  id: 'import-1',
+  status: 'READY',
+  sourceHint: 'SAMSUNG_HEALTH',
+  fileNames: ['pedometer_day_summary.csv', 'sleep.csv'],
+  periodStart: '2026-07-01',
+  periodEnd: '2026-09-28',
+  dayCount: 90,
+  warnings: ['12 colunas não reconhecidas foram ignoradas.'],
+  errorMessage: null,
+  startedAt: '2026-09-29T10:00:00.000Z',
+  analyzedAt: '2026-09-29T10:02:00.000Z',
+  modelId: 'us.anthropic.claude-sonnet-4-6',
+  summary: {
+    periodStart: '2026-07-01',
+    periodEnd: '2026-09-28',
+    dayCount: 90,
+    metrics: [
+      {
+        metric: 'steps',
+        label: 'Passos',
+        unit: 'passos',
+        n: 80,
+        firstSeen: '2026-07-01',
+        lastSeen: '2026-09-28',
+        daysWithData: 80,
+        coveragePct: 89,
+        mean: 8200,
+        median: 8000,
+        sd: 1500,
+        min: 2000,
+        max: 15000,
+        p25: 6000,
+        p75: 10000,
+        weekday: 8500,
+        weekend: 7000,
+        trendSlopePerDay: 5,
+        monthly: [
+          { month: '2026-07', mean: 7800 },
+          { month: '2026-08', mean: 8300 },
+          { month: '2026-09', mean: 8500 },
+        ],
+      },
+      {
+        metric: 'sleepMinutes',
+        label: 'Sono',
+        unit: 'min',
+        n: 70,
+        firstSeen: '2026-07-01',
+        lastSeen: '2026-09-28',
+        daysWithData: 70,
+        coveragePct: 78,
+        mean: 402,
+        median: 410,
+        sd: 45,
+        min: 250,
+        max: 520,
+        p25: 370,
+        p75: 440,
+        weekday: 395,
+        weekend: 425,
+        trendSlopePerDay: 0.2,
+        monthly: [
+          { month: '2026-07', mean: 390 },
+          { month: '2026-08', mean: 405 },
+          { month: '2026-09', mean: 412 },
+        ],
+      },
+    ],
+    correlations: [
+      { metricA: 'steps', metricB: 'sleepMinutes', lagDays: 0, label: 'Passos e sono', r: 0.42, n: 60 },
+    ],
+    warnings: ['12 colunas não reconhecidas foram ignoradas.'],
+  },
+  insights: {
+    resumo: 'Seus passos aumentaram ao longo do período analisado, e o sono ficou estável.',
+    destaques: [
+      { metrica: 'Passos', valor: '8.200/dia', comparacao: 'acima da média do período', tom: 'positivo' },
+    ],
+    pontosDeAtencao: [],
+    padroes: [],
+    sugestoes: [],
+    perguntasParaOMedico: [],
+    limitacoes: 'Cobertura de sono limitada a 78% dos dias.',
+  },
+  createdAt: '2026-09-29T10:00:00.000Z',
+  updatedAt: '2026-09-29T10:02:00.000Z',
+};
+
 const PREVIEWS: Record<string, () => React.ReactElement> = {
+  'home-with-data': () => (
+    <HomeScreen
+      {...HOME_BASE_PROPS}
+      examsCount={7}
+      pendingDosesToday={2}
+      recentExams={PREVIEW_EXAMS}
+      smartwatchAnalysisReady
+      todaySummaryText="2 medicamentos pendentes"
+      upcomingAppointments={PREVIEW_APPOINTMENTS}
+      vaccinationAlert={{ title: 'Vacina atrasada', subtitle: 'Dupla adulto (dT) está com a dose atrasada.' }}
+      vaccineDoseCounts={{ overdue: 1, pending: 2, applied: 5 }}
+    />
+  ),
+  'home-new-user': () => (
+    // Conta recém-criada: tudo carregou, e não há nada ainda.
+    <HomeScreen
+      {...HOME_BASE_PROPS}
+      examsCount={0}
+      pendingDosesToday={0}
+      smartwatchAnalysisReady={false}
+      vaccineDoseCounts={{ overdue: 0, pending: 0, applied: 0 }}
+    />
+  ),
+  'home-loading': () => (
+    // Nenhuma fonte respondeu: os atalhos descrevem o destino.
+    <HomeScreen
+      {...HOME_BASE_PROPS}
+      appointmentsLoading
+      examsLoading
+      pendingDosesToday={null}
+      smartwatchAnalysisReady={null}
+      vaccineDoseCounts={null}
+    />
+  ),
+  'health-dashboard-ready': () => (
+    <HealthDashboardScreen
+      errorMessage={null}
+      healthImport={READY_HEALTH_IMPORT}
+      isLoading={false}
+      isTimedOut={false}
+      onDeleteImport={noop}
+      onImportPress={noop}
+      onRetry={noop}
+    />
+  ),
+  'health-dashboard-empty': () => (
+    <HealthDashboardScreen
+      errorMessage={null}
+      healthImport={null}
+      isLoading={false}
+      isTimedOut={false}
+      onImportPress={noop}
+      onRetry={noop}
+    />
+  ),
+  profile: () => (
+    <ProfileScreen
+      user={PREVIEW_USER}
+      theme="system"
+      onSetTheme={noop}
+      reminderIntervals={{ A: 30, B: 60, C: 90, D: 180, I: 90 }}
+      onSetReminderInterval={noop}
+      onLogout={noop}
+      onEditProfile={noop}
+    />
+  ),
   'vaccination-empty': () => (
     <VaccinationScreen
       upcoming={[]}

@@ -25,8 +25,6 @@ type ProfileScreenProps = {
   onSetReminderInterval: (grade: UspstfGrade, days: number) => void;
   onLogout: () => void;
   onEditProfile: () => void;
-  /** Navega para o fluxo de importação de dados de wearables (Samsung Health / Apple Health). */
-  onImportHealthData: () => void;
 };
 
 const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
@@ -81,7 +79,6 @@ export function ProfileScreen({
   onSetReminderInterval,
   onLogout,
   onEditProfile,
-  onImportHealthData,
 }: ProfileScreenProps) {
   const { colorScheme } = useThemeContext();
   const colors = useThemeColors();
@@ -285,30 +282,10 @@ export function ProfileScreen({
             })}
           </BottomSheet>
 
+          {/* A importação dos dados do smartwatch saiu daqui: ela não é uma
+              configuração, e mora agora na própria tela "Dados do smartwatch"
+              (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D4). */}
           <Section title="Configurações" subtitle="Gerencie seus dados e sessão.">
-            <View className="mb-3 rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface">
-              <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
-                Dados do smartwatch
-              </Text>
-              <Text className="mt-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                Importe os dados exportados do Samsung Health (ou de um app como Health Auto
-                Export, no iPhone) para receber insights sobre sono, passos e batimentos.
-              </Text>
-
-              <Pressable
-                accessibilityLabel="Importar dados do smartwatch"
-                accessibilityRole="button"
-                className="mt-3 flex-row items-center justify-between rounded-app border border-app-border p-3 dark:border-app-dark-border"
-                onPress={onImportHealthData}
-                style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-              >
-                <Text className="text-[15px] text-app-text dark:text-app-dark-text">
-                  Importar dados
-                </Text>
-                <Ionicons color={colors.iconMuted} name="chevron-forward" size={18} />
-              </Pressable>
-            </View>
-
             <Pressable
               className="mb-3 flex-row items-center justify-between rounded-app border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
               onPress={handleExportData}

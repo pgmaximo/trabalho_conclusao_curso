@@ -10,6 +10,11 @@ import type { AppointmentEntry } from '@/types/models';
 // barra, o Inicio precisa levar a Exames, Remedios e Consultas com um toque, de
 // forma bem visivel -- e, onde o Inicio ja tem o dado, dizer algo util sobre
 // cada um, sem inventar nada.
+//
+// A grade cresceu de 2x2 para 2x3 em
+// specs/02-perfil-home-agenda/home-acesso-completo/spec.md (D1 e D2): Vacinacao
+// e Smartwatch so eram alcancaveis pelo hub Mais, e ganharam atalho com a
+// mesma regra de linha de apoio.
 
 jest.mock('@expo/vector-icons/Ionicons', () => {
   const React = require('react');
@@ -91,6 +96,8 @@ describe('Home - Acesso rapido', () => {
     ['Exames', 'onNavigateToExams'],
     ['Remédios', 'onNavigateToMedicines'],
     ['Prevenção', 'onNavigateToPrevention'],
+    ['Vacinação', 'onNavigateToVaccination'],
+    ['Smartwatch', 'onNavigateToHealthData'],
   ] as const)('o atalho %s leva a sua tela com um toque', (rotulo, handler) => {
     const onPress = jest.fn();
     renderHome({ [handler]: onPress });
@@ -113,9 +120,15 @@ describe('Home - Acesso rapido', () => {
     expect(textos.indexOf('Acesso rápido')).toBeLessThan(textos.indexOf('Últimos exames'));
   });
 
+  // Toda linha de apoio cabe em UMA linha. Medido no navegador em 360dp: o
+  // atalho tem 121dp uteis para o texto (IBM Plex Sans 16px), o que da uns 14
+  // caracteres. As frases antigas ("2 doses a tomar hoje", "7 documentos
+  // guardados") quebravam em duas, e os atalhos ficavam desalinhados entre si
+  // (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D8).
+
   it('mostra no atalho de Consultas quando e o proximo compromisso', () => {
     renderHome({ upcomingAppointments: [AMANHA] });
-    expect(screen.getByText('Próximo: Amanhã, 08:00')).toBeTruthy();
+    expect(screen.getByText('Amanhã, 08:00')).toBeTruthy();
   });
 
   it('diz que nao ha nada agendado quando a agenda carregou vazia', () => {
@@ -124,35 +137,110 @@ describe('Home - Acesso rapido', () => {
   });
 
   it.each([
-    [2, '2 doses a tomar hoje'],
-    [1, '1 dose a tomar hoje'],
-    [0, 'Nenhuma dose a tomar hoje'],
+    [2, 'Faltam 2 hoje'],
+    [1, 'Falta 1 hoje'],
+    [0, 'Nada pendente'],
   ])('mostra no atalho de Remedios as doses que faltam hoje (%s)', (doses, texto) => {
     renderHome({ pendingDosesToday: doses });
     expect(screen.getByText(texto)).toBeTruthy();
   });
 
   it.each([
-    [3, '3 documentos guardados'],
-    [1, '1 documento guardado'],
-    [0, 'Nenhum documento guardado'],
+    [3, '3 documentos'],
+    [1, '1 documento'],
+    [0, 'Nada guardado'],
   ])('mostra no atalho de Exames quantos documentos ha (%s)', (quantidade, texto) => {
     renderHome({ examsCount: quantidade });
     expect(screen.getByText(texto)).toBeTruthy();
   });
 
-  it('nao inventa linha de apoio enquanto o dado nao chegou ou falhou', () => {
-    renderHome({
-      appointmentsLoading: true,
-      upcomingAppointments: [AMANHA],
-      examsError: 'Falhou',
-      examsCount: 3,
-      pendingDosesToday: null,
+  it.each([
+    // As atrasadas vencem as pendentes, e as pendentes vencem as aplicadas: a
+    // linha diz primeiro o que pede acao.
+    [{ overdue: 2, pending: 1, applied: 4 }, '2 atrasadas'],
+    [{ overdue: 1, pending: 0, applied: 0 }, '1 atrasada'],
+    [{ overdue: 0, pending: 3, applied: 4 }, '3 pendentes'],
+    [{ overdue: 0, pending: 1, applied: 0 }, '1 pendente'],
+    [{ overdue: 0, pending: 0, applied: 5 }, '5 aplicadas'],
+    [{ overdue: 0, pending: 0, applied: 1 }, '1 aplicada'],
+    [{ overdue: 0, pending: 0, applied: 0 }, 'Nenhuma dose'],
+  ])('mostra no atalho de Vacinacao o estado da carteira (%j)', (doses, texto) => {
+    renderHome({ vaccineDoseCounts: doses });
+    expect(screen.getByText(texto)).toBeTruthy();
+  });
+
+  it.each([
+    [true, 'Análise pronta'],
+    // "Nenhum dado importado" seria falso enquanto uma importacao ainda esta
+    // sendo analisada: o Inicio so enxerga a analise que ja ficou pronta.
+    [false, 'Sem análise'],
+  ])('mostra no atalho de Smartwatch se ha analise pronta (%s)', (pronta, texto) => {
+    renderHome({ smartwatchAnalysisReady: pronta });
+    expect(screen.getByText(texto)).toBeTruthy();
+  });
+
+  // Pedido do usuario ao ver a grade no aparelho: "alguns tem subtitulo e
+  // outros nao". Todo atalho tem sempre a sua linha -- inclusive Prevencao,
+  // que nao tem fonte de dado no Inicio, e inclusive enquanto o dado carrega.
+  describe('sem o dado, a linha descreve o destino', () => {
+    const DESCRICOES = [
+      'Sua agenda',
+      'Seu histórico',
+      'Doses de hoje',
+      'Orientações',
+      'Sua carteira',
+      'Sono e passos',
+    ];
+
+    it('mostra a descricao de cada atalho enquanto o dado nao chegou ou falhou', () => {
+      renderHome({
+        appointmentsLoading: true,
+        upcomingAppointments: [AMANHA],
+        examsError: 'Falhou',
+        examsCount: 3,
+        pendingDosesToday: null,
+        vaccineDoseCounts: null,
+        smartwatchAnalysisReady: null,
+      });
+
+      for (const descricao of DESCRICOES) {
+        expect(screen.getByText(descricao)).toBeTruthy();
+      }
     });
 
-    expect(screen.queryByText(/^Próximo:/)).toBeNull();
-    expect(screen.queryByText('Nada agendado')).toBeNull();
-    expect(screen.queryByText(/documentos? guardados?$/)).toBeNull();
-    expect(screen.queryByText(/a tomar hoje$/)).toBeNull();
+    it('nao afirma nada sobre os dados da pessoa enquanto nao os tem', () => {
+      renderHome({
+        appointmentsLoading: true,
+        upcomingAppointments: [AMANHA],
+        examsError: 'Falhou',
+        examsCount: 3,
+        pendingDosesToday: null,
+        vaccineDoseCounts: null,
+        smartwatchAnalysisReady: null,
+      });
+
+      // O compromisso de amanha so pode aparecer no card de "Proximos
+      // compromissos" (que esta carregando), nunca no atalho.
+      expect(screen.queryByText('Amanhã, 08:00')).toBeNull();
+      expect(screen.queryByText('Nada agendado')).toBeNull();
+      expect(screen.queryByText(/^\d+ documentos?$/)).toBeNull();
+      expect(screen.queryByText('Nada guardado')).toBeNull();
+      expect(screen.queryByText(/^Faltam? \d+ hoje$/)).toBeNull();
+      expect(screen.queryByText('Nada pendente')).toBeNull();
+      expect(screen.queryByText(/^\d+ (atrasadas?|pendentes?|aplicadas?)$/)).toBeNull();
+      expect(screen.queryByText('Nenhuma dose')).toBeNull();
+      expect(screen.queryByText('Análise pronta')).toBeNull();
+      expect(screen.queryByText('Sem análise')).toBeNull();
+    });
+
+    it('da a Prevencao a sua linha, mesmo sem fonte de dado no Inicio', () => {
+      renderHome();
+      expect(screen.getByRole('button', { name: 'Prevenção. Orientações' })).toBeTruthy();
+    });
+
+    it('le a linha de apoio junto com o rotulo no leitor de tela', () => {
+      renderHome({ pendingDosesToday: 2 });
+      expect(screen.getByRole('button', { name: 'Remédios. Faltam 2 hoje' })).toBeTruthy();
+    });
   });
 });

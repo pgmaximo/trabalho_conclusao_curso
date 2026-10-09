@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { HealthDashboardScreen } from '@/screens/HealthDashboardScreen';
@@ -182,5 +182,40 @@ describe('HealthDashboardScreen', () => {
   it('clarifies that coverage is measured in days, not a generic percentage', () => {
     renderScreen({ healthImport: baseHealthImport() });
     expect(screen.getByText('cobertura de 89% dos dias')).toBeTruthy();
+  });
+
+  // Antes, quem ja tinha uma analise pronta so conseguia importar de novo por
+  // Perfil > Configuracoes: esta tela so oferecia a importacao quando estava
+  // vazia ou tinha falhado (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D4).
+  describe('import action in the header', () => {
+    const IMPORT_ACTION = { name: 'Importar novos dados do smartwatch' };
+
+    it('lets the user import again when an analysis is already READY', () => {
+      const onImportPress = jest.fn();
+      renderScreen({ healthImport: baseHealthImport(), onImportPress });
+
+      fireEvent.press(screen.getByRole('button', IMPORT_ACTION));
+
+      expect(onImportPress).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['PENDING', 'PROCESSING'] as const)('is not offered while an analysis is %s', (status) => {
+      renderScreen({ healthImport: baseHealthImport({ status, summary: null, insights: null }) });
+      expect(screen.queryByRole('button', IMPORT_ACTION)).toBeNull();
+    });
+
+    it('is not duplicated in the empty state, which already has its own import CTA', () => {
+      renderScreen({ healthImport: null });
+      expect(screen.queryByRole('button', IMPORT_ACTION)).toBeNull();
+      expect(screen.getByText('Importar dados')).toBeTruthy();
+    });
+
+    it.each([
+      ['loading', { isLoading: true }],
+      ['showing a fetch error', { errorMessage: 'Falha de rede.' }],
+    ])('is not shown while %s', (_estado, props) => {
+      renderScreen({ healthImport: baseHealthImport(), ...props });
+      expect(screen.queryByRole('button', IMPORT_ACTION)).toBeNull();
+    });
   });
 });

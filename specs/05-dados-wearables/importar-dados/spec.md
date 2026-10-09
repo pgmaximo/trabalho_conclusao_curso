@@ -1,5 +1,11 @@
 # EPIC: Importar dados de wearables (Bloco 4)
 
+> **Reconciliação (2026-10-09):** a entrada desta tela saiu de Perfil >
+> Configurações. Ela é aberta pela tela "Dados do smartwatch" (`/health-data`):
+> pelo botão do estado vazio ou de falha, e pela ação "Importar" do cabeçalho
+> quando já há uma análise pronta. O "voltar" do §4 leva, portanto, a essa
+> tela. Decisão em `specs/02-perfil-home-agenda/home-acesso-completo/spec.md` (D4).
+
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: **N/A — feature nova, sem Canvas de origem.** Não existe tela correspondente em `specs/design/raw/`; o desenho de UI foi feito diretamente nesta implementação, seguindo os tokens de `specs/design/DESIGN_TOKENS.md` (ambiguidade documentada, regra 8 da constituição).
 - Rota/arquivo no código: `src/app/import-health-data.tsx` → `src/screens/ImportHealthDataScreen.tsx`.
