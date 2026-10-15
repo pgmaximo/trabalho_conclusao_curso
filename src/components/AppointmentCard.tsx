@@ -1,63 +1,95 @@
-import React from 'react';
+// =============================================================================
+// Arquivo: AppointmentCard.tsx
+// Descrição: Componente de cartão para exibir consultas médicas agendadas
+// Componente: AppointmentCard
+// =============================================================================
+//
+// Cartão para exibir compromissos de saúde agendados com cores diferenciadas
+// por tipo, borda lateral colorida e suporte a interação por toque. Usado na
+// tela de Agenda (2c).
+//
+// Paleta por tipo (specs/02-perfil-home-agenda/agenda/plan.md item 4 — fonte
+// canônica, reaproveitada por HomeScreen.tsx/2b): consulta -> secundário/azul,
+// exame -> warning/âmbar, cirurgia -> primário/verde. Nenhuma cor nova, os 3
+// pares já existem em DESIGN_TOKENS.md e são reativos a dark mode.
+//
+// =============================================================================
+
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+
+import { useThemeColors, type ThemeColors } from '@/constants/theme';
+import type { AppointmentType } from '@/types/models';
 
 interface AppointmentCardProps {
-  time: string;
-  title: string;
-  location: string;
-  type: 'consulta' | 'retorno' | 'exame';
-  onPress?: () => void;
+  time: string;                           // Horário da consulta
+  /** Data do compromisso ("01/10"). Ausente no escopo Dia, onde a data ja esta no
+   *  rotulo do periodo (Canvas 2c). Presente quando a lista mistura dias. */
+  dateLabel?: string;
+  title: string;                          // Título/descrição da consulta
+  location: string;                       // Local da consulta
+  type: AppointmentType;                  // Tipo do compromisso
+  onPress?: () => void;                   // Callback ao pressionar o cartão
+  onSyncPress?: () => void;               // Callback para exportar este compromisso para o Google Calendar
 }
 
-export function AppointmentCard({
-  time,
-  title,
-  location,
-  type,
-  onPress,
-}: AppointmentCardProps) {
-  const getTypeColor = () => {
-    switch (type) {
-      case 'consulta':
-        return '#3498DB';
-      case 'retorno':
-        return '#E74C3C';
-      case 'exame':
-        return '#F39C12';
-      default:
-        return COLORS.primary;
-    }
-  };
+function getTypeTone(colors: ThemeColors, type: AppointmentType) {
+  switch (type) {
+    case 'consulta':
+      return { accent: colors.secondary, badgeBg: colors.secondarySoft, badgeText: colors.info, label: 'Consulta' };
+    case 'exame':
+      return { accent: colors.warning, badgeBg: colors.warningSoft, badgeText: colors.warning, label: 'Exame' };
+    case 'cirurgia':
+      return { accent: colors.primary, badgeBg: colors.primarySoft, badgeText: colors.primaryDark, label: 'Cirurgia' };
+    default:
+      return { accent: colors.primary, badgeBg: colors.primarySoft, badgeText: colors.primaryDark, label: '' };
+  }
+}
 
-  const getTypeLabel = () => {
-    switch (type) {
-      case 'consulta':
-        return 'Consulta';
-      case 'retorno':
-        return 'Retorno';
-      case 'exame':
-        return 'Exame';
-      default:
-        return '';
-    }
-  };
+export function AppointmentCard({ time, dateLabel, title, location, type, onPress, onSyncPress }: AppointmentCardProps) {
+  const colors = useThemeColors();
+  const tone = getTypeTone(colors, type);
+  const [isPressed, setIsPressed] = useState(false);
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+      // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+      style={[styles.container, { backgroundColor: colors.surface }, isPressed && styles.pressed]}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
       onPress={onPress}
     >
-      <View style={[styles.leftBorder, { backgroundColor: getTypeColor() }]} />
+      <View style={[styles.leftBorder, { backgroundColor: tone.accent }]} />
+
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.time}>{time}</Text>
-          <View style={[styles.typeBadge, { backgroundColor: getTypeColor() }]}>
-            <Text style={styles.typeLabel}>{getTypeLabel()}</Text>
+          <View style={styles.timeColumn}>
+            {dateLabel ? (
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>
+                {dateLabel}
+              </Text>
+            ) : null}
+            <Text style={[styles.time, { color: colors.textSecondary }]}>{time}</Text>
+          </View>
+          {onSyncPress ? (
+            <Pressable
+              style={[styles.syncButton, { backgroundColor: colors.secondarySoft }]}
+              onPress={(event) => {
+                event.stopPropagation();
+                onSyncPress();
+              }}
+            >
+              <Text style={[styles.syncButtonText, { color: colors.info }]}>Google</Text>
+            </Pressable>
+          ) : null}
+          <View style={[styles.typeBadge, { backgroundColor: tone.badgeBg }]}>
+            <Text style={[styles.typeLabel, { color: tone.badgeText }]}>{tone.label}</Text>
           </View>
         </View>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.location}>{location}</Text>
+
+        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        <Text numberOfLines={1} style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
       </View>
     </Pressable>
   );
@@ -66,53 +98,58 @@ export function AppointmentCard({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radius,
-    marginBottom: SIZES.base,
+    borderRadius: 16,
+    marginBottom: 10,
     overflow: 'hidden',
   },
   pressed: {
     opacity: 0.85,
   },
   leftBorder: {
-    width: 4,
+    width: 3,
   },
   content: {
     flex: 1,
-    padding: SIZES.base,
+    padding: 14,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SIZES.small,
+    marginBottom: 6,
+  },
+  timeColumn: {
+    flex: 1,
   },
   time: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-    fontSize: 12,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  syncButton: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 8,
+  },
+  syncButtonText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   typeBadge: {
     paddingVertical: 4,
-    paddingHorizontal: SIZES.small,
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
   },
   typeLabel: {
-    ...FONTS.caption,
-    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
-    fontSize: 11,
   },
   title: {
-    ...FONTS.body,
+    fontSize: 17,
     fontWeight: '600',
-    color: COLORS.text,
     marginBottom: 4,
   },
   location: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    fontSize: 12,
+    fontSize: 16,
   },
 });

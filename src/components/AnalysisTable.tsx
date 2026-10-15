@@ -1,21 +1,21 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { FONTS, SIZES } from '@/constants/theme';
 
 type AnalysisTableProps = {
-  data: Array<{
+  data: {
     label: string;
     value: string;
     status: string;
     statusColor: string;
-  }>;
+  }[];
 };
 
 export function AnalysisTable({ data }: AnalysisTableProps) {
   return (
     <View style={styles.container}>
       {data.map((row, index) => (
-        <View key={index} style={styles.row}>
+        <View key={row.label} style={styles.row}>
           <View style={styles.leftContent}>
             <Text style={styles.label}>{row.label}</Text>
           </View>

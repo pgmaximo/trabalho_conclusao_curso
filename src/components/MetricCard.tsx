@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { View, Text } from 'react-native';
+
+import { useThemeColors } from '@/constants/theme';
 
 type MetricCardProps = {
   label: string;
@@ -15,85 +16,39 @@ export function MetricCard({
   label,
   value,
   status,
-  statusColor = COLORS.primary,
+  statusColor,
   progressPercent,
   variant = 'vertical',
 }: MetricCardProps) {
-  const backgroundColor = statusColor === COLORS.primary ? '#E8F5EB' : statusColor;
+  const colors = useThemeColors();
+  const accent = statusColor ?? colors.primary;
 
   return (
-    <View style={[styles.card, variant === 'horizontal' && styles.cardHorizontal]}>
-      <View style={styles.header}>
-        <Text style={styles.label}>{label}</Text>
+    <View
+      className={[
+        'mx-1 flex-1 justify-between rounded-app border border-app-border bg-app-surface p-3 dark:border-app-dark-border dark:bg-app-dark-surface',
+        variant === 'horizontal' ? 'min-h-[90px] flex-row items-center' : 'min-h-[140px]',
+      ].join(' ')}
+    >
+      <View className="mb-2">
+        <Text className="text-[13px] uppercase tracking-wide text-app-textSecondary dark:text-app-dark-textSecondary">
+          {label}
+        </Text>
       </View>
-      <Text style={styles.value}>{value}</Text>
-      {progressPercent !== undefined && (
-        <View style={styles.progressBar}>
+
+      <Text className="mb-1 text-2xl font-bold text-app-text dark:text-app-dark-text">{value}</Text>
+
+      {progressPercent !== undefined ? (
+        <View className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-app-border dark:bg-app-dark-border">
           <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${Math.min(progressPercent, 100)}%`,
-                backgroundColor: statusColor,
-              },
-            ]}
+            style={{ width: `${Math.min(progressPercent, 100)}%`, height: '100%', backgroundColor: accent }}
           />
         </View>
-      )}
-      <Text style={[styles.status, { color: statusColor }]}>{status}</Text>
+      ) : null}
+
+      <Text className="text-[13px] font-semibold" style={{ color: accent }}>
+        {status}
+      </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radius,
-    padding: SIZES.base,
-    minHeight: 140,
-    justifyContent: 'space-between',
-    marginHorizontal: SIZES.small,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardHorizontal: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 90,
-  },
-  header: {
-    marginBottom: SIZES.small,
-  },
-  label: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  value: {
-    ...FONTS.heading,
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  status: {
-    ...FONTS.caption,
-    fontWeight: '600',
-  },
-});

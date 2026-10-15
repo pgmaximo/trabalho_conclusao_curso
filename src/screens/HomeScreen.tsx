@@ -1,259 +1,648 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View, type DimensionValue } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-// AWS Amplify
-import { signIn, signOut } from 'aws-amplify/auth';
+import { Avatar } from '@/components/Avatar';
+import { EmptyState } from '@/components/EmptyState';
+import { QuickAccessButton } from '@/components/QuickAccessButton';
+import { Section } from '@/components/Section';
+import { useThemeColors } from '@/constants/theme';
+import { parseScheduledAt } from '@/services/agendaDateRange';
+import type { VaccineDoseCounts } from '@/services/homeVaccination';
+import type { AppointmentEntry, AppointmentType, MedicalDocument } from '@/types/models';
 
-import { AuthInput } from '@/components/AuthInput';
-import { Button } from '@/components/Button';
-import { SocialButton } from '@/components/SocialButton';
-import { SectionDivider } from '@/components/SectionDivider';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
-import { serializeAuthError, signInWithGoogle } from '@/services/google-auth';
+// DECISION (specs/02-perfil-home-agenda/home/spec.md §5): "Prevenção em atraso"
+// depende de uma fonte real que ainda nao existe (EPIC de Prevencao, Bloco 3) —
+// esta tela apenas consome quando/se essa fonte existir, nunca decide o que
+// conta como "atrasado". Prop opcional, sempre ausente por ora.
+type PreventionAlert = {
+  title: string;
+  subtitle: string;
+};
+
+// Alerta de vacinação — diferente de PreventionAlert acima, este TEM fonte
+// real: doses "atrasada" do usuário ou uma campanha nacional ativa com dado
+// do PNI (ver src/hooks/useHomeVaccination.ts). Prop própria, não reaproveita
+// preventionAlert, para as duas fontes não ficarem coladas por acidente.
+type VaccinationAlert = {
+  title: string;
+  subtitle: string;
+};
+
+type ProfileAvatar = {
+  name?: string;
+  gender?: 'male' | 'female' | 'other';
+  photoUrl?: string;
+};
 
 type HomeScreenProps = {
-  onNavigateToRegister: () => void;
-  onNavigateToForgotPassword: () => void;
-  onLogin: () => void;
-  onGoogleAuthSuccess: () => void;
+  greeting: string;
+  todayLabel: string;
+  todaySummaryText: string;
+  preventionAlert?: PreventionAlert | null;
+  vaccinationAlert?: VaccinationAlert | null;
+  recentExams: MedicalDocument[];
+  examsLoading: boolean;
+  examsError: string | null;
+  onRetryExams: () => void;
+  upcomingAppointments: AppointmentEntry[];
+  appointmentsLoading: boolean;
+  appointmentsError: string | null;
+  onRetryAppointments: () => void;
+  onNavigateToExamDetail: (id: string) => void;
+  /** Abre o compromisso tocado (`/edit-appointment?id=`). Distinto de
+   *  `onNavigateToAppointments`, que continua levando a Agenda a partir de
+   *  "Ver agenda", do botao do Resumo e do Acesso rapido. */
+  onNavigateToAppointmentDetail?: (id: string) => void;
+  onNavigateToExams: () => void;
+  onNavigateToAppointments?: () => void;
+  /** Abre o formulário de novo compromisso. É o destino do botão da lista
+   *  vazia: ele dizia "Agendar consulta" e levava à Agenda, onde havia outro
+   *  botão igual. Sem ele, o botão não é desenhado. */
+  onNavigateToNewAppointment?: () => void;
+  onNavigateToMedicines?: () => void;
+  onNavigateToPrevention?: () => void;
+  onNavigateToVaccination?: () => void;
+  onNavigateToHealthData?: () => void;
+  /** Abre o Perfil pelo avatar do cabeçalho. Sem ele, o avatar não é desenhado:
+   *  o Início não mostra controle que não faz nada. */
+  onNavigateToProfile?: () => void;
+  profileAvatar?: ProfileAvatar;
+  /** Total de documentos guardados, para a linha de apoio do atalho Exames. */
+  examsCount?: number;
+  /** Doses de hoje ainda não tomadas. `null` enquanto carrega ou se falhou:
+   *  nesse caso o atalho Remédios descreve o destino, em vez de dizer "0". */
+  pendingDosesToday?: number | null;
+  /** Doses da carteira, para a linha de apoio do atalho Vacinação. `null`
+   *  enquanto carrega ou se falhou. */
+  vaccineDoseCounts?: VaccineDoseCounts | null;
+  /** Se há uma análise do smartwatch pronta. `null` enquanto carrega ou se
+   *  falhou. `false` cobre tanto "nunca importou" quanto "há uma importação
+   *  ainda sendo analisada": o Início só enxerga a análise que já ficou pronta. */
+  smartwatchAnalysisReady?: boolean | null;
+};
+
+// A caixa e o tamanho do texto de cada linha das duas listas do Início. Ficam
+// em constantes porque o esqueleto de carregamento usa as MESMAS: ele guarda o
+// lugar exato da linha que vai entrar (ver `GhostLine`, mais abaixo). Mudou a
+// linha, mudou o esqueleto junto.
+const DOCUMENT_ROW_CLASS =
+  'mb-3 flex-row items-center gap-3 rounded-card border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface';
+const DOCUMENT_TITLE_CLASS = 'text-[15px] font-semibold';
+const DOCUMENT_SUBTITLE_CLASS = 'text-[13px]';
+const APPOINTMENT_CARD_CLASS =
+  'mb-3 min-h-[48px] flex-row overflow-hidden rounded-card border border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface';
+const APPOINTMENT_TITLE_CLASS = 'text-[17px] font-semibold';
+const APPOINTMENT_WHEN_CLASS = 'text-[16px]';
+
+// Quantas linhas cada lista do Início mostra (ver `dashboard.tsx`).
+const HOME_LIST_ROWS = [0, 1];
+
+const APPOINTMENT_TYPE_LABEL: Record<AppointmentType, string> = {
+  consulta: 'Consulta',
+  exame: 'Exame',
+  cirurgia: 'Cirurgia',
 };
 
 export function HomeScreen({
-  onNavigateToRegister,
-  onNavigateToForgotPassword,
-  onLogin,
-  onGoogleAuthSuccess,
+  greeting,
+  todayLabel,
+  todaySummaryText,
+  preventionAlert,
+  vaccinationAlert,
+  recentExams,
+  examsLoading,
+  examsError,
+  onRetryExams,
+  upcomingAppointments,
+  appointmentsLoading,
+  appointmentsError,
+  onRetryAppointments,
+  onNavigateToExamDetail,
+  onNavigateToAppointmentDetail,
+  onNavigateToExams,
+  onNavigateToAppointments,
+  onNavigateToNewAppointment,
+  onNavigateToMedicines,
+  onNavigateToPrevention,
+  onNavigateToVaccination,
+  onNavigateToHealthData,
+  onNavigateToProfile,
+  profileAvatar,
+  examsCount,
+  pendingDosesToday,
+  vaccineDoseCounts,
+  smartwatchAnalysisReady,
 }: HomeScreenProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  async function handleLogin() {
-    const normalizedEmail = email.trim().toLowerCase();
-
-    if (!normalizedEmail || !password) {
-      Alert.alert('Atenção', 'Por favor, preencha e-mail e senha.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Limpa sessões antigas para evitar o erro de 'UserAlreadyAuthenticated'
-      await signOut().catch(() => {});
-
-      const { isSignedIn, nextStep } = await signIn({
-        username: normalizedEmail,
-        password,
-        options: {
-          authFlowType: 'USER_PASSWORD_AUTH',
-        },
-      });
-
-      if (isSignedIn) {
-        onLogin();
-      } else if (nextStep.signInStep === 'CONFIRM_SIGN_UP') {
-        Alert.alert('Conta não confirmada', 'Verifique seu e-mail para confirmar seu cadastro.');
-      }
-    } catch (error: any) {
-      console.log('Erro detalhado:', error);
-      let message = 'Ocorreu um erro ao entrar. Tente novamente.';
-
-      if (error.name === 'UserNotFoundException') message = 'Usuário não encontrado.';
-      if (error.name === 'NotAuthorizedException') message = 'E-mail ou senha incorretos.';
-      if (error.name === 'UserNotConfirmedException') message = 'Usuário ainda não confirmado.';
-
-      // Tratamento para caso o fluxo de senha esteja desativado no console
-      if (error.name === 'InvalidParameterException' && error.message.includes('USER_PASSWORD_AUTH')) {
-        message = 'Erro de configuração: Habilite ALLOW_USER_PASSWORD_AUTH no console da AWS.';
-      }
-
-      Alert.alert('Erro no Login', message);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // Função para Login Social
-  async function handleGoogleLogin() {
-    setIsLoading(true);
-
-    try {
-      await signInWithGoogle();
-      onGoogleAuthSuccess();
-    } catch (error: any) {
-      console.log('Erro no login com Google:', serializeAuthError(error));
-      setIsLoading(false);
-      Alert.alert('Erro', 'Não foi possível conectar com o Google.');
-    }
-  }
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.hero}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeIcon}>💚</Text>
-            </View>
-            <Text style={styles.title}>SuaSaúde</Text>
-            <Text style={styles.subtitle}>Gerencie sua saúde com IA e dispositivos vestíveis</Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Entre na sua conta</Text>
-
-            <AuthInput
-              label="E-mail"
-              icon="✉️"
-              placeholder="Digite seu e-mail"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-              editable={!isLoading}
-            />
-
-            <AuthInput
-              label="Senha"
-              icon="🔒"
-              placeholder="Digite sua senha"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              editable={!isLoading}
-            />
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.forgotPassword}
-              onPress={onNavigateToForgotPassword}
-              disabled={isLoading}
-            >
-              <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
-            </TouchableOpacity>
-
-            {isLoading ? (
-              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 20 }} />
-            ) : (
-              <View style={{ gap: SIZES.small }}>
-                <Button title="Entrar" onPress={handleLogin} />
-                <Button
-                  title="Criar conta gratuita"
-                  variant="secondary"
-                  onPress={onNavigateToRegister}
-                />
-              </View>
-            )}
-
-            <SectionDivider label="ou continue com" />
-
-            <View style={styles.socialRow}>
-              <SocialButton title="Google" onPress={handleGoogleLogin} />
-              <SocialButton title="Apple ID" onPress={() => {}} />
-            </View>
-
-            <Text style={styles.termsText}>
-              Ao entrar, você concorda com os Termos de Uso e Política de Privacidade (LGPD)
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
+        <View className="mb-6 flex-row items-start justify-between gap-3">
+          <View className="flex-1">
+            <Text className="text-2xl font-bold text-app-text dark:text-app-dark-text">
+              {greeting}
+            </Text>
+            <Text className="mt-1 text-[16px] text-app-textSecondary dark:text-app-dark-textSecondary">
+              {todayLabel}
             </Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          {/* DECISION (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D3):
+              o sino do Canvas 2b saiu. Não há central de notificações, e ele era
+              um botão sem ação. No lugar, o avatar abre o Perfil com um toque. */}
+          {onNavigateToProfile ? (
+            <Pressable
+              accessibilityLabel="Abrir perfil"
+              accessibilityRole="button"
+              className="h-12 w-12 items-center justify-center rounded-full"
+              onPress={onNavigateToProfile}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            >
+              <Avatar
+                gender={profileAvatar?.gender}
+                name={profileAvatar?.name}
+                photoUrl={profileAvatar?.photoUrl}
+                size="sm"
+              />
+            </Pressable>
+          ) : null}
+        </View>
+
+        <TodaySummaryCard text={todaySummaryText} onPress={onNavigateToAppointments} />
+
+        {preventionAlert ? (
+          <PreventionAlertCard alert={preventionAlert} onPress={onNavigateToAppointments} />
+        ) : null}
+
+        {vaccinationAlert ? (
+          <VaccinationAlertCard alert={vaccinationAlert} onPress={onNavigateToVaccination} />
+        ) : null}
+
+        {/* DECISION (specs/00-fundacao/barra-de-navegacao/spec.md, D6): o Acesso
+            rápido subiu para logo depois do Resumo e ganhou Agenda e Exames.
+            A Agenda saiu da barra, e o Início passou a ser a porta de entrada
+            de 1 toque para ela, Exames e Remédios. "Análise IA" saiu: virou a
+            aba Assistente.
+
+            DECISION (specs/02-perfil-home-agenda/home-acesso-completo/spec.md,
+            D1, D2 e D8): a grade cresceu de 2×2 para 2×3 (Vacinação e
+            Smartwatch só eram alcançáveis pelo hub Mais), e todo atalho tem
+            SEMPRE uma linha de apoio, de uma linha só. Ela mostra um dado que
+            esta tela já recebeu; enquanto ele carrega, se falhou ou quando não
+            há fonte (Prevenção), mostra uma descrição neutra do destino —
+            nunca um número ou uma afirmação sobre os dados da pessoa. */}
+        <Section title="Acesso rápido">
+          <View className="flex-row gap-2.5">
+            <QuickAccessButton
+              detail={
+                appointmentsLoading || appointmentsError
+                  ? 'Compromissos'
+                  : resumoDoProximoCompromisso(upcomingAppointments)
+              }
+              icon="calendar-outline"
+              // "Agenda", como a tela que ele abre (consistencia-e-textos, D2).
+              label="Agenda"
+              onPress={onNavigateToAppointments}
+              tone="secondary"
+            />
+            <QuickAccessButton
+              detail={
+                examsLoading || examsError || examsCount === undefined
+                  ? 'Seu histórico'
+                  : resumoDosDocumentos(examsCount)
+              }
+              icon="document-text-outline"
+              label="Exames"
+              onPress={onNavigateToExams}
+            />
+          </View>
+          <View className="mt-2.5 flex-row gap-2.5">
+            <QuickAccessButton
+              detail={pendingDosesToday == null ? 'Doses de hoje' : resumoDasDoses(pendingDosesToday)}
+              icon="medkit-outline"
+              label="Remédios"
+              onPress={onNavigateToMedicines}
+            />
+            <QuickAccessButton
+              detail="Orientações"
+              icon="shield-checkmark-outline"
+              label="Prevenção"
+              onPress={onNavigateToPrevention}
+              tone="warning"
+            />
+          </View>
+          <View className="mt-2.5 flex-row gap-2.5">
+            <QuickAccessButton
+              detail={vaccineDoseCounts == null ? 'Sua carteira' : resumoDasVacinas(vaccineDoseCounts)}
+              icon="medical-outline"
+              label="Vacinação"
+              onPress={onNavigateToVaccination}
+            />
+            <QuickAccessButton
+              detail={
+                smartwatchAnalysisReady == null
+                  ? 'Sono e passos'
+                  : smartwatchAnalysisReady
+                    ? 'Análise pronta'
+                    : 'Sem análise'
+              }
+              icon="watch-outline"
+              label="Smartwatch"
+              onPress={onNavigateToHealthData}
+              tone="secondary"
+            />
+          </View>
+        </Section>
+
+        <Section
+          action={<SectionLink label="Ver todos" onPress={onNavigateToExams} />}
+          // "documentos", como a tela de Exames: a lista traz exames e receitas.
+          title="Últimos documentos"
+        >
+          {examsLoading ? (
+            <RecentDocumentsSkeleton />
+          ) : examsError ? (
+            <EmptyState
+              actionLabel="Tentar novamente"
+              description={examsError}
+              icon="alert-circle-outline"
+              onActionPress={onRetryExams}
+              title="Não foi possível carregar seus documentos"
+              tone="error"
+            />
+          ) : recentExams.length > 0 ? (
+            recentExams.map((exam) => (
+              <Pressable
+                key={exam.id}
+                className={DOCUMENT_ROW_CLASS}
+                onPress={() => onNavigateToExamDetail(exam.id)}
+                style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons color={colors.primary} name="document-text-outline" size={22} />
+                <View className="flex-1">
+                  <Text className={`${DOCUMENT_TITLE_CLASS} text-app-text dark:text-app-dark-text`}>
+                    {exam.title}
+                  </Text>
+                  <Text className={`${DOCUMENT_SUBTITLE_CLASS} text-app-textSecondary dark:text-app-dark-textSecondary`}>
+                    {exam.subtitle}
+                  </Text>
+                </View>
+                <Ionicons color={colors.iconMuted} name="chevron-forward" size={18} />
+              </Pressable>
+            ))
+          ) : (
+            <EmptyState
+              description="Seus exames e receitas aparecem aqui depois de enviados."
+              icon="document-text-outline"
+              title="Nenhum documento enviado"
+            />
+          )}
+        </Section>
+
+        <Section
+          action={<SectionLink label="Ver agenda" onPress={onNavigateToAppointments} />}
+          title="Próximos compromissos"
+        >
+          {appointmentsLoading ? (
+            <UpcomingAppointmentsSkeleton />
+          ) : appointmentsError ? (
+            <EmptyState
+              actionLabel="Tentar novamente"
+              description={appointmentsError}
+              icon="alert-circle-outline"
+              onActionPress={onRetryAppointments}
+              title="Não foi possível carregar sua agenda"
+              tone="error"
+            />
+          ) : upcomingAppointments.length > 0 ? (
+            upcomingAppointments.map((appointment) => (
+              <UpcomingAppointmentCard
+                appointment={appointment}
+                key={appointment.id}
+                onPress={onNavigateToAppointmentDetail}
+              />
+            ))
+          ) : (
+            <EmptyState
+              actionLabel={onNavigateToNewAppointment ? 'Novo compromisso' : undefined}
+              description="Quando você marcar uma consulta ou um exame, o compromisso aparece aqui."
+              icon="calendar-outline"
+              onActionPress={onNavigateToNewAppointment}
+              title="Nenhum compromisso agendado"
+            />
+          )}
+        </Section>
+
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: SIZES.large,
-    paddingTop: SIZES.large * 1.5,
-  },
-  hero: {
-    alignItems: 'center',
-    marginBottom: SIZES.large,
-  },
-  badge: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.large,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 22,
-    elevation: 6,
-  },
-  badgeIcon: {
-    fontSize: 28,
-  },
-  title: {
-    ...FONTS.title,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...FONTS.subtitle,
-    textAlign: 'center',
-    marginTop: SIZES.small,
-    maxWidth: 320,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.cardRadius,
-    padding: SIZES.large,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 30,
-    elevation: 5,
-  },
-  cardTitle: {
-    ...FONTS.heading,
-    marginBottom: SIZES.large,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginTop: SIZES.small,
-    marginBottom: SIZES.medium,
-  },
-  forgotPasswordText: {
-    ...FONTS.body,
-    color: COLORS.primary,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: SIZES.small,
-  },
-  termsText: {
-    ...FONTS.caption,
-    textAlign: 'center',
-    marginTop: SIZES.large,
-    lineHeight: 18,
-  },
-});
+// As linhas de apoio abaixo cabem em UMA linha do atalho. Medido no navegador
+// em 360dp: sobram 121dp para o texto (IBM Plex Sans 16px), uns 14 caracteres.
+// As frases anteriores ("2 doses a tomar hoje", "7 documentos guardados")
+// quebravam em duas linhas só em alguns atalhos, e a grade ficava desalinhada.
+// Antes de alongar um texto daqui, meça de novo.
+
+function resumoDoProximoCompromisso(upcomingAppointments: AppointmentEntry[]): string {
+  // `upcomingAppointments` já chega em ordem cronológica (selectUpcomingAppointments).
+  const proximo = upcomingAppointments[0];
+  if (!proximo) {
+    return 'Nada agendado';
+  }
+  return `${formatAppointmentWhen(proximo.scheduledAt)}, ${proximo.time}`;
+}
+
+function resumoDosDocumentos(quantidade: number): string {
+  if (quantidade === 0) {
+    return 'Nada guardado';
+  }
+  return quantidade === 1 ? '1 documento' : `${quantidade} documentos`;
+}
+
+// "Faltam", e não "2 doses hoje": o número é o que AINDA não foi tomado, não o
+// total do dia.
+function resumoDasDoses(doses: number): string {
+  if (doses === 0) {
+    return 'Nada pendente';
+  }
+  return doses === 1 ? 'Falta 1 hoje' : `Faltam ${doses} hoje`;
+}
+
+// As atrasadas vêm antes das pendentes, e as pendentes antes das aplicadas: a
+// linha diz primeiro o que pede ação.
+function resumoDasVacinas({ overdue, pending, applied }: VaccineDoseCounts): string {
+  if (overdue > 0) {
+    return overdue === 1 ? '1 atrasada' : `${overdue} atrasadas`;
+  }
+  if (pending > 0) {
+    return pending === 1 ? '1 pendente' : `${pending} pendentes`;
+  }
+  if (applied > 0) {
+    return applied === 1 ? '1 aplicada' : `${applied} aplicadas`;
+  }
+  return 'Nenhuma dose';
+}
+
+// DECISION (specs/00-fundacao/correcoes-menores/spec.md, D2): enquanto uma
+// lista do Início carrega, o lugar dela é guardado por linhas com a forma das
+// linhas de verdade. Antes era o esqueleto de tela inteira (duas barras de
+// título e dois cartões de três linhas), perto do dobro da altura do que
+// entrava no lugar: quando o dado chegava, o resto da página pulava para cima.
+
+// Uma linha de texto do esqueleto. O texto invisível é o que dá a altura: ele
+// ocupa o que a linha de verdade vai ocupar, em qualquer aparelho e com
+// qualquer tamanho de fonte. A barra cinza fica por cima, no meio.
+function GhostLine({
+  textClassName,
+  width,
+  className,
+}: {
+  textClassName: string;
+  width: DimensionValue;
+  className?: string;
+}) {
+  return (
+    <View className={className}>
+      <Text className={textClassName} style={GHOST_TEXT_STYLE}>
+        {'\u00A0'}
+      </Text>
+      <View
+        className="absolute h-3 rounded-full bg-app-border dark:bg-app-dark-border"
+        style={{ marginTop: -6, top: '50%', width }}
+      />
+    </View>
+  );
+}
+
+const GHOST_TEXT_STYLE = { opacity: 0 };
+
+function RecentDocumentsSkeleton() {
+  return (
+    <View accessibilityLabel="Carregando seus documentos" accessible>
+      {HOME_LIST_ROWS.map((row) => (
+        <View className={DOCUMENT_ROW_CLASS} key={row} testID="documento-carregando">
+          {/* O lugar do ícone de documento (22dp). */}
+          <View
+            className="rounded-md bg-app-border dark:bg-app-dark-border"
+            style={{ height: 22, width: 22 }}
+          />
+          <View className="flex-1">
+            <GhostLine textClassName={DOCUMENT_TITLE_CLASS} width="62%" />
+            <GhostLine textClassName={DOCUMENT_SUBTITLE_CLASS} width="40%" />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function UpcomingAppointmentsSkeleton() {
+  return (
+    <View accessibilityLabel="Carregando seus compromissos" accessible>
+      {HOME_LIST_ROWS.map((row) => (
+        <View className={APPOINTMENT_CARD_CLASS} key={row} testID="compromisso-carregando">
+          {/* O lugar da faixa colorida do tipo do compromisso. */}
+          <View className="w-1 bg-app-border dark:bg-app-dark-border" />
+          <View className="flex-1 p-4">
+            <GhostLine textClassName={APPOINTMENT_TITLE_CLASS} width="58%" />
+            <GhostLine className="mt-1" textClassName={APPOINTMENT_WHEN_CLASS} width="78%" />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function SectionLink({ label, onPress }: { label: string; onPress?: () => void }) {
+  const [isPressed, setIsPressed] = useState(false);
+
+  if (!onPress) {
+    return null;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      hitSlop={8}
+      onPress={onPress}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+      // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+      style={[isPressed && { opacity: 0.7 }]}
+    >
+      <Text className="text-[15px] font-semibold text-app-secondary dark:text-app-dark-secondary">
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+// O texto sobre o verde usa `onPrimary`, e não branco fixo: no tema escuro os
+// verdes são CLAROS, e branco sobre eles dava de 2,2:1 a 3,1:1. O token é
+// branco no tema claro e quase preto no escuro, como o Canvas 1c define
+// (DESIGN_TOKENS.md, "Dark theme"). Vale para os botões dos alertas abaixo.
+function TodaySummaryCard({ text, onPress }: { text: string; onPress?: () => void }) {
+  return (
+    <View className="mb-4 rounded-[18px] bg-app-primaryDark p-[18px] dark:bg-app-dark-primaryDark">
+      <Text className="text-[18px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Resumo de hoje</Text>
+      <Text className="mt-1.5 text-[16px] text-app-onPrimary/90 dark:text-app-dark-onPrimary/90">{text}</Text>
+      {onPress ? (
+        <Pressable
+          accessibilityRole="button"
+          className="mt-3 h-10 flex-row items-center justify-center rounded-app bg-white/20 px-4"
+          onPress={onPress}
+          style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+        >
+          <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Ver agenda de hoje →</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function PreventionAlertCard({
+  alert,
+  onPress,
+}: {
+  alert: PreventionAlert;
+  onPress?: () => void;
+}) {
+  const colors = useThemeColors();
+
+  return (
+    <View className="mb-4 gap-3 rounded-2xl border border-app-warningBadgeBorder bg-app-warningSoft p-4 dark:border-app-dark-warningBadgeBorder dark:bg-app-dark-warningSoft">
+      <View className="flex-row items-start gap-3">
+        <Ionicons color={colors.warning} name="alert-circle" size={26} />
+        <View className="flex-1">
+          <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+            {alert.title}
+          </Text>
+          <Text className="mt-1 text-[16px] text-app-warning dark:text-app-dark-warning">
+            {alert.subtitle}
+          </Text>
+        </View>
+      </View>
+      {onPress ? (
+        <Pressable
+          accessibilityRole="button"
+          className="h-12 items-center justify-center rounded-app bg-app-warning dark:bg-app-dark-warning"
+          onPress={onPress}
+          style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+        >
+          <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Agendar agora</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function VaccinationAlertCard({
+  alert,
+  onPress,
+}: {
+  alert: VaccinationAlert;
+  onPress?: () => void;
+}) {
+  const colors = useThemeColors();
+
+  return (
+    <View className="mb-4 gap-3 rounded-2xl border border-app-successBadgeBorder bg-app-successSoft p-4 dark:border-app-dark-successBadgeBorder dark:bg-app-dark-successSoft">
+      <View className="flex-row items-start gap-3">
+        <Ionicons color={colors.success} name="medical" size={26} />
+        <View className="flex-1">
+          <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+            {alert.title}
+          </Text>
+          <Text className="mt-1 text-[15px] leading-[20px] text-app-primaryDark dark:text-app-dark-primaryDark">
+            {alert.subtitle}
+          </Text>
+        </View>
+      </View>
+      {onPress ? (
+        <Pressable
+          accessibilityRole="button"
+          className="h-12 items-center justify-center rounded-app bg-app-success dark:bg-app-dark-success"
+          onPress={onPress}
+          style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+        >
+          <Text className="text-[15px] font-semibold text-app-onPrimary dark:text-app-dark-onPrimary">Ver carteira de vacinação</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+// DECISION (reconciliada com specs/02-perfil-home-agenda/agenda/plan.md item 4,
+// fonte canonica do mapeamento de cor por tipo — mesmo par usado em AppointmentCard.tsx):
+// consulta -> secundario/azul, exame -> warning/ambar, cirurgia -> primario/verde.
+const APPOINTMENT_BAR_CLASS: Record<AppointmentType, string> = {
+  consulta: 'bg-app-secondary dark:bg-app-dark-secondary',
+  exame: 'bg-app-warning dark:bg-app-dark-warning',
+  cirurgia: 'bg-app-primary dark:bg-app-dark-primary',
+};
+
+// DECISION: `AppointmentEntry.time` (compartilhado com a Agenda/2c) e so a hora
+// (HH:mm) — a Agenda mostra a data completa uma unica vez, no rotulo do dia
+// selecionado. A Home lista compromissos de varios dias diferentes ao mesmo
+// tempo, entao precisa do proprio "Quando" derivado de `scheduledAt`.
+function formatAppointmentWhen(scheduledAt: string): string {
+  const date = parseScheduledAt(scheduledAt);
+  if (!date) {
+    // Mesmo rotulo que a Agenda usa no modo "Historico", para a mesma condicao
+    // ter o mesmo nome nas duas telas.
+    return 'Data inválida';
+  }
+
+  const today = new Date();
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  if (isSameDay(date, today)) {
+    return 'Hoje';
+  }
+
+  if (isSameDay(date, tomorrow)) {
+    return 'Amanhã';
+  }
+
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function UpcomingAppointmentCard({
+  appointment,
+  onPress,
+}: {
+  appointment: AppointmentEntry;
+  onPress?: (id: string) => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      className={APPOINTMENT_CARD_CLASS}
+      // `AppointmentEntry.id` e `string | number`; a conversao acontece aqui, no
+      // ponto de chamada, para a rota receber sempre uma string.
+      onPress={() => onPress?.(String(appointment.id))}
+      style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+    >
+      <View className={`w-1 ${APPOINTMENT_BAR_CLASS[appointment.type]}`} />
+      <View className="flex-1 p-4">
+        <Text className={`${APPOINTMENT_TITLE_CLASS} text-app-text dark:text-app-dark-text`}>
+          {APPOINTMENT_TYPE_LABEL[appointment.type]} · {appointment.title}
+        </Text>
+        <Text className={`mt-1 ${APPOINTMENT_WHEN_CLASS} text-app-textSecondary dark:text-app-dark-textSecondary`}>
+          {formatAppointmentWhen(appointment.scheduledAt)}, {appointment.time} · {appointment.location}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}

@@ -1,163 +1,374 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  Pressable,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { ProfileCard } from '@/components/ProfileCard';
-import { HealthDataRow } from '@/components/HealthDataRow';
-import { AllergiesDisplay } from '@/components/AllergiesDisplay';
-import { SettingsMenuItem } from '@/components/SettingsMenuItem';
-import { BottomTabBar } from '@/components/BottomTabBar';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-const TAB_ITEMS = [
-  { icon: '🏠', label: 'Início', id: 'home' },
-  { icon: '📋', label: 'Exames', id: 'exams' },
-  { icon: '🧠', label: 'IA', id: 'ai' },
-  { icon: '⌚', label: 'Watch', id: 'watch' },
-  { icon: '👤', label: 'Perfil', id: 'profile' },
+import { Avatar } from '@/components/Avatar';
+import { BackButton } from '@/components/BackButton';
+import { Badge } from '@/components/Badge';
+import { BottomSheet } from '@/components/BottomSheet';
+import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
+import { InlineError } from '@/components/InlineError';
+import { Section } from '@/components/Section';
+import { useThemeColors } from '@/constants/theme';
+import { GRADE_NAME_PT } from '@/constants/uspstfGrades';
+import { useThemeContext, type ThemeMode } from '@/contexts/ThemeContext';
+import type { UserProfile } from '@/contexts/UserContext';
+import {
+  REMINDER_INTERVAL_OPTIONS,
+  type ReminderIntervalsByGrade,
+} from '@/services/reminderService';
+import type { UspstfGrade } from '@/types/models';
+
+type ProfileScreenProps = {
+  user: UserProfile | null;
+  theme: ThemeMode;
+  onSetTheme: (t: ThemeMode) => void;
+  reminderIntervals: ReminderIntervalsByGrade;
+  onSetReminderInterval: (grade: UspstfGrade, days: number) => void;
+  /** Só é chamado depois de a pessoa confirmar que quer sair. */
+  onLogout: () => void | Promise<void>;
+  onEditProfile: () => void;
+  /** Volta para a tela de onde esta foi aberta (o Início ou o hub Mais). */
+  onBack?: () => void;
+};
+
+const THEME_OPTIONS: { label: string; value: ThemeMode }[] = [
+  { label: 'Claro', value: 'light' },
+  { label: 'Automático', value: 'system' },
+  { label: 'Escuro', value: 'dark' },
 ];
 
-const HEALTH_DATA = [
-  { label: 'Tipo sanguíneo', value: 'O+' },
-  { label: 'Peso', value: '78 kg' },
-  { label: 'Altura', value: '1,78 m' },
-  { label: 'IMC', value: '24.6' },
-];
+const REMINDER_GRADE_ORDER: UspstfGrade[] = ['A', 'B', 'C', 'D', 'I'];
 
-const SETTINGS = [
-  { icon: '🔔', title: 'Notificações e lembretes' },
-  { icon: '🔒', title: 'Privacidade e LGPD' },
-  { icon: '📱', title: 'Dispositivos conectados' },
-  { icon: '👨‍⚕️', title: 'Profissionais de saúde' },
-  { icon: '📤', title: 'Exportar meus dados' },
-  { icon: '🌐', title: 'Idioma e acessibilidade' },
-  { icon: 'ℹ️', title: 'Sobre a SuaSaúde' },
-];
+// Converte dias em uma unidade mais legivel (meses/anos) quando fizer sentido —
+// intervalos recorrentes de 30+ dias ficam mais claros como "1 mês"/"1 ano".
+function formatIntervalLabel(days: number): string {
+  if (days % 365 === 0) {
+    const years = days / 365;
+    return `${years} ano${years === 1 ? '' : 's'}`;
+  }
+
+  if (days >= 30 && days % 30 === 0) {
+    const months = days / 30;
+    return `${months} ${months === 1 ? 'mês' : 'meses'}`;
+  }
+
+  return `${days} dias`;
+}
+
+function calculateBMI(weightKg?: number, heightCm?: number): string | null {
+  if (!weightKg || !heightCm) return null;
+  const heightM = heightCm / 100;
+  return (weightKg / (heightM * heightM)).toFixed(1);
+}
+
+function classifyBMI(bmi: string): string {
+  const value = parseFloat(bmi);
+  if (value < 18.5) return 'Abaixo do peso';
+  if (value < 25) return 'Peso normal';
+  if (value < 30) return 'Sobrepeso';
+  return 'Obesidade';
+}
+
+function calculateAge(birthDate: string): number {
+  const birth = new Date(birthDate);
+  const diff = Date.now() - birth.getTime();
+  return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+}
 
 export function ProfileScreen({
-  onTabPress,
+  user,
+  theme,
+  onSetTheme,
+  reminderIntervals,
+  onSetReminderInterval,
   onLogout,
-}: {
-  onTabPress?: (tabId: string) => void;
-  onLogout?: () => void;
-}) {
-  const [activeTab, setActiveTab] = useState('profile');
+  onEditProfile,
+  onBack,
+}: ProfileScreenProps) {
+  const { colorScheme } = useThemeContext();
+  const colors = useThemeColors();
+  const bmi = calculateBMI(user?.weightKg, user?.heightCm);
+  const age = user?.birthDate ? calculateAge(user.birthDate) : null;
+  const [activeIntervalGrade, setActiveIntervalGrade] = useState<UspstfGrade | null>(null);
+  const [isConfirmingLogout, setIsConfirmingLogout] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
-  const handleTabPress = (tabId: string) => {
-    setActiveTab(tabId);
-    onTabPress?.(tabId);
-  };
+  async function handleConfirmLogout() {
+    setIsLoggingOut(true);
+    setLogoutError(null);
+
+    try {
+      await onLogout();
+    } catch {
+      setLogoutError('Não foi possível sair agora. Tente novamente.');
+      setIsConfirmingLogout(false);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
+  const healthItems = [
+    { label: 'Peso', value: user?.weightKg ? `${user.weightKg} kg` : '—' },
+    { label: 'Altura', value: user?.heightCm ? `${user.heightCm} cm` : '—' },
+    { label: 'IMC', value: bmi ? `${bmi} · ${classifyBMI(bmi)}` : '—' },
+    { label: 'Idade', value: age ? `${age} anos` : '—' },
+    {
+      label: 'Sexo',
+      value:
+        user?.gender === 'male'
+          ? 'Masculino'
+          : user?.gender === 'female'
+            ? 'Feminino'
+            : user?.gender === 'other'
+              ? 'Outro'
+              : '—',
+    },
+    {
+      label: 'Tabagismo',
+      value: user?.isSmoker === true ? 'Sim' : user?.isSmoker === false ? 'Não' : '—',
+    },
+  ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <Text style={styles.title}>Perfil</Text>
+    <SafeAreaView edges={['top']} className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
+        {onBack ? (
+          <View className="flex-row">
+            <BackButton onPress={onBack} />
+          </View>
+        ) : null}
+        <View className="items-center">
+          {/* O Canvas 4b e a spec do Perfil pedem o AVATAR da pessoa aqui (foto,
+              ou iniciais). A tela mostrava a logo do app, e a foto enviada em
+              "Editar perfil" não aparecia em lugar nenhum do Perfil. */}
+          <Avatar gender={user?.gender} name={user?.name} photoUrl={user?.photoUrl} size="md" />
+          <Text className="mt-4 text-xl font-bold text-app-text dark:text-app-dark-text">
+            {user?.name ?? '—'}
+          </Text>
+          <Text className="mt-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+            {user?.email ?? ''}
+          </Text>
 
-          {/* Profile Card */}
-          <ProfileCard
-            name="Pedro Gabriel Máximo"
-            email="pedrograximo@gmail.com"
-            initials="PM"
-            completionPercentage={45}
-          />
-
-          {/* Health Data */}
-          <Text style={styles.sectionTitle}>Dados de saúde</Text>
-          <HealthDataRow items={HEALTH_DATA} />
-
-          {/* Allergies and Conditions */}
-          <AllergiesDisplay
-            title="Alergias e condições"
-            items={['Hipertensão', 'Alergia à Dipirona']}
-          />
-
-          {/* Settings Section */}
-          <Text style={styles.sectionTitle}>Configurações</Text>
-          {SETTINGS.map((setting, index) => (
-            <SettingsMenuItem
-              key={index}
-              icon={setting.icon}
-              title={setting.title}
-              onPress={() => {}}
-            />
-          ))}
-
-          {/* Logout Button */}
           <Pressable
-            style={({ pressed }) => [
-              styles.logoutButton,
-              pressed && styles.logoutButtonPressed,
-            ]}
-            onPress={onLogout}
+            accessibilityLabel="Editar perfil"
+            accessibilityRole="button"
+            onPress={onEditProfile}
+            className="mt-4 flex-row items-center gap-2 rounded-full border border-app-primary bg-app-primarySoft px-5 py-2.5 dark:border-app-dark-primary dark:bg-app-dark-primarySoft"
+            style={({ pressed }) => [pressed && { opacity: 0.8 }]}
           >
-            <Text style={styles.logoutButtonText}>Sair da conta</Text>
+            <Ionicons color={colors.primary} name="create-outline" size={18} />
+            <Text className="text-[14px] font-semibold text-app-primary dark:text-app-dark-primary">
+              Editar perfil
+            </Text>
           </Pressable>
-        </ScrollView>
+        </View>
 
-        <BottomTabBar
-          items={TAB_ITEMS}
-          activeTab={activeTab}
-          onTabPress={handleTabPress}
-        />
-      </View>
+        <View className="mt-8">
+          <Section title="Dados de saúde" subtitle="Informações do seu perfil.">
+            <View className="rounded-card border border-app-border bg-app-surface dark:border-app-dark-border dark:bg-app-dark-surface">
+              {healthItems.map((item, index) => (
+                <View
+                  key={item.label}
+                  className={[
+                    'flex-row items-center justify-between px-4 py-3',
+                    index < healthItems.length - 1
+                      ? 'border-b border-app-border dark:border-app-dark-border'
+                      : '',
+                  ].join(' ')}
+                >
+                  <Text className="text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                    {item.label}
+                  </Text>
+                  <Text className="text-[15px] font-semibold text-app-text dark:text-app-dark-text">
+                    {item.value}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Section>
+
+          <Section title="Aparência" subtitle="Escolha como o app deve ser exibido.">
+            <View className="flex-row overflow-hidden rounded-app border border-app-border dark:border-app-dark-border">
+              {THEME_OPTIONS.map((option) => {
+                const isActive = theme === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    className={[
+                      'flex-1 items-center py-3',
+                      isActive
+                        ? 'bg-app-primary dark:bg-app-dark-primary'
+                        : 'bg-app-surface dark:bg-app-dark-surface',
+                    ].join(' ')}
+                    onPress={() => onSetTheme(option.value)}
+                  >
+                    <Text
+                      className={[
+                        'text-sm font-semibold',
+                        isActive
+                          ? 'text-app-onPrimary dark:text-app-dark-onPrimary'
+                          : 'text-app-textSecondary dark:text-app-dark-textSecondary',
+                      ].join(' ')}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Section>
+
+          <Section
+            title="Lembretes de prevenção"
+            subtitle="Cada recomendação da tela Prevenção tem um grau. Toque em um grau para escolher de quanto em quanto tempo repetir o lembrete."
+          >
+            <View className="overflow-hidden rounded-card border border-app-border dark:border-app-dark-border">
+              {REMINDER_GRADE_ORDER.map((grade, index) => (
+                <Pressable
+                  key={grade}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Intervalo de lembrete para grau ${grade}, ${GRADE_NAME_PT[grade]}`}
+                  onPress={() => setActiveIntervalGrade(grade)}
+                  className={[
+                    'flex-row items-center justify-between gap-3 bg-app-surface px-4 py-4 dark:bg-app-dark-surface',
+                    index < REMINDER_GRADE_ORDER.length - 1
+                      ? 'border-b border-app-border dark:border-app-dark-border'
+                      : '',
+                  ].join(' ')}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                >
+                  {/* "Grau A" sozinho não dizia nada a quem não conhece a
+                      classificação. O grau continua à vista, porque é ele que
+                      aparece no selo de cada recomendação da Prevenção. */}
+                  <View className="flex-1">
+                    <Text className="text-[15px] text-app-text dark:text-app-dark-text">
+                      Grau {grade}
+                    </Text>
+                    <Text className="mt-0.5 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                      {GRADE_NAME_PT[grade]}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="text-[15px] font-semibold text-app-primary dark:text-app-dark-primary">
+                      {formatIntervalLabel(reminderIntervals[grade])}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.iconMuted} />
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </Section>
+
+          <BottomSheet
+            visible={activeIntervalGrade !== null}
+            title={
+              activeIntervalGrade
+                ? `Grau ${activeIntervalGrade} · ${GRADE_NAME_PT[activeIntervalGrade]}`
+                : ''
+            }
+            description="Escolha de quanto em quanto tempo repetir o lembrete para este grau."
+            onClose={() => setActiveIntervalGrade(null)}
+          >
+            {REMINDER_INTERVAL_OPTIONS.map((days) => {
+              const isSelected =
+                activeIntervalGrade !== null && reminderIntervals[activeIntervalGrade] === days;
+
+              return (
+                <Pressable
+                  key={days}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  onPress={() => {
+                    if (activeIntervalGrade !== null) {
+                      onSetReminderInterval(activeIntervalGrade, days);
+                    }
+                    setActiveIntervalGrade(null);
+                  }}
+                  className={[
+                    'flex-row items-center justify-between rounded-app px-4 py-3.5',
+                    isSelected
+                      ? 'bg-app-primarySoft dark:bg-app-dark-primarySoft'
+                      : 'bg-app-surfaceMuted dark:bg-app-dark-surfaceMuted',
+                  ].join(' ')}
+                >
+                  <Text
+                    className={[
+                      'text-[15px]',
+                      isSelected
+                        ? 'font-bold text-app-primary dark:text-app-dark-primary'
+                        : 'text-app-text dark:text-app-dark-text',
+                    ].join(' ')}
+                  >
+                    {formatIntervalLabel(days)}
+                  </Text>
+                  {isSelected ? (
+                    <Ionicons name="checkmark" size={20} color={colors.primary} />
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </BottomSheet>
+
+          {/* A importação dos dados do smartwatch saiu daqui: ela não é uma
+              configuração, e mora agora na própria tela "Dados do smartwatch"
+              (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D4). */}
+          <Section title="Configurações" subtitle="Gerencie seus dados e sessão.">
+            {/* DECISION (correcoes-de-usabilidade, D10): a exportação ainda não
+                existe (dataExportService devolve "unavailable"). A linha parecia
+                um botão comum e só dizia "Em breve" depois do toque. Agora o
+                estado fica à vista, como a spec do Perfil já pedia ("estado
+                'Em breve' explícito na UI"), e a linha não é tocável. */}
+            <View
+              accessibilityLabel="Exportar meus dados. Em breve."
+              accessible
+              className="mb-3 flex-row items-center justify-between gap-3 rounded-app border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
+            >
+              <Text className="flex-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
+                Exportar meus dados
+              </Text>
+              <Badge label="Em breve" variant="neutral" />
+            </View>
+
+            {logoutError ? <InlineError message={logoutError} /> : null}
+
+            {/* DECISION (consistencia-e-textos, D1): sair pede confirmação,
+                com o mesmo painel das exclusões. O botão fica no fim de uma
+                tela que se rola com o dedão, e um toque sem querer tirava a
+                pessoa do app. */}
+            {isConfirmingLogout ? (
+              <DeleteConfirmPanel
+                cancelAccessibilityLabel="Cancelar e continuar na conta"
+                confirmAccessibilityLabel="Confirmar saída da conta"
+                confirmLabel="Sair"
+                confirmingLabel="Saindo…"
+                isDeleting={isLoggingOut}
+                message="Sair da conta neste aparelho? Você vai precisar entrar de novo para ver seus dados."
+                onCancel={() => setIsConfirmingLogout(false)}
+                onConfirm={() => void handleConfirmLogout()}
+              />
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                className="items-center rounded-app border border-app-danger bg-app-dangerSoft py-4 dark:border-app-dark-danger dark:bg-app-dark-dangerSoft"
+                onPress={() => {
+                  setLogoutError(null);
+                  setIsConfirmingLogout(true);
+                }}
+                style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+              >
+                <Text className="text-[15px] font-semibold text-app-danger dark:text-app-dark-danger">
+                  Sair da conta
+                </Text>
+              </Pressable>
+            )}
+          </Section>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.large,
-    paddingBottom: SIZES.large * 2,
-  },
-  title: {
-    ...FONTS.heading,
-    fontSize: 24,
-    color: COLORS.text,
-    marginBottom: SIZES.large,
-  },
-  sectionTitle: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.base,
-    fontSize: 13,
-  },
-  logoutButton: {
-    backgroundColor: '#FFF5F5',
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: '#E74C3C',
-    paddingVertical: SIZES.base,
-    alignItems: 'center',
-    marginTop: SIZES.large,
-  },
-  logoutButtonPressed: {
-    opacity: 0.85,
-  },
-  logoutButtonText: {
-    ...FONTS.body,
-    color: '#E74C3C',
-    fontWeight: '600',
-  },
-});

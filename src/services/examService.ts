@@ -1,0 +1,602 @@
+/**
+ * Resumo do arquivo:
+ * Serviço para gerenciar documentos médicos (exames e receitas).
+ * Valida dados, formata datas, gerencia uploads para S3 e salva metadados no DynamoDB.
+ * A UI chama apenas esta camada para lógica de negócios.
+ */
+
+import { generateClient } from 'aws-amplify/data';
+import type { Schema } from '../../amplify/data/resource';
+import { remove, getUrl } from 'aws-amplify/storage';
+
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
+import { getUserId } from '@/services/auth';
+import { invalidateExamsCache } from '@/hooks/useExamsData';
+import { uploadFileToS3 } from '@/services/upload';
+import { startExtraction } from '@/services/extractionService';
+import { prepararArquivoParaEnvio } from '@/services/imagemParaEnvio';
+import { todasAsPaginas } from '@/services/todasAsPaginas';
+import { BackendError, backendError } from '@/services/backendError';
+
+const client = generateClient<Schema>();
+
+export type DocumentType = 'exam' | 'prescription';
+
+export interface FileMetadata {
+  /** ID único gerado (UUID) */
+  fileId: string;
+  /** Nome do arquivo no S3 (UUID + timestamp) */
+  s3FileName: string;
+  /**
+   * A chave COMPLETA no S3, como o Amplify Storage a resolveu — ela inclui a
+   * pasta do `identityId`, que NÃO dá para derivar do `owner` do lado do
+   * servidor. Só existe depois do upload, por isso é opcional aqui.
+   */
+  s3Key?: string;
+  /**
+   * As chaves COMPLETAS das folhas 2 a N de um laudo fotografado (Bloco 11).
+   * Ausente em documento de uma folha — que é todo documento de antes.
+   */
+  extraPageKeys?: string[];
+  /** Nome original do arquivo enviado pelo usuário */
+  originalFileName: string;
+  /** ID do usuário proprietário do arquivo */
+  userId: string;
+  /** Tipo de documento (exame ou receita) */
+  documentType: DocumentType;
+  /** Nome customizado para o documento (ex: "Hemograma") */
+  documentName: string;
+  /** Data do documento (YYYY-MM-DD) */
+  documentDate: string;
+  /** Data de validade para receitas (YYYY-MM-DD) */
+  expirationDate?: string;
+  /** Tamanho do arquivo em bytes */
+  fileSize: number;
+  /** Timestamp de criação */
+  createdAt: string;
+}
+
+export interface MedicalDocumentMetadata extends FileMetadata {
+  /** Database ID for updates/deletes */
+  id: string;
+}
+
+export interface CreateExamDocumentInput {
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  documentType: DocumentType;
+  documentName: string;
+  documentDate: string; // YYYY-MM-DD format
+  expirationDate?: string; // YYYY-MM-DD format (only for prescriptions)
+  /**
+   * As folhas 2 a N de um laudo em papel fotografado (Bloco 11, Decisão O1).
+   * Só imagem, e só quando a folha 1 também é imagem: PDF já tem páginas.
+   */
+  folhasAdicionais?: ArquivoSelecionado[];
+}
+
+/** Um arquivo escolhido na tela, antes de subir. */
+export interface ArquivoSelecionado {
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+}
+
+/** O teto de folhas de um documento. O mesmo `MAXIMO_DE_FOLHAS` da extração. */
+export const MAXIMO_DE_FOLHAS = 10;
+
+export interface ExamValidationError {
+  field: string;
+  message: string;
+}
+
+/**
+ * Tamanho máximo de arquivo aceito para upload (10 MB).
+ * Proposta documentada em specs/03-exames-receitas/adicionar-documento/plan.md §3 —
+ * nenhum limite existia antes; valor não confirmado formalmente com o
+ * time/orientador (ambiguidade registrada, regra 8 da constituição).
+ */
+export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Extensões de arquivo aceitas (allowlist), espelhando o filtro do
+ * `DocumentPicker` (`application/pdf`, `image/*`) da tela 3a, mas restrito a
+ * um conjunto explícito de imagens em vez do `image/*` genérico.
+ * Ver specs/03-exames-receitas/adicionar-documento/plan.md §2 e §5.
+ *
+ * `webp`, `heic` e `heif` entraram no Bloco 10: toda imagem é convertida em
+ * JPEG antes de subir (`imagemParaEnvio.ts`), então o formato de origem deixou
+ * de importar — e HEIC é o formato padrão da câmera do iPhone.
+ */
+const ALLOWED_FILE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+
+/**
+ * Revalida o tipo de arquivo pela extensão do nome, como segunda camada de
+ * defesa além do filtro do seletor nativo (que pode ser contornável
+ * dependendo da plataforma/picker usado).
+ */
+const EXTENSOES_DE_IMAGEM = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+
+/** A folha que pode ganhar companheiras: imagem, e não PDF (Bloco 11). */
+export function ehImagem(fileName: string): boolean {
+  return EXTENSOES_DE_IMAGEM.includes(fileName.split('.').pop()?.toLowerCase() ?? '');
+}
+
+export function validateFileType(fileName: string): boolean {
+  const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
+  return ALLOWED_FILE_EXTENSIONS.includes(extension);
+}
+
+/**
+ * Valida se o tamanho do arquivo está dentro do limite máximo permitido.
+ */
+export function validateFileSize(fileSize: number): boolean {
+  return fileSize <= MAX_FILE_SIZE_BYTES;
+}
+
+/**
+ * Formata um tamanho em bytes para exibição amigável (KB abaixo de 1024 KB,
+ * MB acima, com vírgula decimal em pt-BR), batendo com o exemplo do Canvas 3b
+ * ("1,2 MB").
+ */
+export function formatFileSize(bytes: number): string {
+  if (!bytes || bytes <= 0) {
+    return '0 KB';
+  }
+
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(1).replace('.', ',')} KB`;
+  }
+
+  const mb = kb / 1024;
+  return `${mb.toFixed(1).replace('.', ',')} MB`;
+}
+
+type ExamDocumentCoreInput = Pick<CreateExamDocumentInput, 'documentName' | 'documentDate' | 'expirationDate'> & {
+  documentType: DocumentType | null;
+};
+
+/**
+ * Fonte única de verdade das checagens "documento completo" (tipo, nome,
+ * data, validade se receita) — em ordem de prioridade. Reaproveitada por
+ * `isExamDocumentComplete`/`getExamDocumentIncompleteReason` (estado visual
+ * preventivo do botão) e por `validateExamDocument` (validação de negócio no
+ * submit), para as duas nunca divergirem.
+ */
+function getCoreValidationErrors(input: ExamDocumentCoreInput): ExamValidationError[] {
+  const errors: ExamValidationError[] = [];
+
+  if (!input.documentType) {
+    errors.push({
+      field: 'documentType',
+      message: 'Por favor, selecione o tipo de documento',
+    });
+  }
+
+  if (!input.documentName?.trim()) {
+    errors.push({
+      field: 'documentName',
+      message: 'Por favor, insira um nome para o documento',
+    });
+  }
+
+  if (!input.documentDate) {
+    errors.push({
+      field: 'documentDate',
+      message: 'Por favor, selecione a data',
+    });
+  }
+
+  if (input.documentType === 'prescription' && !input.expirationDate) {
+    errors.push({
+      field: 'expirationDate',
+      message: 'Por favor, insira a data de validade para a receita',
+    });
+  }
+
+  // Uma receita não pode vencer antes de ter sido emitida — regra de negócio
+  // não especificada no Canvas, confirmada pelo usuário (2026-08-21, GAP_ANALYSIS.md #37).
+  if (
+    input.documentType === 'prescription' &&
+    input.expirationDate &&
+    input.documentDate &&
+    input.expirationDate < input.documentDate
+  ) {
+    errors.push({
+      field: 'expirationDate',
+      message: 'A data de validade não pode ser anterior à data de emissão da receita',
+    });
+  }
+
+  return errors;
+}
+
+export function isExamDocumentComplete(input: ExamDocumentCoreInput): boolean {
+  return getCoreValidationErrors(input).length === 0;
+}
+
+/**
+ * Motivo legível (primeiro campo obrigatório faltando, na mesma ordem de
+ * prioridade de `getCoreValidationErrors`) para exibir como `disabledReason`
+ * do botão "Salvar documento" — spec.md §6 "Botão desabilitado sempre com
+ * motivo" (mesmo padrão de `Button.tsx` já usado no Cadastro/1d).
+ */
+export function getExamDocumentIncompleteReason(input: ExamDocumentCoreInput): string | undefined {
+  return getCoreValidationErrors(input)[0]?.message;
+}
+
+/**
+ * Gera um nome único para o arquivo no S3 combinando UUID com timestamp
+ * Garante que não há conflitos mesmo se arquivos forem enviados simultaneamente
+ */
+export function generateS3FileName(originalFileName: string, sufixo = ''): string {
+  const fileId = uuidv4();
+  const timestamp = Date.now();
+  const extension = originalFileName.split('.').pop() || 'bin';
+  return `exams/${fileId}-${timestamp}${sufixo}.${extension}`;
+}
+
+/**
+ * O que as folhas adicionais precisam cumprir ANTES de qualquer upload
+ * (Bloco 11). Recusar depois de subir a folha 1 deixaria arquivo no bucket sem
+ * documento nenhum apontando para ele.
+ */
+function errosDasFolhas(principal: string, folhas: ArquivoSelecionado[]): string[] {
+  if (folhas.length === 0) return [];
+  if (!ehImagem(principal)) {
+    return ['Só dá para juntar folhas a uma foto. Um PDF já traz as páginas dele.'];
+  }
+  if (folhas.length + 1 > MAXIMO_DE_FOLHAS) {
+    return [`Um documento pode ter no máximo ${MAXIMO_DE_FOLHAS} folhas.`];
+  }
+  const erros: string[] = [];
+  folhas.forEach((folha, i) => {
+    if (!ehImagem(folha.fileName)) erros.push(`A folha ${i + 2} não é uma foto.`);
+    else if (!validateFileSize(folha.fileSize)) {
+      erros.push(`A folha ${i + 2} é grande demais (máximo de ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB).`);
+    }
+  });
+  return erros;
+}
+
+/**
+ * Cria um ID único para o documento
+ */
+export function generateFileId(): string {
+  return uuidv4();
+}
+
+// Helpers de data movidos para `@/utils/date` (quebra do require cycle com
+// `useExamsData.ts`) — re-exportados aqui para não quebrar quem já importava
+// daqui (AddExamScreen, DocumentDetailScreen).
+export { getTodayDate, formatDateForDisplay, formatDateForStorage } from '@/utils/date';
+
+/**
+ * Valida os dados do documento antes de salvar
+ */
+export function validateExamDocument(
+  input: CreateExamDocumentInput,
+): ExamValidationError[] {
+  const errors: ExamValidationError[] = getCoreValidationErrors(input);
+
+  if (!validateFileType(input.fileName)) {
+    errors.push({
+      field: 'fileName',
+      message: 'Formato de arquivo não suportado. Envie um PDF ou imagem (JPG/PNG).',
+    });
+  }
+
+  if (!validateFileSize(input.fileSize)) {
+    errors.push({
+      field: 'fileSize',
+      message: `Arquivo muito grande. O tamanho máximo permitido é ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB.`,
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * URL assinada de uma folha adicional, pela chave COMPLETA que o upload gravou
+ * (Bloco 11). A folha 1 continua saindo de `getDocumentDownloadUrl`.
+ */
+export async function getUrlDaFolha(chave: string): Promise<string> {
+  try {
+    const result = await getUrl({ path: chave });
+    return result.url.toString();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao obter o link da folha';
+    throw new Error(`Falha ao obter URL de download: ${message}`);
+  }
+}
+
+/**
+ * Retorna URL assinada para download do documento no S3
+ */
+export async function getDocumentDownloadUrl(s3FileName: string): Promise<string> {
+  try {
+    const result = await getUrl({
+      path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
+    });
+
+    return result.url.toString();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao obter o link de download';
+    throw new Error(`Falha ao obter URL de download: ${message}`);
+  }
+}
+
+/**
+ * Cria metadados do documento para armazenar no DynamoDB
+ */
+async function buildDocumentMetadata(
+  input: CreateExamDocumentInput,
+): Promise<FileMetadata> {
+  const userId = await getUserId();
+  const fileId = generateFileId();
+  const s3FileName = generateS3FileName(input.fileName);
+
+  return {
+    fileId,
+    s3FileName,
+    originalFileName: input.fileName,
+    userId,
+    documentType: input.documentType,
+    documentName: input.documentName,
+    documentDate: input.documentDate,
+    expirationDate: input.documentType === 'prescription' ? input.expirationDate : undefined,
+    fileSize: input.fileSize,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Salva os metadados do documento no DynamoDB via Amplify Data
+ *
+ * O `id` da linha criada volta junto porque a extracao precisa dele: ate a
+ * EPIC de leitura de documentos, esta funcao devolvia so os metadados locais e
+ * o id do resolver era descartado. Ele e opcional no tipo porque a resposta do
+ * AppSync pode vir sem `data` -- e nesse caso o documento esta salvo do mesmo
+ * jeito, so nao da para pedir a leitura dele.
+ */
+async function saveDocumentMetadata(
+  metadata: FileMetadata,
+): Promise<FileMetadata & { id?: string }> {
+  try {
+    const { data, errors } = await client.models.MedicalDocument.create({
+      documentType: metadata.documentType as Schema['MedicalDocument']['type']['documentType'],
+      s3FileName: metadata.s3FileName,
+      // Sem isto a Lambda de extração não tem como achar o arquivo: ela conhece
+      // o `owner` (sub do pool de usuários) e a pasta é nomeada pelo identityId
+      // (pool de identidades). Ver `amplify/.../documentKey.ts`.
+      s3Key: metadata.s3Key ?? null,
+      // Só quando há folhas (Bloco 11): documento de uma folha segue igual.
+      ...(metadata.extraPageKeys?.length ? { extraPageKeys: metadata.extraPageKeys } : {}),
+      originalFileName: metadata.originalFileName,
+      documentName: metadata.documentName,
+      documentDate: metadata.documentDate,
+      expirationDate: metadata.expirationDate || null,
+    });
+
+    if (errors?.length) {
+      throw backendError(errors, 'Não foi possível salvar os metadados.');
+    }
+
+    console.log('Documento salvo no banco de dados:', data);
+    return { ...metadata, id: data?.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao salvar metadados';
+    throw new Error(message);
+  }
+}
+
+/**
+ * Cria um novo documento de exame/receita no backend
+ * Processa: validação -> upload para S3 -> salvar metadados no DynamoDB
+ */
+export async function createExamDocument(entrada: CreateExamDocumentInput) {
+  // 0. A foto encolhe e vira JPEG ANTES de tudo (G2, Bloco 10): e o arquivo
+  //    preparado que e validado, sobe e fica guardado. PDF passa intacto.
+  const preparado = await prepararArquivoParaEnvio({
+    filePath: entrada.filePath,
+    fileName: entrada.fileName,
+    fileSize: entrada.fileSize,
+  });
+  const input: CreateExamDocumentInput = { ...entrada, ...preparado };
+
+  // As folhas 2 a N (Bloco 11) passam pelo mesmo preparo, e TUDO e validado
+  // antes do primeiro upload.
+  const folhas: ArquivoSelecionado[] = [];
+  for (const folha of entrada.folhasAdicionais ?? []) {
+    folhas.push({ ...folha, ...(await prepararArquivoParaEnvio(folha)) });
+  }
+
+  // Validar dados
+  const validationErrors = validateExamDocument(input);
+  const errosDeFolha = errosDasFolhas(entrada.fileName, folhas);
+  if (validationErrors.length > 0 || errosDeFolha.length > 0) {
+    const message = [...validationErrors.map((error) => error.message), ...errosDeFolha].join('\n');
+    throw new Error(message);
+  }
+
+  try {
+    // 1. Construir metadados do documento
+    const metadata = await buildDocumentMetadata(input);
+    console.log('Metadados construídos:', metadata);
+
+    // 2. Fazer upload do arquivo para S3
+    const s3Path = await uploadFileToS3(
+      input.filePath,
+      ({ identityId }) => `medical-documents/${identityId}/${metadata.s3FileName}`,
+    );
+    console.log('Arquivo enviado para S3:', s3Path);
+
+    // 2b. As folhas 2 a N, na mesma pasta, na ordem (Bloco 11).
+    const extraPageKeys: string[] = [];
+    for (const [i, folha] of folhas.entries()) {
+      const nome = generateS3FileName(folha.fileName, `-folha-${i + 2}`);
+      extraPageKeys.push(
+        await uploadFileToS3(folha.filePath, ({ identityId }) => `medical-documents/${identityId}/${nome}`),
+      );
+    }
+
+    // 3. Salvar metadados no DynamoDB, com a chave que o upload REALMENTE
+    //    gravou -- `s3Path` era registrado no console e descartado.
+    const savedMetadata = await saveDocumentMetadata({ ...metadata, s3Key: s3Path, extraPageKeys });
+    console.log('Documento salvo:', savedMetadata);
+
+    // 4. Invalidate cache so next fetch gets fresh data
+    await invalidateExamsCache();
+
+    // 5. Disparar a extracao. ISOLADO DE PROPOSITO: salvar o documento e o
+    //    contrato desta funcao, e extrair e um acrescimo. Se o disparo falhar,
+    //    o documento continua salvo, acessivel e listado exatamente como antes
+    //    desta EPIC -- e a tela de detalhe o mostra como nunca extraido, com
+    //    a opcao de tentar de novo.
+    if (savedMetadata.id) {
+      try {
+        await startExtraction(savedMetadata.id);
+      } catch (error) {
+        console.warn('Nao foi possivel disparar a extracao deste documento:', error);
+      }
+    }
+
+    return savedMetadata;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    throw new Error(`Erro ao criar documento: ${message}`);
+  }
+}
+
+export interface UpdateExamDocumentInput {
+  id: string;
+  documentType?: DocumentType;
+  documentName?: string;
+  documentDate?: string;
+  expirationDate?: string;
+}
+
+/**
+ * Update an existing document metadata (does not update the S3 file itself)
+ */
+export async function updateExamDocument(input: UpdateExamDocumentInput) {
+  try {
+    const updateData: Record<string, unknown> = {};
+
+    if (input.documentType !== undefined) {
+      updateData.documentType = input.documentType;
+    }
+    if (input.documentName !== undefined) {
+      updateData.documentName = input.documentName;
+    }
+    if (input.documentDate !== undefined) {
+      updateData.documentDate = input.documentDate;
+    }
+    if (input.expirationDate !== undefined) {
+      updateData.expirationDate = input.expirationDate || null;
+    }
+
+    const { data, errors } = await client.models.MedicalDocument.update({
+      id: input.id,
+      ...updateData,
+    });
+
+    if (errors?.length) {
+      throw backendError(errors, 'Não foi possível atualizar o documento.');
+    }
+
+    console.log('Documento atualizado:', data);
+
+    // Invalidate cache so next fetch gets fresh data — simétrico a
+    // createExamDocument/deleteExamDocument, que já fazem isso internamente.
+    await invalidateExamsCache();
+
+    return data;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    throw new Error(`Erro ao atualizar documento: ${message}`);
+  }
+}
+
+/**
+ * Apaga o que a leitura automatica tirou do documento: as linhas de resultado
+ * e os itens de receita, de todas as paginas (Bloco 11, E3). Antes ficavam --
+ * na serie do analito e nas respostas do chat, citando um documento apagado.
+ *
+ * Lanca na primeira falha, e isso e o que protege a ordem de quem chama.
+ */
+async function apagarLidoDoDocumento(documentId: string): Promise<void> {
+  const linhas = await todasAsPaginas((nextToken) =>
+    client.models.LabResult.listLabResultByDocumentId({ documentId }, { nextToken }),
+  );
+  for (const linha of linhas) {
+    const { errors } = await client.models.LabResult.delete({ id: linha.id });
+    if (errors?.length) throw backendError(errors, 'Não foi possível excluir os resultados lidos do documento.');
+  }
+
+  const itens = await todasAsPaginas((nextToken) =>
+    client.models.PrescriptionItem.listPrescriptionItemByDocumentId({ documentId }, { nextToken }),
+  );
+  for (const item of itens) {
+    const { errors } = await client.models.PrescriptionItem.delete({ id: item.id });
+    if (errors?.length) throw backendError(errors, 'Não foi possível excluir os itens lidos da receita.');
+  }
+}
+
+/**
+ * Apaga o documento e tudo o que veio dele, NESTA ORDEM: o que foi lido, o
+ * arquivo, o documento. Se parar no meio, o documento ainda existe e apagar de
+ * novo termina o servico. Apagar o documento primeiro deixaria linhas que
+ * nenhuma tela alcanca mais.
+ */
+export async function deleteExamDocument(
+  documentId: string,
+  s3FileName: string,
+  extraPageKeys: string[] = [],
+) {
+  try {
+    // 0. O que a leitura automatica tirou dele (Bloco 11).
+    await apagarLidoDoDocumento(documentId);
+
+    // 1. Delete from S3
+    console.log('Deleting from S3:', s3FileName);
+    await remove({
+      path: ({ identityId }) => `medical-documents/${identityId}/${s3FileName}`,
+    });
+    // 1b. As folhas 2 a N (Bloco 11), pela chave completa que o upload gravou.
+    for (const chave of extraPageKeys) {
+      await remove({ path: chave });
+    }
+    console.log('File deleted from S3');
+
+    // 2. Delete from DynamoDB
+    console.log('Deleting from DynamoDB:', documentId);
+    const { data, errors } = await client.models.MedicalDocument.delete({
+      id: documentId,
+    });
+
+    if (errors?.length) {
+      throw backendError(errors, 'Não foi possível excluir o documento.');
+    }
+
+    console.log('Documento deletado:', data);
+    
+    // 3. Invalidate cache so list updates
+    await invalidateExamsCache();
+    
+    return data;
+  } catch (error) {
+    // O que os passos acima já escreveram para a pessoa segue como está. O
+    // resto (uma falha do S3, da rede) vira uma frase só, e o erro original
+    // fica no console. Antes, as duas coisas saíam embrulhadas em "Erro ao
+    // deletar documento: ...".
+    if (error instanceof BackendError) {
+      throw error;
+    }
+    console.warn('Não foi possível excluir o documento:', error);
+    throw new Error('Não foi possível excluir o documento.');
+  }
+}

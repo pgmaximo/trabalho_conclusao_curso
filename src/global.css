@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* <-- MODIFICADO: Aplicando sua fonte 'Basic-Regular' globalmente */
+@layer base {
+  text {
+    font-family: 'Basic-Regular';
+  }
+}
+
+:root {
+  --color-background: #F1EFE8;
+  --color-surface: #FFFFFF;
+  --color-primary: #1D9E75;
+  --color-secondary: #185FA5;
+  --color-accent: #D85A30;
+}

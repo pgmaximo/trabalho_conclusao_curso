@@ -8,9 +8,11 @@
 
 ## 📋 Sobre o Projeto
 
-O **SuaSaúde** é um aplicativo móvel voltado ao gerenciamento integrado da saúde do usuário. O sistema consolida informações clínicas como exames e receitas médicas em uma plataforma acessível e intuitiva, incorporando Inteligência Artificial para análise preliminar de exames e integração com dispositivos vestíveis (wearables).
+O **SuaSaúde** é um aplicativo de **saúde móvel (mHealth)** voltado ao gerenciamento integrado da saúde do usuário. Diante da crescente prevalência de doenças crônicas e do envelhecimento populacional, a proposta busca centralizar, em uma única plataforma acessível e intuitiva, informações que normalmente ficam dispersas entre documentos, exames, receitas, agendas e dispositivos — reduzindo essa fragmentação e apoiando o autocuidado.
 
-O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e promover o bem-estar para todos, em todas as idades"* —, promovendo o autocuidado, a prevenção de doenças e o empoderamento do usuário sobre seus próprios dados de saúde.
+O sistema consolida informações clínicas como exames, receitas médicas, medicamentos e consultas, incorpora **Inteligência Artificial como recurso de apoio** à análise preliminar de exames (sempre de caráter informativo, **sem emitir diagnósticos definitivos nem substituir profissionais de saúde**), recomenda proativamente exames com base em bases de dados públicas e integra dados provenientes de dispositivos vestíveis (wearables).
+
+O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e promover o bem-estar para todos, em todas as idades"* —, promovendo o autocuidado, a prevenção de doenças e o empoderamento do usuário sobre seus próprios dados de saúde, inclusive como apoio a sistemas de saúde de baixa infraestrutura ao reduzir a demanda por atendimentos de baixa complexidade.
 
 ---
 
@@ -20,23 +22,25 @@ O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e pro
 |---|---|
 | André Martinez de Souza | Desenvolvedor |
 | Arturo Ochoa Garcia | Desenvolvedor |
-| Brunno Souza | Desenvolvedor |
-| Matheus Passari | Desenvolvedor |
+| Brunno Bernacchi de Souza | Desenvolvedor |
+| Matheus Passari Nascimento | Desenvolvedor |
 | Pedro Gabriel Oliveira Máximo | Desenvolvedor |
 
-**Orientador:** Prof. Dr. Robson Calvetti
+**Orientador:** Prof. MSc. Dr. Robson Calvetti
 
 ---
 
 ## ✨ Funcionalidades Previstas
 
-- 📁 **Gestão de documentos clínicos** — armazenamento e visualização de exames e receitas médicas
-- 🤖 **Análise por IA** — interpretação preliminar de exames, identificando padrões sem emitir diagnósticos definitivos
-- 🔔 **Lembretes e sugestões personalizadas** — baseados na anamnese do usuário e em protocolos oficiais de saúde
-- ⌚ **Integração com wearables** — coleta de dados como frequência cardíaca, padrões de sono e níveis de atividade
-- 📊 **Dashboard interativo** — visualização clara das métricas de saúde coletadas pelos wearables
-- 🔗 **Análise contextualizada** — correlação dos dados fisiológicos com eventos e rotina do usuário
-- 🔒 **Segurança e privacidade** — desenvolvimento em conformidade com a **LGPD** (Lei Geral de Proteção de Dados)
+- 📁 **Gestão de documentos clínicos** — cadastro, armazenamento e visualização de exames e receitas médicas, centralizando o histórico de saúde
+- 💊 **Acompanhamento de medicamentos e consultas** — registro de prescrições, horários, compromissos médicos e lembretes da rotina de cuidado
+- 🤖 **Análise por IA** — interpretação preliminar de exames, identificando padrões e oferecendo orientações informativas, **sem emitir diagnósticos definitivos nem substituir a avaliação profissional**
+- 🧪 **Recomendação de exames** — sugestão proativa de exames com base nas características clínicas do usuário e em bases de dados públicas e confiáveis
+- 💉 **Gestão de vacinação** — controle de vacinas tomadas e pretendidas, com integração ao sistema de saúde pública brasileiro para alertar sobre campanhas de vacinação
+- ⌚ **Integração com wearables** *(implementado)* — importação do export do Samsung Health (ou de um exportador do Apple Health), com parsing defensivo de CSV/JSON/ZIP e consolidação de frequência cardíaca, sono, passos e outras métricas
+- 📊 **Dashboard interativo** *(implementado)* — visualização em gráficos das métricas de saúde importadas
+- 🔗 **Análise contextualizada** *(implementado)* — correlações estatísticas entre métricas (ex.: sono e frequência cardíaca de repouso), narradas em linguagem natural por Amazon Bedrock (Claude), com pontos de atenção e sugestões — sempre um apoio informativo, nunca um diagnóstico
+- 🔒 **Segurança e privacidade** — desenvolvimento em conformidade com a **LGPD** (Lei Geral de Proteção de Dados), incluindo termo de uso sobre a finalidade da coleta de dados sensíveis de saúde
 
 ---
 
@@ -44,10 +48,54 @@ O projeto se alinha ao **ODS 3 da ONU** — *"Assegurar uma vida saudável e pro
 
 | Tecnologia | Uso |
 |---|---|
-| [Expo](https://expo.dev/) | Framework principal — React Native full-stack |
-| [React Native](https://reactnative.dev/) | Desenvolvimento mobile (Android e iOS) |
-| [Amazon Web Services (AWS)](https://aws.amazon.com/) | Armazenamento, processamento e escalabilidade em nuvem |
-| Inteligência Artificial | Análise de exames e geração de insights de saúde |
+| [React Native Expo](https://expo.dev/) | Framework principal — base de código única compatível com Android e iOS |
+| [AWS S3](https://aws.amazon.com/s3/) | Armazenamento de documentos e imagens (exames, receitas) |
+| [AWS DynamoDB](https://aws.amazon.com/dynamodb/) | Banco de dados para os metadados e registros de saúde |
+| [AWS Amplify](https://aws.amazon.com/amplify/) | Integração do código JavaScript ao ambiente AWS (backend-as-code, Gen 2) |
+| [AWS Cognito](https://aws.amazon.com/cognito/) | Gerenciamento e autenticação de usuários |
+| [Amazon Bedrock](https://aws.amazon.com/bedrock/) | Análise dos dados de wearables (Claude, via Converse API + Guardrails) — apoio informativo, nunca diagnóstico |
+| [AWS Lambda](https://aws.amazon.com/lambda/) | Parsing defensivo dos exports de wearables, integrações com APIs públicas de saúde (USPSTF, PNI/RNDS, CNES) |
+
+O dado de saúde do usuário é processado **dentro da própria conta AWS do projeto** (Bedrock, na região `us-east-1`) — não é enviado a nenhum provedor de IA de terceiros.
+
+---
+
+## AWS Amplify Gen 2
+
+O app usa um backend compartilhado de desenvolvimento no Amplify Gen 2. O arquivo `amplify_outputs.json` da raiz e a configuracao oficial do app nesse ambiente e deve ser versionado, porque contem configuracao publica de cliente, nao credenciais secretas.
+
+A pasta `amplify/` continua fora de `src/` porque representa backend-as-code. O codigo de runtime que consome Cognito e Amplify Data fica em `src/services/`, com o bootstrap global em `src/services/amplify/configureAmplify.ts`.
+
+Credenciais AWS, `.env`, `.env*.local`, `.aws/`, `.amplify/`, caches e artefatos gerados nao devem ser enviados ao Git. Para producao, use outro ambiente/output antes de release. Detalhes: [docs/aws-amplify.md](docs/aws-amplify.md).
+
+---
+
+## 💊 Interações Medicamentosas — Fonte dos Dados
+
+A funcionalidade de alerta de interação medicamentosa (tela "Medicamentos") **não consulta nenhuma API externa em tempo real**. Essa decisão foi tomada após avaliar as alternativas disponíveis no momento da implementação.
+
+Optou-se, em vez disso, por um dataset curado manualmente e embutido no app (`src/data/drugInteractions/`), sem chamadas de rede:
+
+- **`aliases.ts`** — mapeia nomes comerciais brasileiros e variantes em inglês/português para o princípio ativo canônico (ex.: "Aradois", "Losartan" → `losartana`), permitindo casar o texto livre digitado pelo usuário com o princípio ativo correto.
+- **`pairs.ts`** — cerca de 19 pares de interação clinicamente bem estabelecidos, cada um com uma explicação de risco e de mecanismo farmacológico em português.
+
+**Base de conhecimento:** cada um dos 19 pares em `pairs.ts` pertence a uma de seis classes farmacológicas bem documentadas. A tabela abaixo cita, para cada classe, a referência específica consultada para validar o mecanismo e o risco descritos — portanto cobre a totalidade do dataset, não apenas uma amostra:
+
+| Pares cobertos | Mecanismo | Referência |
+|---|---|---|
+| warfarina+ibuprofeno, warfarina+diclofenaco, warfarina+aas, warfarina+claritromicina, warfarina+fluoxetina | Revisão sistemática de todas as interações medicamentosas da warfarina (AINEs, AAS, macrolídeos, ISRS) | HOLBROOK, A. M.; PEREIRA, J. A.; LABIRIS, R.; MCDONALD, H.; DOUKETIS, J. D.; CROWTHER, M.; WELLS, P. S. Systematic overview of warfarin and its drug and food interactions. *Archives of Internal Medicine*, v. 165, n. 10, p. 1095–1106, 2005. PMID: 15911722. |
+| warfarina+ibuprofeno, warfarina+diclofenaco | Risco de sangramento com AINEs em uso de anticoagulante oral | KENT, A. P. Navigating NSAID Use in Patients Receiving Oral Anticoagulation: Is There a Safe Course? *Thrombosis and Haemostasis*, v. 120, n. 7, p. 1001–1003, 2020. DOI: 10.1055/s-0040-1713098. |
+| aas+ibuprofeno, aas+diclofenaco | Ibuprofeno bloqueia o sítio de ligação do AAS na COX-1, reduzindo seu efeito antiplaquetário/cardioprotetor | CATELLA-LAWSON, F.; REILLY, M. P.; KAPOOR, S. C.; CUCCHIARA, A. J.; DEMARCO, S.; TOURNIER, B.; VYAS, S. N.; FITZGERALD, G. A. Cyclooxygenase inhibitors and the antiplatelet effects of aspirin. *New England Journal of Medicine*, v. 345, n. 25, p. 1809–1817, 2001. |
+| fluoxetina+sertralina, fluoxetina+tramadol, sertralina+tramadol | Síndrome serotoninérgica por excesso de serotonina no SNC | BOYER, E. W.; SHANNON, M. The Serotonin Syndrome. *New England Journal of Medicine*, v. 352, n. 11, p. 1112–1120, 2005. |
+| enalapril+espironolactona, losartana+espironolactona, captopril+espironolactona | Hipercalemia por IECA/BRA associado a diurético poupador de potássio | JUURLINK, D. N.; MAMDANI, M. M.; LEE, D. S.; KOPP, A.; AUSTIN, P. C.; LAUPACIS, A.; REDELMEIER, D. A. Rates of hyperkalemia after publication of the Randomized Aldactone Evaluation Study. *New England Journal of Medicine*, v. 351, n. 6, p. 543–551, 2004. |
+| sinvastatina+claritromicina, sinvastatina+eritromicina | Inibição do CYP3A4 pelo macrolídeo, elevando os níveis da estatina e o risco de rabdomiólise | FALLAH, A.; DEEP, M.; SMALLWOOD, D.; HUGHES, P. Life-threatening rhabdomyolysis following the interaction of two commonly prescribed medications. *Australasian Medical Journal*, 2013; e MHRA (Medicines and Healthcare products Regulatory Agency, Reino Unido). [Simvastatin: updated advice on drug interactions](https://www.gov.uk/drug-safety-update/simvastatin-updated-advice-on-drug-interactions). *Drug Safety Update*. |
+| enalapril+ibuprofeno, losartana+ibuprofeno, captopril+ibuprofeno, diclofenaco+enalapril | AINE reduz a síntese de prostaglandinas renais, contrariando o efeito do IECA/BRA e piorando a função renal | LAPI, F.; AZOULAY, L.; YIN, H.; NESSIM, S. J.; SUISSA, S. Concurrent use of diuretics, angiotensin converting enzyme inhibitors, and angiotensin receptor blockers with non-steroidal anti-inflammatory drugs and risk of acute kidney injury: nested case-control study. *BMJ*, v. 346, p. e8525, 2013. |
+
+Além dessas referências por mecanismo, a tabela de nomes comerciais brasileiros (`aliases.ts`) foi conferida contra:
+
+- ANVISA. [Bulário Eletrônico](https://consultas.anvisa.gov.br/#/bulario/) — correspondência entre nomes comerciais brasileiros e princípios ativos.
+
+⚠️ **Importante:** a lista é propositalmente pequena e **não exaustiva** — cobre apenas combinações amplamente conhecidas (ex.: anticoagulante + AINE, IECA/BRA + diurético poupador de potássio, estatina + macrolídeo, combinações serotoninérgicas). Ela não substitui avaliação médica ou farmacêutica e deve ser tratada como apoio informativo, no mesmo espírito das demais funcionalidades de IA do app (nunca diagnóstico). Para uso além do escopo acadêmico deste TCC, o dataset precisaria ser revisado e expandido por um farmacêutico/profissional qualificado e, idealmente, substituído por uma base de dados clínica validada (ex.: DrugBank, Micromedex).
 
 ---
 

@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "types": [
+      "node",
+      "jest"
+    ]
+  },
+  "include": [
+    "amplify/**/*.ts"
+  ]
+}

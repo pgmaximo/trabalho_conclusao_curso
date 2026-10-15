@@ -1,249 +1,199 @@
+// =============================================================================
+// Arquivo: MedicinesScreen.tsx
+// Descrição: Tela 3d do Canvas — "Medicamentos — doses e estoque". Banner de
+// lembretes ativos (contagem real), lista de doses de hoje e estoques.
+//
+// O título é "Remédios", o nome da aba e do atalho do Início que trazem aqui
+// (specs/00-fundacao/consistencia-e-textos/spec.md, D2). Cada item continua
+// sendo um "medicamento".
+// =============================================================================
+
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  Pressable,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import { AlertBanner } from '@/components/AlertBanner';
+import { EmptyState } from '@/components/EmptyState';
 import { MedicineCard } from '@/components/MedicineCard';
 import { MedicineStock } from '@/components/MedicineStock';
-import { ReminderBanner } from '@/components/ReminderBanner';
-import { BottomTabBar } from '@/components/BottomTabBar';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Section } from '@/components/Section';
+import { InlineError } from '@/components/InlineError';
+import { useThemeColors } from '@/constants/theme';
+import type { DrugInteractionMatch } from '@/services/drugInteractionService';
+import type { MedicineDose, MedicineInventoryItem } from '@/types/models';
 
-const TAB_ITEMS = [
-  { icon: '🏠', label: 'Início', id: 'home' },
-  { icon: '📋', label: 'Exames', id: 'exams' },
-  { icon: '🧠', label: 'IA', id: 'ai' },
-  { icon: '⌚', label: 'Watch', id: 'watch' },
-  { icon: '👤', label: 'Perfil', id: 'profile' },
-];
+type MedicinesScreenProps = {
+  medicines: MedicineDose[];
+  stocks: MedicineInventoryItem[];
+  interactions: DrugInteractionMatch[];
+  hasMedicines: boolean;
+  pendingCount: number;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRetry: () => void;
+  onToggleMedicineStatus: (doseId: string) => Promise<void>;
+};
 
-const PENDING_MEDICINES = [
-  {
-    id: 1,
-    name: 'Losartana 50mg',
-    dosage: 'Hipertensão',
-    time: '08h00',
-    status: 'pending' as const,
-  },
-  {
-    id: 2,
-    name: 'Atenolol 25mg',
-    dosage: 'Cardíaco',
-    time: '12h00',
-    status: 'pending' as const,
-  },
-  {
-    id: 3,
-    name: 'Vitamina D3 2000UI',
-    dosage: 'Suplementação',
-    time: '07:30',
-    status: 'taken' as const,
-  },
-];
+export function MedicinesScreen({
+  medicines,
+  stocks,
+  interactions,
+  hasMedicines,
+  pendingCount,
+  isLoading,
+  errorMessage,
+  onRetry,
+  onToggleMedicineStatus,
+}: MedicinesScreenProps) {
+  const { colorScheme } = useColorScheme();
+  const colors = useThemeColors();
+  const [togglingDoseId, setTogglingDoseId] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
-const MEDICINE_STOCKS = [
-  {
-    id: 1,
-    name: 'Losartana 50mg',
-    quantity: 34,
-    unit: 'comp.',
-    status: 'low' as const,
-    percentage: 45,
-  },
-  {
-    id: 2,
-    name: 'Atenolol 25mg',
-    quantity: 28,
-    unit: 'comp.',
-    status: 'ok' as const,
-    percentage: 70,
-  },
-  {
-    id: 3,
-    name: 'Vitamina D3 2000UI',
-    quantity: 60,
-    unit: 'caps.',
-    status: 'ok' as const,
-    percentage: 100,
-  },
-];
+  function goToAddMedicine() {
+    router.push('/add-medicine');
+  }
 
-export function MedicinesScreen({ onTabPress }: { onTabPress?: (tabId: string) => void }) {
-  const [activeTab, setActiveTab] = useState('home');
-  const [medicines, setMedicines] = useState(PENDING_MEDICINES);
+  function goToEditMedicine(id: string) {
+    router.push({ pathname: '/edit-medicine', params: { id } });
+  }
 
-  const handleTabPress = (tabId: string) => {
-    setActiveTab(tabId);
-    onTabPress?.(tabId);
-  };
-
-  const handleToggleMedicineStatus = (medicineId: number) => {
-    setMedicines((prev) =>
-      prev.map((med) =>
-        med.id === medicineId
-          ? {
-              ...med,
-              status: med.status === 'taken' ? 'pending' : 'taken',
-            }
-          : med
-      )
-    );
-  };
-
-  const pendingCount = medicines.filter((m) => m.status === 'pending').length;
+  async function toggleDose(doseId: string) {
+    if (togglingDoseId) return;
+    setTogglingDoseId(doseId);
+    setToggleError(null);
+    try {
+      await onToggleMedicineStatus(doseId);
+    } catch (error) {
+      setToggleError(error instanceof Error ? error.message : 'Não foi possível atualizar a dose.');
+    } finally {
+      setTogglingDoseId(null);
+    }
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerTop}>
-              <Text style={styles.title}>Medicamentos</Text>
-              <Pressable
-                style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-                onPress={() => {}}
-              >
-                <Text style={styles.addButtonText}>+</Text>
-              </Pressable>
+    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <ScrollView contentContainerClassName="px-6 pb-12 pt-6" showsVerticalScrollIndicator={false}>
+        <ScreenHeader
+          title="Remédios"
+          action={
+            <Pressable
+              accessibilityLabel="Adicionar medicamento"
+              accessibilityRole="button"
+              onPress={goToAddMedicine}
+              style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+              className="size-12 items-center justify-center rounded-full bg-app-primary dark:bg-app-dark-primary"
+            >
+              <Ionicons color={colors.onPrimary} name="add" size={24} />
+            </Pressable>
+          }
+        />
+
+        {isLoading ? (
+          <ScreenSkeleton blocks={3} />
+        ) : errorMessage ? (
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Não foi possível carregar os medicamentos"
+            description={errorMessage}
+            tone="error"
+            actionLabel="Tentar novamente"
+            onActionPress={onRetry}
+          />
+        ) : !hasMedicines ? (
+          <EmptyState
+            icon="medkit-outline"
+            title="Você ainda não tem medicamentos cadastrados"
+            description="Adicione um lembrete de medicamento para controlar doses e estoque."
+            actionLabel="Adicionar medicamento"
+            onActionPress={goToAddMedicine}
+          />
+        ) : (
+          <>
+            {toggleError ? <InlineError message={toggleError} /> : null}
+            <View className="mb-6 flex-row items-center gap-3 rounded-app border border-app-infoBadgeBorder bg-app-infoSoft px-4 py-3 dark:border-app-dark-infoBadgeBorder dark:bg-app-dark-infoSoft">
+              <View className="size-8 items-center justify-center rounded-full bg-app-infoIconBg dark:bg-app-dark-infoIconBg">
+                <Ionicons color={colors.onPrimary} name="notifications" size={16} />
+              </View>
+              <Text className="flex-1 text-[15px] leading-[20px] text-app-text dark:text-app-dark-text">
+                {pendingCount > 0
+                  ? `Você tem ${pendingCount} lembrete${pendingCount !== 1 ? 's' : ''} ativo${pendingCount !== 1 ? 's' : ''} para hoje.`
+                  : 'Nenhum lembrete pendente para hoje.'}
+              </Text>
             </View>
-            <Text style={styles.subtitle}>
-              {pendingCount} dose{pendingCount !== 1 ? 's' : ''} pendente{pendingCount !== 1 ? 's' : ''} hoje
-            </Text>
-          </View>
 
-          {/* Pending Medicines Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Próximos medicamentos</Text>
-            {medicines.map((medicine) => (
-              <MedicineCard
-                key={medicine.id}
-                name={medicine.name}
-                dosage={medicine.dosage}
-                time={medicine.time}
-                status={medicine.status}
-                onToggle={() => handleToggleMedicineStatus(medicine.id)}
-              />
-            ))}
-          </View>
+            {interactions.length > 0 ? (
+              <View className="mb-4">
+                {interactions.map((match) => (
+                  // O ícone é o do tipo do aviso: triângulo na interação grave,
+                  // exclamação na leve. Era um emoji, igual nas duas.
+                  <AlertBanner
+                    key={match.pair.id}
+                    type={match.severity === 'danger' ? 'danger' : 'warning'}
+                    title={`${match.medicineA.name} + ${match.medicineB.name}`}
+                    message={match.riskPt}
+                  />
+                ))}
+              </View>
+            ) : null}
 
-          {/* Stock Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Estoques de medicamentos</Text>
-            {MEDICINE_STOCKS.map((stock) => (
-              <MedicineStock
-                key={stock.id}
-                name={stock.name}
-                quantity={stock.quantity}
-                unit={stock.unit}
-                status={stock.status}
-                percentage={stock.percentage}
-              />
-            ))}
-          </View>
+            <Section title="Próximas doses" subtitle="Marque cada item conforme a administração.">
+              {medicines.length > 0 ? (
+                medicines.map((medicine) => (
+                  <MedicineCard
+                    key={medicine.id}
+                    name={medicine.name}
+                    dosage={medicine.dosage}
+                    time={medicine.time}
+                    status={medicine.status}
+                    onPress={() => goToEditMedicine(medicine.medicineId)}
+                    onToggle={() => void toggleDose(medicine.id)}
+                    toggleDisabled={togglingDoseId === medicine.id}
+                  />
+                ))
+              ) : (
+                // Esta lista vazia quer dizer que NÃO HÁ dose prevista para hoje
+                // (as já tomadas continuam na lista). O texto antigo dizia que
+                // todas já tinham sido registradas, o que aqui nunca é o caso.
+                <EmptyState
+                  icon="checkmark-circle-outline"
+                  title="Nenhuma dose para hoje"
+                  description="Você não tem doses previstas para hoje."
+                />
+              )}
+            </Section>
 
-          {/* Reminders Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lembretes ativados</Text>
-            <ReminderBanner
-              title="Lembrete ativado"
-              description="Notificações 15 min antes de cada dose"
-            />
-          </View>
-
-          {/* Add Medicine Button */}
-          <Pressable
-            style={({ pressed }) => [styles.addMedicineButton, pressed && styles.addMedicineButtonPressed]}
-            onPress={() => {}}
-          >
-            <Text style={styles.addMedicineButtonText}>+ Adicionar medicamento</Text>
-          </Pressable>
-        </ScrollView>
-
-        <BottomTabBar items={TAB_ITEMS} activeTab={activeTab} onTabPress={handleTabPress} />
-      </View>
+            <Section title="Estoques" subtitle="Visão rápida dos medicamentos que podem acabar em breve.">
+              {stocks.length > 0 ? (
+                stocks.map((stock) => (
+                  <MedicineStock
+                    key={stock.id}
+                    name={stock.name}
+                    quantity={stock.quantity}
+                    unit={stock.unit}
+                    status={stock.status}
+                    percentage={stock.percentage}
+                    onPress={() => goToEditMedicine(stock.id)}
+                  />
+                ))
+              ) : (
+                <EmptyState
+                  icon="cube-outline"
+                  title="Nenhum estoque cadastrado"
+                  description="Os estoques aparecerão aqui quando um medicamento for adicionado."
+                />
+              )}
+            </Section>
+          </>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.large,
-    paddingBottom: SIZES.large * 2,
-  },
-  header: {
-    marginBottom: SIZES.large,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SIZES.small,
-  },
-  title: {
-    ...FONTS.heading,
-    fontSize: 24,
-    color: COLORS.text,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonPressed: {
-    opacity: 0.85,
-  },
-  addButtonText: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  subtitle: {
-    ...FONTS.body,
-    color: '#F39C12',
-    fontWeight: '500',
-  },
-  section: {
-    marginBottom: SIZES.large,
-  },
-  sectionTitle: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.base,
-    fontSize: 13,
-  },
-  addMedicineButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radius,
-    paddingVertical: SIZES.base,
-    alignItems: 'center',
-    marginTop: SIZES.base,
-  },
-  addMedicineButtonPressed: {
-    opacity: 0.85,
-  },
-  addMedicineButtonText: {
-    ...FONTS.body,
-    color: '#fff',
-    fontWeight: '600',
-  },
-});

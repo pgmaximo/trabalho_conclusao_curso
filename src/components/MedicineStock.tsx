@@ -1,6 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+// =============================================================================
+// Arquivo: MedicineStock.tsx
+// Descrição: Cartão de estoque de medicamento — quantidade, barra de progresso e,
+// quando `status === 'low'`, borda âmbar + linha de alerta (Canvas 3d, card
+// "Metformina 850mg").
+// =============================================================================
+
+import React, { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import { Card } from '@/components/Card';
+import { useThemeColors } from '@/constants/theme';
 
 interface MedicineStockProps {
   name: string;
@@ -8,121 +18,70 @@ interface MedicineStockProps {
   unit: string;
   status: 'ok' | 'low' | 'critical';
   percentage?: number;
+  onPress?: () => void;
 }
 
-export function MedicineStock({
-  name,
-  quantity,
-  unit,
-  status,
-  percentage = 100,
-}: MedicineStockProps) {
-  const getStatusColor = () => {
-    switch (status) {
-      case 'ok':
-        return '#27AE60';
-      case 'low':
-        return '#F39C12';
-      case 'critical':
-        return '#E74C3C';
-      default:
-        return COLORS.primary;
-    }
-  };
-
-  const getStatusLabel = () => {
-    switch (status) {
-      case 'ok':
-        return 'OK';
-      case 'low':
-        return 'Baixo';
-      case 'critical':
-        return 'Crítico';
-      default:
-        return '';
-    }
-  };
+export function MedicineStock({ name, quantity, unit, status, percentage = 100, onPress }: MedicineStockProps) {
+  const colors = useThemeColors();
+  const isCritical = status === 'critical';
+  const isLow = status === 'low' || isCritical;
+  const alertColor = isCritical ? colors.danger : colors.warning;
+  const alertBorderColor = isCritical ? colors.dangerBadgeBorder : colors.warningBadgeBorder;
+  const alertMessage = isCritical ? 'Estoque esgotado — compre mais o quanto antes' : 'Estoque baixo — hora de comprar mais';
+  const [isPressed, setIsPressed] = useState(false);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.info}>
-          <Text style={styles.name}>{name}</Text>
-          <Text style={styles.quantity}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+      // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+      style={isPressed && onPress ? { opacity: 0.9 } : null}
+    >
+      <Card
+        padding="compact"
+        style={{
+          marginBottom: 10,
+          borderColor: isLow ? alertBorderColor : undefined,
+          borderWidth: isLow ? 1.5 : undefined,
+        }}
+      >
+        <View className="flex-row items-center justify-between">
+          <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+            {name}
+          </Text>
+          <Text
+            className="text-[16px] font-semibold"
+            style={{ color: isLow ? alertColor : colors.textSecondary }}
+          >
             {quantity} {unit}
           </Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: getStatusColor() }]}>
-          <Text style={styles.badgeText}>{getStatusLabel()}</Text>
-        </View>
-      </View>
 
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
+        <View
+          className="mt-3 overflow-hidden rounded-full"
+          style={{ height: 8, backgroundColor: colors.progressTrack }}
+        >
           <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${percentage}%`,
-                backgroundColor: getStatusColor(),
-              },
-            ]}
+            style={{
+              width: `${percentage}%`,
+              height: '100%',
+              backgroundColor: isLow ? alertColor : colors.primary,
+            }}
           />
         </View>
-      </View>
-    </View>
+
+        {isLow ? (
+          <View className="mt-3 flex-row items-center gap-2">
+            <Ionicons color={alertColor} name="alert-circle" size={16} />
+            <Text className="text-[13px] font-semibold" style={{ color: alertColor }}>
+              {alertMessage}
+            </Text>
+          </View>
+        ) : null}
+      </Card>
+    </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radius,
-    padding: SIZES.base,
-    marginBottom: SIZES.small,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SIZES.base,
-  },
-  info: {
-    flex: 1,
-  },
-  name: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  quantity: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-  },
-  badge: {
-    paddingVertical: SIZES.small,
-    paddingHorizontal: SIZES.base,
-    borderRadius: 6,
-  },
-  badgeText: {
-    ...FONTS.caption,
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 11,
-  },
-  progressContainer: {
-    marginTop: SIZES.small,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-  },
-});

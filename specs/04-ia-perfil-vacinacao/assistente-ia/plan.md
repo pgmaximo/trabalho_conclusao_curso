@@ -1,0 +1,67 @@
+# PLAN: Assistente de IA — Chat Interativo (Bloco 4)
+
+## 1. Diagnóstico — estado atual vs. design
+
+Leitura de `src/screens/ChatBotScreen.tsx` (renderizado por `src/app/(app)/ai.tsx`), `src/hooks/useChatBot.ts` e `src/services/chatService.ts`, comparados ao markup da tela 4a.
+
+| Elemento do design | Existe hoje? | Detalhe do gap |
+|---|---|---|
+| Header com botão de histórico | **Não** | `ChatBotScreen.tsx` usa `ScreenHeader` com título "Assistente de Saúde" (Canvas: "Assistente de IA") + subtítulo extra ("Tire dúvidas sobre seus exames...", ausente no Canvas) + ação condicional de "limpar conversa" (`trash-outline`, só aparece com mensagens). O Canvas não tem subtítulo nem lixeira — tem um botão de histórico (ícone de relógio) sempre visível à esquerda do título. **Gap estrutural**: o botão de histórico precisa ser criado; decisão sobre manter/substituir/mesclar com a ação de "limpar" atual (ver §2). |
+| Banner de disclaimer | **Não existe** | Maior gap desta EPIC. `ChatBotScreen.tsx` não renderiza nenhum aviso "Apoio informativo — não substitui avaliação médica." em lugar nenhum. Isso é uma violação direta da constituição regra 4 hoje. **Gap crítico a corrigir primeiro.** |
+| Estado vazio — sugestões | Parcial, conteúdo e layout divergem | Hoje: 4 chips (`flex-wrap`) com textos diferentes dos do Canvas. Canvas: exatamente 3 cartões empilhados de 52px com os textos "Analisar meu último exame" / "O que significa colesterol alto?" / "Lembrar de tomar remédio". **Gap de conteúdo + layout a corrigir.** |
+| Lista de mensagens | Sim, via `MessageBubble` | Estruturalmente equivalente ao Canvas (bolhas alinhadas por papel); cores/tokens a conferir contra a paleta real (`DESIGN_TOKENS.md`), não contra a paleta genérica atual do componente — checar `MessageBubble.tsx` durante a implementação (fora do escopo de leitura desta EPIC, mas listado como verificação). |
+| Indicador de "digitando" | Parcial, conteúdo errado | Hoje renderiza o texto literal "Digitando..." dentro de uma bolha. Canvas usa 3 pontos animados (sem texto). **Gap visual a corrigir.** |
+| Input + anexo + enviar | Parcial, com funcionalidade extra não presente no Canvas | Campo de texto e botão de enviar batem estruturalmente. O botão de anexo (`handleAttach`, `expo-document-picker` → navega para `/add-exam`) **não existe no Canvas 4a** — é uma funcionalidade adicionada no código que não tem equivalente visual na tela 4a. Decisão de interpretação (regra 8): **manter** o anexo é aceitável e até desejável (permite ao usuário anexar um exame diretamente da conversa, reforça o caso de uso "Analisar meu último exame"), mas deve ficar documentado como uma extensão intencional além do Canvas, não como um desvio não avaliado. |
+| Drawer de histórico | **Não existe em nenhum lugar do código** | Maior gap estrutural desta EPIC, junto do disclaimer. Nem o botão de abrir, nem o painel, nem `historyGroups` existem hoje. **Gap a criar do zero.** |
+| Bottom nav | Já implementado globalmente | Fora do escopo desta EPIC (item de Fundação/navegação compartilhada). |
+| `chatService.ts` — nome/isolamento do mock | Existe, mas nome não comunica o limite | O arquivo já se autodocumenta via comentário como mock, e já expõe uma interface (`ChatService`) desacoplada da implementação — isso é bom. Mas o **nome do arquivo/função** (`chatService`/`sendMessage`) não deixa explícito, para quem só lê `useChatBot.ts` importando `sendMessage as sendChatMessage`, que está cruzando a fronteira de um serviço mockado de IA. **Gap de nomenclatura/isolamento a corrigir** (ver §2). |
+| Persistência de conversa | **Não existe** | `useChatBot.ts` guarda tudo em `useState`, perdido ao desmontar a tela. Não há `AsyncStorage`, não há model Amplify. **Gap estrutural, decisão em aberto** (ver §3). |
+
+## 2. Decisões de escopo tomadas nesta EPIC (não bloqueantes)
+
+1. **Banner de disclaimer**: implementar como componente fixo, sempre renderizado, sem prop de dismiss, no topo da área de conteúdo (abaixo do header, acima da lista de mensagens), replicando exatamente o Canvas (fundo `#E9F1FD`, borda `#CBDFFA`, ícone "i" em tile `#1B63C4`, texto `#14509F`). Esta é a mudança de maior prioridade da EPIC (constituição regra 4).
+2. **Header**: trocar título "Assistente de Saúde" → "Assistente de IA" (bater com o Canvas); remover subtítulo (não existe no Canvas); adicionar botão de histórico (ícone de relógio, 48×48, abre o drawer). A ação de "limpar conversa" (lixeira) atual **não existe no Canvas como botão separado** — decisão: reaproveitar a ação "Nova conversa" dentro do drawer de histórico (que já cumpre esse papel — limpar mensagens e recomeçar) em vez de manter dois pontos de entrada distintos para a mesma ideia. Remover o botão de lixeira do header.
+3. **Estado vazio**: substituir os 4 `QUICK_PROMPTS` atuais pelos 3 do Canvas, no layout de cartões empilhados (52px, radius 14, borda `#DFE3E1`), removendo o `flex-wrap` de chips atual.
+4. **Indicador de "digitando"**: substituir o texto "Digitando..." por 3 pontos (reaproveitar/estender `MessageBubble` ou um pequeno componente novo `TypingIndicator`, decisão de implementação, sem introduzir lib nova).
+5. **Botão de anexo**: manter (extensão intencional, documentada em `spec.md` como divergência aceitável do Canvas — regra 8).
+6. **Isolamento do mock de IA**: renomear/mover a fronteira para deixar o limite explícito. Abordagem recomendada: renomear `src/services/chatService.ts` → `src/services/aiAssistantService.ts`, com a interface exportada renomeada para `AiAssistantService`, mantendo o mesmo contrato (`sendMessage(message, history, userContext?): Promise<string>`) e o comentário que já esboça a troca futura pela API real da Anthropic — apenas reforçar esse comentário para deixar peremptório que a troca de provedor/custo/privacidade é uma decisão fora desta EPIC. Atualizar o import em `useChatBot.ts` de acordo. **Nenhuma chamada real a LLM é implementada.**
+7. **Revisão de copy das respostas mock**: ajustar a string "Seus exames indicam que os valores estão dentro da faixa normal para sua idade." (hoje em `MOCK_RESPONSES`) para incluir uma ressalva explícita (ex.: "...isso é uma leitura informativa, não substitui a avaliação de um profissional de saúde."), eliminando a única frase do conjunto atual que soa como afirmação clínica direta sem qualificador. As outras 3 strings já orientam buscar um médico ou pedem mais contexto — mantê-las.
+
+## 3. Decisões explicitamente NÃO tomadas nesta EPIC (requerem confirmação humana/orientador)
+
+Conforme a constituição regra 2 (nenhum dado mockado permanece silencioso, mas placeholders documentados são aceitáveis) e o próprio prompt desta tarefa, as duas decisões abaixo são **maiores que o escopo de uma EPIC de UI** e ficam registradas como pendências formais, não implementadas:
+
+1. **Integração real de IA (provedor, custo, privacidade de dados de saúde enviados a terceiros).** O comentário já presente em `chatService.ts` esboça a Anthropic Claude API como candidata, mas isso envolve: custo por token/mês, política de retenção de dados do provedor, se dados de exames (potencialmente sensíveis sob LGPD) podem ser enviados a uma API externa e sob qual base legal/consentimento, e se é necessário anonimizar/reduzir contexto antes do envio. **Nenhuma dessas perguntas é respondida nesta EPIC** — apenas preparamos a fronteira (`aiAssistantService.ts`) para que a troca, quando decidida, seja um swap de uma função, não uma refatoração de UI.
+2. **Persistência de histórico de conversas (`historyGroups`).** Duas rotas possíveis, nenhuma escolhida aqui:
+   - **(a) Local (AsyncStorage/SecureStore no dispositivo):** mais simples, não exige mudança de schema Amplify, mas não sincroniza entre dispositivos e ainda armazena conteúdo de conversa (potencialmente incluindo menções a condições de saúde) em texto simples no dispositivo — precisa de decisão sobre criptografia local (`expo-secure-store` vs. `AsyncStorage` simples) e política de retenção/expiração.
+   - **(b) Remoto (novo model Amplify, ex. `ChatConversation`/`ChatMessage` no DynamoDB, com `owner` auth via Cognito):** sincroniza entre dispositivos, mas é uma mudança de schema (regra 5/6 da constituição — decisão explícita, não efeito colateral) e cria uma nova superfície de dados de saúde sensíveis no backend, exigindo decisão consciente de: quanto tempo reter, se o usuário pode apagar conversas individualmente (provavelmente sim, dado LGPD), e se o conteúdo das mensagens (que podem mencionar diagnósticos, medicamentos, sintomas) precisa de tratamento especial (dado sensível de saúde, art. 11 LGPD).
+   - **Recomendação registrada (não decisão):** dado que esta tela já é a mais sensível do app, a rota (b) — se e quando implementada — deveria vir acompanhada de uma tela/fluxo de "excluir histórico"/"exportar meus dados" explícito, não apenas o model novo. Isso é maior que esta EPIC.
+   - **Para esta EPIC**, a UI do drawer de histórico é construída (estrutura visual completa, conforme `spec.md`), mas alimentada por uma fonte **local e explicitamente temporária/vazia** por padrão (ex.: `historyGroups` inicia vazio, e cada "Nova conversa" simplesmente limpa a tela atual sem persistir a anterior em lugar nenhum) — isso é honesto sobre o estado real (nenhuma conversa é de fato recuperável ainda) e evita implementar qualquer uma das duas rotas de persistência sem decisão explícita. Este comportamento (histórico sempre vazio) deve ficar **visível e comunicado ao usuário** (copy do estado vazio do drawer), nunca escondido/fingido como se estivesse funcionando.
+
+## 4. Escopo da mudança
+
+**Fora de escopo / não tocar:**
+- Qualquer integração real com um provedor de LLM (Anthropic, OpenAI, etc.) — ver §3.1.
+- `amplify/data/schemas/*` — nenhum model novo criado nesta EPIC, mesmo que a rota (b) do §3.2 seja a recomendada a longo prazo.
+- `/add-exam` (`AddExamScreen`) — fora de escopo, apenas reaproveitado como destino de navegação do botão de anexo, já existente.
+- `MessageBubble.tsx` — reaproveitado; ajustes de paleta, se necessários, ficam registrados como verificação a fazer durante a implementação, não redesenhados do zero aqui.
+
+**Dentro de escopo:**
+- `src/screens/ChatBotScreen.tsx` — header (título/remoção de subtítulo/botão de histórico), banner de disclaimer fixo, estado vazio com 3 cartões, indicador de digitando com pontos, montagem do drawer de histórico (novo).
+- `src/hooks/useChatBot.ts` — adicionar estado de `historyOpen`/`historyGroups` (ainda que `historyGroups` inicie vazio, conforme §3.2), função `openHistory`/`closeHistory`/`newChat` (equivalente a `clearHistory` já existente, possivelmente renomeada/reaproveitada), import atualizado para `aiAssistantService`.
+- `src/services/chatService.ts` → renomear para `src/services/aiAssistantService.ts` (interface `AiAssistantService`), revisar `MOCK_RESPONSES` conforme §2.7.
+- Componente novo (pequeno): `TypingIndicator` (3 pontos) e `HistoryDrawer` (painel do histórico) — avaliar no momento da implementação se cabem como componentes dedicados em `src/components/` (reaproveitáveis se outra tela precisar de padrão de drawer/lista agrupada) ou como sub-elementos locais de `ChatBotScreen.tsx`; preferir componentes dedicados dado que "side drawer" já é um padrão documentado em `DESIGN_TOKENS.md` §4 que pode ser reaproveitado no futuro.
+- `GAP_ANALYSIS.md` — recomendado (não obrigatório desta EPIC per se, mas fortemente sugerido) atualizar a pendência #4 para refletir que a integração de IA real E a persistência de histórico são duas pendências distintas, ambas em aberto após esta EPIC.
+
+## 5. Componentes a reaproveitar (Fundação / já existentes)
+
+- `MessageBubble` (`src/components/MessageBubble.tsx`) — reaproveitar como está para bolhas de mensagem; conferir paleta contra `DESIGN_TOKENS.md` durante implementação.
+- `ScreenHeader` — reaproveitar, mas simplificado (sem subtítulo, `action` trocado do ícone de lixeira para o ícone de histórico).
+- Nenhuma nova dependência de biblioteca é necessária — `expo-document-picker` (para o anexo) já está em uso; drawer/backdrop pode ser implementado com `View`/`Pressable`/`Modal` nativos, seguindo o mesmo padrão já usado em `BottomSheet.tsx` (adaptado de bottom-sheet para side-drawer, reaproveitando a lógica de backdrop/animação se fizer sentido).
+
+## 6. Riscos / decisões a documentar
+
+- **Disclaimer ausente hoje é uma violação ativa da constituição regra 4** — deve ser tratado como prioridade #1 de implementação, não como "mais um item da lista".
+- **Renomear `chatService.ts` → `aiAssistantService.ts`** é uma mudança de import em pelo menos `useChatBot.ts` — checar se mais algum arquivo importa de `chatService` antes de renomear (grep antes de mover).
+- **Histórico de conversas sempre vazio nesta versão** é uma limitação real e visível ao usuário — deve ser comunicada na própria UI (copy do estado vazio do drawer), não escondida. É esperado que um revisor/orientador do TCC veja isso como uma tela funcional mas com uma lacuna de dado real conhecida e documentada, igual ao padrão já usado em outras EPICs do projeto (ex. badge "Alterado" em 3a).
+- **Duas pendências maiores (integração de IA real, persistência de histórico) ficam explicitamente fora desta EPIC** e não devem ser implementadas por iniciativa própria numa sessão futura sem antes confirmar com o usuário/orientador — ambas envolvem decisões de custo, privacidade de dados de saúde e arquitetura que excedem "fidelidade de UI".

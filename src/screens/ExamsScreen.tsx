@@ -1,246 +1,385 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TextInput,
-  Pressable,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { FilterChips } from '@/components/FilterChips';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useColorScheme } from 'nativewind';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
+
+import { BottomSheet } from '@/components/BottomSheet';
+import { AnalyteSeriesEntry } from '@/components/AnalyteSeriesEntry';
+import { EmptyState } from '@/components/EmptyState';
 import { ExamItem } from '@/components/ExamItem';
-import { BottomTabBar } from '@/components/BottomTabBar';
-import { Button } from '@/components/Button';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { FilterChips } from '@/components/FilterChips';
+import { InlineError } from '@/components/InlineError';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Section } from '@/components/Section';
+import { RADII, useThemeColors } from '@/constants/theme';
+import type { MedicalDocument, MedicalDocumentFilter } from '@/types/models';
+import { useSelectedDocument } from '@/contexts/DocumentContext';
 
-const FILTER_OPTIONS = ['Todos', 'Exames', 'Receitas', 'Laudos'];
+type ExamsScreenProps = {
+  filterOptions: MedicalDocumentFilter[];
+  searchQuery: string;
+  activeFilter: MedicalDocumentFilter;
+  documents: MedicalDocument[];
+  hasAnyDocuments: boolean;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRetry: () => void;
+  onSearchChange: (value: string) => void;
+  onFilterChange: (value: MedicalDocumentFilter) => void;
+};
 
-const EXAM_DATA = [
-  {
-    icon: '✅',
-    title: 'Hemograma completo',
-    subtitle: '15 jan 2025 - Dr. Silva',
-    statusLabel: 'PDF',
-    statusColor: '#F39C12',
-  },
-  {
-    icon: '💊',
-    title: 'Receita — Losartana 50mg',
-    subtitle: '10 jan 2025 - Dr. Gomes',
-    statusLabel: 'Receita',
-    statusColor: '#3498DB',
-  },
-  {
-    icon: '❤️',
-    title: 'ECG — Eletrocardiograma',
-    subtitle: '05 dez 2024 - Hospital IMT',
-    statusLabel: 'Laudo',
-    statusColor: '#27AE60',
-  },
-  {
-    icon: '🩸',
-    title: 'Colesterol total e frações',
-    subtitle: 'Mar 2024 - Lab Central',
-    statusLabel: 'Expirado',
-    statusColor: '#E74C3C',
-  },
-  {
-    icon: '📋',
-    title: 'TSH e T4 livre',
-    subtitle: 'Jul 2023 - Lab Central',
-    statusLabel: 'Expirado',
-    statusColor: '#E74C3C',
-  },
-];
+export function ExamsScreen({
+  filterOptions,
+  searchQuery,
+  activeFilter,
+  documents,
+  hasAnyDocuments,
+  isLoading,
+  errorMessage,
+  onRetry,
+  onSearchChange,
+  onFilterChange,
+}: ExamsScreenProps) {
+  const colors = useThemeColors();
+  const { colorScheme } = useColorScheme();
+  const [isSheetVisible, setIsSheetVisible] = useState(false);
+  const [isFabPressed, setIsFabPressed] = useState(false);
+  const [isPickRowPressed, setIsPickRowPressed] = useState(false);
+  const [isCaptureRowPressed, setIsCaptureRowPressed] = useState(false);
+  const [isCancelPressed, setIsCancelPressed] = useState(false);
+  const [isPickingFile, setIsPickingFile] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [cameraPermissionError, setCameraPermissionError] = useState<string | null>(null);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const { setSelectedDocument } = useSelectedDocument();
 
-const TAB_ITEMS = [
-  { icon: '🏠', label: 'Início', id: 'home' },
-  { icon: '📋', label: 'Exames', id: 'exams' },
-  { icon: '🧠', label: 'IA', id: 'ai' },
-  { icon: '⌚', label: 'Watch', id: 'watch' },
-  { icon: '👤', label: 'Perfil', id: 'profile' },
-];
+  // Distingue "vazio real" (nenhum documento ainda) de "busca sem resultado" — spec.md
+  // cenário "Busca sem resultados" e critério de aceite correspondente. Usa o total
+  // bruto (`hasAnyDocuments`), não o estado do filtro/busca, para não confundir o
+  // edge case de conta vazia + busca digitada com "busca sem resultado" (#33).
+  const isEmptySearchResult = documents.length === 0 && hasAnyDocuments;
 
-export function ExamsScreen({ onTabPress }: { onTabPress?: (tabId: string) => void }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('Todos');
-  const [activeTab, setActiveTab] = React.useState('exams');
+  function clearFilters() {
+    onSearchChange('');
+    onFilterChange('Todos');
+  }
 
-  const filteredExams = EXAM_DATA.filter((exam) => {
-    const matchesSearch =
-      exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exam.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
+  async function pickDocument() {
+    try {
+      setIsPickingFile(true);
+      setPickerError(null);
 
-    if (activeFilter === 'Todos') return matchesSearch;
-    if (activeFilter === 'Exames') return matchesSearch && exam.statusLabel === 'PDF';
-    if (activeFilter === 'Receitas') return matchesSearch && exam.statusLabel === 'Receita';
-    if (activeFilter === 'Laudos') return matchesSearch && exam.statusLabel === 'Laudo';
-    return matchesSearch;
-  });
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        // `false` deixa a URI original (ex.: content://...providers.downloads...),
+        // cuja permissão de leitura é transitória: some antes do upload rodar,
+        // depois do usuário preencher o formulário em add-exam (SecurityException).
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+
+        setIsSheetVisible(false);
+
+        router.push({
+          pathname: '/add-exam',
+          params: {
+            fileName: asset.name,
+            filePath: asset.uri,
+            fileSize: asset.size || 0,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      setPickerError('Erro ao selecionar o documento. Tente novamente.');
+    } finally {
+      setIsPickingFile(false);
+    }
+  }
+
+  async function captureWithCamera() {
+    try {
+      setIsCapturing(true);
+      setCameraPermissionError(null);
+      setCameraError(null);
+
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setCameraPermissionError(
+          'Permissão de câmera negada. Habilite o acesso à câmera nas configurações do dispositivo para capturar documentos.',
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const fileName = asset.fileName || `captura-${Date.now()}.jpg`;
+
+        setIsSheetVisible(false);
+
+        router.push({
+          pathname: '/add-exam',
+          params: {
+            fileName,
+            filePath: asset.uri,
+            fileSize: asset.fileSize || 0,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+      setCameraError('Erro ao capturar a foto. Tente novamente.');
+    } finally {
+      setIsCapturing(false);
+    }
+  }
+
+  const emptyState = isEmptySearchResult ? (
+    <EmptyState
+      icon="search-outline"
+      title="Nenhum documento encontrado"
+      description="Ajuste os filtros ou a busca para encontrar outro item."
+      actionLabel="Limpar filtros"
+      onActionPress={clearFilters}
+    />
+  ) : (
+    <EmptyState
+      icon="folder-open-outline"
+      title="Você ainda não tem documentos"
+      description="Adicione seu primeiro exame ou receita para começar a organizar seu histórico."
+      actionLabel="Adicionar documento"
+      onActionPress={() => setIsSheetVisible(true)}
+    />
+  );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Exames & Receitas</Text>
-            <Pressable style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}>
-              <Text style={styles.addButtonText}>+</Text>
-            </Pressable>
-          </View>
-
-          {/* Search Input */}
-          <View style={styles.searchContainer}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar exames, receitas..."
-              placeholderTextColor={COLORS.placeholder}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
+    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <View className="flex-1">
+        {/* `pb-24` (96dp): o botão de adicionar ocupa 72dp do rodapé (16 + 56), e
+            o último documento da lista precisa rolar para cima dele. */}
+        <ScrollView contentContainerClassName="px-6 pt-6 pb-24" showsVerticalScrollIndicator={false}>
+          {isLoading ? (
+            <ScreenSkeleton blocks={3} />
+          ) : errorMessage ? (
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Não foi possível carregar os documentos"
+              description={errorMessage}
+              tone="error"
+              actionLabel="Tentar novamente"
+              onActionPress={onRetry}
             />
-          </View>
-
-          {/* Filter Chips */}
-          <FilterChips
-            options={FILTER_OPTIONS}
-            activeFilter={activeFilter}
-            onFilterChange={setActiveFilter}
-          />
-
-          {/* Exam List */}
-          <View style={styles.listContainer}>
-            {filteredExams.map((exam, index) => (
-              <ExamItem
-                key={index}
-                icon={exam.icon}
-                title={exam.title}
-                subtitle={exam.subtitle}
-                statusLabel={exam.statusLabel}
-                statusColor={exam.statusColor}
-                onPress={() => {}}
+          ) : (
+            <>
+              <ScreenHeader
+                title="Exames e receitas"
+                // Some quando nao ha documento nenhum: oferecer comparacao a
+                // quem nao tem o que comparar e mandar a pessoa para uma tela
+                // vazia. A porta so faz sentido depois do primeiro exame.
+                action={hasAnyDocuments ? <AnalyteSeriesEntry /> : undefined}
               />
-            ))}
-          </View>
 
-          {/* Add Document Button */}
-          <Button
-            title="+ Adicionar novo documento"
-            onPress={() => {}}
-            style={styles.addDocumentButton}
-          />
+              <View
+                style={[
+                  styles.searchField,
+                  { borderColor: colors.border, backgroundColor: colors.surface },
+                ]}
+              >
+                <Ionicons name="search-outline" size={18} color={colors.iconMuted} style={{ marginRight: 10 }} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder="Buscar por nome do exame..."
+                  placeholderTextColor={colors.placeholder}
+                  value={searchQuery}
+                  onChangeText={onSearchChange}
+                />
+              </View>
 
-          {/* Footer Note */}
-          <View style={styles.footerNote}>
-            <Text style={styles.footerIcon}>🔒</Text>
-            <Text style={styles.footerText}>
-              Seus documentos são armazenados de forma encriptada em conformidade com a LGPD
-            </Text>
-          </View>
+              <FilterChips
+                options={filterOptions}
+                activeFilter={activeFilter}
+                onFilterChange={(value) => onFilterChange(value as MedicalDocumentFilter)}
+              />
+
+              <Section title="Documentos disponíveis">
+                <View className="mb-4">
+                  {documents.length > 0
+                    ? documents.map((document) => (
+                        <ExamItem
+                          key={document.id}
+                          icon={document.icon}
+                          title={document.title}
+                          subtitle={document.subtitle}
+                          documentType={document.documentType}
+                          validityStatus={document.validityStatus}
+                          onPress={() => {
+                            setSelectedDocument(document);
+                            router.push({
+                              pathname: '/(app)/document-detail',
+                              params: { id: document.id },
+                            });
+                          }}
+                        />
+                      ))
+                    : emptyState}
+                </View>
+              </Section>
+            </>
+          )}
         </ScrollView>
 
-        <BottomTabBar 
-          items={TAB_ITEMS} 
-          activeTab={activeTab} 
-          onTabPress={(tabId) => {
-            setActiveTab(tabId);
-            onTabPress?.(tabId);
-          }} 
-        />
+        {/* FAB único (Canvas 3a §3) — ponto de entrada exclusivo para o bottom sheet.
+            `style` NÃO pode ser função aqui — sem `className`, o NativeWind
+            (jsxImportSource global) descarta o resultado e o Pressable renderiza sem
+            nenhum estilo (bug relatado: faixa branca sem cor/dimensão no lugar do FAB). */}
+        {!isLoading && !errorMessage ? (
+          <Pressable
+            accessibilityLabel="Adicionar documento"
+            accessibilityRole="button"
+            style={[styles.fab, { backgroundColor: colors.primary }, isFabPressed && { opacity: 0.9 }]}
+            onPressIn={() => setIsFabPressed(true)}
+            onPressOut={() => setIsFabPressed(false)}
+            onPress={() => setIsSheetVisible(true)}
+          >
+            <Ionicons name="add" size={28} color={colors.onPrimary} />
+          </Pressable>
+        ) : null}
       </View>
+
+      <BottomSheet
+        visible={isSheetVisible}
+        title="Adicionar documento"
+        onClose={() => setIsSheetVisible(false)}
+      >
+        <Pressable
+          // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+          // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+          style={[styles.sheetRow, { borderColor: colors.border }, isPickRowPressed && { opacity: 0.85 }]}
+          disabled={isPickingFile}
+          onPressIn={() => setIsPickRowPressed(true)}
+          onPressOut={() => setIsPickRowPressed(false)}
+          onPress={pickDocument}
+        >
+          <Ionicons name="document-outline" size={22} color={colors.primary} />
+          <Text style={[styles.sheetRowText, { color: colors.text }]}>Enviar PDF ou imagem</Text>
+        </Pressable>
+
+        {pickerError ? (
+          <View style={{ marginTop: 8 }}>
+            <InlineError message={pickerError} />
+          </View>
+        ) : null}
+
+        <Pressable
+          // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+          // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+          style={[styles.sheetRow, { borderColor: colors.border }, isCaptureRowPressed && { opacity: 0.85 }]}
+          disabled={isCapturing}
+          onPressIn={() => setIsCaptureRowPressed(true)}
+          onPressOut={() => setIsCaptureRowPressed(false)}
+          onPress={captureWithCamera}
+        >
+          <Ionicons name="camera-outline" size={22} color={colors.info} />
+          <Text style={[styles.sheetRowText, { color: colors.text }]}>Capturar com câmera</Text>
+        </Pressable>
+
+        {cameraPermissionError ? (
+          <Text style={[styles.permissionError, { color: colors.danger }]}>
+            {cameraPermissionError}
+          </Text>
+        ) : null}
+
+        {cameraError ? (
+          <View style={{ marginTop: 8 }}>
+            <InlineError message={cameraError} />
+          </View>
+        ) : null}
+
+        <Pressable
+          // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+          // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+          style={[styles.cancelButton, { backgroundColor: colors.background }, isCancelPressed && { opacity: 0.85 }]}
+          onPressIn={() => setIsCancelPressed(true)}
+          onPressOut={() => setIsCancelPressed(false)}
+          onPress={() => setIsSheetVisible(false)}
+        >
+          <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancelar</Text>
+        </Pressable>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.large,
-    paddingBottom: SIZES.large * 2,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.large,
-  },
-  title: {
-    ...FONTS.heading,
-    fontSize: 24,
-    color: COLORS.text,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonPressed: {
-    opacity: 0.85,
-  },
-  addButtonText: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: '700',
-  },
-  searchContainer: {
+  searchField: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.inputBackground,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: SIZES.base,
-    marginBottom: SIZES.large,
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: SIZES.small,
+    height: 52,
+    borderRadius: RADII.field,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
-    color: COLORS.text,
-    ...FONTS.body,
-    paddingVertical: 12,
-    minHeight: 44,
+    fontSize: 17,
   },
-  listContainer: {
-    marginBottom: SIZES.large,
+  // `bottom: 16`, e não os 100 do Canvas 3a: lá a medida parte do fundo da
+  // MOLDURA do celular, que inclui a barra de abas (64px) e a faixa do
+  // indicador (22px) — uns 14px acima da barra. Aqui a tela termina no topo da
+  // barra, e os mesmos 100 deixavam o botão flutuando no meio da lista.
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0px 6px 16px rgba(16,121,78,0.35)',
   },
-  addDocumentButton: {
-    marginBottom: SIZES.large,
-  },
-  footerNote: {
+  sheetRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: COLORS.inputBackground,
-    borderRadius: SIZES.radius,
-    padding: SIZES.base,
-    marginBottom: SIZES.large * 2,
+    alignItems: 'center',
+    gap: 12,
+    height: 56,
+    borderRadius: RADII.field,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
   },
-  footerIcon: {
+  sheetRowText: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  permissionError: {
     fontSize: 16,
-    marginRight: SIZES.small,
-    marginTop: 2,
+    lineHeight: 24,
+    marginTop: -4,
   },
-  footerText: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    flex: 1,
-    lineHeight: 18,
+  cancelButton: {
+    height: 52,
+    borderRadius: RADII.field,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
   },
 });

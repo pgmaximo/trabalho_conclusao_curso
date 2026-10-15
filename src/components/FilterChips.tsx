@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, Text, StyleSheet } from 'react-native';
+
+import { FONTS, RADII, SPACING, useThemeColors, type ThemeColors } from '@/constants/theme';
 
 type FilterChipsProps = {
   options: string[];
@@ -8,59 +9,85 @@ type FilterChipsProps = {
   onFilterChange: (filter: string) => void;
 };
 
-export function FilterChips({ options, activeFilter, onFilterChange }: FilterChipsProps) {
+type ChipProps = {
+  option: string;
+  isActive: boolean;
+  colors: ThemeColors;
+  onPress: () => void;
+};
+
+// `style` de Pressable NÃO pode ser função aqui — sem `className`, o NativeWind
+// (jsxImportSource global) descarta o resultado da função e o chip renderiza sem
+// nenhum estilo (bug relatado: filtro sem o visual sólido de seleção).
+function Chip({ option, isActive, colors, onPress }: ChipProps) {
+  const [isPressed, setIsPressed] = useState(false);
+
   return (
-    <View style={styles.container}>
-      {options.map((option) => {
-        const isActive = activeFilter === option;
-        return (
-          <Pressable
-            key={option}
-            style={({ pressed }) => [
-              styles.chip,
-              isActive && styles.chipActive,
-              pressed && styles.chipPressed,
-            ]}
-            onPress={() => onFilterChange(option)}
-          >
-            <Text
-              style={[styles.chipText, isActive && styles.chipTextActive]}
-            >
-              {option}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <Pressable
+      accessibilityState={{ selected: isActive }}
+      style={[
+        styles.chip,
+        {
+          borderColor: isActive ? colors.primary : colors.border,
+          backgroundColor: isActive ? colors.primary : colors.surface,
+        },
+        isPressed && styles.chipPressed,
+      ]}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      onPress={onPress}
+    >
+      <Text
+        style={[
+          FONTS.rotulo,
+          { color: isActive ? colors.onPrimary : colors.textSecondary },
+          isActive ? { fontWeight: '600' } : null,
+        ]}
+      >
+        {option}
+      </Text>
+    </Pressable>
+  );
+}
+
+// Padrão de chip selecionado/não-selecionado do Canvas 1a (DESIGN_TOKENS.md §4
+// "Segmented/chip selectors"), reutilizável para filtros de lista, sexo,
+// tabagismo, sim/não, tipo de consulta etc. Scroll horizontal conforme Canvas 3a §3.
+export function FilterChips({ options, activeFilter, onFilterChange }: FilterChipsProps) {
+  const colors = useThemeColors();
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.container}
+    >
+      {options.map((option) => (
+        <Chip
+          key={option}
+          option={option}
+          isActive={activeFilter === option}
+          colors={colors}
+          onPress={() => onFilterChange(option)}
+        />
+      ))}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginVertical: SIZES.base,
-    gap: SIZES.small,
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
   },
   chip: {
-    paddingHorizontal: SIZES.base,
-    paddingVertical: SIZES.small,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  chipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  chipText: {
-    ...FONTS.body,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  chipTextActive: {
-    color: '#fff',
+    height: 48,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADII.pill,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipPressed: {
     opacity: 0.8,

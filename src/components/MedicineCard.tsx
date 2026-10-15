@@ -1,6 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+// =============================================================================
+// Arquivo: MedicineCard.tsx
+// Descrição: Cartão de dose de medicamento — nome/dosagem/horário, botão circular
+// de toggle Tomado/Pendente e badge de status (Canvas 3d).
+// =============================================================================
+
+import React, { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import { Badge } from '@/components/Badge';
+import { Card } from '@/components/Card';
+import { useThemeColors } from '@/constants/theme';
 
 interface MedicineCardProps {
   name: string;
@@ -9,139 +19,73 @@ interface MedicineCardProps {
   status: 'pending' | 'taken' | 'missed';
   onPress?: () => void;
   onToggle?: () => void;
+  toggleDisabled?: boolean;
 }
 
-export function MedicineCard({
-  name,
-  dosage,
-  time,
-  status,
-  onPress,
-  onToggle,
-}: MedicineCardProps) {
-  const getStatusColor = () => {
-    switch (status) {
-      case 'pending':
-        return '#E74C3C';
-      case 'taken':
-        return '#27AE60';
-      case 'missed':
-        return '#F39C12';
-      default:
-        return COLORS.primary;
-    }
-  };
+const STATUS_CONFIG = {
+  pending: { badgeVariant: 'neutral' as const, label: 'Pendente', icon: 'ellipse-outline' as const },
+  taken: { badgeVariant: 'success' as const, label: 'Tomado', icon: 'checkmark' as const },
+  // Dose de hoje que passou do horário sem ser marcada. "Atrasado", e não
+  // "Perdido": ela ainda pode ser tomada e marcada.
+  missed: { badgeVariant: 'danger' as const, label: 'Atrasado', icon: 'alert' as const },
+};
 
-  const getStatusLabel = () => {
-    switch (status) {
-      case 'pending':
-        return 'Pendente';
-      case 'taken':
-        return 'Tomado';
-      case 'missed':
-        return 'Perdido';
-      default:
-        return '';
-    }
-  };
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'pending':
-        return '●';
-      case 'taken':
-        return '✓';
-      case 'missed':
-        return '⚠';
-      default:
-        return '';
-    }
-  };
+export function MedicineCard({ name, dosage, time, status, onPress, onToggle, toggleDisabled = false }: MedicineCardProps) {
+  const colors = useThemeColors();
+  const config = STATUS_CONFIG[status];
+  const toggleColor = status === 'taken' ? colors.success : status === 'missed' ? colors.danger : colors.textSecondary;
+  const [isPressed, setIsPressed] = useState(false);
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      accessibilityRole="button"
       onPress={onPress}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      // `style` NÃO pode ser função aqui — sem `className`, o NativeWind (jsxImportSource
+      // global) descarta o resultado da função e o Pressable renderiza sem nenhum estilo.
+      style={isPressed && onPress ? { opacity: 0.9 } : null}
     >
-      <View style={styles.content}>
-        <View style={styles.info}>
-          <Text style={styles.name}>{name}</Text>
-          <Text style={styles.dosage}>{dosage}</Text>
-          <Text style={styles.time}>{time}</Text>
+      <Card padding="compact" style={{ marginBottom: 10 }}>
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1">
+            <Text className="text-[17px] font-semibold text-app-text dark:text-app-dark-text">
+              {name}
+            </Text>
+            {/* O horário vem primeiro e em destaque: numa lista de doses, é ele
+                que a pessoa procura. Antes era o menor texto do cartão (13px). */}
+            <Text className="mt-1 text-[16px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
+              <Text className="font-semibold text-app-text dark:text-app-dark-text">{time}</Text>
+              {' · '}
+              {dosage}
+            </Text>
+          </View>
+
+          <Pressable
+            accessibilityLabel={status === 'taken' ? 'Marcar como pendente' : 'Marcar como tomado'}
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={onToggle}
+            disabled={toggleDisabled}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              borderWidth: 2,
+              borderColor: toggleColor,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: toggleDisabled ? 0.45 : 1,
+            }}
+          >
+            <Ionicons color={toggleColor} name={config.icon} size={20} />
+          </Pressable>
         </View>
-        <Pressable
-          style={[styles.statusButton, { borderColor: getStatusColor() }]}
-          onPress={onToggle}
-        >
-          <Text style={[styles.statusIcon, { color: getStatusColor() }]}>
-            {getStatusIcon()}
-          </Text>
-        </Pressable>
-      </View>
-      <View style={[styles.statusLabel, { backgroundColor: getStatusColor() }]}>
-        <Text style={styles.statusLabelText}>{getStatusLabel()}</Text>
-      </View>
+
+        <View className="mt-3 items-end">
+          <Badge label={config.label} variant={config.badgeVariant} />
+        </View>
+      </Card>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#FFF8F0',
-    borderRadius: SIZES.radius,
-    overflow: 'hidden',
-    marginBottom: SIZES.base,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SIZES.base,
-    paddingBottom: SIZES.small,
-  },
-  info: {
-    flex: 1,
-  },
-  name: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  dosage: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  time: {
-    ...FONTS.caption,
-    color: COLORS.textSecondary,
-    fontSize: 11,
-  },
-  statusButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statusIcon: {
-    fontSize: 20,
-  },
-  statusLabel: {
-    paddingVertical: SIZES.small,
-    paddingHorizontal: SIZES.base,
-    alignItems: 'flex-end',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 0,
-  },
-  statusLabelText: {
-    ...FONTS.caption,
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 11,
-  },
-});

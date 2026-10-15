@@ -1,0 +1,32 @@
+// =============================================================================
+// Arquivo: (app)/appointments.tsx
+// Descrição: Rota da Agenda — calendário, compromissos do dia e sincronização.
+// =============================================================================
+
+import React, { useEffect } from 'react';
+import { AgendaScreen } from '@/screens/AgendaScreen';
+import { useAppointmentsData } from '@/hooks/useAppointmentsData';
+import { listAppointmentsForUser } from '@/services/appointmentService';
+import { restoreAppointmentReminders } from '@/services/appointmentNotifications';
+import { goBackOr } from '@/utils/goBack';
+
+export default function AppointmentsRoute() {
+  const { appointments, isLoading, errorMessage, retry } = useAppointmentsData();
+
+  useEffect(() => {
+    void (async () => {
+      const records = await listAppointmentsForUser();
+      await restoreAppointmentReminders(records);
+    })();
+  }, []);
+
+  return (
+    <AgendaScreen
+      appointments={appointments}
+      errorMessage={errorMessage}
+      isLoading={isLoading}
+      onBack={() => goBackOr('/more')}
+      onRetry={retry}
+    />
+  );
+}

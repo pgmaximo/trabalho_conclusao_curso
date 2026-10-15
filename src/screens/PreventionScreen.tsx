@@ -1,163 +1,202 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { UrgentAlert } from '@/components/UrgentAlert';
-import { PreventiveScore } from '@/components/PreventiveScore';
-import { HealthCheckItem } from '@/components/HealthCheckItem';
-import { BottomTabBar } from '@/components/BottomTabBar';
-import { COLORS, FONTS, SIZES } from '@/constants/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from 'nativewind';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-const TAB_ITEMS = [
-  { icon: '🏠', label: 'Início', id: 'home' },
-  { icon: '📋', label: 'Exames', id: 'exams' },
-  { icon: '🧠', label: 'IA', id: 'ai' },
-  { icon: '⌚', label: 'Watch', id: 'watch' },
-  { icon: '👤', label: 'Perfil', id: 'profile' },
-];
+import { Card } from '@/components/Card';
+import { EmptyState } from '@/components/EmptyState';
+import { FilterChips } from '@/components/FilterChips';
+import { RecommendationCard } from '@/components/RecommendationCard';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenSkeleton } from '@/components/ScreenSkeleton';
+import { Section } from '@/components/Section';
+import { useThemeColors } from '@/constants/theme';
+import type { RecommendationView, UspstfGrade } from '@/types/models';
 
-const HEALTH_CHECKS = [
-  {
-    id: 1,
-    title: 'Hemograma completo',
-    date: 'Jan 2025',
-    status: 'em_dia' as const,
-  },
-  {
-    id: 2,
-    title: 'Eletrocardiograma',
-    date: 'Dez 2024',
-    status: 'em_dia' as const,
-  },
-  {
-    id: 3,
-    title: 'Colesterol total e frações',
-    date: 'Mar 2024 — Vencido',
-    status: 'vencido' as const,
-  },
-  {
-    id: 4,
-    title: 'Glicemia em jejum',
-    date: 'Não realizado',
-    status: 'pendente' as const,
-  },
-  {
-    id: 5,
-    title: 'TSH e T4 livre',
-    date: 'Não realizado',
-    status: 'pendente' as const,
-  },
-  {
-    id: 6,
-    title: 'Pressão arterial (monit.)',
-    date: 'Contínuo via wearable',
-    status: 'em_dia' as const,
-  },
-];
+type PreventionScreenProps = {
+  recommendations: RecommendationView[];
+  lastUpdated: string;
+  profileComplete: boolean;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRetry: () => void;
+  onToggleReminder: (recommendationId: number) => void;
+  onEnableRemindersForIds: (recommendationIds: number[]) => void;
+  onCompleteProfile: () => void;
+  /** Volta para a tela de onde esta foi aberta (o Início ou o hub Mais). */
+  onBack?: () => void;
+  pendingReminderIds: Set<number>;
+  activeCampaignMessage: string | null;
+};
+
+const ALL_FILTER = 'Todos';
+const GRADE_ORDER: UspstfGrade[] = ['A', 'B', 'C', 'D', 'I'];
 
 export function PreventionScreen({
-  onTabPress,
-}: {
-  onTabPress?: (tabId: string) => void;
-}) {
-  const [activeTab, setActiveTab] = useState('home');
+  recommendations,
+  lastUpdated,
+  profileComplete,
+  isLoading,
+  errorMessage,
+  onRetry,
+  onToggleReminder,
+  onEnableRemindersForIds,
+  onCompleteProfile,
+  onBack,
+  pendingReminderIds,
+  activeCampaignMessage,
+}: PreventionScreenProps) {
+  const { colorScheme } = useColorScheme();
+  const colors = useThemeColors();
+  const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>(ALL_FILTER);
 
-  const handleTabPress = (tabId: string) => {
-    setActiveTab(tabId);
-    onTabPress?.(tabId);
-  };
+  const availableGrades = useMemo(() => {
+    const present = new Set(recommendations.map((rec) => rec.grade));
+    return GRADE_ORDER.filter((grade) => present.has(grade));
+  }, [recommendations]);
+
+  const filterOptions = useMemo(() => [ALL_FILTER, ...availableGrades], [availableGrades]);
+
+  const filteredRecommendations = useMemo(
+    () =>
+      selectedGradeFilter === ALL_FILTER
+        ? recommendations
+        : recommendations.filter((rec) => rec.grade === selectedGradeFilter),
+    [recommendations, selectedGradeFilter],
+  );
+
+  const filteredIdsWithReminderOff = filteredRecommendations.flatMap((rec) =>
+    rec.isReminderOn ? [] : [rec.id],
+  );
+
+  // lastUpdated e exibido no rodape do banner de contexto quando disponivel —
+  // a API do USPSTF pode retornar vazio, entao a linha e omitida nesse caso.
+  const lastUpdatedLabel = lastUpdated ? `Dataset atualizado em ${lastUpdated}.` : null;
+
+  // O selo conta as recomendações, então só existe depois que elas carregaram.
+  const isLoaded = !isLoading && !errorMessage && profileComplete;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor={COLORS.background} />
-      <View style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Prevenção & Alertas</Text>
-            <Text style={styles.subtitle}>Baseado no seu perfil de saúde</Text>
-          </View>
-
-          {/* Urgent Alert */}
-          <UrgentAlert
-            title="Atenção urgente"
-            description="Colesterol total não medido há 14 meses. Protocolo para sua faixa etária recomenda exame anual."
-            actionLabel="Agendar exame agora"
-            onActionPress={() => {}}
+    <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background">
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <View className="flex-1">
+        <ScrollView contentContainerClassName="px-6 pt-6 pb-12" showsVerticalScrollIndicator={false}>
+          {/* O cabeçalho fica FORA dos estados: antes ele só existia com a
+              lista carregada, e a tela carregando, com erro ou com o perfil
+              incompleto não tinha título nem como voltar. */}
+          <ScreenHeader
+            onBack={onBack}
+            title="Prevenção & Alertas"
+            badgeLabel={
+              isLoaded
+                ? `${recommendations.length} recomendaç${recommendations.length === 1 ? 'ão' : 'ões'}`
+                : undefined
+            }
+            badgeVariant={recommendations.length > 0 ? 'primary' : 'neutral'}
           />
 
-          {/* Preventive Score */}
-          <PreventiveScore score={68} maxScore={100} status="Bom" />
+          {isLoading ? (
+            <ScreenSkeleton blocks={3} />
+          ) : errorMessage ? (
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Não foi possível carregar as recomendações"
+              description={errorMessage}
+              tone="error"
+              actionLabel="Tentar novamente"
+              onActionPress={onRetry}
+            />
+          ) : !profileComplete ? (
+            <EmptyState
+              icon="person-outline"
+              title="Complete seu perfil de saúde"
+              description="Precisamos de algumas informações do seu perfil para calcular as recomendações preventivas certas para você."
+              actionLabel="Completar perfil"
+              onActionPress={onCompleteProfile}
+            />
+          ) : (
+            <>
+              {activeCampaignMessage ? (
+                <View className="mb-6 flex-row items-start gap-3 rounded-app border border-app-successBadgeBorder bg-app-successSoft px-4 py-3 dark:border-app-dark-successBadgeBorder dark:bg-app-dark-successSoft">
+                  <View className="size-6 items-center justify-center rounded-full bg-app-successIconBg dark:bg-app-dark-successIconBg">
+                    <Ionicons color={colors.onPrimary} name="medical" size={14} />
+                  </View>
+                  <Text className="flex-1 text-[15px] leading-[20px] text-app-primaryDark dark:text-app-dark-primaryDark">
+                    {activeCampaignMessage}
+                  </Text>
+                </View>
+              ) : null}
 
-          {/* Health Checks Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Seus exames e verificações</Text>
-            {HEALTH_CHECKS.map((check) => (
-              <HealthCheckItem
-                key={check.id}
-                title={check.title}
-                date={check.date}
-                status={check.status}
-                onPress={() => {}}
-              />
-            ))}
-          </View>
+              {recommendations.length > 0 ? (
+                <Card variant="soft" padding="compact" style={{ marginBottom: 16 }}>
+                  <Text className="text-[13px] leading-5 text-app-textSecondary dark:text-app-dark-textSecondary">
+                    As recomendações vêm do USPSTF (agência de saúde dos EUA). O texto em português
+                    é uma adaptação não-oficial feita pelo app — a USPSTF não a revisou nem a
+                    endossa. O texto oficial em inglês continua disponível em cada card, em
+                    “Ver texto original”.
+                    {lastUpdatedLabel ? ` ${lastUpdatedLabel}` : ''}
+                  </Text>
+                </Card>
+              ) : null}
+
+              {filterOptions.length > 1 ? (
+                <FilterChips
+                  options={filterOptions}
+                  activeFilter={selectedGradeFilter}
+                  onFilterChange={setSelectedGradeFilter}
+                />
+              ) : null}
+
+              <Section
+                title="Recomendações preventivas"
+                subtitle="Toque no sino para ser lembrado de agendar cada exame."
+                action={
+                  filteredIdsWithReminderOff.length > 0 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Ativar lembretes para todos os exames filtrados"
+                      onPress={() => onEnableRemindersForIds(filteredIdsWithReminderOff)}
+                      className="flex-row items-center gap-1 rounded-full border border-app-primary px-3 py-1.5 dark:border-app-dark-primary"
+                    >
+                      <Ionicons name="notifications-outline" size={14} color={colors.primary} />
+                      <Text className="text-[12px] font-bold text-app-primary dark:text-app-dark-primary">
+                        Ativar todos ({filteredIdsWithReminderOff.length})
+                      </Text>
+                    </Pressable>
+                  ) : undefined
+                }
+              >
+                {filteredRecommendations.length > 0 ? (
+                  filteredRecommendations.map((recommendation) => (
+                    <RecommendationCard
+                      key={recommendation.id}
+                      grade={recommendation.grade}
+                      gradeText={recommendation.gradeText}
+                      gradeTextPt={recommendation.gradeTextPt}
+                      title={recommendation.title}
+                      titlePt={recommendation.titlePt}
+                      text={recommendation.text}
+                      textPt={recommendation.textPt}
+                      citation={recommendation.citationYear ?? recommendation.topic ?? 'USPSTF'}
+                      isReminderOn={recommendation.isReminderOn}
+                      onToggleReminder={() => onToggleReminder(recommendation.id)}
+                      reminderDisabled={pendingReminderIds.has(recommendation.id)}
+                    />
+                  ))
+                ) : (
+                  <EmptyState
+                    icon="shield-checkmark-outline"
+                    title="Nenhuma recomendação pendente"
+                    description="Não encontramos recomendações preventivas específicas para o seu perfil no momento."
+                  />
+                )}
+              </Section>
+            </>
+          )}
         </ScrollView>
-
-        <BottomTabBar
-          items={TAB_ITEMS}
-          activeTab={activeTab}
-          onTabPress={handleTabPress}
-        />
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-  content: {
-    paddingHorizontal: SIZES.large,
-    paddingTop: SIZES.large,
-    paddingBottom: SIZES.large * 2,
-  },
-  header: {
-    marginBottom: SIZES.large,
-  },
-  title: {
-    ...FONTS.heading,
-    fontSize: 24,
-    color: COLORS.text,
-    marginBottom: SIZES.small,
-  },
-  subtitle: {
-    ...FONTS.body,
-    color: COLORS.textSecondary,
-    fontSize: 14,
-  },
-  section: {
-    marginTop: SIZES.large,
-  },
-  sectionTitle: {
-    ...FONTS.body,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.base,
-    fontSize: 13,
-  },
-});
