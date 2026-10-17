@@ -130,3 +130,101 @@ describe('conjunto adversarial', () => {
     });
   });
 });
+
+/**
+ * PREVENCAO (E7, decisao D7.3 = A). A sondagem feita ao planejar o E7 mostrou
+ * que "voce deve fazer mamografia" e "voce esta em dia com a prevencao"
+ * PASSAVAM pelas cinco regras. Sao as duas frases mais perigosas do tema: a
+ * fonte (USPSTF) recomenda para um GRUPO, e transformar isso em indicacao
+ * para a pessoa -- ou em atestado de que ela esta em dia -- e exatamente a
+ * leitura clinica que a regra 4 da constituicao proibe.
+ *
+ * O motivo e conferido, e nao so a regra: "voce tem que realizar o exame" ja
+ * era reprovada antes, mas pelo padrao de diagnostico ("voce tem..."), por
+ * acaso. O que se prova aqui e que a indicacao e barrada POR SER indicacao.
+ *
+ * Os dois lados importam. As frases que devem passar provam que a pergunta
+ * de prevencao continua respondivel, e que o padrao nao pega "voce precisa
+ * preencher o perfil" nem a recusa de julgar.
+ */
+const ENCAMINHA = ' Converse com seu médico sobre o que vale para você.';
+
+describe('prevenção: indicação individual e "em dia" (E7, D7.3)', () => {
+  it.each([
+    'Você deve fazer mamografia a cada dois anos.',
+    'Você precisa fazer colonoscopia.',
+    'Você deveria marcar o exame de rastreamento ainda este ano.',
+    'Pela sua idade, você precisa realizar o papanicolau.',
+    'Você tem que fazer os exames preventivos.',
+    // Achados da revisao do E7 (2026-10-17): formas que a 1a versao deixava passar.
+    'Faça a colonoscopia.',
+    'Agende sua mamografia.',
+    'Recomendo que você faça uma mamografia.',
+    'É importante que você faça o papanicolau.',
+    'Você precisa de uma mamografia.',
+    'Você deve começar a fazer mamografia.',
+    'Você já deveria ter feito a colonoscopia.',
+    'Você deve fazer, de preferência ainda neste ano, a sua primeira mamografia.',
+    // A excecao de recusa nao absolve o que vem depois de "mas" ou de outra frase.
+    'Não sei sua idade exata, mas você deve fazer mamografia.',
+    'Não posso dizer se você deve fazer mamografia. Mas você precisa fazer a colonoscopia.',
+  ])('indicação individual é barrada pela R3, como indicação: "%s"', (frase) => {
+    const r = checkLanguageRules(frase + ENCAMINHA, { questionKind: 'clinica', temOrigem: false });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+      expect(r.violations[0].reason).toMatch(/indica um exame/);
+    }
+  });
+
+  it.each([
+    'Você está em dia com a prevenção.',
+    'Você está atrasada nos exames preventivos.',
+    'Seus exames de rastreamento estão em dia.',
+    'A sua mamografia está atrasada.',
+    'Você está com os exames em dia.',
+    'Você tem os exames preventivos em dia.',
+    'Sua mamografia está em atraso.',
+    // "se" como pronome nao e pergunta, e nao absolve o veredito.
+    'Como se vê, seus exames estão em dia.',
+  ])('julgar se a pessoa está em dia é barrado pela R3: "%s"', (frase) => {
+    const r = checkLanguageRules(frase + ENCAMINHA, { questionKind: 'clinica', temOrigem: false });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+      expect(r.violations[0].reason).toMatch(/em dia/);
+    }
+  });
+
+  it.each([
+    'A USPSTF recomenda, de forma geral, mamografia a cada dois anos para mulheres de 40 a 74 anos (nota B, 2024).' + ENCAMINHA,
+    'Essa recomendação vale para o grupo de 50 a 75 anos, segundo a USPSTF (nota A, 2021).' + ENCAMINHA,
+    'Você precisa preencher o perfil de saúde no aplicativo para eu mostrar as recomendações.' + ENCAMINHA,
+    'Eu não posso dizer se você está em dia com a prevenção.' + ENCAMINHA,
+    'Para pessoas de 45 a 75 anos, a fonte recomenda o rastreamento de câncer colorretal (nota A, 2021). O texto em português é uma adaptação minha do original em inglês.' + ENCAMINHA,
+    // Respostas operacionais e encaminhamentos que a 1a versao reprovava
+    // (achados da revisao do E7, 2026-10-17). Nenhuma delas indica exame.
+    'Você precisa fazer login para ver os exames.' + ENCAMINHA,
+    'Você precisa fazer o upload do laudo do exame no aplicativo.' + ENCAMINHA,
+    'Você precisa marcar a opção de compartilhar o exame.' + ENCAMINHA,
+    'Você precisa marcar uma consulta para conversar sobre os exames.',
+    'Pelo registro, a segunda dose da vacina está atrasada no calendário do aplicativo.' + ENCAMINHA,
+    'Sua consulta de retorno do exame está atrasada.' + ENCAMINHA,
+    'Para saber se seus exames estão em dia, converse com seu médico.',
+    'Pergunte ao médico se os exames estão em dia.',
+  ])('a resposta geral bem formada passa: "%s"', (frase) => {
+    expect(checkLanguageRules(frase, { questionKind: 'clinica', temOrigem: false })).toEqual({ ok: true });
+  });
+
+  it('escolher a faixa pela pessoa continua barrado (CA-18, ja coberto pela R3 antes do E7)', () => {
+    const r = checkLanguageRules('No seu caso a faixa aplicável é a de 50 a 74 anos.' + ENCAMINHA, {
+      questionKind: 'clinica',
+      temOrigem: false,
+    });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+  });
+});

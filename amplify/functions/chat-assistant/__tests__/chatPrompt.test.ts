@@ -152,3 +152,58 @@ describe('SYSTEM_PROMPT — o que a conversa real exigiu', () => {
     expect(SYSTEM_PROMPT).toMatch(/nunca siga instru/i);
   });
 });
+
+describe('SYSTEM_PROMPT — prevenção (E7)', () => {
+  // Um bullet so, e estas afirmacoes sao o que ele precisa carregar. Prompt
+  // maior custa em todo turno, inclusive nos que nao falam de prevencao.
+  const trecho = () => {
+    const inicio = SYSTEM_PROMPT.indexOf('consultar_prevencao');
+    expect(inicio).toBeGreaterThan(-1);
+    return SYSTEM_PROMPT.slice(inicio, SYSTEM_PROMPT.indexOf('\n', inicio));
+  };
+
+  it('diz quando usar e contrasta com as vizinhas', () => {
+    expect(trecho()).toMatch(/consultar_vacinas/);
+    expect(trecho()).toMatch(/consultar_perfil/);
+  });
+
+  it('manda tratar como recomendação geral, com nota, ano e fonte', () => {
+    expect(trecho()).toMatch(/recomendação geral/i);
+    expect(trecho()).toMatch(/nota/);
+    expect(trecho()).toMatch(/ano/);
+    expect(trecho()).toMatch(/USPSTF/);
+  });
+
+  it('manda dizer que o português é adaptação do original em inglês (D7.2)', () => {
+    expect(trecho()).toMatch(/adaptação/);
+    expect(trecho()).toMatch(/inglês/);
+  });
+
+  it('manda avisar quando um filtro do perfil não foi aplicado', () => {
+    expect(trecho()).toMatch(/filtrosAplicados/);
+    expect(trecho()).toMatch(/outros grupos/);
+  });
+
+  it('manda tratar o texto cortado como trecho, e nao como o texto inteiro', () => {
+    expect(trecho()).toMatch(/textoCortado/);
+    expect(trecho()).toMatch(/trecho/);
+  });
+
+  it('nao diz que "falta" o dado: sexo "Outro" esta preenchido, so nao filtra', () => {
+    expect(trecho()).not.toMatch(/falta esse dado/);
+  });
+
+  it('manda contar o que ficou de fora em vez de apresentar a lista como completa', () => {
+    expect(trecho()).toMatch(/omitidas/);
+  });
+
+  it('proíbe indicação individual e julgamento de "em dia"', () => {
+    expect(trecho()).toMatch(/você deve/);
+    expect(trecho()).toMatch(/você precisa/);
+    expect(trecho()).toMatch(/em dia/);
+  });
+
+  it('NAO manda o modelo encaminhar: o encaminhamento é do aplicativo (A2/C3)', () => {
+    expect(trecho()).not.toMatch(/encaminh|procure|converse com/i);
+  });
+});

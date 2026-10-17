@@ -20,6 +20,7 @@ import { consultasTool } from './consultas';
 import { examesTool } from './exames';
 import { medicamentosTool } from './medicamentos';
 import { perfilTool } from './perfil';
+import { prevencaoTool } from './prevencao';
 import { resultadosTool } from './resultados';
 import type { ChatTool } from './tipos';
 import { vacinasTool } from './vacinas';
@@ -40,6 +41,10 @@ export const CHAT_TOOLS: ChatTool[] = [
   consultasTool,
   medicamentosTool,
   vacinasTool,
+  // Logo depois de vacinas porque e o vizinho com que o modelo mais a
+  // confundiria: vacinas e o que a pessoa TOMOU; prevencao e o que a fonte
+  // RECOMENDA para o grupo dela (E7).
+  prevencaoTool,
   wearableTool,
 ];
 

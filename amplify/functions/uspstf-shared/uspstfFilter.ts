@@ -1,3 +1,10 @@
+/**
+ * Resumo do arquivo:
+ * O filtro das recomendacoes da USPSTF pelo perfil (idade, sexo, faixa de
+ * IMC). E o UNICO filtro: a tela de Prevencao e o chat importam daqui, para
+ * que a mesma pessoa veja as mesmas recomendacoes nos dois lugares (E7, D7.1 = A,
+ * provado por `__tests__/compartilhamento.test.ts`).
+ */
 import type { UspstfDataset, UspstfSpecificRecommendation } from './uspstfClient';
 
 export type BmiBucket = 'UW' | 'N' | 'O' | 'OB';

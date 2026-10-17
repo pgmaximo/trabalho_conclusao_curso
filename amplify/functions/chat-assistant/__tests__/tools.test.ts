@@ -115,6 +115,15 @@ describe('o registro das tools', () => {
     }
   });
 
+  it('consultar_prevencao esta registrada, logo depois de consultar_vacinas (E7)', () => {
+    // Registrada, ela passa a ser coberta por todos os testes de lista inteira
+    // deste arquivo -- nenhuma escreve, dono so do token, dono plantado
+    // reprova. Ao lado de vacinas porque e o vizinho com que o modelo mais
+    // pode confundi-la.
+    const nomes = CHAT_TOOLS.map((t) => t.name);
+    expect(nomes.indexOf('consultar_prevencao')).toBe(nomes.indexOf('consultar_vacinas') + 1);
+  });
+
   it('nenhum nome se repete -- nome repetido faz o despachante escolher um so', () => {
     const nomes = CHAT_TOOLS.map((t) => t.name);
     expect(new Set(nomes).size).toBe(nomes.length);

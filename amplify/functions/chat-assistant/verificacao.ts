@@ -71,8 +71,17 @@ import type {
  *
  * `consultar_resultados` NAO entra aqui de proposito: ela devolve medida, e
  * medida e pega pelo texto, que e o eixo certo.
+ *
+ * `consultar_prevencao` ENTRA (E7): recomendacao de rastreamento e decisao de
+ * cuidado sem unidade nenhuma no texto -- "mamografia a cada dois anos" sairia
+ * como operacional, sem encaminhar a pessoa a quem decide se ela faz o exame.
  */
-const TOOLS_CLINICAS = new Set(['consultar_analito', 'consultar_perfil', 'consultar_wearable']);
+const TOOLS_CLINICAS = new Set([
+  'consultar_analito',
+  'consultar_perfil',
+  'consultar_wearable',
+  'consultar_prevencao',
+]);
 
 export type RespostaVerificada = {
   status: RuleCheckStatus;

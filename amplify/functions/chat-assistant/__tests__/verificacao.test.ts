@@ -580,6 +580,37 @@ describe('classificacao clinica (U2)', () => {
     expect(regrasRegistradas()).toContain('R2');
   });
 
+  it('recomendacao de prevencao e clinica: sai com o encaminhamento do aplicativo (E7)', async () => {
+    // O texto nao tem unidade de exame, entao so o texto a classificaria como
+    // operacional -- e uma resposta sobre mamografia sairia sem encaminhar a
+    // ninguem. E a ferramenta usada que a torna clinica.
+    const PREVENCAO =
+      'A USPSTF recomenda, de forma geral, mamografia a cada dois anos para mulheres de 40 a 74 anos (nota B, 2024).';
+    mockRunConversationTurn.mockResolvedValue(turno(PREVENCAO, ['consultar_prevencao']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${PREVENCAO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('indicacao individual de exame NAO e salva pela costura do encaminhamento (E7, D7.3)', async () => {
+    // A costura vale para a R2 sozinha. Com a R3 junto, o caminho e A -> E -> C
+    // -- e "voce deve fazer mamografia" com um rodape continuaria sendo uma
+    // indicacao.
+    const INDICACAO = 'Você deve fazer mamografia a cada dois anos.';
+    mockRunConversationTurn.mockResolvedValue(turno(INDICACAO, ['consultar_prevencao']));
+    mockRegenerateAnswer.mockResolvedValue(turno(INDICACAO, ['consultar_prevencao']));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(r.texto).not.toContain(INDICACAO);
+    expect(mockRegenerateAnswer).toHaveBeenCalled();
+    expect(regrasRegistradas()).toContain('R3');
+  });
+
   it('dado de saude SEM unidade continua clinico -- a armadilha do perfil', async () => {
     // Condicao cronica e alergia sao dado de saude e nao tem unidade de
     // medida. So o texto nao bastaria: o classificador tem DUAS entradas.

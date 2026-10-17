@@ -216,6 +216,78 @@ const JULGAMENTO_DE_VALOR =
  */
 const RECUSA_DE_JULGAR = /n[aã]o\s+(posso|cabe|consigo|sei|consegue|[eé]\s+poss[ií]vel|d[aá]\s+para)/i;
 
+/**
+ * O que se FAZ como exame de prevencao (E7, D7.3). Lista fechada de proposito:
+ * "consulta" NAO entra, porque "voce precisa marcar uma consulta" e
+ * encaminhamento, e reprova-lo quebraria a R2 pelo outro lado.
+ */
+const OBJETO_DE_EXAME =
+  'exames?|rastreamentos?|mamografias?|colonoscopias?|papanicolau|preventivos?|triagens?|testes?|' +
+  'check-?ups?|densitometrias?|tomografias?|ultrassons?|ultrassonografias?|ecografias?|endoscopias?|psa';
+
+/**
+ * Palavras de USO DO APLICATIVO e de AGENDA. Entre o verbo e o exame, qualquer
+ * uma delas diz que a frase fala de outra coisa: "fazer login para ver os
+ * exames", "marcar uma consulta sobre os exames", "a consulta de retorno do
+ * exame esta atrasada". A primeira versao destes padroes reprovava as tres
+ * (achado da revisao do E7, 2026-10-17).
+ */
+const FORA_DO_ASSUNTO =
+  'login|upload|cadastr|op[cç][aã]o|aplicativo|app|foto|anexo|perfil|senha|conta|' +
+  'consulta|retorno|resultado|laudo|agendamento|envio';
+
+/** Ate `n` caracteres da mesma frase que nao atravessam `FORA_DO_ASSUNTO`. */
+const janela = (n: number) => `(?:(?!${FORA_DO_ASSUNTO})[^.!?]){0,${n}}?`;
+
+/** O que pode vir entre o verbo e o exame sem mudar o objeto: "a", "sua primeira". */
+const DETERMINANTE = 'um|uma|uns|umas|o|a|os|as|seus?|suas?|nov[oa]s?|outr[oa]s?|mais|primeir[oa]s?';
+
+/**
+ * Do verbo ate o exame que e o OBJETO dele: so determinantes ("a sua
+ * primeira"), e no maximo um aposto entre virgulas ("fazer, de preferencia
+ * neste ano, a mamografia"). Uma janela livre deixaria o exame ser so uma
+ * palavra qualquer da frase -- "fazer login para ver os exames" --, e cada
+ * palavra de aplicativo viraria uma excecao a mais (achado de altitude da
+ * revisao do E7).
+ */
+const ateOExame = (determinantes: number) =>
+  `(?:\\s*,[^,.!?]{0,40},)?\\s+(?:(?:${DETERMINANTE})\\s+){0,${determinantes}}(?:${OBJETO_DE_EXAME})${FIM_R3}`;
+
+/**
+ * O assunto que torna "em dia" um juizo sobre o cuidado da pessoa. VACINA NAO
+ * ENTRA: dose "atrasada" e um conceito do proprio calendario do aplicativo
+ * (`homeVaccination.ts`), e reprova-la quebraria as respostas de
+ * `consultar_vacinas` -- achado da revisao do E7.
+ */
+const ASSUNTO_DE_PREVENCAO = `preven[cç]${L_R3}*|preventiv${L_R3}*|${OBJETO_DE_EXAME}`;
+
+/** "em dia", "em atraso", "atrasada" -- o veredito, com ou sem verbo antes. */
+const EM_DIA = `(?:em\\s+dia|em\\s+atraso|atrasad[oa]s?)${FIM_R3}`;
+
+/**
+ * Agenda e resultado nao sao o cuidado da pessoa: "a consulta esta atrasada".
+ *
+ * Fica DEPOIS do trecho ja casado, e com teto: um lookbehind sem teto antes
+ * de cada posicao do texto e reavaliado em todas elas, e a primeira versao
+ * levou a suite de regras de minutos (medido em 2026-10-17).
+ */
+const SEM_AGENDA_ANTES = `(?<!(?:${FORA_DO_ASSUNTO})[^.!?]{0,120})`;
+
+/** O "em dia" e o assunto em qualquer ordem, na mesma frase, sem agenda antes. */
+const emQualquerOrdem = (a: string, b: string) =>
+  `${a}${SEM_AGENDA_ANTES}${janela(60)}${b}|${b}${SEM_AGENDA_ANTES}${janela(60)}${a}`;
+
+/**
+ * Para o "em dia", alem da recusa, a PERGUNTA tambem absolve: "pergunte ao
+ * medico SE os exames estao em dia" e encaminhamento, e nao veredito. O "se"
+ * precisa vir preso a um verbo de perguntar: solto, ele e tambem pronome
+ * ("como se ve, seus exames estao em dia"), e absolveria o veredito.
+ */
+const RECUSA_OU_PERGUNTA = new RegExp(
+  `${RECUSA_DE_JULGAR.source}|(?:pergunt\\w*|saber|verific\\w*|confirm\\w*|dizer)\\s+(?:\\S+\\s+){0,3}?se\\b`,
+  'i',
+);
+
 const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = [
   {
     // "500 mg", "2 comprimidos", "1 cápsula" -- quantidade seguida de unidade
@@ -248,6 +320,52 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = 
     // risco maior de todos. Na duvida, reprova.
     padrao: /\b(suspenda|suspender|interrompa|interromper|par[ea]r?\s+de\s+tomar)\b/i,
     motivo: 'A resposta orienta iniciar, mudar ou interromper uma medicação.',
+  },
+  {
+    // INDICACAO INDIVIDUAL DE EXAME (E7, D7.3). A USPSTF recomenda para um
+    // GRUPO; "voce deve fazer mamografia" transforma isso em indicacao para a
+    // pessoa, e passava pelas cinco regras ate 2026-10-17.
+    //
+    // Vem ANTES do padrao de diagnostico de proposito: "voce tem que fazer o
+    // exame" ja era reprovada por ele, mas pelo motivo errado ("afirma uma
+    // condicao"), e o bilhete da nova geracao precisa dizer o que corrigir.
+    //
+    // Tres formas, porque o portugues tem tres para a mesma ordem:
+    // 1. obrigacao + verbo de fazer exame: "voce deve (comecar a) fazer",
+    //    "voce ja deveria ter feito";
+    // 2. necessidade do exame em si: "voce precisa de uma mamografia";
+    // 3. imperativo ou subjuntivo: "faca a colonoscopia", "recomendo que voce
+    //    faca", "agende sua mamografia".
+    // Nas tres, o exame precisa ser o OBJETO do verbo (`ateOExame`), e e isso
+    // que separa indicacao de "fazer login para ver os exames". So entre a
+    // obrigacao e o verbo ("voce deve COMECAR A fazer") ha uma janela livre,
+    // curta, que nao atravessa uso do aplicativo nem agenda.
+    padrao: new RegExp(
+      `${INI_R3}voc[eê]\\s+(?:(?:j[aá]|ainda|tamb[eé]m)\\s+)?` +
+        `(?:deve|deveria|precisa|precisaria|tem\\s+que|tem\\s+de|teria\\s+que)${FIM_R3}${janela(25)}` +
+        `${INI_R3}(?:fazer|feito|realizar|realizado|marcar|agendar|repetir)${FIM_R3}${ateOExame(3)}` +
+        `|${INI_R3}voc[eê]\\s+(?:precisa|precisaria|necessita)\\s+de${ateOExame(2)}` +
+        `|${INI_R3}(?:fa[cç]a|realize|marque|agende|repita)${ateOExame(3)}`,
+      'i',
+    ),
+    motivo:
+      'A resposta indica um exame para a pessoa. A recomendação da fonte é para um grupo; se a pessoa deve fazer o exame é decisão de quem a examina.',
+    excecao: RECUSA_DE_JULGAR,
+  },
+  {
+    // "VOCE ESTA EM DIA" (E7, D7.3). Dizer que a prevencao da pessoa esta em
+    // dia -- ou atrasada -- e concluir sobre o cuidado dela com um dado que o
+    // aplicativo nao tem (historico completo, avaliacao). O assunto e exigido
+    // na mesma frase para nao pegar agenda: "a consulta esta atrasada" nao e
+    // juizo sobre a saude de ninguem -- nem quando a frase fala de exame
+    // depois ("a consulta de retorno do exame"), que e o `SEM_AGENDA_ANTES`.
+    padrao: new RegExp(
+      emQualquerOrdem(`${INI_R3}(?:${ASSUNTO_DE_PREVENCAO})${FIM_R3}`, `${INI_R3}${EM_DIA}`),
+      'i',
+    ),
+    motivo:
+      'A resposta diz se a pessoa está em dia com a prevenção. Isso depende de histórico e de avaliação que só quem a examina tem.',
+    excecao: RECUSA_OU_PERGUNTA,
   },
   {
     // Diagnostico fechado: afirmar que a pessoa TEM algo.
@@ -351,15 +469,47 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = 
   },
 ];
 
+/** O que separa a recusa do veredito em duas oracoes: "nao sei a data, MAS
+ *  voce deve fazer" e duas afirmacoes, e a recusa so vale para a primeira. */
+const QUEBRA_DE_ORACAO = /[.!?;]|\b(mas|por[eé]m|contudo|entretanto|todavia)\b/i;
+
+/**
+ * A excecao olha so o que vem ANTES, e perto: uma recusa de julgar no fim do
+ * paragrafo nao absolve um veredito no comeco dele. E so na MESMA oracao: a
+ * revisao do E7 achou "Nao sei sua idade exata, mas voce deve fazer
+ * mamografia" aprovada, porque o "nao sei" estava nos 60 caracteres antes.
+ */
+function absolvido(texto: string, indice: number, excecao: RegExp): boolean {
+  const antes = texto.slice(Math.max(0, indice - 60), indice);
+  let fimDaUltima = -1;
+  for (const recusa of antes.matchAll(excecao)) fimDaUltima = recusa.index + recusa[0].length;
+  return fimDaUltima !== -1 && !QUEBRA_DE_ORACAO.test(antes.slice(fimDaUltima));
+}
+
+/** Copia com a flag `g`, que `matchAll` exige. */
+const comGlobal = (re: RegExp) => new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
+
+/**
+ * As copias globais sao montadas UMA vez, no carregamento: a verificacao roda
+ * em toda resposta e em toda nova geracao, e remonta-las a cada chamada era
+ * alocacao repetida sem motivo. `matchAll` clona a expressao internamente,
+ * entao o `lastIndex` compartilhado nao vaza de uma chamada para a outra.
+ */
+const PADROES_R3_GLOBAIS = PADROES_R3.map(({ padrao, motivo, excecao }) => ({
+  padrao: comGlobal(padrao),
+  motivo,
+  excecao: excecao && comGlobal(excecao),
+}));
+
 const verificarR3: Verificador = (texto) => {
-  for (const { padrao, motivo, excecao } of PADROES_R3) {
-    const achado = padrao.exec(texto);
-    if (achado) {
-      // A excecao olha so o que vem ANTES, e perto: uma recusa de julgar no fim
-      // do paragrafo nao absolve um veredito no comeco dele.
-      if (excecao && excecao.test(texto.slice(Math.max(0, achado.index - 60), achado.index))) {
-        continue;
-      }
+  for (const { padrao, motivo, excecao } of PADROES_R3_GLOBAIS) {
+    // TODAS as ocorrencias, e nao so a primeira. Com `exec` sem `g`, uma
+    // primeira ocorrencia absolvida pela recusa encerrava o padrao, e uma
+    // segunda, real, nunca era olhada -- "Nao posso dizer se voce deve fazer
+    // mamografia. Mas voce precisa fazer a colonoscopia" passava inteira
+    // (achado da revisao do E7, 2026-10-17).
+    for (const achado of texto.matchAll(padrao)) {
+      if (excecao && absolvido(texto, achado.index, excecao)) continue;
       // Uma violacao de R3 por resposta: quem vai decidir o que fazer com a
       // reprovacao precisa do motivo, nao de um inventario.
       return [{ rule: 'R3', reason: motivo, excerpt: trecho(texto, achado.index, achado[0].length) }];
