@@ -623,6 +623,32 @@ describe('classificacao clinica (U2)', () => {
     expect(r.texto).toBe(`${CAMPANHA} ${TEXTO_DE_ENCAMINHAMENTO}`);
   });
 
+  it('interacao medicamentosa e clinica: sai com o encaminhamento do aplicativo (E9)', async () => {
+    // A pergunta por tras e "posso tomar?", e o texto do alerta nao tem unidade
+    // de exame: sem a ferramenta na lista, sairia sem encaminhar a ninguem.
+    const ALERTA =
+      'A lista do aplicativo traz um alerta grave para warfarina com AAS: risco muito elevado de hemorragia.';
+    mockRunConversationTurn.mockResolvedValue(turno(ALERTA, ['consultar_interacoes']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${ALERTA} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('garantia de combinacao segura NAO e salva pela costura do encaminhamento (E9, D9.4)', async () => {
+    const GARANTIA = 'Pode tomar os dois juntos sem problema.';
+    mockRunConversationTurn.mockResolvedValue(turno(GARANTIA, ['consultar_interacoes']));
+    mockRegenerateAnswer.mockResolvedValue(turno(GARANTIA, ['consultar_interacoes']));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(r.texto).not.toContain(GARANTIA);
+    expect(regrasRegistradas()).toContain('R3');
+  });
+
   it('indicacao individual de vacina NAO e salva pela costura do encaminhamento (E8, D8.4)', async () => {
     const INDICACAO = 'Você deve tomar a vacina da gripe.';
     mockRunConversationTurn.mockResolvedValue(turno(INDICACAO, ['consultar_campanhas']));

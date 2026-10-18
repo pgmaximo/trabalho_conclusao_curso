@@ -307,3 +307,42 @@ describe('SYSTEM_PROMPT — medicamentos, revisão do E2', () => {
     expect(trecho()).toMatch(/sem recomendar/);
   });
 });
+
+describe('SYSTEM_PROMPT — interações (E9)', () => {
+  const trecho = () => {
+    const inicio = SYSTEM_PROMPT.indexOf('consultar_interacoes');
+    expect(inicio).toBeGreaterThan(-1);
+    return SYSTEM_PROMPT.slice(inicio, SYSTEM_PROMPT.indexOf('\n', inicio));
+  };
+
+  it('contrasta com consultar_medicamentos, que só lista o cadastro', () => {
+    expect(trecho()).toMatch(/consultar_medicamentos/);
+  });
+
+  it('manda passar em candidatos só o nome que a pessoa citou, sem dose (D9.2)', () => {
+    expect(trecho()).toMatch(/candidatos/);
+    expect(trecho()).toMatch(/sem dose/);
+  });
+
+  it('manda dizer que o alerta é da lista do aplicativo, e repetir o aviso quando não há alerta', () => {
+    expect(trecho()).toMatch(/lista do aplicativo/);
+    expect(trecho()).toMatch(/avisoDaBase/);
+  });
+
+  it('manda dizer que não conseguiu verificar o que a lista não reconhece (D9.3)', () => {
+    expect(trecho()).toMatch(/naoReconhecidos/);
+    expect(trecho()).toMatch(/não conseguiu verificar/);
+  });
+
+  it('manda avisar quando dois nomes são o mesmo remédio (revisão do E9)', () => {
+    expect(trecho()).toMatch(/mesmoPrincipioAtivo/);
+    expect(trecho()).toMatch(/mesmo remédio/);
+  });
+
+  it('proíbe garantir, orientar mudança e inventar interação, e aponta o farmacêutico (D9.4)', () => {
+    expect(trecho()).toMatch(/Nunca diga que pode tomar junto/);
+    expect(trecho()).toMatch(/parar, suspender, trocar ou ajustar/);
+    expect(trecho()).toMatch(/nunca acrescente interação/);
+    expect(trecho()).toMatch(/farmacêutico/);
+  });
+});

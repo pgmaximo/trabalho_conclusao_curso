@@ -280,6 +280,7 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
   - Resposta de "nenhuma interação encontrada" diz que isso vale **só para a base curada do app** e não garante segurança. Nunca afirma "pode tomar junto".
   - Nunca recomenda suspender, trocar ou ajustar. Em qualquer dúvida, encaminha ao profissional (R2).
   - **Critérios:** teste com par conhecido, sem par, medicamento encerrado (ignorado), e nome com variação de grafia; casos adversos na suíte de linguagem.
+  - *Entregue em 2026-10-17 (ver `E9-interacoes-medicamentosas/`):* além do previsto, a saída avisa nomes diferentes do mesmo princípio ativo (`mesmoPrincipioAtivo`), devolve os nomes sem dose, ignora remédio com término vencido, e a R3 ganhou dois padrões (garantia de combinação segura; troca de remédio, D9.4). Cinco textos de risco reescritos (D9.5).
 
 ---
 

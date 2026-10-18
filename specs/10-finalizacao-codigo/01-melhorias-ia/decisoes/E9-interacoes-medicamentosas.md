@@ -1,6 +1,6 @@
 # Decisões do E9 — Interações medicamentosas no chat
 
-Épico: [E9 no PRD](../prd.md) · Ordem de entrega: 4º · Três decisões: D9.1, D9.2 e D9.3
+Épico: [E9 no PRD](../prd.md) · Ordem de entrega: 4º · Cinco decisões: D9.1, D9.2 e D9.3, mais D9.4 e D9.5, que nasceram na spec
 
 ## O que o código faz hoje (verificado)
 
@@ -53,7 +53,7 @@ Ex.: `amplify/functions/drug-interactions-shared/` com `pairs.ts`, `aliases.ts`,
 
 **Motivo:** é a única que mantém fonte única **e** segue uma direção de dependência que o repositório já pratica. O custo (mover e reexportar) é mecânico e verificado pelos testes que já existem.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (produto, 2026-10-17).
 
 ---
 
@@ -87,7 +87,7 @@ A ferramenta recebe um campo opcional `candidatos` (lista curta de nomes, com te
 
 **Motivo:** o valor do épico está justamente em perguntar antes de tomar. O risco da entrada livre é pequeno porque ela só consulta um dataset local, e as defesas de linguagem já existem.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (produto, 2026-10-17).
 
 ---
 
@@ -117,7 +117,30 @@ A ferramenta recebe um campo opcional `candidatos` (lista curta de nomes, com te
 
 **Motivo:** este é o principal risco de segurança do épico. A diferença entre tela e conversa justifica tratar de forma diferente. O custo é só uma frase.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (produto, 2026-10-17).
+
+---
+
+## D9.4 — Reforço da R3 contra garantia de combinação segura e troca de remédio *(nasceu na spec)*
+
+**O que decidir:** medido em 2026-10-17 com `checkLanguageRules`: "Pode tomar os dois juntos sem problema.", "É seguro tomar junto.", "Não há interação entre eles.", "Troque o ibuprofeno por paracetamol." e "Tome o paracetamol no lugar do ibuprofeno." passam pelas cinco regras. Só "Suspenda o marevan." é reprovada.
+
+- **Opção A — dois padrões novos na R3** (garantia de combinação segura; troca de remédio), com a mesma exceção de recusa e pergunta dos padrões de vacina e exame. *(recomendada)* A barreira fica determinística no pior erro do épico, como na D7.3 e na D8.4. Custo: mais regex e risco de falso positivo, que fica coberto por testes adversariais dos dois lados.
+- **Opção B — só o prompt.** É mais simples. Contra: a garantia fica probabilística.
+
+**Decisão:** **Opção A** (produto, 2026-10-17).
+
+---
+
+## D9.5 — Os 4 textos de risco que não se explicam sozinhos *(nasceu na spec)*
+
+**O que decidir:** 4 dos 19 `riskPt` dizem "Mesmo risco de ... da combinação com ..." e não fazem sentido sozinhos. A tela de Medicamentos já mostra só o `riskPt` (`MedicinesScreen.tsx`).
+
+- **Opção A — reescrever os 4**, com a mesma informação, para que se expliquem sozinhos. *(recomendada)* Corrige o chat e a tela, e mantém fonte única. Muda um texto visível.
+- **Opção B — mandar também o `mechanismPt`.** É jargão, gasta mais tokens, e um dos textos é reprovado pela R3.
+- **Opção C — manter.** O chat diria "mesmo risco" sem dizer de quê.
+
+**Decisão:** **Opção A** (produto, 2026-10-17).
 
 ---
 

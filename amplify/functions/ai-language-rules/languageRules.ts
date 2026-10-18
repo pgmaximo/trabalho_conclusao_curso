@@ -258,8 +258,9 @@ const FORA_DO_ASSUNTO =
   'login|upload|cadastr|op[cç][aã]o|aplicativo|app|foto|anexo|perfil|senha|conta|' +
   'consulta|retorno|resultado|laudo|agendamento|envio';
 
-/** Ate `n` caracteres da mesma frase que nao atravessam `FORA_DO_ASSUNTO`. */
-const janela = (n: number) => `(?:(?!${FORA_DO_ASSUNTO})[^.!?]){0,${n}}?`;
+/** Ate `n` caracteres da mesma frase que nao atravessam `fora` (por padrao,
+ *  `FORA_DO_ASSUNTO`; os padroes de interacao do E9 passam `FORA_DO_REMEDIO`). */
+const janela = (n: number, fora = FORA_DO_ASSUNTO) => `(?:(?!${fora})[^.!?]){0,${n}}?`;
 
 /** O que pode vir entre o verbo e o exame sem mudar o objeto: "a", "sua primeira". */
 const DETERMINANTE = 'um|uma|uns|umas|o|a|os|as|seus?|suas?|nov[oa]s?|outr[oa]s?|mais|primeir[oa]s?';
@@ -376,6 +377,62 @@ const numeroDoValor = (texto: string): number | null => {
   return lido.ok ? lido.value : null;
 };
 
+/**
+ * O que, no caminho entre o verbo e o resto da frase, diz que ela fala de USO
+ * DO APLICATIVO ou de outra coisa que nao remedio (E9): "trocar a FOTO por
+ * outra", "pode tomar NOTA", "podem tomar a VACINA junto com outras", "pode
+ * tomar essa DECISAO com quem prescreveu" -- todas reprovadas pela primeira
+ * versao dos padroes de interacao (revisao do E9).
+ */
+const FORA_DO_REMEDIO = `${FORA_DO_ASSUNTO}|tela|chat|imagem|arquivo|documento|pdf|filtro|bairro|nota|decis|cuidado|vacina|refor`;
+
+/**
+ * Teto do que os padroes de interacao olham ADIANTE do achado ate o fim da
+ * frase. Sem ele, cada "troque" ou "pode tomar junto" num texto sem pontuacao
+ * relia tudo ate o fim -- custo quadratico, medido na revisao do E9 (69 ms em 16
+ * mil caracteres), num caminho que roda em toda resposta. 200 caracteres sao
+ * uma frase longa; o que vem depois disso ja e outra afirmacao.
+ */
+const ADIANTE = 200;
+
+/** O motivo da R3 para iniciar, trocar ou interromper remedio: uma frase so para
+ *  a suspensao e para a troca (E9), porque e o bilhete que o modelo le para
+ *  corrigir, e duas redacoes dariam duas instrucoes. */
+const MOTIVO_DE_MUDANCA = 'A resposta orienta iniciar, mudar ou interromper uma medicação.';
+
+/** "pode tomar", "podem usar", "da para tomar", "pode associar". */
+const PERMISSAO_DE_TOMAR = `(?:podem?|d[aá]\\s+(?:pra|para))\\s+(?:tomar|usar|associar)`;
+
+/**
+ * O que fecha a permissao como GARANTIA: "junto", "tranquilo", "normalmente",
+ * "ao mesmo tempo", "sim", "sem problema", ou "com" outro remedio -- e nao "com
+ * comida", que e o modo de tomar que a pessoa anotou (E2).
+ */
+const FECHO_DA_PERMISSAO =
+  `(?:${INI_R3}(?:junt\\w*|tranquil\\w*|normalmente|ao\\s+mesmo\\s+tempo|sim)${FIM_R3}` +
+  `|${INI_R3}sem\\s+(?:problema|medo|risco)` +
+  `|${INI_R3}com${FIM_R3}(?!\\s+(?:comida|[aá]gua|alimento|leite|caf[eé]|refei)))`;
+
+/**
+ * A excecao da garantia de combinacao (E9). Mais ESTREITA que a da vacina e a
+ * do exame, de proposito: a revisao do E9 provou que "nao sei a dose, pode
+ * tomar junto" e "confirmei se havia alerta e nao ha interacao" passavam,
+ * porque uma recusa sobre OUTRA coisa, na mesma oracao, absolvia a garantia.
+ *
+ * Aqui o "se" (ou o "que" de "nao quer dizer que") tem de ficar COLADO a
+ * garantia -- no maximo tres palavras entre eles, e nenhuma delas um "e" ou um
+ * "mas" que abra outra afirmacao. Assim "pergunte ao farmaceutico se pode tomar
+ * junto" e "isso nao quer dizer que voce pode tomar junto" passam, e a recusa
+ * solta, longe, nao absolve. Palavra com pontuacao tambem fecha: "pode
+ * verificar se quiser: pode tomar junto" sao duas frases.
+ */
+const DEVOLVE_A_DECISAO = new RegExp(
+  `(?:${RECUSA_DE_JULGAR.source}|saber|sei|sabe|confirm\\w*|verific\\w*|pergunt\\w*|consult\\w*|decid\\w*|avali\\w*|dir[aá]|diz\\w*)` +
+    `(?:\\s+\\S+){0,4}?\\s+se\\s+(?:(?!(?:e|mas|ent[aã]o)\\s)[^\\s,:;]+\\s+){0,3}$` +
+    `|n[aã]o\\s+(?:quer\\s+dizer|significa|garante)\\s+que\\s+(?:\\S+\\s+){0,2}$`,
+  'i',
+);
+
 type PadraoR3 = {
   padrao: RegExp;
   motivo: string;
@@ -453,7 +510,7 @@ const PADROES_R3: PadraoR3[] = [
     // dose" dizem a mesma coisa a quem le.
     padrao:
       /\b(tome|tomar|use|usar|ingira|ingerir|aumente|aumentar|diminua|diminuir|reduza|reduzir)\b[^.!?]{0,60}\b(medicament\w+|remedi\w+|remédi\w+|comprimid\w+|capsul\w+|cápsul\w+|doses?)\b/i,
-    motivo: 'A resposta orienta iniciar, mudar ou interromper uma medicação.',
+    motivo: MOTIVO_DE_MUDANCA,
   },
   {
     // Verbos de SUSPENSAO disparam sozinhos, sem exigir que o objeto seja um
@@ -462,7 +519,70 @@ const PADROES_R3: PadraoR3[] = [
     // que esta IA poderia dar -- interromper medicacao por conta propria e o
     // risco maior de todos. Na duvida, reprova.
     padrao: /\b(suspenda|suspender|interrompa|interromper|par[ea]r?\s+de\s+tomar)\b/i,
-    motivo: 'A resposta orienta iniciar, mudar ou interromper uma medicação.',
+    motivo: MOTIVO_DE_MUDANCA,
+  },
+  {
+    // GARANTIA DE COMBINACAO SEGURA (E9, D9.4). A lista de interacoes do
+    // aplicativo e curta de proposito, e a AUSENCIA de alerta nela nao diz que
+    // dois remedios podem ir juntos -- dizer isso e o pior erro do E9. Medido em
+    // 2026-10-17: "pode tomar os dois juntos sem problema" passava pelas cinco
+    // regras. A resposta certa e "a lista do aplicativo nao traz alerta", e ela
+    // nao casa.
+    //
+    // Cinco familias, porque o portugues tem cinco para a mesma garantia (a
+    // revisao do E9 provou que uma lista de frases deixava passar quase tudo
+    // fora do teste): a PERMISSAO ("pode tomar junto", "da para tomar", "podem
+    // ser tomados juntos"), o "SEM PROBLEMA" ("nao tem problema nenhum tomar",
+    // "nao faz mal"), a SEGURANCA ("e seguro", "parece segura", "nao e
+    // perigosa"), a NEGACAO DA INTERACAO ("nao ha interacao", "nao interagem") e
+    // a da contraindicacao.
+    //
+    // Frase que termina em "?" nao e garantia, e a pergunta devolvida ("a
+    // combinacao e segura? quem responde e o farmaceutico").
+    //
+    // Vem DEPOIS do padrao de vacina, e e de proposito: "voce pode tomar a
+    // vacina sem problema" continua com o motivo de vacina.
+    padrao: new RegExp(
+      '(?:' +
+        `${INI_R3}${PERMISSAO_DE_TOMAR}${FIM_R3}${janela(40, FORA_DO_REMEDIO)}${FECHO_DA_PERMISSAO}` +
+        // "Pode tomar o ibuprofeno." -- a permissao seca, sem "com" (que pode
+        // ser "com comida", da anotacao da pessoa).
+        `|${INI_R3}${PERMISSAO_DE_TOMAR}${FIM_R3}(?:(?!${FORA_DO_REMEDIO}|\\bcom\\b)[^.!?,:]){0,30}(?:[.!]|$)` +
+        `|${INI_R3}podem?\\s+ser\\s+(?:tomad|usad)[oa]s?${FIM_R3}${janela(20, FORA_DO_REMEDIO)}${INI_R3}(?:junt\\w*|ao\\s+mesmo\\s+tempo|com)${FIM_R3}` +
+        `|${INI_R3}(?:n[aã]o\\s+(?:tem|t[eê]m|h[aá]|faz)|sem)\\s+(?:nenhum\\s+)?(?:problema|risco|mal)(?:\\s+nenhum)?\\s+(?:em\\s+|de\\s+)?(?:tomar|usar)${FIM_R3}` +
+        `|${INI_R3}n[aã]o\\s+faz\\s+mal${FIM_R3}` +
+        `|${INI_R3}(?:[eé]|s[aã]o|parecem?)\\s+segur[oa]s?${FIM_R3}` +
+        `|${INI_R3}n[aã]o\\s+(?:[eé]|s[aã]o)\\s+perigos[oa]s?${FIM_R3}` +
+        // "Nao ha interacao REGISTRADA na lista" e o relato honesto do que a
+        // lista diz, e passa.
+        `|${INI_R3}n[aã]o\\s+(?:h[aá]|existe|tem|t[eê]m)\\s+(?:nenhuma\\s+)?(?:intera[cç](?:[aã]o|[oõ]es)|contraindica[cç](?:[aã]o|[oõ]es))${FIM_R3}` +
+        `(?!\\s+(?:registrad|cadastrad|listad|conhecid|na\\s+lista|nessa\\s+lista|desta\\s+lista))` +
+        `|${INI_R3}n[aã]o\\s+(?:interagem?|costumam?\\s+interagir)${FIM_R3}` +
+        `)(?![^.!?]{0,${ADIANTE}}\\?)`,
+      'i',
+    ),
+    motivo:
+      'A resposta garante que dois remédios podem ser tomados juntos. A lista do aplicativo é curta, e quem diz se uma combinação serve para a pessoa é quem prescreve ou o farmacêutico.',
+    excecao: DEVOLVE_A_DECISAO,
+  },
+  {
+    // TROCA DE REMEDIO (E9, D9.4). E da familia da suspensao -- mudar o
+    // tratamento por conta propria --, e o mesmo motivo. Medido em 2026-10-17:
+    // "troque o ibuprofeno por paracetamol" passava. Sem excecao, como a
+    // suspensao: na duvida, reprova.
+    //
+    // O que separa a troca de remedio de "trocar a FOTO por outra" e "use a
+    // TELA em vez do chat" e `FORA_DO_REMEDIO` no caminho. "Substituir" so conta
+    // com "por" (e nao "por isso"): solto, ele e a frase honesta "isso nao pode
+    // substituir a conversa com o medico".
+    padrao: new RegExp(
+      `${INI_R3}(?:troque|trocar|troca|substitua|substituir)${FIM_R3}${janela(40, FORA_DO_REMEDIO)}` +
+        `${INI_R3}(?:por|pel[oa]s?|para\\s+[oa]s?)${FIM_R3}(?!\\s+(?:isso|conta|favor|enquanto|exemplo))` +
+        `|${INI_R3}(?:troque|substitua)${FIM_R3}(?=(?:(?!${FORA_DO_REMEDIO})[^.!?]){${ADIANTE}}|(?:(?!${FORA_DO_REMEDIO})[^.!?]){0,${ADIANTE}}(?:[.!?]|$))` +
+        `|${INI_R3}(?:tome|tomar|use|usar)${FIM_R3}${janela(40, FORA_DO_REMEDIO)}${INI_R3}(?:no\\s+lugar|em\\s+vez|ao\\s+inv[eé]s)${FIM_R3}`,
+      'i',
+    ),
+    motivo: MOTIVO_DE_MUDANCA,
   },
   {
     // INDICACAO INDIVIDUAL DE EXAME (E7, D7.3). A USPSTF recomenda para um

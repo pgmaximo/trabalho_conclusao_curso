@@ -152,6 +152,20 @@ describe('o registro das tools', () => {
     expect(nomes.slice(i, i + 3)).toEqual(['consultar_prevencao', 'consultar_campanhas', 'consultar_postos']);
   });
 
+  it('consultar_interacoes esta registrada, logo depois de consultar_medicamentos (E9)', () => {
+    // E o vizinho com que o modelo mais a confundiria: medicamentos LISTA o
+    // cadastro; interacoes CRUZA os remedios contra a lista do aplicativo.
+    const nomes = CHAT_TOOLS.map((t) => t.name);
+    expect(nomes.indexOf('consultar_interacoes')).toBe(nomes.indexOf('consultar_medicamentos') + 1);
+  });
+
+  it('a descricao de consultar_interacoes diz que ela nao garante nem orienta (E9)', () => {
+    const descricao = CHAT_TOOLS.find((t) => t.name === 'consultar_interacoes')!.description;
+    expect(descricao).toMatch(/NÃO diz se pode tomar junto/);
+    expect(descricao).toMatch(/NÃO sugere parar, trocar nem ajustar/);
+    expect(descricao).toMatch(/NÃO conhece remédio fora da lista do aplicativo/);
+  });
+
   it('toda ferramenta publica da lista fechada existe de verdade', () => {
     const registrados = new Set(CHAT_TOOLS.map((t) => t.name));
     for (const nome of FERRAMENTAS_PUBLICAS) expect(registrados.has(nome)).toBe(true);

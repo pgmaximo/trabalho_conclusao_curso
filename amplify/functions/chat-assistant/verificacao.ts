@@ -80,6 +80,10 @@ import type {
  * "tem campanha?" e "devo me vacinar?", e quem decide e o profissional ou a
  * unidade. `consultar_postos` NAO entra: e endereco, e um rodape de
  * encaminhamento embaixo de uma lista de UBS seria ruido.
+ *
+ * `consultar_interacoes` ENTRA (E9): a pergunta por tras e "posso tomar?", e o
+ * texto de um alerta ("risco de sangramento") nao tem unidade nenhuma. Quem diz
+ * se a combinacao serve para a pessoa e quem prescreve ou o farmaceutico.
  */
 const TOOLS_CLINICAS = new Set([
   'consultar_analito',
@@ -87,6 +91,7 @@ const TOOLS_CLINICAS = new Set([
   'consultar_wearable',
   'consultar_prevencao',
   'consultar_campanhas',
+  'consultar_interacoes',
 ]);
 
 export type RespostaVerificada = {

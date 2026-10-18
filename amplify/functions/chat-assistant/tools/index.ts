@@ -19,6 +19,7 @@ import { analitosTool } from './analitos';
 import { campanhasTool } from './campanhas';
 import { consultasTool } from './consultas';
 import { examesTool } from './exames';
+import { interacoesTool } from './interacoes';
 import { medicamentosTool } from './medicamentos';
 import { perfilTool } from './perfil';
 import { postosTool } from './postos';
@@ -43,6 +44,10 @@ export const CHAT_TOOLS: ChatTool[] = [
   analitosTool,
   consultasTool,
   medicamentosTool,
+  // Logo depois de medicamentos (E9): e o vizinho com que o modelo mais a
+  // confundiria. Medicamentos LISTA o cadastro; interacoes CRUZA os remedios
+  // contra a lista curada do aplicativo.
+  interacoesTool,
   vacinasTool,
   // Logo depois de vacinas porque e o vizinho com que o modelo mais a
   // confundiria: vacinas e o que a pessoa TOMOU; prevencao e o que a fonte

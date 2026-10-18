@@ -493,3 +493,163 @@ describe('revisão do E2: a exceção exige âncora de registro', () => {
     });
   });
 });
+
+/**
+ * INTERACOES: GARANTIA DE SEGURANCA E TROCA (E9, D9.4). Medido em 2026-10-17:
+ * "pode tomar os dois juntos sem problema" e "troque o ibuprofeno por
+ * paracetamol" passavam pelas cinco regras. A lista de interacoes do aplicativo
+ * e curta de proposito, e a AUSENCIA de alerta nela nao diz que a combinacao e
+ * segura -- dizer isso e o pior erro do E9. Trocar um remedio e da mesma
+ * familia da suspensao, que ja tinha padrao.
+ *
+ * Os dois lados juntos: as que passam sao exatamente as frases que o prompt
+ * manda o modelo dizer, e uma excecao testada so pelo lado que reprova vira
+ * resposta boa barrada.
+ */
+describe('interações: garantia de segurança e troca (E9, D9.4)', () => {
+  describe.each(TIPOS)('pergunta %s', (questionKind, sufixo) => {
+    it.each([
+      'Pode tomar os dois juntos sem problema.',
+      'Você pode tomar o ibuprofeno com a losartana.',
+      'Pode tomar junto, sim.',
+      'Não tem problema tomar ibuprofeno com losartana.',
+      'Não há problema em tomar os dois.',
+      'É seguro tomar junto.',
+      'A combinação é segura.',
+      'Não há interação entre eles.',
+      'A losartana não interage com o ibuprofeno.',
+    ])('garantia de combinação segura é barrada pela R3: "%s"', (frase) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false });
+
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+        expect(r.violations[0].reason).toMatch(/juntos/);
+      }
+    });
+
+    it.each([
+      'Troque o ibuprofeno por paracetamol.',
+      'Tome o paracetamol no lugar do ibuprofeno.',
+      'Use o paracetamol em vez do ibuprofeno.',
+      'Substitua a sinvastatina.',
+    ])('troca de remédio é barrada pela R3, como mudança de medicação: "%s"', (frase) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false });
+
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+        expect(r.violations[0].reason).toMatch(/mudar/);
+      }
+    });
+
+    it.each([
+      'A lista do aplicativo não traz alerta para essa combinação.',
+      'Essa lista é curta e não garante que a combinação seja segura.',
+      // O aviso fixo da ferramenta (`AVISO_DA_BASE`, em `tools/interacoesSaida.ts`).
+      'Esta checagem usa só a lista curta de combinações que o aplicativo conhece. Não encontrar alerta não garante que não exista interação.',
+      'Não consigo dizer se pode tomar junto.',
+      'Pergunte ao farmacêutico se pode tomar os dois juntos.',
+      'Quem decide se você pode tomar os dois juntos é quem prescreveu.',
+      'Não consegui verificar o dorflex, porque ele não está na lista do aplicativo.',
+      'A lista do aplicativo traz um alerta grave para warfarina com AAS: risco muito elevado de hemorragia.',
+      'Não tem problema perguntar ao farmacêutico.',
+      // "pode tomar" SOLTO nao e garantia de combinacao. (Com "Medicamentos" na
+      // frase, o padrao antigo de verbo de medicacao ja a reprova, e afrouxa-lo
+      // nao e deste epico.)
+      'Você pode tomar nota dos horários.',
+      'Você tomou a vacina em 2025.',
+      // "Substituir" solto e a frase honesta sobre o limite do aplicativo.
+      'Isto não pode substituir a conversa com o farmacêutico.',
+      'A lista do aplicativo não substitui a orientação de quem prescreveu.',
+    ])('a resposta sobre interação bem formada passa: "%s"', (frase) => {
+      expect(checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false })).toEqual({ ok: true });
+    });
+
+    it('a garantia sobre VACINA continua com o motivo de vacina', () => {
+      const r = checkLanguageRules('Você pode tomar a vacina sem problema.' + sufixo, { questionKind, temOrigem: false });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.violations[0].reason).toMatch(/indica uma vacina/);
+    });
+  });
+});
+
+/**
+ * REVISAO DO E9 (2026-10-17). As duas leituras independentes provaram, rodando,
+ * que a primeira versao dos padroes da D9.4 cobria as frases do teste e pouco
+ * alem delas -- e reprovava respostas honestas. Os dois lados de novo.
+ */
+describe('revisão do E9: garantia, troca e as respostas honestas', () => {
+  describe.each(TIPOS)('pergunta %s', (questionKind, sufixo) => {
+    it.each([
+      'Os dois podem ser tomados juntos.',
+      'Dá para tomar junto.',
+      'Pode usar os dois ao mesmo tempo.',
+      'Pode tomar sim, a lista do aplicativo não traz alerta.',
+      'Sim, pode tomar.',
+      'Pode tomar o ibuprofeno normalmente.',
+      'Pode tomar tranquilo.',
+      'Você pode tomar os dois juntinhos.',
+      'Pode associar os dois.',
+      'É seguro para você tomar os dois.',
+      'Essa combinação parece segura.',
+      'A combinação não é perigosa.',
+      'Eles não têm interação.',
+      'Não tem problema nenhum tomar os dois.',
+      'Sem problema tomar os dois juntos.',
+      'Não há risco em tomar os dois juntos.',
+      'Não faz mal tomar junto.',
+      'Não costumam interagir.',
+      'Não tem contraindicação tomar junto.',
+      // A recusa sobre OUTRA coisa nao absolve a garantia que vem depois.
+      'Não sei a dose, pode tomar junto sem problema.',
+      'Não consigo ver o horário, pode tomar junto.',
+      'Pode verificar se quiser: pode tomar junto.',
+      'Confirmei se havia alerta e não há interação entre eles.',
+    ])('garantia é barrada pela R3: "%s"', (frase) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+    });
+
+    it.each([
+      'Troque pelo paracetamol.',
+      'Tem como trocar pelo paracetamol.',
+      'Troque para o paracetamol.',
+      'Tome paracetamol em vez disso.',
+      'Tome o paracetamol ao invés do ibuprofeno.',
+      'Uma opção é usar paracetamol no lugar.',
+      'Troca por paracetamol que é melhor.',
+      'Troque o marevan.',
+    ])('troca é barrada pela R3: "%s"', (frase) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+    });
+
+    it.each([
+      'A lista do aplicativo não traz alerta, mas isso não quer dizer que você pode tomar junto.',
+      'Isso não significa que pode tomar junto.',
+      'Não encontrar alerta não quer dizer que não há interação.',
+      'Não encontrar alerta não garante que não existe interação.',
+      'Na lista do aplicativo, não há interação registrada entre losartana e sinvastatina.',
+      'A lista do aplicativo não tem interação registrada para essa combinação.',
+      'A combinação é segura? Isso quem responde é o farmacêutico.',
+      'Você pode tomar essa decisão com quem prescreveu.',
+      'Sua anotação diz: pode tomar com comida.',
+      'Você pode usar o filtro com o nome do bairro.',
+      'Você pode usar o aplicativo com a sua conta.',
+      'Pessoas acima de 60 anos podem tomar a vacina da gripe com a da covid, segundo a campanha.',
+      'A campanha informa que crianças podem tomar a vacina junto com outras do calendário.',
+      'Este aplicativo não pode substituir a conversa com o médico, por isso fale com ele.',
+      'Você pode trocar a foto por outra mais nítida.',
+      // Com "Medicamentos" na frase, o padrao antigo de verbo de medicacao ja a
+      // reprova; a guarda aqui e do padrao NOVO de troca.
+      'Use a tela de Vacinação em vez do chat para ver os postos.',
+      'Confirme com o farmacêutico se pode tomar os dois juntos.',
+      'Não sei se pode tomar junto.',
+    ])('resposta honesta passa: "%s"', (frase) => {
+      expect(checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false })).toEqual({ ok: true });
+    });
+  });
+});
