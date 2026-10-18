@@ -525,11 +525,14 @@ function ClinicalStep({ control }: StepProps) {
       <View style={styles.noticeSlot}>
         <LgpdNotice text={CLINICAL_STEP_NOTICE_TEXT} tone="info" />
       </View>
+      {/* `spaced` nos três: sem ele o rótulo "Condições crônicas" encostava no
+          banner, e o exemplo de cada campo no rótulo do seguinte. */}
       <Controller
         control={control}
         name="chronicConditions"
         render={({ field }) => (
           <FieldBlock
+            spaced
             helperText="Ex.: diabetes tipo 2, hipertensão — deixe em branco se não tiver."
             label="Condições crônicas"
             multiline
@@ -545,6 +548,7 @@ function ClinicalStep({ control }: StepProps) {
         name="medications"
         render={({ field }) => (
           <FieldBlock
+            spaced
             helperText="Ex.: losartana 50mg, 1x ao dia."
             label="Medicamentos em uso"
             multiline
@@ -560,6 +564,7 @@ function ClinicalStep({ control }: StepProps) {
         name="allergies"
         render={({ field }) => (
           <FieldBlock
+            spaced
             helperText="Ex.: dipirona, poeira — deixe em branco se não tiver."
             label="Alergias"
             multiline
@@ -946,7 +951,7 @@ function Footer({
               start={{ x: 0, y: 0 }}
               style={styles.continueGradient}
             >
-              <Text style={styles.continueText}>
+              <Text numberOfLines={1} style={styles.continueText}>
                 {isLastStep ? (isSubmitting ? 'Concluindo...' : 'Concluir perfil') : 'Continuar'}
               </Text>
               <Ionicons color={colors.onPrimary} name="chevron-forward" size={24} />
@@ -1335,7 +1340,12 @@ function createProfileSetupStyles(colors: ThemeColors) {
     overflow: 'hidden',
     width: '100%',
   },
+  // 244 é o teto, não a largura: ao lado do "Voltar" (116 + 12 de gap + 40 de
+  // margem) ele passava da tela em qualquer celular abaixo de 412dp. O
+  // flexShrink do React Native é 0 por padrão, então sem esta linha o botão
+  // não encolhe e sai pela direita.
   continueSlot: {
+    flexShrink: 1,
     width: CONTINUE_BUTTON_MAX_WIDTH,
     maxWidth: '100%',
     minWidth: 0,
@@ -1358,6 +1368,7 @@ function createProfileSetupStyles(colors: ThemeColors) {
   },
   continueText: {
     color: colors.onPrimary,
+    flexShrink: 1,
     fontSize: 17,
     fontWeight: '800',
     lineHeight: 22,
