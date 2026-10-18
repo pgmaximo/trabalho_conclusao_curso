@@ -95,13 +95,15 @@ no código (`P2` em `aceiteDosTermosNoBackend.ts`).
   basta para quem testa por convite. Cláusulas-padrão com a AWS ou mover o
   backend para `sa-east-1` só fariam sentido com público aberto.
 - **P17. Procedimento de incidente.** Seção 4.3.
+- **P2. Backend publicado com os campos do aceite.** Publicado em 2026-10-18 no
+  backend compartilhado (`amplify-tcc-artur-sandbox-16e78b8e8b`), com o
+  `amplify_outputs.json` regerado. O `CreateUserProfileInput` do AppSync aceita
+  `termsVersion` e `termsAcceptedAt`, e o cadastro grava a prova do aceite
+  (LGPD, art. 8º, § 2º). Num ambiente cujo `amplify_outputs.json` ainda não tenha
+  os campos, `src/services/aceiteDosTermosNoBackend.ts` continua evitando que o
+  cadastro trave, com o aviso `[termos]` no console.
 
 ### 3.2 Fazer antes de pessoas de fora da equipe usarem o app
-
-**P2. Publicar o backend com os campos do aceite.**
-- **Norma:** LGPD, art. 8º, § 2º (cabe ao controlador provar o consentimento).
-- **Hoje:** `termsVersion` e `termsAcceptedAt` estão no schema, mas o backend compartilhado ainda não foi publicado com eles. Até lá, `saveUserProfile` percebe a ausência pelo `amplify_outputs.json` (`src/services/aceiteDosTermosNoBackend.ts`), salva o perfil sem esses campos e avisa no console com `[termos]`. O aceite continua obrigatório na tela, mas **não fica registrado**.
-- **Correção:** publicar o backend (`npm run amplify:sandbox` no ambiente compartilhado, ou o deploy que a equipe usa) e commitar o `amplify_outputs.json` regerado.
 
 **P18. Ética em pesquisa, se houver testes com outras pessoas (nova).**
 - **Norma:** Res. CNS nº 466/2012 e nº 510/2016; Ofício Circular CONEP nº 17/2022.

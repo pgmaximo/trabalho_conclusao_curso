@@ -145,6 +145,20 @@
               "isRequired": false,
               "attributes": []
             },
+            "termsVersion": {
+              "name": "termsVersion",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "termsAcceptedAt": {
+              "name": "termsAcceptedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": []
+            },
             "createdAt": {
               "name": "createdAt",
               "isArray": false,
