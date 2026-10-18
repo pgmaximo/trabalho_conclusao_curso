@@ -39,16 +39,32 @@ import {
 } from '@/components/profileSetup/ProfileSetupNotice';
 import { InlineError } from '@/components/InlineError';
 import { ProfileSetupReview } from '@/components/profileSetup/ProfileSetupReview';
+import {
+  NENHUM_ACEITE_MARCADO,
+  TermsConsent,
+  todosOsAceitesMarcados,
+  type AceitesMarcados,
+} from '@/components/profileSetup/TermsConsent';
 import { type ThemeColors, useThemeColors } from '@/constants/theme';
+import {
+  VERSAO_DOS_TERMOS,
+  type AceiteDoCadastroId,
+  type AceiteDosTermos,
+} from '@/data/termosEPrivacidade';
 import {
   profileSetupSchema,
   type OptionalAnswer,
   type ProfileSetupFormValues,
 } from '@/validation/forms_profile_setup';
 
+const ACEITES_PENDENTES_TEXT = 'Marque as três autorizações dos termos para concluir.';
+
 type OnboardingScreenProps = {
   onBack: () => void;
-  onComplete: (values: ProfileSetupFormValues) => void | Promise<void>;
+  /** Só é chamado com os três aceites marcados; `aceite` é a prova a gravar. */
+  onComplete: (values: ProfileSetupFormValues, aceite: AceiteDosTermos) => void | Promise<void>;
+  /** Abre o texto integral dos termos por cima do assistente, sem perder o preenchido. */
+  onOpenTerms: () => void;
   /** Por que o perfil não foi salvo, na última tentativa. Aparece junto do
    *  botão "Concluir perfil", que é onde a pessoa está olhando. */
   submitError?: string | null;
@@ -124,13 +140,20 @@ function formatHeightInput(value: string) {
   return value.replace(/\D/g, '').slice(0, 3);
 }
 
-export function OnboardingScreen({ onBack, onComplete, submitError }: OnboardingScreenProps) {
+export function OnboardingScreen({
+  onBack,
+  onComplete,
+  onOpenTerms,
+  submitError,
+}: OnboardingScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const styles = useMemo(() => createProfileSetupStyles(colors), [colors]);
   const [currentStep, setCurrentStep] = useState(0);
+  const [aceites, setAceites] = useState<AceitesMarcados>(NENHUM_ACEITE_MARCADO);
+  const aceitesCompletos = todosOsAceitesMarcados(aceites);
   const {
     control,
     handleSubmit,
@@ -158,7 +181,15 @@ export function OnboardingScreen({ onBack, onComplete, submitError }: Onboarding
     }
 
     if (isLastStep) {
-      await handleSubmit(onComplete)();
+      if (!aceitesCompletos) {
+        return;
+      }
+
+      // A hora do aceite é a do toque em "Concluir perfil", e não a da última
+      // caixa marcada: é aqui que a pessoa confirma o conjunto.
+      await handleSubmit((formValues) =>
+        onComplete(formValues, { versao: VERSAO_DOS_TERMOS, aceitoEm: new Date().toISOString() }),
+      )();
       return;
     }
 
@@ -178,6 +209,10 @@ export function OnboardingScreen({ onBack, onComplete, submitError }: Onboarding
     if (index <= currentStep) {
       setCurrentStep(index);
     }
+  }
+
+  function toggleAceite(id: AceiteDoCadastroId) {
+    setAceites((atuais) => ({ ...atuais, [id]: !atuais[id] }));
   }
 
   return (
@@ -233,12 +268,19 @@ export function OnboardingScreen({ onBack, onComplete, submitError }: Onboarding
             ) : null}
 
             {activeStep.key === 'review' ? (
-              <ReviewStep onEditStep={selectStep} values={values} />
+              <ReviewStep
+                aceites={aceites}
+                onEditStep={selectStep}
+                onOpenTerms={onOpenTerms}
+                onToggleAceite={toggleAceite}
+                values={values}
+              />
             ) : null}
           </View>
         </ScrollView>
 
         <Footer
+          blockedReason={isLastStep && !aceitesCompletos ? ACEITES_PENDENTES_TEXT : null}
           currentStep={currentStep}
           isLastStep={isLastStep}
           isSubmitting={isSubmitting}
@@ -590,10 +632,16 @@ function HabitsStep({ control }: StepProps) {
 }
 
 function ReviewStep({
+  aceites,
   onEditStep,
+  onOpenTerms,
+  onToggleAceite,
   values,
 }: {
+  aceites: AceitesMarcados;
   onEditStep: (step: 0 | 1 | 2) => void;
+  onOpenTerms: () => void;
+  onToggleAceite: (id: AceiteDoCadastroId) => void;
   values: ProfileSetupFormValues;
 }) {
   const styles = useProfileSetupStyles();
@@ -607,6 +655,9 @@ function ReviewStep({
       <ProfileSetupReview onEditStep={onEditStep} values={values} />
       <View style={styles.noticeSlot}>
         <LgpdNotice text={REVIEW_STEP_CONFIRMATION_TEXT} tone="success" />
+      </View>
+      <View style={styles.noticeSlot}>
+        <TermsConsent aceites={aceites} onOpenTerms={onOpenTerms} onToggle={onToggleAceite} />
       </View>
     </View>
   );
@@ -775,6 +826,7 @@ function SecurityCard() {
 }
 
 function Footer({
+  blockedReason,
   currentStep,
   isLastStep,
   isSubmitting,
@@ -783,6 +835,9 @@ function Footer({
   onNext,
   paddingBottom,
 }: {
+  /** Por que o botão principal está bloqueado. Aparece como texto, nunca só
+   *  como um botão apagado (mesma regra do `Button`, `disabledReason`). */
+  blockedReason?: string | null;
   currentStep: number;
   isLastStep: boolean;
   isSubmitting: boolean;
@@ -793,6 +848,7 @@ function Footer({
 }) {
   const colors = useThemeColors();
   const styles = useProfileSetupStyles();
+  const isBlocked = Boolean(blockedReason);
   const [backButtonProgress] = useState(() => new Animated.Value(currentStep > 0 ? 1 : 0));
   const isFirstStep = currentStep === 0;
   const shouldShowBackButton = currentStep > 0;
@@ -831,6 +887,7 @@ function Footer({
   return (
     <View style={[styles.footer, { paddingBottom }]}>
       {errorMessage ? <InlineError message={errorMessage} /> : null}
+      {blockedReason ? <Text style={styles.blockedReasonText}>{blockedReason}</Text> : null}
       <View
         style={[
           styles.footerButtons,
@@ -869,7 +926,8 @@ function Footer({
           <Pressable
             accessibilityLabel={isLastStep ? 'Concluir perfil' : 'Continuar para próxima etapa'}
             accessibilityRole="button"
-            disabled={isSubmitting}
+            accessibilityState={{ disabled: isSubmitting || isBlocked }}
+            disabled={isSubmitting || isBlocked}
             onPress={onNext}
             onPressIn={() => setIsContinuePressed(true)}
             onPressOut={() => setIsContinuePressed(false)}
@@ -879,6 +937,7 @@ function Footer({
             style={[
               styles.continueButton,
               isContinuePressed || isSubmitting ? styles.buttonPressed : null,
+              isBlocked ? styles.continueButtonBlocked : null,
             ]}
           >
             <LinearGradient
@@ -1306,6 +1365,16 @@ function createProfileSetupStyles(colors: ThemeColors) {
   },
   buttonPressed: {
     opacity: 0.86,
+  },
+  continueButtonBlocked: {
+    opacity: 0.45,
+  },
+  blockedReasonText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   });
 }

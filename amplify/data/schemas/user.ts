@@ -21,6 +21,12 @@ export const userSchema = {
       // Key do avatar no bucket Storage (path `avatars/{owner}/...`), resolvida sob
       // demanda via `getUrl` — nunca a URL final (que expira), ver avatarService.ts.
       photoKey: a.string(),
+      // Prova do aceite dos Termos de Uso e da Política de Privacidade: o ônus
+      // de provar o consentimento é do controlador (LGPD, art. 8º, § 2º).
+      // Gravados ao concluir o cadastro. A versão é o que permite pedir um novo
+      // aceite quando o texto mudar (src/data/termosEPrivacidade.ts).
+      termsVersion: a.string(),
+      termsAcceptedAt: a.datetime(),
     })
     .authorization((allow) => [
       // Garante que o usuário só acesse seus próprios dados via Cognito sub

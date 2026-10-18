@@ -63,6 +63,11 @@ export default function LoginRoute() {
     router.push('/forgot-password');
   }
 
+  function navigateToTerms() {
+    blurActiveWebElement();
+    router.push('/terms');
+  }
+
   // Enquanto verifica a sessao, nao renderiza o login (evita "piscar" o login
   // antes de redirecionar um usuario ja autenticado).
   if (isCheckingSession) {
@@ -75,6 +80,7 @@ export default function LoginRoute() {
       onNavigateToForgotPassword={navigateToForgotPassword}
       onLogin={navigateAfterAuth}
       onGoogleAuthSuccess={navigateAfterAuth}
+      onOpenTerms={navigateToTerms}
     />
   );
 }

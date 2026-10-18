@@ -31,9 +31,11 @@ import { HomeScreen } from '@/screens/HomeScreen';
 import { ImportHealthDataScreen } from '@/screens/ImportHealthDataScreen';
 import { MedicinesScreen } from '@/screens/MedicinesScreen';
 import { MoreScreen } from '@/screens/MoreScreen';
+import { OnboardingScreen } from '@/screens/OnboardingScreen';
 import { PreventionScreen } from '@/screens/PreventionScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { RegisterScreen } from '@/screens/RegisterScreen';
+import { TermsScreen } from '@/screens/TermsScreen';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
 import { AvisoDeSucesso } from '@/components/AvisoDeSucesso';
 import { BottomTabBar } from '@/components/BottomTabBar';
@@ -613,6 +615,9 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
     />
   ),
   more: () => <MoreScreen />,
+  terms: () => <TermsScreen onBack={noop} />,
+  // O aceite dos termos fica na última etapa: preencha nome e data e avance.
+  'profile-setup': () => <OnboardingScreen onBack={noop} onComplete={noop} onOpenTerms={noop} />,
   'assistant-memory': () => (
     <AssistantMemoryScreen
       onBack={noop}

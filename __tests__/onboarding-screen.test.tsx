@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ACEITES_DO_CADASTRO, VERSAO_DOS_TERMOS } from '@/data/termosEPrivacidade';
 import { OnboardingScreen } from '@/screens/OnboardingScreen';
 
 jest.mock('@expo/vector-icons/Ionicons', () => {
@@ -21,9 +22,33 @@ function renderOnboardingScreen(props?: Partial<React.ComponentProps<typeof Onbo
         insets: { bottom: 24, left: 0, right: 0, top: 44 },
       }}
     >
-      <OnboardingScreen onBack={jest.fn()} onComplete={jest.fn()} {...props} />
+      <OnboardingScreen onBack={jest.fn()} onComplete={jest.fn()} onOpenTerms={jest.fn()} {...props} />
     </SafeAreaProvider>,
   );
+}
+
+/** Preenche o obrigatório e avança até a etapa de revisão. */
+async function irAteARevisao() {
+  fireEvent.changeText(screen.getByLabelText('Nome Completo'), 'Maria Silva');
+  fireEvent.changeText(screen.getByLabelText('Data de nascimento'), '06052000');
+  fireEvent.press(screen.getByText('Continuar'));
+  await waitFor(() => expect(screen.getByText('Histórico clínico')).toBeTruthy());
+  fireEvent.press(screen.getByText('Continuar'));
+  await waitFor(() => expect(screen.getByText('Consome bebida alcoólica?')).toBeTruthy());
+  fireEvent.press(screen.getByText('Continuar'));
+  await waitFor(() =>
+    expect(
+      screen.getByText('Confira antes de concluir. Você pode editar depois no seu Perfil.'),
+    ).toBeTruthy(),
+  );
+}
+
+function marcarAceites(ids: string[] = ACEITES_DO_CADASTRO.map((aceite) => aceite.id)) {
+  for (const aceite of ACEITES_DO_CADASTRO) {
+    if (ids.includes(aceite.id)) {
+      fireEvent.press(screen.getByLabelText(aceite.texto));
+    }
+  }
 }
 
 describe('OnboardingScreen', () => {
@@ -95,6 +120,7 @@ describe('OnboardingScreen', () => {
       ).toBeTruthy();
     });
 
+    marcarAceites();
     fireEvent.press(screen.getByText('Concluir perfil'));
 
     await waitFor(() => {
@@ -195,5 +221,69 @@ describe('OnboardingScreen', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Voltar etapa')).toBeNull();
     });
+  });
+});
+
+describe('OnboardingScreen: aceite dos termos', () => {
+  it('as tres caixas comecam desmarcadas -- consentimento nao e pre-marcado', async () => {
+    renderOnboardingScreen();
+    await irAteARevisao();
+
+    for (const aceite of ACEITES_DO_CADASTRO) {
+      expect(screen.getByLabelText(aceite.texto).props.accessibilityState).toEqual({
+        checked: false,
+      });
+    }
+  });
+
+  it('nao conclui sem as tres caixas, e diz por que', async () => {
+    const onComplete = jest.fn();
+    renderOnboardingScreen({ onComplete });
+    await irAteARevisao();
+
+    // Duas de tres nao bastam: cada consentimento e especifico.
+    marcarAceites(['termos', 'dadosDeSaude']);
+    fireEvent.press(screen.getByLabelText('Concluir perfil'));
+
+    expect(screen.getByText('Marque as três autorizações dos termos para concluir.')).toBeTruthy();
+    expect(screen.getByLabelText('Concluir perfil').props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: true }),
+    );
+    await waitFor(() => expect(onComplete).not.toHaveBeenCalled());
+  });
+
+  it('com as tres caixas, conclui e entrega a prova do aceite (versao e hora)', async () => {
+    const onComplete = jest.fn();
+    renderOnboardingScreen({ onComplete });
+    await irAteARevisao();
+
+    marcarAceites();
+    expect(screen.queryByText('Marque as três autorizações dos termos para concluir.')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Concluir perfil'));
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    const aceite = onComplete.mock.calls[0][1];
+    expect(aceite.versao).toBe(VERSAO_DOS_TERMOS);
+    expect(Number.isNaN(Date.parse(aceite.aceitoEm))).toBe(false);
+  });
+
+  it('desmarcar uma caixa volta a bloquear', async () => {
+    renderOnboardingScreen();
+    await irAteARevisao();
+
+    marcarAceites();
+    marcarAceites(['transferenciaInternacional']);
+
+    expect(screen.getByText('Marque as três autorizações dos termos para concluir.')).toBeTruthy();
+  });
+
+  it('o texto integral fica a um toque, sem sair do cadastro', async () => {
+    const onOpenTerms = jest.fn();
+    renderOnboardingScreen({ onOpenTerms });
+    await irAteARevisao();
+
+    fireEvent.press(screen.getByText('Ler os Termos de Uso e a Política de Privacidade'));
+
+    expect(onOpenTerms).toHaveBeenCalledTimes(1);
   });
 });

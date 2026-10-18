@@ -20,8 +20,8 @@
 // - assistant: chatbubble-ellipses  Assistente - Chat com a IA (href /ai), no centro
 // - medicines: medkit               Remédios   - Doses, estoque e lembretes
 // - more:      ellipsis-horizontal  Mais       - Hub: Agenda, Prevenção, Vacinação,
-//                                                smartwatch, memória do assistente
-//                                                e Perfil
+//                                                smartwatch, memória do assistente,
+//                                                Perfil e Termos e privacidade
 //
 // Ordem decidida em specs/00-fundacao/barra-de-navegacao (Opção 1 da proposta):
 // o Assistente saiu de "Mais" para a barra, e a Agenda (uso mensal) cedeu o
@@ -108,6 +108,17 @@ export const MORE_MENU_ITEMS = [
     label: 'Perfil',
     description: 'Seus dados e preferências',
     href: '/profile',
+  },
+  // O texto aceito no cadastro, para consulta a qualquer momento (LGPD, art.
+  // 9º: informação "disponibilizada de forma clara, adequada e ostensiva").
+  // A rota fica fora do grupo (app) porque também abre antes do login, e por
+  // isso não entra no ROUTE_TAB_MAP.
+  {
+    id: 'terms',
+    icon: 'document-lock',
+    label: 'Termos e privacidade',
+    description: 'Seus dados e direitos',
+    href: '/terms',
   },
 ] as const;
 

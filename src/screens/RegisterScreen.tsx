@@ -36,6 +36,8 @@ type RegisterScreenProps = {
   onNavigateToLogin: () => void;
   onRegisterSuccess: (email: string, password: string) => void;
   onGoogleAuthSuccess: () => void;
+  /** Abre o texto integral dos termos (rota pública, antes do login). */
+  onOpenTerms?: () => void;
 };
 
 function getPasswordRequirements(password: string): PasswordRequirement[] {
@@ -52,6 +54,7 @@ export function RegisterScreen({
   onNavigateToLogin,
   onRegisterSuccess,
   onGoogleAuthSuccess,
+  onOpenTerms,
 }: RegisterScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
@@ -304,6 +307,21 @@ export function RegisterScreen({
               </Text>
             </Text>
           </Pressable>
+
+          {/* Aviso antes de qualquer dado ser coletado (LGPD, art. 9º): o aceite
+              com as caixas fica no fim do Perfil de Saúde, que é por onde toda
+              conta nova passa — inclusive a criada com o Google. */}
+          <Text className="mt-[6px] text-center text-base leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
+            Para concluir o cadastro, você vai ler e aceitar os{' '}
+            <Text
+              accessibilityRole="link"
+              className="font-semibold text-app-secondary underline dark:text-app-dark-secondary"
+              onPress={onOpenTerms}
+            >
+              Termos de Uso e a Política de Privacidade
+            </Text>
+            .
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

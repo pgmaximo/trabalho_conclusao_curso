@@ -30,6 +30,7 @@ export default function ProfileRoute() {
       onSetReminderInterval={setReminderIntervalForGrade}
       onLogout={handleLogout}
       onEditProfile={() => router.push('/edit-profile')}
+      onOpenTerms={() => router.push('/terms')}
       onBack={() => goBackOr('/more')}
     />
   );

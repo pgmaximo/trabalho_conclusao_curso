@@ -43,6 +43,8 @@ type LoginScreenProps = {
   onNavigateToForgotPassword: () => void;
   onLogin: () => void;
   onGoogleAuthSuccess: () => void;
+  /** Abre o texto integral dos termos (rota pública, antes do login). */
+  onOpenTerms?: () => void;
 };
 
 export function LoginScreen({
@@ -50,6 +52,7 @@ export function LoginScreen({
   onNavigateToForgotPassword,
   onLogin,
   onGoogleAuthSuccess,
+  onOpenTerms,
 }: LoginScreenProps) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
@@ -287,8 +290,19 @@ export function LoginScreen({
             </Text>
           </Pressable>
 
+          {/* Copy do Canvas 1b. O nome dos termos virou link: antes ele citava um
+              texto que não existia em lugar nenhum do aplicativo. O aceite de
+              verdade, com as caixas, é no fim do Perfil de Saúde. */}
           <Text className="mt-[6px] text-center text-base leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
-            Ao entrar você aceita os Termos de Uso e a Política de Privacidade (LGPD).
+            Ao entrar você aceita os{' '}
+            <Text
+              accessibilityRole="link"
+              className="font-semibold text-app-secondary underline dark:text-app-dark-secondary"
+              onPress={onOpenTerms}
+            >
+              Termos de Uso e a Política de Privacidade
+            </Text>{' '}
+            (LGPD).
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

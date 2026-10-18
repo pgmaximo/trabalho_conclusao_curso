@@ -158,9 +158,11 @@ O dado de saúde da pessoa — o PDF, a foto, os valores citados na conversa —
 trafega para os Estados Unidos. É **transferência internacional de dado pessoal
 sensível** (LGPD, art. 33), e ela já acontecia antes desta frente (a feature de
 wearable). Para um aplicativo aberto a todos os brasileiros, isso precisa estar
-no termo de consentimento e na política de privacidade — e não está escrito em
-lugar nenhum do aplicativo hoje. A alternativa técnica existe (Bedrock em
-`sa-east-1`) e não foi medida.
+no termo de consentimento e na política de privacidade. **Desde 2026-10-18
+está:** seção 15 do termo (`src/data/termosEPrivacidade.ts`), com caixa de
+consentimento própria no cadastro (art. 33, VIII). A alternativa técnica existe
+(Bedrock em `sa-east-1`) e não foi medida; ver
+`docs/lgpd/conformidade-e-pendencias.md`, P11.
 
 ### 3.4 A conta é de plano gratuito, com prazo
 

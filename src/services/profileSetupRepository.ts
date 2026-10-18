@@ -12,9 +12,36 @@ import {
   type BuildProfileInputOptions,
 } from '@/services/profileSetupPayload';
 import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
+import type { AceiteDosTermos } from '@/data/termosEPrivacidade';
+import { backendGuardaOAceiteDosTermos } from '@/services/aceiteDosTermosNoBackend';
 import { backendError } from '@/services/backendError';
 
 const client = generateClient<Schema>();
+
+export type SaveUserProfileOptions = BuildProfileInputOptions & {
+  /** Só o cadastro manda. A edição do perfil não toca no aceite já gravado. */
+  aceiteDosTermos?: AceiteDosTermos;
+};
+
+/**
+ * Os campos do aceite vão no MESMO pedido do perfil: perfil sem aceite não
+ * existe. Antes de o backend ter os campos, eles ficam de fora, e não o
+ * perfil inteiro (ver aceiteDosTermosNoBackend.ts).
+ */
+function camposDoAceite(aceite: AceiteDosTermos | undefined) {
+  if (!aceite) {
+    return {};
+  }
+
+  if (!backendGuardaOAceiteDosTermos()) {
+    console.warn(
+      '[termos] O backend publicado ainda não tem UserProfile.termsVersion/termsAcceptedAt: o aceite não foi gravado. Publique o backend e regere o amplify_outputs.json.',
+    );
+    return {};
+  }
+
+  return { termsVersion: aceite.versao, termsAcceptedAt: aceite.aceitoEm };
+}
 
 /** Quem tenta salvar o perfil sem sessão. A tela reconhece o erro pela classe,
  *  e não por um trecho do texto da mensagem. */
@@ -27,7 +54,7 @@ export class UserNotAuthenticatedError extends Error {
 
 export async function saveUserProfile(
   values: ProfileSetupFormValues,
-  options: BuildProfileInputOptions = {},
+  { aceiteDosTermos, ...options }: SaveUserProfileOptions = {},
 ) {
   // DECISION: Garante que o usuario esta autenticado antes de tentar salvar.
   // Se o usuario nao estiver autenticado, getCurrentUser lanca uma excecao.
@@ -37,7 +64,10 @@ export async function saveUserProfile(
     throw new UserNotAuthenticatedError();
   }
 
-  const input = buildAmplifyUserProfileInput(values, options);
+  const input = {
+    ...buildAmplifyUserProfileInput(values, options),
+    ...camposDoAceite(aceiteDosTermos),
+  };
 
   // DECISION: list() retorna so registros do owner autenticado (auth rule owner()).
   // Se ja existe perfil -> update, evitando duplicata no DynamoDB a cada onboarding.

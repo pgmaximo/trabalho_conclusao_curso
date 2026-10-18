@@ -38,11 +38,17 @@ export default function RegisterRoute() {
     });
   }
 
+  function navigateToTerms() {
+    blurActiveWebElement();
+    router.push('/terms');
+  }
+
   return (
     <RegisterScreen
       onNavigateToLogin={navigateToLogin}
       onRegisterSuccess={navigateToConfirm}
       onGoogleAuthSuccess={navigateAfterGoogleAuth}
+      onOpenTerms={navigateToTerms}
     />
   );
 }

@@ -10,7 +10,9 @@ import { getCurrentUser } from 'aws-amplify/auth';
 import { OnboardingScreen } from '@/screens/OnboardingScreen';
 import { saveUserProfile, UserNotAuthenticatedError } from '@/services/profileSetupRepository';
 import { useUserContext } from '@/contexts/UserContext';
+import type { AceiteDosTermos } from '@/data/termosEPrivacidade';
 import type { ProfileSetupFormValues } from '@/validation/forms_profile_setup';
+import { blurActiveWebElement } from '@/utils/webFocus';
 
 const SESSION_ENDED_MESSAGE = 'Sua sessão terminou. Entre de novo para concluir o perfil.';
 
@@ -20,7 +22,7 @@ export default function ProfileSetupRoute() {
   // (specs/00-fundacao/consistencia-e-textos/spec.md, D4).
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  async function completeProfileSetup(values: ProfileSetupFormValues) {
+  async function completeProfileSetup(values: ProfileSetupFormValues, aceite: AceiteDosTermos) {
     setSubmitError(null);
     try {
       // DECISION: Verifica se o usuario esta realmente autenticado antes de salvar o perfil.
@@ -34,7 +36,7 @@ export default function ProfileSetupRoute() {
         return;
       }
 
-      await saveUserProfile(values);
+      await saveUserProfile(values, { aceiteDosTermos: aceite });
       // Atualiza o UserContext (onboardingCompleted: true) antes de navegar
       await refreshUser();
       router.replace('/dashboard');
@@ -59,6 +61,12 @@ export default function ProfileSetupRoute() {
     <OnboardingScreen
       onBack={() => router.replace('/')}
       onComplete={completeProfileSetup}
+      // push, e não replace: o assistente fica montado por baixo e a pessoa
+      // volta dos termos com tudo o que já tinha preenchido.
+      onOpenTerms={() => {
+        blurActiveWebElement();
+        router.push('/terms');
+      }}
       submitError={submitError}
     />
   );

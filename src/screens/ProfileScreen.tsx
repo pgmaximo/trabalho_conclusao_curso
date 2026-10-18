@@ -30,6 +30,8 @@ type ProfileScreenProps = {
   /** Só é chamado depois de a pessoa confirmar que quer sair. */
   onLogout: () => void | Promise<void>;
   onEditProfile: () => void;
+  /** Abre os Termos de Uso e a Política de Privacidade aceitos no cadastro. */
+  onOpenTerms?: () => void;
   /** Volta para a tela de onde esta foi aberta (o Início ou o hub Mais). */
   onBack?: () => void;
 };
@@ -86,6 +88,7 @@ export function ProfileScreen({
   onSetReminderInterval,
   onLogout,
   onEditProfile,
+  onOpenTerms,
   onBack,
 }: ProfileScreenProps) {
   const { colorScheme } = useThemeContext();
@@ -318,6 +321,20 @@ export function ProfileScreen({
               configuração, e mora agora na própria tela "Dados do smartwatch"
               (specs/02-perfil-home-agenda/home-acesso-completo/spec.md, D4). */}
           <Section title="Configurações" subtitle="Gerencie seus dados e sessão.">
+            {onOpenTerms ? (
+              <Pressable
+                accessibilityRole="button"
+                className="mb-3 flex-row items-center justify-between gap-3 rounded-app border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
+                onPress={onOpenTerms}
+                style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+              >
+                <Text className="flex-1 text-[15px] text-app-text dark:text-app-dark-text">
+                  Termos de Uso e Política de Privacidade
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.iconMuted} />
+              </Pressable>
+            ) : null}
+
             {/* DECISION (correcoes-de-usabilidade, D10): a exportação ainda não
                 existe (dataExportService devolve "unavailable"). A linha parecia
                 um botão comum e só dizia "Em breve" depois do toque. Agora o

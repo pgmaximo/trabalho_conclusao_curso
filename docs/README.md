@@ -9,6 +9,9 @@ caminho literal em dezenas de comentários no código-fonte).
 - `CONEXOES.md` — mapeamento de integrações/conexões do projeto.
 - `DADOS_MOCKADOS.md` — inventário de dados mockados (o que ainda não está
   ligado ao backend real).
+- `lgpd/conformidade-e-pendencias.md` — normas levantadas para os Termos de
+  Uso e a Política de Privacidade (`src/data/termosEPrivacidade.ts`) e o que o
+  aplicativo ainda não cumpre.
 - `prompts/` — prompts de trabalho usados em sessões de IA.
 - `superpowers/plans/` — planos gerados pelo skill `superpowers` durante
   sessões de desenvolvimento.
