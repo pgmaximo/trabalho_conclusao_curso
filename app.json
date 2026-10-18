@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "tcc",
+    "name": "SuaSaúde",
     "slug": "tcc",
     "scheme": "suasaude",
     "version": "1.0.0",
@@ -8,16 +8,22 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.suasaude.app"
     },
     "android": {
+      "package": "com.suasaude.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundImage": "./assets/android-icon-background.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -39,7 +45,6 @@
           "locationWhenInUsePermission": "O SuaSaúde usa sua localização para mostrar campanhas de vacinação da sua região e unidades de saúde próximas."
         }
       ],
-      "expo-image",
       "expo-font",
       "expo-asset",
       [
@@ -49,12 +54,15 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ],
-      "expo-status-bar"
+      ]
     ],
     "extra": {
       "medicineReminders": {
         "serverEnabled": false
+      },
+      "router": {},
+      "eas": {
+        "projectId": "9313125a-0dac-4e94-aeb4-a155baeb0823"
       }
     }
   }
