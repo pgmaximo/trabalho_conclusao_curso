@@ -10,15 +10,17 @@
  * projeto, nao uma categoria de risco reconhecivel -- e nao cobre toda forma
  * que o portugues produz para escrever uma posologia.
  *
- * ESTE ARQUIVO NAO IMPORTA NADA. Nem AWS, nem node:, nem pacote. E o que
- * permite compartilha-lo com o aplicativo (D30) e o que o torna testavel com
- * centenas de textos em milissegundos.
+ * ESTE ARQUIVO NAO IMPORTA NADA alem de `numberParser` (E2), que tem a mesma
+ * regra: nem AWS, nem node:, nem pacote. E o que permite compartilha-lo com o
+ * aplicativo (D30) e o que o torna testavel com centenas de textos em
+ * milissegundos.
  *
  * DUAS PROPRIEDADES QUE SAO CONTRATO:
  * 1. Reprova, nunca reescreve.
  * 2. Na duvida, reprova. Uma resposta boa reprovada custa uma nova geracao;
  *    uma resposta com posologia aprovada custa muito mais.
  */
+import { parseDecimal } from '../extract-document-data/numberParser';
 
 export type RuleId = 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
 
@@ -60,6 +62,17 @@ export type OpcoesDeVerificacao = {
    * oposto do que a R5 quer.
    */
   semDados?: boolean;
+  /**
+   * Os valores de remedio que a ferramenta de medicamentos devolveu no turno,
+   * como chaves de `valoresDeRemedioNoTexto` (E2, D2.4). Com eles, o primeiro e
+   * o segundo padrao da R3 deixam passar o valor CADASTRADO quando a frase nao
+   * prescreve: "o seu cadastro diz 500 mg" e registro, "tome 500 mg" nao.
+   *
+   * Vem de quem chama, como os de cima, e pela mesma razao: so ele viu o que a
+   * ferramenta devolveu. AUSENTE significa nenhuma excecao -- "na duvida,
+   * reprova" de novo. Se viesse do modelo, a resposta diria o que e cadastro.
+   */
+  valoresCadastrados?: readonly string[];
 };
 
 export type Violation = {
@@ -175,7 +188,13 @@ const COISAS_DO_APLICATIVO =
   'exames?|documentos?|consultas?|receitas?|resultados?|registros?|compromissos?|vacinas?|laudos?|anexos?|' +
   // Dose e reforco da CARTEIRA (E8): "voce tem uma dose prevista para 10/11"
   // e o calendario do aplicativo, e era reprovada como diagnostico.
-  'doses?|refor[cç]os?';
+  'doses?|refor[cç]os?|' +
+  // Remedio e estoque do CADASTRO (E2): "voce tem 3 medicamentos cadastrados"
+  // e "voce tem 5 comprimidos registrados" respondem "quais remedios eu tomo"
+  // e "esta acabando", e eram reprovadas como diagnostico. A QUANTIDADE ("5
+  // comprimidos") continua com o padrao de numero, e so passa pela D2.4.
+  // "gotas" NAO entra: "voce tem gota" e a doenca (revisao do E2).
+  'medicamentos?|rem[eé]dios?|comprimidos?|c[aá]psulas?|ampolas?';
 
 /**
  * O que pode vir entre "voce tem" e o inventario sem mudar o sentido (Bloco 11):
@@ -275,9 +294,16 @@ const ateAVacina =
   `\\s+(?:(?:j[aá]|logo|tamb[eé]m|agora)\\s+)?(?:(?:${DETERMINANTE_DE_VACINA})\\s+){0,3}(?:${OBJETO_DE_VACINA})${FIM_R3}`;
 
 /** "voce deve", "voce ja deveria", "voce pode e deve" -- a obrigacao dita a pessoa. */
+/**
+ * Os modais de obrigacao, UMA lista para os padroes que os usam (exame no E7,
+ * vacina no E8, valor cadastrado no E2). Eram tres copias identicas, e o
+ * modal que entrasse numa so faria um padrao reprovar o que o vizinho aprova.
+ */
+const MODAL_DE_OBRIGACAO = 'deve|deveria|precisa|precisaria|tem\\s+que|tem\\s+de|teria\\s+que';
+
 const OBRIGACAO_DITA_A_PESSOA =
   `${INI_R3}voc[eê]\\s+(?:(?:j[aá]|ainda|tamb[eé]m|pode\\s+e)\\s+)?` +
-  `(?:deve|deveria|precisa|precisaria|tem\\s+que|tem\\s+de|teria\\s+que)${FIM_R3}${janela(25)}`;
+  `(?:${MODAL_DE_OBRIGACAO})${FIM_R3}${janela(25)}`;
 
 /**
  * O assunto que torna "em dia" um juizo sobre o cuidado da pessoa. VACINA NAO
@@ -329,7 +355,40 @@ const RECUSA_PERGUNTA_OU_CONDICAO = new RegExp(
   'i',
 );
 
-const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = [
+/**
+ * A familia da unidade, para "comprimido" e "comprimidos", "mL" e "ml",
+ * "cápsula" e "capsulas" serem o mesmo valor. Plural tirado so de palavra com
+ * mais de tres letras: "mcg" e "ui" nao tem plural, e "dose" -> "doses" tem.
+ */
+function familiaDaUnidade(unidade: string): string {
+  const u = unidade.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return u.length > 3 ? u.replace(/s$/, '') : u;
+}
+
+/**
+ * O numero como valor, pela MESMA leitura do laudo (`parseDecimal`, D23):
+ * "2,5" e "2.5" sao o mesmo, e "50.000 UI" e cinquenta mil -- le-lo como 50
+ * aceitaria um valor mil vezes menor (revisao do E2). Uma segunda leitura de
+ * numero pt-BR aqui divergiria daquela na proxima correcao.
+ */
+const numeroDoValor = (texto: string): number | null => {
+  const lido = parseDecimal(texto);
+  return lido.ok ? lido.value : null;
+};
+
+type PadraoR3 = {
+  padrao: RegExp;
+  motivo: string;
+  excecao?: RegExp;
+  /**
+   * So nos dois padroes de NUMERO (E2, D2.4): a chave canonica do valor
+   * casado, comparada com `valoresCadastrados`. Os outros padroes sao de verbo
+   * e de indicacao, e nao ha valor cadastrado a proteger neles.
+   */
+  chaveDoValor?: (casado: string) => string | null;
+};
+
+const PADROES_R3: PadraoR3[] = [
   {
     // "500 mg", "2 comprimidos", "1 cápsula" -- quantidade seguida de unidade
     // de medicamento.
@@ -339,11 +398,21 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = 
     padrao: new RegExp(`\\b\\d+([.,]\\d+)?\\s*(${UNIDADES_DE_REMEDIO})\\b(?!/)`, 'i'),
     motivo:
       'A resposta indica uma quantidade de medicamento. Dose e posologia são de quem prescreve.',
+    chaveDoValor: (casado) => {
+      const [, numero, unidade] = /^(\d+(?:[.,]\d+)?)\s*(.+)$/.exec(casado)!;
+      const valor = numeroDoValor(numero);
+      return valor === null ? null : `${valor}|${familiaDaUnidade(unidade)}`;
+    },
   },
   {
     // "de 8 em 8 horas", "a cada 12 horas" -- intervalo de administracao.
     padrao: /\b(de\s+\d+\s+em\s+\d+\s+horas?|a\s+cada\s+\d+\s+horas?)\b/i,
     motivo: 'A resposta indica um intervalo de administração, que é posologia.',
+    // "de 8 em 12 horas" tem DOIS intervalos e nenhum valor unico: sem chave.
+    chaveDoValor: (casado) => {
+      const numeros = casado.match(/\d+/g)!;
+      return numeros.every((n) => n === numeros[0]) ? `${Number(numeros[0])}|hora` : null;
+    },
   },
   {
     // INDICACAO INDIVIDUAL DE VACINA (E8, D8.4). A campanha e para um GRUPO, e
@@ -416,7 +485,7 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = 
     // curta, que nao atravessa uso do aplicativo nem agenda.
     padrao: new RegExp(
       `${INI_R3}voc[eê]\\s+(?:(?:j[aá]|ainda|tamb[eé]m)\\s+)?` +
-        `(?:deve|deveria|precisa|precisaria|tem\\s+que|tem\\s+de|teria\\s+que)${FIM_R3}${janela(25)}` +
+        `(?:${MODAL_DE_OBRIGACAO})${FIM_R3}${janela(25)}` +
         `${INI_R3}(?:fazer|feito|realizar|realizado|marcar|agendar|repetir)${FIM_R3}${ateOExame(3)}` +
         `|${INI_R3}voc[eê]\\s+(?:precisa|precisaria|necessita)\\s+de${ateOExame(2)}` +
         `|${INI_R3}(?:fa[cç]a|realize|marque|agende|repita)${ateOExame(3)}`,
@@ -573,13 +642,151 @@ const comGlobal = (re: RegExp) => new RegExp(re.source, re.flags.includes('g') ?
  * alocacao repetida sem motivo. `matchAll` clona a expressao internamente,
  * entao o `lastIndex` compartilhado nao vaza de uma chamada para a outra.
  */
-const PADROES_R3_GLOBAIS = PADROES_R3.map(({ padrao, motivo, excecao }) => ({
+const PADROES_R3_GLOBAIS = PADROES_R3.map(({ padrao, motivo, excecao, chaveDoValor }) => ({
   padrao: comGlobal(padrao),
   motivo,
   excecao: excecao && comGlobal(excecao),
+  chaveDoValor,
 }));
 
-const verificarR3: Verificador = (texto) => {
+/**
+ * As chaves canonicas ("500|mg", "8|hora") dos valores de remedio de um texto,
+ * extraidas pelos MESMOS padroes que reprovam (E2, D2.4). Quem monta a lista
+ * de `valoresCadastrados` passa o que a ferramenta devolveu por aqui; uma
+ * segunda regex, em outro arquivo, divergiria desta.
+ */
+export function valoresDeRemedioNoTexto(texto: string): string[] {
+  return PADROES_COM_VALOR.flatMap(({ padrao, chaveDoValor }) =>
+    [...texto.matchAll(padrao)]
+      .map((achado) => chaveNoTexto(texto, achado, chaveDoValor))
+      .filter((chave): chave is string => chave !== null),
+  );
+}
+
+/** So os padroes de numero, os unicos com chave de valor. */
+const PADROES_COM_VALOR = PADROES_R3_GLOBAIS.flatMap(({ padrao, chaveDoValor }) =>
+  chaveDoValor ? [{ padrao, chaveDoValor }] : [],
+);
+
+/**
+ * A fracao e a faixa: "1/2 comprimido" e "3 ou 5 comprimidos". O padrao de
+ * quantidade so ve o ULTIMO numero, e a chave dele ("2|comprimido") seria
+ * outro valor -- quatro vezes a dose, no caso da fracao (revisao do E2).
+ */
+const FRACAO_OU_FAIXA_ANTES = /(?:\d\s*\/|\d\s*(?:ou|a|e|-|–|até)\s*)$/i;
+
+/** A chave do valor casado, ou nenhuma quando ele e parte de fracao ou faixa. */
+function chaveNoTexto(
+  texto: string,
+  achado: RegExpMatchArray,
+  chaveDoValor: (casado: string) => string | null,
+): string | null {
+  const antes = texto.slice(Math.max(0, achado.index! - 10), achado.index);
+  return FRACAO_OU_FAIXA_ANTES.test(antes) ? null : chaveDoValor(achado[0]);
+}
+
+/**
+ * A excecao do valor cadastrado (D2.4) precisa de uma ANCORA DE REGISTRO na
+ * frase: "esta cadastrado", "registrados", "o seu cadastro", "voce definiu",
+ * "voce anotou". Sem ela, o numero certo vale como recomendacao -- "Toma 500
+ * mg de manha", "Recomendo 500 mg", "Pode sim! 2 comprimidos" passavam todas
+ * na primeira versao, que so tinha a lista de verbos proibidos. Uma lista
+ * fechada de verbos sempre deixa forma de fora; a ancora inverte o onus: a
+ * frase tem de DIZER que fala do cadastro (revisao do E2).
+ */
+const ANCORA_DE_REGISTRO = new RegExp(
+  `${INI_R3}(?:cadastr|registr|anotad)${L_R3}*|${INI_R3}voc[eê]\\s+(?:definiu|anotou)${FIM_R3}`,
+  'i',
+);
+
+/**
+ * Prescricao, recomendacao, permissao ou mudanca. Mesmo com a ancora, qualquer
+ * uma delas na frase tira a excecao: "recomendo os 500 mg cadastrados" e "pode
+ * voltar aos 500 mg cadastrados" indicam, com o valor do cadastro.
+ *
+ * Sem exigir "voce" antes do modal: "Pode sim!" e "Tem que ser 500 mg" dizem a
+ * pessoa o que fazer sem nomea-la. O preco e reprovar "o cadastro pode estar
+ * desatualizado: 5 comprimidos registrados", e o prompt orienta a frase.
+ */
+const PRESCRICAO_NA_FRASE = new RegExp(
+  `${INI_R3}(?:` +
+    // Radicais, em qualquer forma ("toma", "tomando", "utilize", "ingerir"):
+    // tomar e usar; mudar a dose ou a frequencia; recomendar.
+    `(?:tom[aeo]|us[aeo]|utiliz|inger|ingir|aplic|apliqu|ping|injet|` +
+    `aument|diminu|reduz|dobr|compens|troc|troqu|mud|espa[cç]|volt|continu|mant[eé]|` +
+    `recomend|sugir|indic)${L_R3}*` +
+    // "dê" so com acento: sem ele, "de" e a preposicao ("limite de estoque").
+    `|dê|fa[cç]a\\s+uso|pass[ea]r?|seguir|siga` +
+    // obrigacao, permissao e juizo, com ou sem "voce"
+    `|${MODAL_DE_OBRIGACAO}|devem|pode|poderia|podem|basta` +
+    `|ideal|melhor|certo|suficientes?|liberad[oa]s?` +
+    `)${FIM_R3}`,
+  'i',
+);
+
+/**
+ * Fim de frase: `.`, `!` ou `?` seguidos de espaco e maiuscula, ou do fim do
+ * texto. Quebra de linha NAO separa, e ponto seguido de minuscula ou numero
+ * tambem nao: "Voce deve tomar:" seguido de "500 mg" na linha de baixo, e
+ * "Tome aprox. 500 mg", eram partidos no meio, e o verbo ficava na "frase" de
+ * cima (revisao do E2). Errar juntando duas frases so torna a excecao mais
+ * rara, que e o lado seguro.
+ *
+ * E uma nocao de frase PROPRIA desta excecao, mais larga que a `janela` e que
+ * `QUEBRA_DE_ORACAO`: a lista de prescricao olha a frase inteira (onde quer
+ * que o verbo esteja), e a ancora de registro olha so a ORACAO do valor.
+ */
+const FIM_DE_FRASE = /[.!?](?=\s+[A-ZÀ-Ý]|\s*$)/g;
+
+/** `QUEBRA_DE_ORACAO` com `g`, para achar todos os limites de oracao. */
+const QUEBRA_DE_ORACAO_GLOBAL = new RegExp(QUEBRA_DE_ORACAO.source, 'gi');
+
+/**
+ * O trecho em volta de [inicio, fim) ate os limites mais proximos. Os limites
+ * sao achados no texto INTEIRO, e nao num recorte: num recorte, o `$` do fim
+ * de frase casava no fim do pedaco, e "Tome aprox. " virava uma frase
+ * completa. Limite DENTRO do trecho ("2.5 ml") nao conta.
+ */
+function trechoEmVolta(texto: string, inicio: number, fim: number, limites: RegExp): string {
+  let comeco = 0;
+  let final = texto.length;
+  for (const m of texto.matchAll(limites)) {
+    const depois = m.index + m[0].length;
+    if (depois <= inicio) comeco = depois;
+    else if (m.index >= fim) {
+      final = m.index;
+      break;
+    }
+  }
+  return texto.slice(comeco, final);
+}
+
+/**
+ * O valor casado e o cadastrado, dito como cadastro e sem indicar nada?
+ *
+ * A ancora vale so na ORACAO do valor, como a recusa de `absolvido`: "o
+ * cadastro esta desatualizado, MAS 500 mg resolve" sao duas afirmacoes, e a
+ * ancora so fala da primeira. A prescricao vale na FRASE inteira, onde quer
+ * que o verbo esteja.
+ */
+function ehValorCadastrado(
+  texto: string,
+  achado: RegExpMatchArray,
+  chaveDoValor: (casado: string) => string | null,
+  cadastrados: Set<string>,
+): boolean {
+  const chave = chaveNoTexto(texto, achado, chaveDoValor);
+  if (chave === null || !cadastrados.has(chave)) return false;
+  const inicio = achado.index!;
+  const fim = inicio + achado[0].length;
+  return (
+    ANCORA_DE_REGISTRO.test(trechoEmVolta(texto, inicio, fim, QUEBRA_DE_ORACAO_GLOBAL)) &&
+    !PRESCRICAO_NA_FRASE.test(trechoEmVolta(texto, inicio, fim, FIM_DE_FRASE))
+  );
+}
+
+const verificarR3: Verificador = (texto, { valoresCadastrados }) => {
+  const cadastrados = new Set(valoresCadastrados ?? []);
   // Duas etapas. Primeiro junta, de TODOS os padroes, o que casou: os trechos
   // que a excecao do proprio padrao absolveu e os que ficaram como candidatos.
   // Depois reprova o primeiro candidato que nao esteja dentro de um trecho
@@ -591,7 +798,7 @@ const verificarR3: Verificador = (texto) => {
   const candidatos: Violation[] = [];
   const posicoes: Array<[number, number]> = [];
 
-  for (const { padrao, motivo, excecao } of PADROES_R3_GLOBAIS) {
+  for (const { padrao, motivo, excecao, chaveDoValor } of PADROES_R3_GLOBAIS) {
     // TODAS as ocorrencias, e nao so a primeira. Com `exec` sem `g`, uma
     // primeira ocorrencia absolvida pela recusa encerrava o padrao, e uma
     // segunda, real, nunca era olhada -- "Nao posso dizer se voce deve fazer
@@ -599,6 +806,12 @@ const verificarR3: Verificador = (texto) => {
     // (achado da revisao do E7, 2026-10-17).
     for (const achado of texto.matchAll(padrao)) {
       const fim = achado.index + achado[0].length;
+      // O valor cadastrado (E2, D2.4) e IGNORADO, e nao absolvido: absolver
+      // criaria um trecho protegido para os padroes seguintes, e ignorar so
+      // tira este achado -- o padrao de verbo continua vendo a mesma frase.
+      if (chaveDoValor && cadastrados.size > 0 && ehValorCadastrado(texto, achado, chaveDoValor, cadastrados)) {
+        continue;
+      }
       if (excecao && absolvido(texto, achado.index, excecao)) {
         absolvidos.push([achado.index, fim]);
       } else {

@@ -1,6 +1,6 @@
 # Decisões do E2 — Medicamentos completos no chat
 
-Épico: [E2 no PRD](../prd.md) · Ordem de entrega: 3º · Três decisões: D2.1, D2.2 e D2.3
+Épico: [E2 no PRD](../prd.md) · Ordem de entrega: 3º · Quatro decisões: D2.1, D2.2, D2.3 e D2.4 (a D2.4 nasceu na spec)
 
 ## O que o código faz hoje (verificado)
 
@@ -54,7 +54,7 @@ A ferramenta devolve `estoqueAtual`, `estoqueInicial`, `limiteDeEstoqueBaixo` e 
 
 **Motivo:** entrega o valor com o dado que existe e sem cálculo que possa estar errado. A opção B só deve voltar se um dia o cadastro guardar unidades por tomada; isso fica registrado como possível melhoria futura, fora deste PRD.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (produto, 2026-10-17).
 
 ---
 
@@ -86,7 +86,7 @@ Devolver `observacoes` com teto de caracteres (ex.: 300). O prompt já manda tra
 
 **Motivo:** o chat já lê campos livres equivalentes do perfil. Excluir só este seria inconsistente e deixaria uma lacuna visível, enquanto o risco é coberto pelas defesas que já existem.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (produto, 2026-10-17).
 
 ---
 
@@ -117,7 +117,44 @@ Devolver `observacoes` com teto de caracteres (ex.: 300). O prompt já manda tra
 
 **Motivo:** evita duas fontes para o mesmo fato. O E3 vem logo depois na ordem e é quem tem o histórico confiável.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (produto, 2026-10-17).
+
+---
+
+## D2.4 — A R3 e o valor cadastrado (nasceu na spec, 2026-10-17)
+
+**O que decidir:** como a resposta cita estoque, intervalo e dose **cadastrados** sem ser reprovada pela R3.
+
+**O que o código faz hoje (verificado):** o primeiro padrão da R3 (`languageRules.ts`, `PADROES_R3`) reprova qualquer número seguido de unidade de remédio (`22 comprimidos`, `500 mg`, `3 doses`), e o segundo reprova `a cada 8 horas` e `de 8 em 8 horas`. Nenhum dos dois tem exceção: a verificação recebe só o texto, `questionKind`, `temOrigem` e `semDados`, e não sabe de onde o número veio. O teste `'Tomo 2 comprimidos, segundo o seu registro.'` (`languageRules.test.ts`) só garante que a **R4** não dispara; a R3 dispara. Consequência: as respostas às histórias do PRD 2.1 e 2.2 ("é a cada quantas horas?", "meu remédio está acabando?") e a pergunta que já existe ("qual a dose que cadastrei?") caem em nova geração e, depois, no modo degradado.
+
+### Opção A — Exceção estreita ligada ao dado *(recomendada)*
+
+Quem chama a verificação passa os valores que `consultar_medicamentos` devolveu neste turno (mesmo desenho de `temOrigem` e `semDados`: vem de fora, ausente significa "sem exceção"). O número com unidade, ou o intervalo, só passa quando o **mesmo valor** está nessa lista **e** a frase não tem verbo de prescrição nem obrigação dita à pessoa. "Tome 2 comprimidos" e "você deve tomar 500 mg" continuam reprovados.
+
+**Benefícios**
+- Responde as perguntas do PRD com o dado da pessoa.
+- Determinística e testável: a exceção depende do dado, não de adivinhar a prosa.
+- Fecha também a lacuna que já existe para a dose cadastrada.
+
+**Malefícios**
+- Mexe na R3, que é a regra que mais protege. Mitigação: a exceção é por valor exato, a ausência da lista é "reprova", e os casos adversariais entram na suíte.
+- O esforço do épico passa de P para M.
+
+### Opção B — R3 intacta, resposta sem número
+
+**Benefícios:** nenhuma mudança na verificação.
+**Malefícios:** "é a cada quantas horas?" fica sem resposta; o modelo tende a repetir o número e cair em nova geração.
+
+### Opção C — Ferramenta sem número
+
+**Benefícios:** nada pode vazar.
+**Malefícios:** contradiz a D2.1 e o PRD 2.1.
+
+### Recomendação: **Opção A**
+
+**Motivo:** repetir o que a pessoa cadastrou não é indicar dose, e o RT5 já diz que a ferramenta pode devolver o dado cru. A exceção amarrada ao valor exato é o que separa "o seu cadastro diz 500 mg" de "tome 500 mg".
+
+**Decisão:** **Opção A** (produto, 2026-10-17).
 
 ---
 

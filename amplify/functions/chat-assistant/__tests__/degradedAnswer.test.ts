@@ -135,6 +135,43 @@ describe('buildDegradedAnswer', () => {
     expect(r1).toEqual([]);
   });
 
+  it('o estoque baixo entra sem numero (E2)', () => {
+    // "estoque baixo" responde "esta acabando?" sem numero: "5 comprimidos"
+    // numa linha fixa seria reprovado pela R3, e o modo degradado nao tem a
+    // lista de valores cadastrados da D2.4 -- ele passa POR CONSTRUCAO.
+    const r = buildDegradedAnswer([
+      {
+        name: 'consultar_medicamentos',
+        output: {
+          disponivel: true,
+          emUso: [
+            { nome: 'Metformina', doseRegistrada: '50 mg', horarios: ['08:00'], ativo: true, estoqueAtual: 5, estoqueBaixo: true },
+          ],
+        },
+      },
+    ]);
+    expect(r!.texto).toContain('estoque baixo');
+    expect(r!.texto).not.toMatch(/5/);
+    expect(r!.texto).not.toContain('50 mg');
+    expect(checkLanguageRules(r!.texto, { questionKind: 'clinica', temOrigem: true })).toEqual({ ok: true });
+  });
+
+  it('os remedios que ficaram fora do teto sao contados (H11, revisao do E2)', () => {
+    const r = buildDegradedAnswer([
+      {
+        name: 'consultar_medicamentos',
+        output: {
+          disponivel: true,
+          emUso: [{ nome: 'Metformina', horarios: ['08:00'], ativo: true, estoqueBaixo: false }],
+          omitidos: 5,
+        },
+      },
+    ]);
+    expect(r!.texto).toMatch(/mais 5 medicamentos/);
+    expect(r!.texto).toMatch(/tela de Medicamentos/);
+    expect(checkLanguageRules(r!.texto, { questionKind: 'clinica', temOrigem: true })).toEqual({ ok: true });
+  });
+
   it('a dose cadastrada NAO entra no texto de modelo fixo', () => {
     // A tool pode devolver a posologia ao modelo -- e o dado da pessoa. Mas
     // uma linha de texto com "500 mg" e exatamente o que a R3 reprova, e o

@@ -47,4 +47,12 @@ export type ChatTool = {
    * e divergiria em silencio.
    */
   renderDegraded?: (output: unknown) => DegradedBlock | null;
+  /**
+   * Os valores de remedio que a propria saida traz, como chaves da R3 (E2,
+   * D2.4), para a verificacao deixar passar "o seu cadastro diz 500 mg". Mora
+   * na tool pelo mesmo motivo do `renderDegraded`: quem conhece a forma da
+   * saida e quem a produz, e a verificacao nao precisa saber o nome de
+   * nenhuma tool. Ausente = a tool nao abre excecao nenhuma.
+   */
+  valoresCadastrados?: (output: unknown) => string[];
 };

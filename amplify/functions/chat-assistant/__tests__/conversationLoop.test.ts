@@ -23,6 +23,7 @@ jest.mock('@aws-sdk/client-bedrock-runtime', () => ({
 }));
 
 const mockRunTool = jest.fn();
+const mockFindTool = jest.fn();
 jest.mock('../tools', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { z } = require('zod') as typeof import('zod');
@@ -44,7 +45,7 @@ jest.mock('../tools', () => {
       },
     ],
     runTool: (...a: unknown[]) => mockRunTool(...a),
-    findTool: () => undefined,
+    findTool: (...a: unknown[]) => mockFindTool(...a),
   };
 });
 
@@ -419,5 +420,28 @@ describe('a falha da SEGUNDA geracao tambem deixa rastro (Bloco 10)', () => {
     mockSend.mockReset().mockResolvedValue(pedeTool('consultar_analito'));
     await regenerateAnswer(ENTRADA, t, 'motivo');
     expect(eventos()[0]).toContain('"motivo":"ferramenta-na-segunda"');
+  });
+});
+
+describe('os valores cadastrados de cada tool (E2, D2.4)', () => {
+  // A tool que conhece a forma da propria saida diz quais valores devolveu,
+  // como o `renderDegraded`. O laco grava isso no transcript, e a verificacao
+  // so le -- sem saber o nome de nenhuma tool.
+  it('grava no transcript o que o gancho da tool devolveu', async () => {
+    mockFindTool.mockReturnValue({ valoresCadastrados: () => ['500|mg'] });
+    mockSend
+      .mockResolvedValueOnce(pedeTool('consultar_analito'))
+      .mockResolvedValueOnce(respondeTexto('Ok.'));
+    const r = await runConversationTurn(ENTRADA);
+    expect(r.transcript.toolOutputs[0].valoresCadastrados).toEqual(['500|mg']);
+  });
+
+  it('sem gancho, a tool nao tem valor cadastrado', async () => {
+    mockFindTool.mockReturnValue(undefined);
+    mockSend
+      .mockResolvedValueOnce(pedeTool('consultar_analito'))
+      .mockResolvedValueOnce(respondeTexto('Ok.'));
+    const r = await runConversationTurn(ENTRADA);
+    expect(r.transcript.toolOutputs[0].valoresCadastrados).toBeUndefined();
   });
 });

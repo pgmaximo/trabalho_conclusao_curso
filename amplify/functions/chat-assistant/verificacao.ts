@@ -264,6 +264,20 @@ function limparGeracao<T extends { ok: boolean }>(resultado: T): T {
 }
 
 /**
+ * Os valores de remedio que as tools devolveram no turno (E2, D2.4), para a
+ * R3 deixar passar "o seu cadastro diz 500 mg". Cada tool os declara pelo
+ * proprio gancho, e o laco os grava no transcript; aqui so se juntam.
+ *
+ * Mesma razao de `temOrigemDeclarada` e `nenhumDadoVeio`: so quem chama viu o
+ * que as tools devolveram. Sem tool que declare valor no turno, a lista vem
+ * vazia e nenhum valor tem excecao -- inclusive o que o modelo escrevesse de
+ * cabeca.
+ */
+function valoresCadastradosDoTurno(toolOutputs: TurnTranscript['toolOutputs']): string[] {
+  return toolOutputs.flatMap((t) => t.valoresCadastrados ?? []);
+}
+
+/**
  * As ferramentas foram chamadas e TODAS disseram que nao ha dado?
  *
  * As duas metades da pergunta importam. Sem a primeira -- "foram chamadas" --
@@ -412,8 +426,10 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
       questionKind: tipoDaSegunda,
       temOrigem: temOrigemDeclarada(segunda.answer, entrada),
       // A segunda geracao NAO refaz o laco de ferramentas (D31), entao o que
-      // elas devolveram continua sendo o da primeira.
+      // elas devolveram continua sendo o da primeira -- e os valores
+      // cadastrados tambem.
       semDados,
+      valoresCadastrados: valoresCadastradosDoTurno(transcript.toolOutputs),
     });
     const citacoesOkNaSegunda = citacoesConferem(segunda.answer, indice);
     if (citacoesOkNaSegunda && (recheck.ok || somenteR2(recheck))) {
@@ -463,6 +479,7 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     questionKind: tipo,
     temOrigem: temOrigemDeclarada(primeira.answer, entrada),
     semDados,
+    valoresCadastrados: valoresCadastradosDoTurno(primeira.transcript.toolOutputs),
   });
   const citacoesOk = citacoesConferem(primeira.answer, indice);
 

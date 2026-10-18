@@ -346,3 +346,150 @@ describe('vacinação: indicação individual (E8, D8.4)', () => {
     );
   });
 });
+
+/**
+ * O VALOR CADASTRADO (E2, D2.4). Repetir o que a pessoa cadastrou -- "o seu
+ * cadastro diz 500 mg" -- nao e indicar dose, e ate o E2 a R3 reprovava isso
+ * do mesmo jeito que "tome 500 mg". A excecao so vale quando o MESMO valor veio
+ * da ferramenta de medicamentos no turno (quem chama passa a lista) e a frase
+ * nao prescreve. Os dois lados ficam aqui juntos, porque uma excecao testada
+ * so pelo lado que passa e uma brecha sem guarda.
+ */
+describe('o valor cadastrado (E2, D2.4)', () => {
+  const CADASTRO = ['500|mg', '5|comprimido', '10|comprimido', '8|hora', '2.5|ml'];
+
+  const QUE_PASSAM = [
+    'O seu cadastro da metformina está com 500 mg.',
+    'Você tem 5 comprimidos registrados da metformina.',
+    'A losartana está cadastrada a cada 8 horas.',
+    'O limite de estoque baixo que você definiu é 10 comprimidos.',
+    'O xarope está cadastrado com 2,5 ml.',
+    // A permissao esta na OUTRA frase: a excecao olha a frase do valor.
+    'A metformina está cadastrada com 500 mg. Você pode ver isso na tela de Medicamentos.',
+  ];
+
+  const temR3 = (r: ReturnType<typeof checkLanguageRules>) =>
+    !r.ok && r.violations.some((v) => v.rule === 'R3');
+
+  describe.each(['clinica', 'operacional'] as const)('pergunta %s', (questionKind) => {
+    it.each(QUE_PASSAM)('passa pela R3 com o cadastro no turno: "%s"', (frase) => {
+      expect(temR3(checkLanguageRules(frase, { questionKind, valoresCadastrados: CADASTRO }))).toBe(false);
+    });
+
+    it.each(QUE_PASSAM)('continua reprovada sem a lista: "%s"', (frase) => {
+      expect(temR3(checkLanguageRules(frase, { questionKind }))).toBe(true);
+    });
+
+    it.each(['Você tem 3 medicamentos cadastrados.', 'Você tem 2 remédios em uso.'])(
+      // "voce tem" + remedio e INVENTARIO, como "voce tem 3 vacinas" (U3b) e
+      // "voce tem uma dose prevista" (E8). Sem numero de dose na frase, nao
+      // depende da lista.
+      'o remédio depois de "você tem" é inventário, não diagnóstico: "%s"',
+      (frase) => {
+        expect(temR3(checkLanguageRules(frase, { questionKind }))).toBe(false);
+      },
+    );
+
+    it('"você tem" + condição continua diagnóstico', () => {
+      expect(temR3(checkLanguageRules('Você tem diabetes.', { questionKind, valoresCadastrados: CADASTRO }))).toBe(true);
+    });
+
+    it('continua reprovada com a lista vazia', () => {
+      const r = checkLanguageRules('O seu cadastro da metformina está com 500 mg.', {
+        questionKind,
+        valoresCadastrados: [],
+      });
+      expect(temR3(r)).toBe(true);
+    });
+
+    it.each([
+      // valor que nao e o cadastrado
+      'A losartana costuma ser de 100 mg.',
+      // mesma quantidade, outra familia de unidade
+      'O xarope está cadastrado com 500 ml.',
+      // a frase prescreve, com o valor cadastrado ou sem ele
+      'Tome 2 comprimidos.',
+      'Tome 5 comprimidos.',
+      'Você pode tomar 500 mg.',
+      'Você pode tomar os 500 mg cadastrados.',
+      'Você deve tomar a cada 8 horas.',
+      'Aumente para 1000 mg.',
+      'Tome a cada 48 horas.',
+      'Você precisa tomar 5 comprimidos hoje.',
+    ])('reprovada mesmo com o cadastro no turno: "%s"', (frase) => {
+      expect(temR3(checkLanguageRules(frase, { questionKind, valoresCadastrados: CADASTRO }))).toBe(true);
+    });
+  });
+});
+
+/**
+ * Revisao do E2 (2026-10-17). Os dois revisores provaram que uma lista de
+ * verbos proibidos sempre deixa forma de fora: "Toma 500 mg", "Recomendo 500
+ * mg", "Pode sim! 2 comprimidos". A excecao passou a exigir uma ANCORA DE
+ * REGISTRO na frase ("cadastrado", "registrado", "voce definiu"), alem de nao
+ * ter verbo de prescricao. Cada frase abaixo foi aprovada pela primeira versao.
+ */
+describe('revisão do E2: a exceção exige âncora de registro', () => {
+  const CADASTRO = ['500|mg', '1|comprimido', '2|comprimido', '5|comprimido', '10|comprimido', '8|hora', '12|hora'];
+  const temR3 = (r: ReturnType<typeof checkLanguageRules>) =>
+    !r.ok && r.violations.some((v) => v.rule === 'R3');
+
+  describe.each(['clinica', 'operacional'] as const)('pergunta %s', (questionKind) => {
+    it.each([
+      // sem ancora de registro
+      'Toma 500 mg de manhã.',
+      'Continue tomando 500 mg.',
+      'Continue com os 500 mg da metformina.',
+      'Mantenha 5 comprimidos por dia.',
+      'Recomendo 500 mg.',
+      'O ideal para você é 500 mg.',
+      'Pode seguir com 500 mg.',
+      'Você vai precisar de 500 mg.',
+      'Pode sim! 2 comprimidos de uma vez não tem problema.',
+      'Tem que ser 500 mg.',
+      'Vc deve ficar com 500 mg.',
+      'Basta 1 comprimido a cada 8 horas.',
+      'Se tiver dor, 2 comprimidos.',
+      'Pode espaçar para a cada 12 horas.',
+      // o verbo em outra "frase" que nao e frase
+      'Você pode tomar, sim. 2 comprimidos de uma vez.',
+      'Você pode, sim.\n2 comprimidos cadastrados de uma vez.',
+      'Você deve tomar:\n500 mg cadastrados de manhã.',
+      'Tome a metformina aprox. 500 mg cadastrados.',
+      // com ancora, mas recomendando ou mudando
+      'Recomendo os 500 mg cadastrados.',
+      'Pode voltar aos 500 mg cadastrados.',
+      'O ideal são os 500 mg registrados.',
+      // fracao, faixa e intervalo com dois numeros
+      'A dose cadastrada é 1/2 comprimido.',
+      'Estão registrados 3 ou 5 comprimidos.',
+      'A losartana está cadastrada de 8 em 12 horas.',
+      // achados do /simplify: "ingerir" e a ancora em OUTRA oracao
+      'Ingerir os 500 mg cadastrados.',
+      'O cadastro está desatualizado, mas 500 mg resolve.',
+      'O registro é antigo, então 500 mg basta.',
+    ])('reprovada com o cadastro no turno: %j', (frase) => {
+      expect(temR3(checkLanguageRules(frase, { questionKind, valoresCadastrados: CADASTRO }))).toBe(true);
+    });
+
+    it('o milhar em pt-BR é o valor cadastrado', () => {
+      const r = checkLanguageRules('A vitamina D está cadastrada com 50.000 UI.', {
+        questionKind,
+        valoresCadastrados: ['50000|ui'],
+      });
+      expect(temR3(r)).toBe(false);
+    });
+
+    it('e não um valor mil vezes menor', () => {
+      const r = checkLanguageRules('O seu cadastro está com 50 UI.', {
+        questionKind,
+        valoresCadastrados: ['50000|ui'],
+      });
+      expect(temR3(r)).toBe(true);
+    });
+
+    it.each(['Você tem gota.', 'Você está com gota.'])('a doença "gota" continua diagnóstico: %j', (frase) => {
+      expect(temR3(checkLanguageRules(frase, { questionKind }))).toBe(true);
+    });
+  });
+});

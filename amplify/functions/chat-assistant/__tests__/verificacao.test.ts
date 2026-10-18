@@ -977,3 +977,75 @@ describe('a cidade do pedido chega ao laco (E8)', () => {
     expect(mockRunConversationTurn.mock.calls[0][0].local).toBeNull();
   });
 });
+
+/**
+ * O valor cadastrado (E2, D2.4). A lista de valores que a R3 deixa passar sai
+ * do que `consultar_medicamentos` devolveu NO TURNO -- nunca do modelo. Sem a
+ * ferramenta, nenhum valor tem excecao.
+ */
+describe('o valor cadastrado (E2)', () => {
+  const METFORMINA = {
+    nome: 'Metformina',
+    doseRegistrada: '500 mg',
+    forma: 'comprimido',
+    frequencia: 'todos os dias',
+    diasDaSemana: null,
+    intervaloHoras: null,
+    horarios: ['08:00'],
+    inicio: '2026-01-01',
+    termino: null,
+    ativo: true,
+    unidade: 'comprimidos',
+    estoqueAtual: 5,
+    estoqueInicial: 30,
+    limiteDeEstoqueBaixo: 10,
+    estoqueBaixo: true,
+    observacoes: null,
+    observacoesCortadas: false,
+  };
+  // A saida vem SEM valor nenhum de proposito: quem diz o que e cadastrado e
+  // o campo `valoresCadastrados` do transcript.
+  const SAIDA_DE_MEDICAMENTOS = { disponivel: true, emUso: [{ ...METFORMINA, estoqueAtual: null, doseRegistrada: null }], encerrados: [], omitidos: 0 };
+  const ESTOQUE = 'Você tem 5 comprimidos registrados da metformina.';
+
+  // Os valores chegam pelo gancho da tool, gravado no transcript pelo laco
+  // (revisao do E2): a verificacao nao le a saida nem conhece o nome da tool.
+  function turnoDeMedicamentos(texto: string) {
+    const t = turno(texto, ['consultar_medicamentos']);
+    const toolOutputs = [
+      { name: 'consultar_medicamentos', output: SAIDA_DE_MEDICAMENTOS, valoresCadastrados: ['5|comprimido', '500|mg'] },
+    ];
+    return { ...t, transcript: { ...t.transcript, toolOutputs } };
+  }
+
+  it('o estoque cadastrado passa na primeira', async () => {
+    mockRunConversationTurn.mockResolvedValue(turnoDeMedicamentos(ESTOQUE));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(ESTOQUE);
+    expect(mockRegenerateAnswer).not.toHaveBeenCalled();
+  });
+
+  it('o mesmo texto sem a ferramenta no turno e reprovado', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(ESTOQUE, []));
+    mockRegenerateAnswer.mockResolvedValue(turno(ESTOQUE, []));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(mockRegenerateAnswer).toHaveBeenCalledTimes(1);
+    expect(r.status).not.toMatch(/APROVADA/);
+  });
+
+  it('a nova geracao recebe a lista da primeira (o laco nao e refeito)', async () => {
+    mockRunConversationTurn.mockResolvedValue(turnoDeMedicamentos('Tome 5 comprimidos.'));
+    mockRegenerateAnswer.mockResolvedValue(turno(ESTOQUE, ['consultar_medicamentos']));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+    expect(r.texto).toBe(ESTOQUE);
+  });
+
+  it('frase que prescreve e reprovada mesmo com o valor cadastrado', async () => {
+    mockRunConversationTurn.mockResolvedValue(turnoDeMedicamentos('Tome 5 comprimidos.'));
+    mockRegenerateAnswer.mockResolvedValue(turnoDeMedicamentos('Você pode tomar 500 mg.'));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).not.toMatch(/APROVADA/);
+  });
+});

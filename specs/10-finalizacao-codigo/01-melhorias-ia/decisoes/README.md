@@ -17,7 +17,7 @@ Um épico só passa para "Em especificação" depois que todas as suas decisões
 |---|---|---|---|---|---|
 | 1 | E7 Prevenção | [E7](./E7-recomendacoes-prevencao.md) | D7.1 fonte dos dados · D7.2 idioma e texto · D7.3 reforço da R3 (nasceu no planejamento, registrada no `plan.md` do E7) | A · A · A | Decidido (A · A · A, 2026-10-17) |
 | 2 | E8 Vacinação | [E8](./E8-campanhas-e-postos.md) | D8.1 município · D8.2 cache vazio · D8.3 leitura sem dono · P1 campanhas pelo calendário · D8.4 reforço da R3 para vacina (as duas últimas nasceram na spec) | A · A · A · A · A | Decidido (A · A · A · A · A, 2026-10-17) |
-| 3 | E2 Medicamentos | [E2](./E2-medicamentos-completos.md) | D2.1 estoque · D2.2 observações · D2.3 "tomado hoje" | A · A · A | Aguardando |
+| 3 | E2 Medicamentos | [E2](./E2-medicamentos-completos.md) | D2.1 estoque · D2.2 observações · D2.3 "tomado hoje" · D2.4 R3 e o valor cadastrado (nasceu na spec) | A · A · A · A | Decidido (A · A · A · A, 2026-10-17) |
 | 4 | E9 Interações | [E9](./E9-interacoes-medicamentosas.md) | D9.1 onde mora o dataset · D9.2 candidatos · D9.3 nome não reconhecido | A · A · A | Aguardando |
 | 5 | E1 Contexto | [E1](./E1-contexto-e-mapa-do-app.md) | D1.1 onde entra a data · D1.2 fuso · D1.3 mapa do app | A · A · A | Aguardando |
 

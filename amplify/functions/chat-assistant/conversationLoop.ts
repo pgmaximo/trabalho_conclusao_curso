@@ -17,7 +17,7 @@ import { toStructuredOutputSchema } from '../extract-document-data/extractionSch
 
 import { SYSTEM_PROMPT, buildUserMessage } from './chatPrompt';
 import { chatAnswerSchema, extrairResposta, type ChatAnswer } from './chatSchema';
-import { CHAT_TOOLS, runTool } from './tools';
+import { CHAT_TOOLS, findTool, runTool } from './tools';
 import type { ChatIdentity } from './auth';
 import type { AnexoLido, LocalDoUsuario } from './types';
 
@@ -97,7 +97,9 @@ export type TurnInput = {
  */
 export type TurnTranscript = {
   messages: unknown[];
-  toolOutputs: { name: string; output: unknown }[];
+  /** `valoresCadastrados` vem do gancho da tool (E2, D2.4), calculado AQUI,
+   *  onde a tool esta a mao: a verificacao so le, sem conhecer nenhuma tool. */
+  toolOutputs: { name: string; output: unknown; valoresCadastrados?: string[] }[];
 };
 
 export type TurnOutcome =
@@ -298,7 +300,12 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
         });
         // Guardado ESTRUTURADO para o modo degradado (C5b), alem de
         // serializado para o modelo.
-        transcript.toolOutputs.push({ name: chamada.name, output: saida });
+        const valoresCadastrados = findTool(chamada.name)?.valoresCadastrados?.(saida);
+        transcript.toolOutputs.push({
+          name: chamada.name,
+          output: saida,
+          ...(valoresCadastrados ? { valoresCadastrados } : {}),
+        });
         resultados.push({
           toolResult: { toolUseId: chamada.toolUseId, content: [{ json: saida }] },
         });

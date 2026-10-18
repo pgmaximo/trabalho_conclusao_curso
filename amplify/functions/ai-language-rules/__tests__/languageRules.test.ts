@@ -1,4 +1,4 @@
-import { checkLanguageRules, temMedidaDeExame } from '../languageRules';
+import { checkLanguageRules, temMedidaDeExame, valoresDeRemedioNoTexto } from '../languageRules';
 
 const clinica = { questionKind: 'clinica' as const };
 
@@ -574,5 +574,49 @@ describe('R3 — Bloco 10: a categoria do laboratorio atribuida ao valor', () =>
     expect(
       R3('A referência do laboratório é: Normal: inferior a 5,7%; Pré-diabetes: 5,7% a 6,4%; Diabetes: igual ou superior a 6,5%.'),
     ).toBe(false);
+  });
+});
+
+/**
+ * A chave canonica do valor de remedio (E2, D2.4). E ela que liga o que a
+ * ferramenta de medicamentos devolveu ao que a resposta escreveu, e por isso
+ * os dois lados sao extraidos pela MESMA funcao: uma segunda regex, em outro
+ * arquivo, divergiria desta, e a divergencia seria uma exceção que nao casa
+ * (resposta boa reprovada) ou que casa demais.
+ */
+describe('valoresDeRemedioNoTexto (E2, D2.4)', () => {
+  it.each([
+    ['500 mg', ['500|mg']],
+    ['500mg', ['500|mg']],
+    ['2,5 mL', ['2.5|ml']],
+    ['2.5 ml', ['2.5|ml']],
+    ['5 comprimidos', ['5|comprimido']],
+    ['1 cápsula', ['1|capsula']],
+    ['3 doses', ['3|dose']],
+    ['a cada 8 horas', ['8|hora']],
+    ['de 8 em 8 horas', ['8|hora']],
+    ['1 comprimido de 500 mg', ['1|comprimido', '500|mg']],
+  ])('"%s" vira %j', (texto, esperado) => {
+    expect(valoresDeRemedioNoTexto(texto)).toEqual(esperado);
+  });
+
+  it.each(['12,1 g/dL', 'sem número', '', '20 unidades'])(
+    'nao extrai nada de "%s" (unidade de exame, sem numero, ou fora da R3)',
+    (texto) => {
+      expect(valoresDeRemedioNoTexto(texto)).toEqual([]);
+    },
+  );
+});
+
+describe('valoresDeRemedioNoTexto -- revisão do E2', () => {
+  it.each([
+    ['50.000 UI', ['50000|ui']],
+    ['1.000 mg', ['1000|mg']],
+    ['1/2 comprimido', []],
+    ['3 ou 5 comprimidos', []],
+    ['2 a 4 comprimidos', []],
+    ['de 8 em 12 horas', []],
+  ])('"%s" vira %j', (texto, esperado) => {
+    expect(valoresDeRemedioNoTexto(texto)).toEqual(esperado);
   });
 });
