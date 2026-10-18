@@ -1,5 +1,7 @@
 # EPIC: Perfil — Dados de Saúde e Preferências (Bloco 4)
 
+> **Reconciliação (2026-10-18, termos de uso):** a pedido do dono do projeto, a linha "Exportar meus dados · Em breve" saiu do Perfil, e o serviço-stub `dataExportService.ts` foi removido. O TCC não terá exportação pelo app: a cópia dos dados é pedida pelo canal de privacidade (Termos de Uso, seção 18; `docs/lgpd/conformidade-e-pendencias.md`, P5 e seção 4.2). No lugar, "Configurações" ganhou a linha "Termos de Uso e Política de Privacidade". Os critérios de aceite sobre exportação abaixo deixam de valer.
+
 > **Reconciliação (2026-10-09, consistência e textos):** por decisão explícita em `specs/00-fundacao/consistencia-e-textos/spec.md` (D1 e D8), "Sair da conta" pede confirmação, com o painel das exclusões; e cada grau dos lembretes de prevenção vem com uma linha que diz o que ele quer dizer.
 
 > **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D6 e D10), o topo do Perfil voltou a mostrar o avatar da pessoa; a linha "Exportar meus dados" mostra o selo "Em breve" e não é tocável; e a tela ganhou botão de voltar.

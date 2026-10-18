@@ -90,7 +90,9 @@ no código (`P2` em `aceiteDosTermosNoBackend.ts`).
 - **P4 e P5. Exclusão de conta e cópia dos dados.** Para um grupo restrito, o
   pedido pelo e-mail resolve, e o termo promete exatamente isso (seções 16 e
   18). A execução está escrita na seção 4. Fazer isso pelo app só seria
-  necessário com público aberto ou loja.
+  necessário com público aberto ou loja. Por isso a linha "Exportar meus dados
+  · Em breve" saiu do Perfil em 2026-10-18, junto com o stub
+  `dataExportService.ts`: ela anunciava uma função que o TCC não vai ter.
 - **P11. Base da transferência internacional.** O consentimento em caixa própria
   basta para quem testa por convite. Cláusulas-padrão com a AWS ou mover o
   backend para `sa-east-1` só fariam sentido com público aberto.

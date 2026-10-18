@@ -6,7 +6,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Avatar } from '@/components/Avatar';
 import { BackButton } from '@/components/BackButton';
-import { Badge } from '@/components/Badge';
 import { BottomSheet } from '@/components/BottomSheet';
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
 import { InlineError } from '@/components/InlineError';
@@ -335,22 +334,11 @@ export function ProfileScreen({
               </Pressable>
             ) : null}
 
-            {/* DECISION (correcoes-de-usabilidade, D10): a exportação ainda não
-                existe (dataExportService devolve "unavailable"). A linha parecia
-                um botão comum e só dizia "Em breve" depois do toque. Agora o
-                estado fica à vista, como a spec do Perfil já pedia ("estado
-                'Em breve' explícito na UI"), e a linha não é tocável. */}
-            <View
-              accessibilityLabel="Exportar meus dados. Em breve."
-              accessible
-              className="mb-3 flex-row items-center justify-between gap-3 rounded-app border border-app-border bg-app-surface p-4 dark:border-app-dark-border dark:bg-app-dark-surface"
-            >
-              <Text className="flex-1 text-[15px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                Exportar meus dados
-              </Text>
-              <Badge label="Em breve" variant="neutral" />
-            </View>
-
+            {/* DECISION (2026-10-18, pedido do dono do projeto): a linha
+                "Exportar meus dados · Em breve" saiu. A exportação não existe, e
+                o TCC não a terá; a cópia dos dados é pedida pelo canal de
+                privacidade (Termos, seção 18; docs/lgpd/conformidade-e-pendencias.md,
+                P5). */}
             {logoutError ? <InlineError message={logoutError} /> : null}
 
             {/* DECISION (consistencia-e-textos, D1): sair pede confirmação,

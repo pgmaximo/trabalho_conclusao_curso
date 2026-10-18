@@ -10,7 +10,8 @@ import type { UserProfile } from '@/contexts/UserContext';
 // 1. O topo mostrava a LOGO do app, e nao o avatar da pessoa que o Canvas 4b
 //    pede. A foto enviada em "Editar perfil" nao aparecia em lugar nenhum daqui.
 // 2. "Exportar meus dados" parecia um botao comum e so dizia "Em breve" depois
-//    do toque, num alerta.
+//    do toque, num alerta. Em 2026-10-18 a linha saiu de vez, a pedido do dono
+//    do projeto: a copia dos dados e pedida pelo canal de privacidade.
 
 jest.mock('@expo/vector-icons/Ionicons', () => {
   const React = require('react');
@@ -69,19 +70,18 @@ describe('Perfil - avatar', () => {
 });
 
 describe('Perfil - exportar meus dados', () => {
-  it('diz "Em breve" na propria linha, antes de qualquer toque', () => {
+  it('a linha saiu: o Perfil nao mostra uma acao que nao existe', () => {
     renderProfile();
 
-    expect(screen.getByText('Exportar meus dados')).toBeTruthy();
-    expect(screen.getByText('Em breve')).toBeTruthy();
+    expect(screen.queryByText(/Exportar/)).toBeNull();
+    expect(screen.queryByText('Em breve')).toBeNull();
   });
 
-  it('a linha nao e um botao: nao promete uma acao que nao existe', () => {
-    renderProfile();
+  it('os termos continuam a um toque, e e por eles que se pede a copia', () => {
+    const onOpenTerms = jest.fn();
+    renderProfile({ onOpenTerms });
 
-    expect(screen.queryByRole('button', { name: /Exportar meus dados/ })).toBeNull();
-    // Tocar no texto nao faz nada, e nada quebra.
-    fireEvent.press(screen.getByText('Exportar meus dados'));
-    expect(screen.getByLabelText('Exportar meus dados. Em breve.')).toBeTruthy();
+    fireEvent.press(screen.getByText('Termos de Uso e Política de Privacidade'));
+    expect(onOpenTerms).toHaveBeenCalledTimes(1);
   });
 });
