@@ -52,7 +52,7 @@ O app já resolve `codigoMunicipio` para a tela de vacinação. Passa a mandar e
 
 **Motivo:** é a única que dá resposta na hora, sem tabela nova e sem fonte externa nova. O custo é um campo opcional no pedido, e o dado enviado só aponta para informação pública. A opção B parece mais privada, mas empurra uma tabela grande para dentro do app ou uma chamada externa para dentro do chat.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (produto, 2026-10-17). Complemento verificado no código antes da decisão: o app já guarda **UF e código do município** juntos no aparelho (`loadCachedLocation`, em `src/services/locationService.ts`, AsyncStorage). O app envia os dois, ambos opcionais; a UF também serve de chave para `consultar_campanhas`, então as campanhas saem da região certa sem o usuário dizer o estado.
 
 ---
 
@@ -84,7 +84,7 @@ O app já resolve `codigoMunicipio` para a tela de vacinação. Passa a mandar e
 
 **Motivo:** mantém o chat somente leitura e rápido. O custo (resposta menos completa com cache frio) é pequeno e honesto, e pode ser reavaliado depois de medir com que frequência o cache está vazio.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (produto, 2026-10-17).
 
 ---
 
@@ -115,7 +115,31 @@ Ex.: `lerPublicoPorChave(tabela, chave)`, em `ownerScopedRead.ts`, com `GetItem`
 
 **Motivo:** o projeto escolheu a porta única justamente para que erro de dono seja impossível. Uma exceção separada, com lista fechada, preserva isso.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (produto, 2026-10-17).
+
+---
+
+## Decisões que nasceram na especificação (2026-10-17)
+
+Duas questões apareceram ao ler o código para escrever a `spec.md` do épico (`../E8-campanhas-e-postos/spec.md`, seção 2) e foram levadas ao produto no portão da spec.
+
+### P1 — De onde vem a lista de campanhas no chat
+
+**Achado:** a lista de campanhas ativas não vem do PNI. Ela é um calendário curado em código (`get-vaccination-campaigns/campaignCalendar.ts`, `getCampanhasAtivas`), nacional e igual para todas as UFs. O PNI e o `VaccinationCampaignCache` só acrescentam uma contagem amostral de doses (`dosesNoPeriodo`), que conta todas as vacinas da amostra e não deve ir ao chat.
+
+- **Opção A — usar o calendário direto (recomendada):** mesma função da tela, sem I/O, nunca "cache vazio"; o cache de campanhas não entra no chat.
+- **Opção B — ler o cache, como o PRD dizia:** com cache frio, o chat diria "não sei" sobre algo que o app sabe sem rede.
+
+**Decisão:** **Opção A** (produto, 2026-10-17). Efeito: D8.2 e D8.3 passam a valer só para os postos; a lista fechada da porta pública tem uma tabela (o cache de postos).
+
+### D8.4 — Reforço da verificação contra indicação individual de vacina
+
+**Achado (sonda com `checkLanguageRules`):** numa resposta operacional passam hoje "Você deve tomar a vacina da gripe", "Você precisa se vacinar", "Tome a vacina", "Recomendo que você se vacine" e "A vacina é segura para você". O reforço da D7.3 cobre exame, não vacina.
+
+- **Opção A — reforçar a R3 (recomendada):** padrão novo de indicação individual de vacina, com testes de que respostas normais continuam passando.
+- **Opção B — só no prompt:** teste confere o texto do prompt; lacuna registrada.
+
+**Decisão:** **Opção A** (produto, 2026-10-17).
 
 ---
 

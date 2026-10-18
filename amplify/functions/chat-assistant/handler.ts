@@ -15,6 +15,7 @@
  */
 import { lerAnexo } from './anexoPontual';
 import { resolveIdentity } from './auth';
+import { lerLocal } from './localDoPedido';
 import { checkRateLimit } from './rateLimit';
 import { responder } from './verificacao';
 import type { ChatTurnRequest } from './types';
@@ -91,7 +92,11 @@ function lerCorpo(body: string | null | undefined): ChatTurnRequest | null {
   // memoria ligada (D34) -- decisao que fica num lugar so.
   const memoriaAtiva = objeto.memoriaAtiva === false ? false : undefined;
 
-  return { message, history, attachmentKey, memoriaAtiva };
+  // A cidade (E8): tambem por nome, e o que nao valida vira ausente em vez de
+  // recusar a pergunta -- ver `localDoPedido.ts`.
+  const local = lerLocal(objeto.local);
+
+  return { message, history, attachmentKey, memoriaAtiva, local };
 }
 
 export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlResponse> {

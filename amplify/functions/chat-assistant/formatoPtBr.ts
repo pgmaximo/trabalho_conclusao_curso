@@ -41,6 +41,19 @@ export function formatarDecimal(valor: number | null | undefined): string {
   return limpo.replace('.', ',');
 }
 
+/**
+ * O dia, em AAAA-MM-DD, no fuso de Sao Paulo (E8). A funcao roda em UTC, e
+ * entre 21h e meia-noite de Brasilia o UTC ja e o dia seguinte -- no ultimo dia
+ * de uma campanha, isso trocaria "ativa" por "encerrada". `en-CA` e o locale
+ * cujo formato curto ja e AAAA-MM-DD; `Intl` e global, e este arquivo continua
+ * sem importar nada.
+ */
+const DIA_EM_SAO_PAULO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+
+export function dataEmSaoPaulo(instante: Date): string {
+  return DIA_EM_SAO_PAULO.format(instante);
+}
+
 /** AAAA-MM-DD -> DD/MM/AAAA. Data que nao esta nesse formato volta como veio:
  *  inventar uma data seria pior do que mostrar a que o banco tem. */
 export function formatarData(iso: string | null): string {

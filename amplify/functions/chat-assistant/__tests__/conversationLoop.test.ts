@@ -196,8 +196,30 @@ describe('o laco', () => {
       .mockResolvedValueOnce(pedeTool('consultar_analito'))
       .mockResolvedValueOnce(respondeTexto('Você tem duas coletas.'));
     const r = await runConversationTurn(ENTRADA);
-    expect(mockRunTool).toHaveBeenCalledWith('consultar_analito', {}, ENTRADA.identity);
+    // O quarto argumento e o contexto do turno (E8). Sem `local` na entrada,
+    // ele vai explicito e nulo -- a ferramenta nunca precisa adivinhar.
+    expect(mockRunTool).toHaveBeenCalledWith('consultar_analito', {}, ENTRADA.identity, { local: null });
     expect(r.ok).toBe(true);
+  });
+
+  it('entrega a cidade do pedido a ferramenta, como contexto do turno (E8)', async () => {
+    mockSend
+      .mockResolvedValueOnce(pedeTool('consultar_analito'))
+      .mockResolvedValueOnce(respondeTexto('Pronto.'));
+    const local = { uf: 'SP', codigoMunicipio: '355030' };
+    await runConversationTurn({ ...ENTRADA, local });
+    expect(mockRunTool).toHaveBeenCalledWith('consultar_analito', {}, ENTRADA.identity, { local });
+  });
+
+  it('a cidade NAO vai ao modelo -- so a saida das ferramentas vai (E8, LGPD)', async () => {
+    mockSend
+      .mockResolvedValueOnce(pedeTool('consultar_analito'))
+      .mockResolvedValueOnce(respondeTexto('Pronto.'));
+    await runConversationTurn({ ...ENTRADA, local: { uf: 'SP', codigoMunicipio: '355030' } });
+    for (const [comando] of mockSend.mock.calls) {
+      const { messages, system } = (comando as { input: Record<string, unknown> }).input;
+      expect(JSON.stringify({ messages, system })).not.toMatch(/355030|"uf"/);
+    }
   });
 
   it('registra quais tools foram usadas -- e o que classifica a pergunta depois', async () => {

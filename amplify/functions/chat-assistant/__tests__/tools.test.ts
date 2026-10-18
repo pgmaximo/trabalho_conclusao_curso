@@ -22,6 +22,14 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
       this.input = input;
     }
   },
+  // A porta publica (E8). Nome proprio na classe para a afirmacao das
+  // ferramentas publicas distinguir GetItem de Scan.
+  GetCommand: class GetCommand {
+    input: Record<string, unknown>;
+    constructor(input: Record<string, unknown>) {
+      this.input = input;
+    }
+  },
 }));
 jest.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: class {} }));
 
@@ -39,7 +47,19 @@ const TABELAS = {
   MEDICINE_TABLE_NAME: 't-med',
   VACCINE_DOSE_TABLE_NAME: 't-vac',
   HEALTH_IMPORT_TABLE_NAME: 't-health',
+  SITE_CACHE_TABLE_NAME: 't-site',
 };
+
+/**
+ * As ferramentas que NAO leem dado pessoal (E8): campanhas nao le banco
+ * nenhum; postos le o cache publico pela porta separada. Lista FECHADA e
+ * escrita a mao: quem criar outra ferramenta sem dono tem de acrescenta-la
+ * aqui de proposito -- e ela passa a responder a afirmacao propria das
+ * publicas, em vez de escapar das do dono em silencio.
+ */
+const FERRAMENTAS_PUBLICAS = new Set(['consultar_campanhas', 'consultar_postos']);
+const comDono = () => CHAT_TOOLS.filter((t) => !FERRAMENTAS_PUBLICAS.has(t.name));
+const COM_CIDADE = { local: { uf: 'SP', codigoMunicipio: '355030' } };
 
 beforeAll(() => Object.assign(process.env, TABELAS));
 beforeEach(() => mockSend.mockReset().mockResolvedValue({ Items: [] }));
@@ -124,6 +144,19 @@ describe('o registro das tools', () => {
     expect(nomes.indexOf('consultar_prevencao')).toBe(nomes.indexOf('consultar_vacinas') + 1);
   });
 
+  it('campanhas e postos estao registradas, logo depois de consultar_prevencao (E8)', () => {
+    // Juntas, e perto de vacinas e prevencao: sao os vizinhos com que o modelo
+    // mais as confundiria, e a descricao de cada uma contrasta com eles.
+    const nomes = CHAT_TOOLS.map((t) => t.name);
+    const i = nomes.indexOf('consultar_prevencao');
+    expect(nomes.slice(i, i + 3)).toEqual(['consultar_prevencao', 'consultar_campanhas', 'consultar_postos']);
+  });
+
+  it('toda ferramenta publica da lista fechada existe de verdade', () => {
+    const registrados = new Set(CHAT_TOOLS.map((t) => t.name));
+    for (const nome of FERRAMENTAS_PUBLICAS) expect(registrados.has(nome)).toBe(true);
+  });
+
   it('nenhum nome se repete -- nome repetido faz o despachante escolher um so', () => {
     const nomes = CHAT_TOOLS.map((t) => t.name);
     expect(new Set(nomes).size).toBe(nomes.length);
@@ -142,7 +175,7 @@ describe('o registro das tools', () => {
 
 describe('o dono, em toda tool', () => {
   it('toda consulta e montada com o dono do TOKEN', async () => {
-    for (const tool of CHAT_TOOLS) {
+    for (const tool of comDono()) {
       mockSend.mockClear();
       await runTool(tool.name, {}, IDENTIDADE);
       expect(mockSend).toHaveBeenCalled();
@@ -154,7 +187,7 @@ describe('o dono, em toda tool', () => {
   it('a consulta filtra pelo dono do token, e por nenhum outro valor', async () => {
     // Nao basta o dono certo aparecer em algum lugar da consulta: o valor
     // ligado a `:owner` precisa ser ELE, e a expressao precisa ser a do dono.
-    for (const tool of CHAT_TOOLS) {
+    for (const tool of comDono()) {
       mockSend.mockClear();
       await runTool(tool.name, {}, IDENTIDADE);
       for (const [comando] of mockSend.mock.calls) {
@@ -180,6 +213,48 @@ describe('o dono, em toda tool', () => {
       expect(mockSend).not.toHaveBeenCalled();
       expect(JSON.stringify(saida)).not.toContain('vitima');
     }
+  });
+});
+
+describe('as ferramentas publicas (E8)', () => {
+  it('nunca usam Scan, filtro de dono, nem o dono do token', async () => {
+    mockSend.mockResolvedValue({});
+    for (const nome of FERRAMENTAS_PUBLICAS) {
+      mockSend.mockClear();
+      await runTool(nome, {}, IDENTIDADE, COM_CIDADE);
+      // Postos LE (com cidade); sem esta linha, uma ferramenta que nao lesse
+      // nada passaria pelas afirmacoes abaixo por vazio.
+      if (nome === 'consultar_postos') expect(mockSend).toHaveBeenCalledTimes(1);
+      for (const [comando] of mockSend.mock.calls) {
+        expect((comando as object).constructor.name).toBe('GetCommand');
+        const entrada = (comando as { input: Record<string, unknown> }).input;
+        expect(entrada.TableName).toBe('t-site');
+        expect(entrada).not.toHaveProperty('FilterExpression');
+      }
+      expect(JSON.stringify(mockSend.mock.calls)).not.toContain('s-1::u-1');
+    }
+  });
+
+  it('campo extra na entrada de postos e reprovado, e NENHUMA leitura acontece (CA-13)', async () => {
+    for (const entrada of [{ codigoMunicipio: '999999' }, { uf: 'SP' }, { owner: 'vitima::vitima' }]) {
+      mockSend.mockClear();
+      const saida = await runTool('consultar_postos', entrada, IDENTIDADE, COM_CIDADE);
+      expect(saida).toMatchObject({ erro: expect.any(String) });
+      expect(mockSend).not.toHaveBeenCalled();
+    }
+  });
+
+  it('campanhas nao le banco nenhum', async () => {
+    mockSend.mockClear();
+    await runTool('consultar_campanhas', {}, IDENTIDADE, COM_CIDADE);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('o despachante entrega o contexto do turno a ferramenta', async () => {
+    const saida = (await runTool('consultar_campanhas', {}, IDENTIDADE, {
+      local: { uf: 'PA', codigoMunicipio: null },
+    })) as { avisoRegiao?: string };
+    expect(saida.avisoRegiao).toMatch(/região Norte/);
   });
 });
 

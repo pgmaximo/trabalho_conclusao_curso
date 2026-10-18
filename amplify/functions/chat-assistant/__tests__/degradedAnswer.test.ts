@@ -198,6 +198,30 @@ describe('buildDegradedAnswer', () => {
     ])!;
     expect(r.texto).toContain('jejum');
   });
+
+  it('campanhas e postos entram no modo degradado e passam nas regras (E8)', () => {
+    const r = buildDegradedAnswer([
+      {
+        name: 'consultar_campanhas',
+        output: {
+          disponivel: true,
+          campanhas: [
+            { nome: 'Campanha Nacional de Vacinação contra a Influenza', inicio: '2026-03-28', fim: '2026-05-30' },
+          ],
+        },
+      },
+      {
+        name: 'consultar_postos',
+        output: {
+          disponivel: true,
+          unidades: [{ nome: 'UBS Centro', bairro: 'Centro', endereco: 'Rua A, 10' }],
+        },
+      },
+    ])!;
+    expect(r.texto).toContain('de 28/03/2026 a 30/05/2026');
+    expect(r.texto).toContain('UBS Centro · Centro · Rua A, 10');
+    expect(checkLanguageRules(r.texto, { questionKind: 'clinica', temOrigem: true })).toEqual({ ok: true });
+  });
 });
 
 describe('formatarDecimal na funcao', () => {

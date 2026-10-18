@@ -16,10 +16,12 @@
  * vire o dono da consulta.
  */
 import { analitosTool } from './analitos';
+import { campanhasTool } from './campanhas';
 import { consultasTool } from './consultas';
 import { examesTool } from './exames';
 import { medicamentosTool } from './medicamentos';
 import { perfilTool } from './perfil';
+import { postosTool } from './postos';
 import { prevencaoTool } from './prevencao';
 import { resultadosTool } from './resultados';
 import type { ChatTool } from './tipos';
@@ -27,6 +29,7 @@ import { vacinasTool } from './vacinas';
 import { wearableTool } from './wearable';
 
 import type { ChatIdentity } from '../auth';
+import type { ContextoDoTurno } from '../types';
 
 export type { ChatTool } from './tipos';
 
@@ -45,6 +48,12 @@ export const CHAT_TOOLS: ChatTool[] = [
   // confundiria: vacinas e o que a pessoa TOMOU; prevencao e o que a fonte
   // RECOMENDA para o grupo dela (E7).
   prevencaoTool,
+  // Campanhas e postos (E8) fecham o bloco de vacinacao: campanhas e o que o
+  // calendario do Ministerio tem ATIVO hoje; postos, ONDE fica a unidade.
+  // Sao as unicas que nao leem dado pessoal (ver `FERRAMENTAS_PUBLICAS` em
+  // `tools.test.ts`).
+  campanhasTool,
+  postosTool,
   wearableTool,
 ];
 
@@ -67,6 +76,7 @@ export async function runTool(
   name: string,
   input: unknown,
   identity: ChatIdentity,
+  contexto: ContextoDoTurno = { local: null },
 ): Promise<unknown> {
   const tool = POR_NOME.get(name);
   if (!tool) return { erro: `Ferramenta desconhecida: ${name}.` };
@@ -78,7 +88,7 @@ export async function runTool(
   if (!validado.success) return { erro: 'Os argumentos da consulta não são válidos.' };
 
   try {
-    return await tool.run(validado.data, identity);
+    return await tool.run(validado.data, identity, contexto);
   } catch (erro) {
     console.error(`Falha na tool ${name}:`, erro);
     return { erro: 'Não foi possível consultar esse dado agora.' };

@@ -59,6 +59,19 @@ export type ChatTurnResult = {
   memoriaProposta?: MemoryProposal;
 };
 
+/**
+ * A cidade do usuario, como o aplicativo a guarda para a tela de Vacinacao
+ * (E8, D8.1 = A). Vem do CLIENTE e so serve de chave de leitura de dado
+ * publico -- nunca de dono, nunca de filtro sobre dado pessoal.
+ */
+export type LocalDoUsuario = { uf: string | null; codigoMunicipio: string | null };
+
+/**
+ * O que o turno sabe alem da identidade e da entrada do modelo, e que chega as
+ * ferramentas como parametro proprio (ver `tools/tipos.ts`).
+ */
+export type ContextoDoTurno = { local: LocalDoUsuario | null };
+
 export type ChatTurnRequest = {
   message: string;
   /** Janela de historico -- o aplicativo manda, a funcao corta (C4). */
@@ -74,6 +87,9 @@ export type ChatTurnRequest = {
   /** Se a pessoa deixou a memoria ligada. Ausente significa ligada -- ver
    *  `TurnInput.memoriaAtiva`. */
   memoriaAtiva?: boolean;
+  /** UF e codigo do municipio, ja validados por `lerLocal`. Ausente ou nulo
+   *  significa que o aplicativo nao sabe a cidade (E8). */
+  local?: LocalDoUsuario | null;
 };
 
 export type ChatContext = {

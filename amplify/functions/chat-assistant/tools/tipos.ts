@@ -7,7 +7,7 @@
 import type { z } from 'zod';
 
 import type { ChatIdentity } from '../auth';
-import type { DegradedBlock } from '../types';
+import type { ContextoDoTurno, DegradedBlock } from '../types';
 
 export type ChatTool = {
   name: string;
@@ -24,8 +24,19 @@ export type ChatTool = {
    * A identidade vem do TOKEN e e passada aqui. A tool NUNCA le dono de
    * `input` -- e por isso que a identidade e o segundo parametro, separado, em
    * vez de um campo dentro da entrada.
+   *
+   * O `contexto` (E8) e o terceiro canal, e o motivo de ser um parametro
+   * proprio e o mesmo: cada coisa diz de onde veio. `input` e o que o MODELO
+   * escreveu; `identity`, o que o TOKEN diz; `contexto`, o que o APLICATIVO
+   * mandou no pedido (hoje, a cidade). A cidade nao pode vir do modelo -- ele a
+   * inventaria --, e nao cabe na identidade, que so pode significar o token.
+   * Ferramenta que nao precisa dele simplesmente nao o declara.
+   *
+   * Opcional no tipo porque os testes chamam `run` direto, sem passar pelo
+   * despachante; quem le o contexto trata a ausencia como "sem cidade". O
+   * despachante (`runTool`) o envia sempre.
    */
-  run: (input: unknown, identity: ChatIdentity) => Promise<unknown>;
+  run: (input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno) => Promise<unknown>;
   /**
    * Renderiza a propria saida em texto de modelo fixo, para o MODO DEGRADADO
    * (D31, tarefa C5b). Devolve null quando nao ha o que mostrar.

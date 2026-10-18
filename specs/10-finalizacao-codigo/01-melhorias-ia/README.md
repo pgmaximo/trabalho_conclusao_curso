@@ -11,7 +11,7 @@ A ordem dos cinco primeiros foi definida pelo produto em 2026-10-17. O restante 
 | # | Épico | Resumo | Decisões | Esforço | Estado |
 |---|---|---|---|---|---|
 | 1 | **E7** | Recomendações de prevenção (USPSTF) no chat | [E7](./decisoes/E7-recomendacoes-prevencao.md) | M | Concluído (2026-10-17; conferência no sandbox pendente, ver `E7-recomendacoes-prevencao/tasks.md`) |
-| 2 | **E8** | Campanhas e postos de vacinação | [E8](./decisoes/E8-campanhas-e-postos.md) | M | Aguardando decisão |
+| 2 | **E8** | Campanhas e postos de vacinação | [E8](./decisoes/E8-campanhas-e-postos.md) | M | Concluído (2026-10-17; conferência no sandbox e no dispositivo pendente, ver `E8-campanhas-e-postos/tasks.md`) |
 | 3 | **E2** | Medicamentos completos (frequência, estoque, observações) | [E2](./decisoes/E2-medicamentos-completos.md) | P | Aguardando decisão |
 | 4 | **E9** | Interações medicamentosas | [E9](./decisoes/E9-interacoes-medicamentosas.md) | M | Aguardando decisão |
 | 5 | **E1** | Data de hoje e mapa do app | [E1](./decisoes/E1-contexto-e-mapa-do-app.md) | P | Aguardando decisão |

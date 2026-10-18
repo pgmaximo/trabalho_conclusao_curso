@@ -59,7 +59,7 @@ Aumentar a utilidade do assistente no dia a dia do usuário, fazendo-o responder
 | E5 | Agenda e vacinas: campos faltantes | P | Médio | Não |
 | E6 | Wearable: série diária e histórico | M | Médio | Não (leitura de S3) |
 | E7 | Recomendações de prevenção | M | Médio | Não (D7.1 = A; concluído em 2026-10-17) |
-| E8 | Campanhas e postos de vacinação | M | Médio | Não |
+| E8 | Campanhas e postos de vacinação | M | Médio | Não (concluído em 2026-10-17) |
 | E9 | Interações medicamentosas | M | Alto | Não |
 | E10 | Visão geral e comparação de domínios | G | Alto | Não |
 | E11 | Ações com confirmação do usuário (aprovado, escopo a definir) | G | Alto | Não |
@@ -384,7 +384,7 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 | Épico | Decisões | Documento |
 |---|---|---|
 | E7 | D7.1 fonte dos dados no chat; D7.2 idioma e texto; D7.3 reforço da R3 — **fechadas em 2026-10-17 (A · A · A)** | `E7-recomendacoes-prevencao.md` |
-| E8 | D8.1 como o chat obtém o município; D8.2 campanhas com cache vazio; D8.3 leitura de tabela pública | `E8-campanhas-e-postos.md` |
+| E8 | D8.1 como o chat obtém o município; D8.2 campanhas com cache vazio; D8.3 leitura de tabela pública; P1 campanhas pelo calendário e D8.4 reforço da R3 para vacina (nasceram na spec) — **fechadas em 2026-10-17 (A · A · A · A · A)**. Com P1 = A, 8.1 não lê o cache de campanhas: usa o calendário da tela (ver spec do E8). | `E8-campanhas-e-postos.md` |
 | E2 | D2.1 estoque; D2.2 observações; D2.3 "tomado hoje" | `E2-medicamentos-completos.md` |
 | E9 | D9.1 onde mora o dataset; D9.2 medicamento citado na conversa; D9.3 nome não reconhecido | `E9-interacoes-medicamentosas.md` |
 | E1 | D1.1 onde entra a data; D1.2 fuso; D1.3 mapa do app | `E1-contexto-e-mapa-do-app.md` |

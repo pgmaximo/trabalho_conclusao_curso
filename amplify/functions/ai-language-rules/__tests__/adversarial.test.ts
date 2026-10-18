@@ -218,6 +218,17 @@ describe('prevenção: indicação individual e "em dia" (E7, D7.3)', () => {
     expect(checkLanguageRules(frase, { questionKind: 'clinica', temOrigem: false })).toEqual({ ok: true });
   });
 
+  it.each([
+    // Achado na revisao do E8 (2026-10-17): o padrao de exame tinha o mesmo
+    // falso positivo corrigido para vacina -- devolver a decisao a quem decide
+    // e a resposta CERTA para "preciso fazer mamografia?".
+    'Pergunte ao médico se você deve fazer a mamografia.',
+    'Quem decide se você precisa fazer a colonoscopia é o seu médico.',
+    'Se você deve fazer o exame de rastreamento, quem diz é o seu médico.',
+  ])('devolver a decisão de exame a quem decide passa: "%s"', (frase) => {
+    expect(checkLanguageRules(frase, { questionKind: 'clinica', temOrigem: false })).toEqual({ ok: true });
+  });
+
   it('escolher a faixa pela pessoa continua barrado (CA-18, ja coberto pela R3 antes do E7)', () => {
     const r = checkLanguageRules('No seu caso a faixa aplicável é a de 50 a 74 anos.' + ENCAMINHA, {
       questionKind: 'clinica',
@@ -226,5 +237,112 @@ describe('prevenção: indicação individual e "em dia" (E7, D7.3)', () => {
 
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+  });
+});
+
+/**
+ * VACINACAO (E8, decisao D8.4 = A). A sondagem feita ao especificar o E8
+ * mostrou que "voce deve tomar a vacina da gripe", "tome a vacina" e "a vacina
+ * e segura para voce" PASSAVAM numa resposta operacional. O reforco do E7
+ * cobria exame, nao vacina. Quem pode se vacinar -- e se a vacina serve para a
+ * pessoa -- e o profissional ou a unidade que diz.
+ *
+ * Cada frase roda nos DOIS tipos de pergunta: campanhas e clinica, postos e
+ * operacional, e a indicacao nao pode depender de qual ferramenta o modelo
+ * chamou. Na clinica vai o encaminhamento junto, para a R2 nao mascarar o
+ * motivo.
+ *
+ * As que devem passar provam que a resposta de `consultar_vacinas` ("voce
+ * tomou...", "proxima dose prevista"), a frase sobre o GRUPO e a recusa de
+ * julgar continuam respondiveis.
+ */
+const TIPOS = [
+  ['operacional', ''],
+  ['clinica', ENCAMINHA],
+] as const;
+
+describe('vacinação: indicação individual (E8, D8.4)', () => {
+  describe.each(TIPOS)('pergunta %s', (questionKind, sufixo) => {
+    it.each([
+      'Você deve tomar a vacina da gripe na campanha.',
+      'Você precisa se vacinar contra a gripe.',
+      'Tome a vacina da gripe no posto mais próximo.',
+      'Recomendo que você se vacine.',
+      'Vacine-se ainda nesta campanha.',
+      'Você tem que tomar o reforço.',
+      'Você deveria receber a dose de reforço.',
+      'Vá ao posto e tome a dose da vacina.',
+      'Não sei se há estoque, mas você deve tomar a vacina.',
+      'A vacina é segura para você.',
+      // Achados da revisao do E8 (2026-10-17): formas que a 1a versao deixava
+      // passar, ou reprovava pelo motivo de medicacao.
+      'É importante você se vacinar.',
+      'Vale a pena você se vacinar.',
+      'Vá se vacinar no posto.',
+      'Tome logo a vacina.',
+      'Tome também a vacina.',
+      'Faça a vacina da gripe.',
+      'Você precisa da vacina da gripe.',
+      'Você precisa de uma dose de reforço.',
+      'Você pode e deve se vacinar.',
+      'Vacinem-se.',
+      'Aproveite a campanha e se vacine.',
+      'A vacina da gripe é indicada para você.',
+      'A vacina é recomendada para você.',
+      'Recomendo a vacina para você.',
+      'Não há contraindicação para você tomar a vacina.',
+      'Você pode tomar a vacina sem problema.',
+      'Você deve tomar a segunda dose da vacina.',
+      'Não sei o horário da UBS, então você deve tomar a vacina.',
+    ])('indicação de vacina é barrada pela R3, como indicação: "%s"', (frase) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false });
+
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+        expect(r.violations[0].reason).toMatch(/indica uma vacina/);
+      }
+    });
+
+    it.each([
+      'A campanha vai até 30/05; a unidade de saúde confirma quem pode se vacinar.',
+      'Você tomou a vacina da gripe em 2025.',
+      'Sua próxima dose está prevista para 10/11.',
+      'Não posso dizer se você deve tomar a vacina.',
+      'Quem tem 60 anos ou mais pode se vacinar na campanha, segundo o Ministério da Saúde.',
+      'Você precisa levar a carteira de vacinação à unidade.',
+      'Você precisa permitir a localização na tela de Vacinação.',
+      'Pelo registro, a segunda dose da vacina está atrasada no calendário do aplicativo.',
+      // Inventario da carteira, nao diagnostico: era reprovada pelo padrao de
+      // "voce tem..." antes do E8, porque "dose" nao era coisa do aplicativo.
+      'Você tem uma dose prevista para 10/11.',
+      'Você tem uma dose de reforço prevista.',
+      // Achados da revisao do E8: devolver a decisao a quem decide e a
+      // resposta CERTA para "devo me vacinar?", e a 1a versao a reprovava.
+      'Pergunte ao médico se você deve tomar a vacina.',
+      'Quem decide se você deve tomar a vacina é o profissional de saúde.',
+      'Para saber se você deve tomar a vacina, converse com um profissional.',
+      'A unidade dirá se você deve tomar a dose de reforço.',
+      // Absolvida no padrao de vacina, ela era reprovada pelo de QUANTIDADE
+      // ("2 doses"): o trecho absolvido tem de valer para os padroes seguintes.
+      'A unidade dirá se você deve tomar as 2 doses da vacina.',
+      'A unidade de saúde confirma se você deve se vacinar.',
+      'Só a unidade pode dizer se a vacina é segura para você.',
+      'Se você deve tomar a vacina, quem informa é a unidade de saúde.',
+      // Frase sobre o GRUPO, no singular.
+      'A campanha é para que a população se vacine.',
+      'O Ministério recomenda que a população se vacine.',
+    ])('a resposta sobre vacina bem formada passa: "%s"', (frase) => {
+      expect(checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false })).toEqual({ ok: true });
+    });
+
+    it.each(['Tome a dose do remédio às 8h.', 'Você deve tomar a dose do medicamento no horário cadastrado.'])(
+      'dose de REMÉDIO continua barrada pelo motivo de medicação, e não de vacina: "%s"',
+      (frase) => {
+        const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false });
+        expect(r.ok).toBe(false);
+        if (!r.ok) expect(r.violations[0].reason).toMatch(/medicação/);
+      },
+    );
   });
 });

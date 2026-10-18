@@ -13,6 +13,11 @@ jest.mock('@/services/chatAssistantEndpoint', () => ({
   chatAssistantUrl: () => mockChatUrl(),
 }));
 
+const mockLoadCachedLocation = jest.fn();
+jest.mock('@/services/locationService', () => ({
+  loadCachedLocation: () => mockLoadCachedLocation(),
+}));
+
 import {
   sendMessage,
   sendMessageWithSources,
@@ -37,6 +42,7 @@ beforeEach(() => {
     tokens: { idToken: { toString: () => 'token-do-cognito' } },
   });
   mockChatUrl.mockReset().mockReturnValue('https://exemplo.lambda-url/');
+  mockLoadCachedLocation.mockReset().mockResolvedValue(null);
   respondeCom({ answer: 'Uma resposta.', citations: [], ruleCheckStatus: 'APROVADA' });
 });
 
@@ -144,6 +150,74 @@ describe('as origens, que sao ACRESCIMO e nao troca', () => {
       citations: [{ resultId: 'l-1', documentId: '', analyteLabel: 'x', value: '1', unit: 'a' }],
     });
     expect((await sendMessageWithSources('oi', [])).citations).toEqual([]);
+  });
+});
+
+describe('a cidade do usuario (E8, D8.1 = A)', () => {
+  const corpo = () => JSON.parse(String(ultimaChamada().body));
+
+  it('manda UF e codigo do municipio quando o aparelho os tem', async () => {
+    mockLoadCachedLocation.mockResolvedValue({
+      uf: 'SP',
+      municipioNome: 'São Paulo',
+      codigoMunicipio: '355030',
+      latitude: -23.5,
+      longitude: -46.6,
+    });
+    await sendMessage('onde me vacino?', []);
+    expect(corpo().local).toEqual({ uf: 'SP', codigoMunicipio: '355030' });
+  });
+
+  it('NUNCA manda coordenada nem nome da cidade', async () => {
+    // A D8.1 decidiu cidade, nao posicao: a coordenada do aparelho e dado
+    // mais sensivel e o chat nao calcula distancia.
+    mockLoadCachedLocation.mockResolvedValue({
+      uf: 'SP',
+      municipioNome: 'São Paulo',
+      codigoMunicipio: '355030',
+      latitude: -23.5,
+      longitude: -46.6,
+    });
+    await sendMessage('onde me vacino?', []);
+    expect(String(ultimaChamada().body)).not.toMatch(/latitude|longitude|-23\.5|São Paulo|municipioNome/);
+  });
+
+  it('sem codigo resolvido, manda so a UF', async () => {
+    mockLoadCachedLocation.mockResolvedValue({
+      uf: 'SP',
+      municipioNome: null,
+      codigoMunicipio: null,
+      latitude: 0,
+      longitude: 0,
+    });
+    await sendMessage('tem campanha?', []);
+    expect(corpo().local).toEqual({ uf: 'SP' });
+  });
+
+  it('codigo guardado como numero vai como texto -- senao a funcao o descarta (revisao do E8)', async () => {
+    // A API do Ministerio pode devolver o codigo como numero JSON, e o
+    // AsyncStorage guarda o que veio; a funcao so aceita texto de 6-7 digitos.
+    mockLoadCachedLocation.mockResolvedValue({
+      uf: 'SP',
+      municipioNome: null,
+      codigoMunicipio: 355030,
+      latitude: 0,
+      longitude: 0,
+    });
+    await sendMessage('onde me vacino?', []);
+    expect(corpo().local).toEqual({ uf: 'SP', codigoMunicipio: '355030' });
+  });
+
+  it('sem localizacao, o corpo nao leva local', async () => {
+    await sendMessage('oi', []);
+    expect(corpo()).not.toHaveProperty('local');
+  });
+
+  it('falha ao ler a localizacao nao impede a pergunta', async () => {
+    mockLoadCachedLocation.mockRejectedValue(new Error('AsyncStorage indisponivel'));
+    const resposta = await sendMessage('oi', []);
+    expect(resposta).toBe('Uma resposta.');
+    expect(corpo()).not.toHaveProperty('local');
   });
 });
 

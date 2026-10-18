@@ -17,6 +17,12 @@ export type CampanhaDefinicao = {
   janelaInicio: string; // YYYY-MM-DD
   janelaFim: string; // YYYY-MM-DD
   fonteUrl: string;
+  /**
+   * UFs onde ESTA janela nao vale (elas tem calendario proprio, que nao esta
+   * aqui). Opcional e so dado: hoje quem o le e o chat (E8, `consultar_campanhas`),
+   * que tira a campanha da lista para essas UFs e avisa. A tela nao o usa ainda.
+   */
+  ufsForaDaJanela?: readonly string[];
 };
 
 export const CAMPANHAS_VACINACAO_2026: CampanhaDefinicao[] = [
@@ -29,6 +35,7 @@ export const CAMPANHAS_VACINACAO_2026: CampanhaDefinicao[] = [
     janelaInicio: '2026-03-28',
     janelaFim: '2026-05-30',
     fonteUrl: 'https://www.gov.br/saude/pt-br/composicao/seidigi/demas/campanhas-de-vacinacao/vacinacao-contra-a-influenza',
+    ufsForaDaJanela: ['AC', 'AM', 'AP', 'PA', 'RO', 'RR', 'TO'],
   },
   {
     id: 'multivacinacao-2026',

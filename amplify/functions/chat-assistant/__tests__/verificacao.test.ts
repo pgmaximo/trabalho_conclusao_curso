@@ -30,7 +30,7 @@ jest.mock('../degradedAnswer', () => ({
 }));
 
 import { TEXTO_DE_ENCAMINHAMENTO } from '../encaminhamento';
-import { INDISPONIVEL, responderComVerificacao } from '../verificacao';
+import { INDISPONIVEL, responder, responderComVerificacao } from '../verificacao';
 
 const IDENTIDADE = { sub: 's-1', username: 'u-1', owner: 's-1::u-1' };
 
@@ -611,6 +611,44 @@ describe('classificacao clinica (U2)', () => {
     expect(regrasRegistradas()).toContain('R3');
   });
 
+  it('campanha de vacinacao e clinica: sai com o encaminhamento do aplicativo (E8)', async () => {
+    // A pergunta real por tras de "tem campanha?" e "devo me vacinar?"; quem
+    // decide e o profissional ou a unidade.
+    const CAMPANHA = 'A Campanha Nacional de Vacinação contra a Influenza vai até 30/05/2026.';
+    mockRunConversationTurn.mockResolvedValue(turno(CAMPANHA, ['consultar_campanhas']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${CAMPANHA} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('indicacao individual de vacina NAO e salva pela costura do encaminhamento (E8, D8.4)', async () => {
+    const INDICACAO = 'Você deve tomar a vacina da gripe.';
+    mockRunConversationTurn.mockResolvedValue(turno(INDICACAO, ['consultar_campanhas']));
+    mockRegenerateAnswer.mockResolvedValue(turno(INDICACAO, ['consultar_campanhas']));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(r.texto).not.toContain(INDICACAO);
+    expect(mockRegenerateAnswer).toHaveBeenCalled();
+    expect(regrasRegistradas()).toContain('R3');
+  });
+
+  it('lista de unidades e operacional: sai sem rodape (E8)', async () => {
+    // Endereco nao e dado de saude; "procure um profissional" embaixo de uma
+    // lista de UBS seria ruido.
+    const POSTOS = 'A UBS Centro fica na Rua A, 10, no bairro Centro.';
+    mockRunConversationTurn.mockResolvedValue(turno(POSTOS, ['consultar_postos']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(POSTOS);
+  });
+
   it('dado de saude SEM unidade continua clinico -- a armadilha do perfil', async () => {
     // Condicao cronica e alergia sao dado de saude e nao tem unidade de
     // medida. So o texto nao bastaria: o classificador tem DUAS entradas.
@@ -918,5 +956,24 @@ describe('o encaminhamento costurado (A2 e C3)', () => {
 
     expect(r.status).toBe('APROVADA');
     expect(r.texto).not.toContain(TEXTO_DE_ENCAMINHAMENTO);
+  });
+});
+
+describe('a cidade do pedido chega ao laco (E8)', () => {
+  it('responder repassa o local validado ao turno', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno('Pronto.', ['consultar_consultas']));
+    const local = { uf: 'SP', codigoMunicipio: '355030' };
+
+    await responder({ message: 'oi', history: [], local }, { identity: IDENTIDADE });
+
+    expect(mockRunConversationTurn.mock.calls[0][0].local).toEqual(local);
+  });
+
+  it('sem local no pedido, o turno leva local nulo', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno('Pronto.', ['consultar_consultas']));
+
+    await responder({ message: 'oi', history: [] }, { identity: IDENTIDADE });
+
+    expect(mockRunConversationTurn.mock.calls[0][0].local).toBeNull();
   });
 });

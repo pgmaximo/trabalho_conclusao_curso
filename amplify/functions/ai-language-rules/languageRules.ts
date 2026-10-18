@@ -172,7 +172,10 @@ const UNIDADES_DE_REMEDIO =
  * para responder "que exames eu tenho" (U3b, 2026-09-19).
  */
 const COISAS_DO_APLICATIVO =
-  'exames?|documentos?|consultas?|receitas?|resultados?|registros?|compromissos?|vacinas?|laudos?|anexos?';
+  'exames?|documentos?|consultas?|receitas?|resultados?|registros?|compromissos?|vacinas?|laudos?|anexos?|' +
+  // Dose e reforco da CARTEIRA (E8): "voce tem uma dose prevista para 10/11"
+  // e o calendario do aplicativo, e era reprovada como diagnostico.
+  'doses?|refor[cç]os?';
 
 /**
  * O que pode vir entre "voce tem" e o inventario sem mudar o sentido (Bloco 11):
@@ -254,6 +257,29 @@ const ateOExame = (determinantes: number) =>
   `(?:\\s*,[^,.!?]{0,40},)?\\s+(?:(?:${DETERMINANTE})\\s+){0,${determinantes}}(?:${OBJETO_DE_EXAME})${FIM_R3}`;
 
 /**
+ * O que se TOMA ou se RECEBE numa vacinacao (E8, D8.4). "Dose" so conta quando
+ * a frase diz de QUE e a dose ("a dose da vacina", "a dose de reforco"): solta,
+ * "tome a dose do remedio" e posologia, e tem de cair no motivo de medicacao,
+ * que diz ao modelo o que corrigir (achado da revisao do E8).
+ */
+const OBJETO_DE_VACINA =
+  'vacinas?|refor[cç]os?|imuniza[cç](?:[aã]o|[oõ]es)|doses?(?=\\s+(?:d[aeo]s?\\s+)?(?:vacina|refor))';
+
+/** Determinantes, mais os ordinais e a contagem da serie: "a segunda dose da
+ *  vacina", "as 2 doses da vacina". */
+const DETERMINANTE_DE_VACINA = `${DETERMINANTE}|\\d+|segund[oa]s?|terceir[oa]s?|quart[oa]s?|[uú]ltim[oa]s?|pr[oó]xim[oa]s?`;
+
+/** Do verbo ate a vacina que e o OBJETO dele: no maximo um adverbio curto
+ *  ("tome LOGO a vacina") e determinantes no meio. */
+const ateAVacina =
+  `\\s+(?:(?:j[aá]|logo|tamb[eé]m|agora)\\s+)?(?:(?:${DETERMINANTE_DE_VACINA})\\s+){0,3}(?:${OBJETO_DE_VACINA})${FIM_R3}`;
+
+/** "voce deve", "voce ja deveria", "voce pode e deve" -- a obrigacao dita a pessoa. */
+const OBRIGACAO_DITA_A_PESSOA =
+  `${INI_R3}voc[eê]\\s+(?:(?:j[aá]|ainda|tamb[eé]m|pode\\s+e)\\s+)?` +
+  `(?:deve|deveria|precisa|precisaria|tem\\s+que|tem\\s+de|teria\\s+que)${FIM_R3}${janela(25)}`;
+
+/**
  * O assunto que torna "em dia" um juizo sobre o cuidado da pessoa. VACINA NAO
  * ENTRA: dose "atrasada" e um conceito do proprio calendario do aplicativo
  * (`homeVaccination.ts`), e reprova-la quebraria as respostas de
@@ -288,6 +314,21 @@ const RECUSA_OU_PERGUNTA = new RegExp(
   'i',
 );
 
+/**
+ * Para a indicacao de vacina e de exame (E8), alem da recusa e da pergunta, a
+ * ORACAO SUBORDINADA com "se" tambem absolve: "quem decide se voce deve tomar a
+ * vacina e o profissional", "a unidade dira se...", "se voce deve fazer o exame,
+ * quem diz e o medico". Devolver a decisao a quem decide e a resposta CERTA para
+ * "devo me vacinar?" e "preciso fazer mamografia?", e os dois padroes a
+ * reprovavam (revisao do E8). O
+ * "se" continua preso a um verbo de decidir/dizer, ou abrindo a oracao logo
+ * antes do "voce": solto no meio da frase ele tambem e pronome.
+ */
+const RECUSA_PERGUNTA_OU_CONDICAO = new RegExp(
+  `${RECUSA_OU_PERGUNTA.source}|(?:decid\\w*|inform\\w*|dir[aá]|diz\\w*)\\s+(?:\\S+\\s+){0,3}?se\\b|(?:^|[^\\wÀ-ÿ])se\\s+$`,
+  'i',
+);
+
 const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = [
   {
     // "500 mg", "2 comprimidos", "1 cápsula" -- quantidade seguida de unidade
@@ -303,6 +344,39 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = 
     // "de 8 em 8 horas", "a cada 12 horas" -- intervalo de administracao.
     padrao: /\b(de\s+\d+\s+em\s+\d+\s+horas?|a\s+cada\s+\d+\s+horas?)\b/i,
     motivo: 'A resposta indica um intervalo de administração, que é posologia.',
+  },
+  {
+    // INDICACAO INDIVIDUAL DE VACINA (E8, D8.4). A campanha e para um GRUPO, e
+    // quem pode se vacinar -- e se a vacina serve para a pessoa -- e o
+    // profissional ou a unidade de saude que diz. "Voce deve tomar a vacina da
+    // gripe" e "a vacina e segura para voce" passavam pelas cinco regras ate
+    // 2026-10-17.
+    //
+    // Vem ANTES do padrao de verbo de medicacao de proposito: "tome a dose da
+    // vacina" ja era reprovada por ele, mas pelo motivo "medicacao", e o
+    // bilhete da nova geracao precisa dizer o que corrigir. Mesmo raciocinio do
+    // padrao de exame do E7.
+    //
+    // Em toda forma a vacina e o OBJETO do verbo e a pessoa e o sujeito ou o
+    // destinatario: obrigacao, imperativo, "e importante voce...", e a garantia
+    // de que a vacina serve para ela. Frase sobre o GRUPO ("que a populacao se
+    // vacine") e registro ("voce tomou a vacina em 2025") passam. Os casos,
+    // dos dois lados, estao em `adversarial.test.ts`.
+    padrao: new RegExp(
+      `${OBRIGACAO_DITA_A_PESSOA}${INI_R3}(?:(?:tomar|receber|fazer)${ateAVacina}|(?:se\\s+vacinar|vacinar-se|se\\s+imunizar)${FIM_R3})` +
+        `|${INI_R3}voc[eê]\\s+(?:precisa|necessita)\\s+d[aeo]s?${ateAVacina}` +
+        `|${INI_R3}(?:tome|receba|fa[cç]a|recomendo)${ateAVacina}` +
+        `|${INI_R3}(?:v[aá]\\s+se\\s+vacinar|vacinem?-se)${FIM_R3}` +
+        `|(?:${INI_R3}voc[eê]\\s+|${INI_R3}e\\s+|^\\s*|[.!?]\\s+)se\\s+vacinem?${FIM_R3}` +
+        `|${INI_R3}(?:importante|vale\\s+a\\s+pena|recomend[aá]vel)\\s+(?:que\\s+)?voc[eê]\\s+(?:se\\s+vacin|tom|receb)` +
+        `|${INI_R3}vacinas?${FIM_R3}${janela(40)}${INI_R3}(?:[eé]|s[aã]o|est[aá])\\s+(?:segur|indicad|recomendad)[ao]s?\\s+(?:para|pra)\\s+(?:voc[eê]|vc)${FIM_R3}` +
+        `|${INI_R3}(?:n[aã]o\\s+h[aá]|sem|nenhuma)\\s+contraindica[cç][aã]o` +
+        `|${INI_R3}voc[eê]\\s+pode\\s+(?:tomar|receber)${ateAVacina}[^.!?]{0,25}sem\\s+(?:problemas?|medo|risco)`,
+      'i',
+    ),
+    motivo:
+      'A resposta indica uma vacina para a pessoa. Se ela deve se vacinar, e se a vacina serve para ela, é decisão de quem a examina ou da unidade de saúde.',
+    excecao: RECUSA_PERGUNTA_OU_CONDICAO,
   },
   {
     // Verbos de prescricao seguidos do que esta sendo prescrito. O imperativo
@@ -350,7 +424,9 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = 
     ),
     motivo:
       'A resposta indica um exame para a pessoa. A recomendação da fonte é para um grupo; se a pessoa deve fazer o exame é decisão de quem a examina.',
-    excecao: RECUSA_DE_JULGAR,
+    // A mesma excecao da vacina (revisao do E8): "pergunte ao medico se voce
+    // deve fazer a mamografia" devolve a decisao, nao a toma.
+    excecao: RECUSA_PERGUNTA_OU_CONDICAO,
   },
   {
     // "VOCE ESTA EM DIA" (E7, D7.3). Dizer que a prevencao da pessoa esta em
@@ -470,8 +546,10 @@ const PADROES_R3: Array<{ padrao: RegExp; motivo: string; excecao?: RegExp }> = 
 ];
 
 /** O que separa a recusa do veredito em duas oracoes: "nao sei a data, MAS
- *  voce deve fazer" e duas afirmacoes, e a recusa so vale para a primeira. */
-const QUEBRA_DE_ORACAO = /[.!?;]|\b(mas|por[eé]m|contudo|entretanto|todavia)\b/i;
+ *  voce deve fazer" e duas afirmacoes, e a recusa so vale para a primeira.
+ *  "Entao" e "portanto" entraram na revisao do E8: "nao sei o horario da UBS,
+ *  ENTAO voce deve tomar a vacina" e conclusao, nao recusa. */
+const QUEBRA_DE_ORACAO = /[.!?;]|\b(mas|por[eé]m|contudo|entretanto|todavia|ent[aã]o|portanto)\b/i;
 
 /**
  * A excecao olha so o que vem ANTES, e perto: uma recusa de julgar no fim do
@@ -502,6 +580,17 @@ const PADROES_R3_GLOBAIS = PADROES_R3.map(({ padrao, motivo, excecao }) => ({
 }));
 
 const verificarR3: Verificador = (texto) => {
+  // Duas etapas. Primeiro junta, de TODOS os padroes, o que casou: os trechos
+  // que a excecao do proprio padrao absolveu e os que ficaram como candidatos.
+  // Depois reprova o primeiro candidato que nao esteja dentro de um trecho
+  // absolvido. Sem isto, "a unidade dira se voce deve tomar as 2 doses da
+  // vacina", absolvida pelo padrao de vacina, era reprovada pelo de quantidade
+  // ("2 doses") -- e cada padrao especifico novo exigiria uma excecao escrita a
+  // mao em cada padrao generico (achado da revisao do E8).
+  const absolvidos: Array<[number, number]> = [];
+  const candidatos: Violation[] = [];
+  const posicoes: Array<[number, number]> = [];
+
   for (const { padrao, motivo, excecao } of PADROES_R3_GLOBAIS) {
     // TODAS as ocorrencias, e nao so a primeira. Com `exec` sem `g`, uma
     // primeira ocorrencia absolvida pela recusa encerrava o padrao, e uma
@@ -509,13 +598,21 @@ const verificarR3: Verificador = (texto) => {
     // mamografia. Mas voce precisa fazer a colonoscopia" passava inteira
     // (achado da revisao do E7, 2026-10-17).
     for (const achado of texto.matchAll(padrao)) {
-      if (excecao && absolvido(texto, achado.index, excecao)) continue;
-      // Uma violacao de R3 por resposta: quem vai decidir o que fazer com a
-      // reprovacao precisa do motivo, nao de um inventario.
-      return [{ rule: 'R3', reason: motivo, excerpt: trecho(texto, achado.index, achado[0].length) }];
+      const fim = achado.index + achado[0].length;
+      if (excecao && absolvido(texto, achado.index, excecao)) {
+        absolvidos.push([achado.index, fim]);
+      } else {
+        candidatos.push({ rule: 'R3', reason: motivo, excerpt: trecho(texto, achado.index, achado[0].length) });
+        posicoes.push([achado.index, fim]);
+      }
     }
   }
-  return [];
+
+  // A ordem dos candidatos e a de `PADROES_R3`, que e a de prioridade do
+  // MOTIVO. Uma violacao de R3 por resposta: quem vai decidir o que fazer com a
+  // reprovacao precisa do motivo, nao de um inventario.
+  const i = posicoes.findIndex(([inicio, fim]) => !absolvidos.some(([a, b]) => inicio >= a && fim <= b));
+  return i === -1 ? [] : [candidatos[i]];
 };
 
 VERIFICADORES.push(verificarR3);

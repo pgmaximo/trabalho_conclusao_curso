@@ -19,7 +19,7 @@ import { SYSTEM_PROMPT, buildUserMessage } from './chatPrompt';
 import { chatAnswerSchema, extrairResposta, type ChatAnswer } from './chatSchema';
 import { CHAT_TOOLS, runTool } from './tools';
 import type { ChatIdentity } from './auth';
-import type { AnexoLido } from './types';
+import type { AnexoLido, LocalDoUsuario } from './types';
 
 const client = new BedrockRuntimeClient({ maxAttempts: 3, retryMode: 'adaptive' });
 
@@ -79,6 +79,11 @@ export type TurnInput = {
    * depende da identidade e de tabela, e este arquivo e sobre o laco.
    */
   systemPrompt?: string;
+  /**
+   * A cidade do pedido (E8). Ela vai as FERRAMENTAS, como contexto do turno, e
+   * nunca ao modelo: o modelo so ve o que a ferramenta montou com ela.
+   */
+  local?: LocalDoUsuario | null;
 };
 
 /**
@@ -288,7 +293,9 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
       const resultados = [];
       for (const chamada of chamadas) {
         toolsUsadas.push(chamada.name);
-        const saida = await runTool(chamada.name, chamada.input, input.identity);
+        const saida = await runTool(chamada.name, chamada.input, input.identity, {
+          local: input.local ?? null,
+        });
         // Guardado ESTRUTURADO para o modo degradado (C5b), alem de
         // serializado para o modelo.
         transcript.toolOutputs.push({ name: chamada.name, output: saida });

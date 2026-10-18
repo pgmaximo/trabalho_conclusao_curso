@@ -550,6 +550,11 @@ for (const tabela of [
   vaccineDoseTable,
   healthImportTable,
   assistantMemoryFactTable,
+  // A UNICA tabela sem dono que o chat le (E8, D8.3): o cache publico de
+  // unidades de saude, pela porta `lerPublicoPorChave`, nunca por `lerDoDono`.
+  // So leitura: quem preenche o cache continua sendo a Lambda da tela (D8.2).
+  // O cache de campanhas nao entra -- a lista sai do calendario em codigo (P1).
+  siteCacheTable,
 ]) {
   tabela.grantReadData(chatAssistantLambda);
 }
@@ -565,6 +570,7 @@ backend.chatAssistant.addEnvironment(
   'ASSISTANT_MEMORY_TABLE_NAME',
   assistantMemoryFactTable.tableName,
 );
+backend.chatAssistant.addEnvironment('SITE_CACHE_TABLE_NAME', siteCacheTable.tableName);
 
 // O chat REUSA o guardrail da analise de wearables, e nao ganha um proprio.
 // A D20 mandou a extracao ter o seu porque la os dois topicos bloqueados sao o

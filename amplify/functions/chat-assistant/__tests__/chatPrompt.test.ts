@@ -207,3 +207,46 @@ describe('SYSTEM_PROMPT — prevenção (E7)', () => {
     expect(trecho()).not.toMatch(/encaminh|procure|converse com/i);
   });
 });
+
+describe('SYSTEM_PROMPT — campanhas e postos (E8)', () => {
+  // Um bullet so para as duas: elas respondem a mesma conversa ("tem campanha?
+  // onde eu vou?"), e o custo do prompt e pago em todo turno.
+  const trecho = () => {
+    const inicio = SYSTEM_PROMPT.indexOf('consultar_campanhas');
+    expect(inicio).toBeGreaterThan(-1);
+    return SYSTEM_PROMPT.slice(inicio, SYSTEM_PROMPT.indexOf('\n', inicio));
+  };
+
+  it('diz quando usar cada uma e contrasta com vacinas e prevenção', () => {
+    expect(trecho()).toMatch(/consultar_postos/);
+    expect(trecho()).toMatch(/consultar_vacinas/);
+    expect(trecho()).toMatch(/consultar_prevencao/);
+  });
+
+  it('proíbe afirmar o que o aplicativo não sabe sobre a unidade', () => {
+    expect(trecho()).toMatch(/nunca diga que (uma|a) unidade/i);
+    expect(trecho()).toMatch(/aberta/);
+  });
+
+  it('manda contar as unidades que ficaram de fora e apontar a tela de Vacinação', () => {
+    expect(trecho()).toMatch(/omitidas/);
+    expect(trecho()).toMatch(/tela de Vacinação/);
+  });
+
+  it('manda dizer o total da cidade e a data da lista (H5, revisao do E8)', () => {
+    expect(trecho()).toMatch(/totalNaCidade/);
+    expect(trecho()).toMatch(/atualizadoEm/);
+  });
+
+  it('manda passar o bairro citado no campo bairro', () => {
+    expect(trecho()).toMatch(/bairro/);
+  });
+
+  it('NAO pede o nome da cidade: o chat não resolve nome em código (D8.1 = A)', () => {
+    expect(trecho()).not.toMatch(/informe (a|sua) cidade|diga (a|sua) cidade/i);
+  });
+
+  it('NAO manda o modelo encaminhar: o encaminhamento é do aplicativo (A2/C3)', () => {
+    expect(trecho()).not.toMatch(/encaminh|procure|converse com/i);
+  });
+});

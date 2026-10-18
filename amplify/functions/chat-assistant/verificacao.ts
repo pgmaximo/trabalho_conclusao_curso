@@ -75,12 +75,18 @@ import type {
  * `consultar_prevencao` ENTRA (E7): recomendacao de rastreamento e decisao de
  * cuidado sem unidade nenhuma no texto -- "mamografia a cada dois anos" sairia
  * como operacional, sem encaminhar a pessoa a quem decide se ela faz o exame.
+ *
+ * `consultar_campanhas` ENTRA (E8) pelo mesmo motivo: a pergunta por tras de
+ * "tem campanha?" e "devo me vacinar?", e quem decide e o profissional ou a
+ * unidade. `consultar_postos` NAO entra: e endereco, e um rodape de
+ * encaminhamento embaixo de uma lista de UBS seria ruido.
  */
 const TOOLS_CLINICAS = new Set([
   'consultar_analito',
   'consultar_perfil',
   'consultar_wearable',
   'consultar_prevencao',
+  'consultar_campanhas',
 ]);
 
 export type RespostaVerificada = {
@@ -512,6 +518,7 @@ export async function responder(
     history: request.history,
     anexo: request.anexo,
     memoriaAtiva: request.memoriaAtiva,
+    local: request.local ?? null,
     identity: context.identity,
     modelId: process.env.BEDROCK_MODEL_ID ?? '',
     guardrailId: process.env.BEDROCK_GUARDRAIL_ID ?? '',
