@@ -184,7 +184,7 @@ Nunca publique a producao com `ampx pipeline-deploy` direto: o script liga o log
 
 ### Segredos da producao
 
-Ficam no SSM Parameter Store, em `/amplify/<appId>/main/<NOME>` (SecureString): `USPSTF_API_KEY`, `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Os sandboxes nao precisam dos dois do Google, porque o login com Google so e ligado na producao.
+Ficam no SSM Parameter Store como SecureString, em `/amplify/d1wsv2b9ntb67b/main-branch-892cc32d5d/<NOME>`: `USPSTF_API_KEY`, `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. O trecho `main-branch-892cc32d5d` e o mesmo sufixo do nome da stack (`amplify-d1wsv2b9ntb67b-main-branch-892cc32d5d`), e nao so o nome do branch: um segredo em `/amplify/<appId>/main/` nao e encontrado, e o deploy falha em `AmplifySecretFetcherResource`. A alternativa valida para todos os branches do app e `/amplify/shared/d1wsv2b9ntb67b/<NOME>`. Os sandboxes nao precisam dos dois do Google, porque o login com Google so e ligado na producao.
 
 ### O APK usa a producao
 
