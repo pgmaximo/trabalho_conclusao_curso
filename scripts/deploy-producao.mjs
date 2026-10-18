@@ -26,7 +26,7 @@ import { copyFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const APP_ID = 'PREENCHER_DEPOIS_DO_CREATE_APP';
+const APP_ID = 'd1wsv2b9ntb67b';
 const BRANCH = 'main';
 const CONTA = '370586504317';
 const REGIAO = 'us-east-1';
