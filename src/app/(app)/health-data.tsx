@@ -11,7 +11,9 @@ import { goBackOr } from '@/utils/goBack';
 export default function HealthDataRoute() {
   // Quando vem de uma importação recém-criada (ImportHealthDataScreen passa
   // ?importId=...), acompanha ESSA importação especificamente via polling —
-  // ela pode estar PENDING/PROCESSING e ainda não é a "última READY".
+  // ela pode estar PENDING/PROCESSING e ainda não é a "última READY". É
+  // também pelo param que "Suas importações" (health-imports.tsx) abre a
+  // importação que a pessoa escolheu na lista.
   // Sem o param, mostra a última importação já concluída (histórico normal).
   const { importId } = useLocalSearchParams<{ importId?: string }>();
   const latest = useHealthDashboardData();
@@ -102,6 +104,7 @@ export default function HealthDataRoute() {
       onDeleteImport={healthImport?.status === 'READY' ? handleDeleteImport : undefined}
       onImportPress={() => router.push('/import-health-data')}
       onRetry={onRetry}
+      onShowAllImports={() => router.push('/health-imports')}
     />
   );
 }

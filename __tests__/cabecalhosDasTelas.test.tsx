@@ -74,6 +74,7 @@ describe('cada tela usa um dos dois cabecalhos do app', () => {
     'AnalyteSeriesScreen',
     'EditProfileScreen',
     'ImportHealthDataScreen',
+    'HealthImportsScreen',
   ])('%s, que abre por cima de outra tela, usa o DetailHeader', (tela) => {
     expect(fonte(tela)).toMatch(/<DetailHeader\b/);
   });

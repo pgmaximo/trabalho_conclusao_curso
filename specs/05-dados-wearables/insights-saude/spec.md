@@ -1,6 +1,8 @@
 # EPIC: Insights de saúde (Bloco 4)
 
 > **Reconciliação (2026-10-09):** por decisão explícita em `specs/00-fundacao/correcoes-de-usabilidade/spec.md` (D4 e D6), "Excluir esta importação" pede confirmação; o rodapé diz o nome do modelo, e não o identificador; as médias e os nomes das métricas foram corrigidos; e a tela ganhou botão de voltar.
+>
+> **Reconciliação (2026-10-18) — várias importações:** cada envio já virava uma linha `HealthImport` própria, mas a tela só mostrava a última pronta. Agora o painel diz qual importação está mostrando ("Importação de DD/MM/AAAA às HH:MM") e leva a **"Suas importações"** (`src/app/(app)/health-imports.tsx` → `src/screens/HealthImportsScreen.tsx`), que lista todas (da enviada por último para a primeira), abre qualquer uma no painel por `?importId=` e exclui uma específica, com confirmação. Uma importação em andamento só pode ser excluída depois de 6 minutos (a Lambda grava o resultado sem condição e recriaria a linha excluída). Excluir agora apaga também os arquivos enviados e o `result.json` no S3 — antes só a linha saía, e o bucket não tem regra de expiração. As leituras da lista passaram a ir até a última página (`todasAsPaginas`).
 
 ## 1. Identificação
 - Bloco/arquivo de origem no Claude Design: **N/A — feature nova, sem Canvas de origem** (ver `../importar-dados/spec.md` §1; a mesma ambiguidade documentada se aplica aqui).
@@ -37,6 +39,10 @@ Como usuário final, quero ver um dashboard com gráficos e uma análise em ling
 | "Tentar novamente" (erro/travado) | botão | reinicia a busca/polling | mesma tela | estado de erro ou travado |
 | Seção "O que não conseguimos ler" | pressable | expande/recolhe a lista de avisos | mesma tela | só quando há avisos |
 | "Excluir esta importação" | pressable | `deleteHealthImport` + invalida cache + `router.replace('/health-data')` | mesma tela (volta ao estado vazio ou à importação anterior) | só no estado `READY` |
+| "Importação de … · Ver todas as importações" | pressable | navega para a lista | `/health-imports` | há uma importação na tela (qualquer estado) |
+| Linha de uma importação (lista) | pressable | abre a análise dela | `/health-data?importId=…` | sempre |
+| Lixeira de uma importação (lista) | pressable | painel de confirmação → `deleteHealthImport` + invalida cache | mesma lista, sem a linha | `READY`/`FAILED`, ou em andamento há mais de 6 min |
+| "Importar novos dados" (lista) | botão | navega para importação | `/import-health-data` | lista com ao menos uma importação |
 
 ## 5. Mapa de dados
 

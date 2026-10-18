@@ -31,7 +31,7 @@ Como usuário final, quero importar o arquivo que exportei do Samsung Health (ou
 ## 3. Estrutura da página
 
 1. Cabeçalho "voltar + Importar dados de saúde" (`BackHeader`).
-2. **Etapa de consentimento** (gate local, antes de qualquer seleção): texto sobre onde o dado é processado, retenção de 30 dias, e o botão "Concordar e continuar".
+2. **Etapa de consentimento** (gate local, antes de qualquer seleção): texto sobre onde o dado é processado, retenção dos arquivos enquanto a importação existir (a pessoa pode excluí-la a qualquer momento), e o botão "Concordar e continuar".
 3. **Etapa de seleção** (após consentimento): card com instruções por plataforma (Samsung Health vs. iPhone), lista de arquivos selecionados (nome, tamanho, botão remover), botão "Selecionar arquivos"/"Adicionar mais arquivos", texto de limites, botão "Importar e analisar".
 
 ## 4. Mapa de navegação

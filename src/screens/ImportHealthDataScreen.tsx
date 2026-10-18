@@ -220,8 +220,8 @@ function ConsentStep({ onAccept }: ConsentStepProps) {
           para treinar modelos de IA.
         </Text>
         <Text className="mb-3 text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
-          Os arquivos que você envia ficam guardados por até 30 dias e depois são excluídos automaticamente. Você
-          pode excluir uma importação (e seus arquivos) a qualquer momento.
+          Os arquivos que você envia ficam guardados enquanto a importação existir. Você pode excluir uma
+          importação (e seus arquivos) a qualquer momento.
         </Text>
         <Text className="text-[15px] leading-[22px] text-app-textSecondary dark:text-app-dark-textSecondary">
           A análise gerada é um apoio informativo — nunca um diagnóstico. Consulte sempre um profissional de saúde.

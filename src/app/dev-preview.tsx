@@ -26,6 +26,7 @@ import { EditProfileScreen } from '@/screens/EditProfileScreen';
 import { ExamsScreen } from '@/screens/ExamsScreen';
 import { ForgotPasswordScreen } from '@/screens/ForgotPasswordScreen';
 import { HealthDashboardScreen } from '@/screens/HealthDashboardScreen';
+import { HealthImportsScreen } from '@/screens/HealthImportsScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { ImportHealthDataScreen } from '@/screens/ImportHealthDataScreen';
 import { MedicinesScreen } from '@/screens/MedicinesScreen';
@@ -292,6 +293,35 @@ const READY_HEALTH_IMPORT: HealthImport = {
   updatedAt: '2026-09-29T10:02:00.000Z',
 };
 
+// Uma importação de cada estado, para a lista "Suas importações". A primeira
+// tem `startedAt` agora, e por isso aparece "em análise" (sem excluir).
+const HEALTH_IMPORTS_LIST: HealthImport[] = [
+  {
+    ...READY_HEALTH_IMPORT,
+    id: 'import-4',
+    status: 'PROCESSING',
+    sourceHint: 'APPLE_HEALTH',
+    fileNames: ['HealthAutoExport-2026-10.json'],
+    periodStart: null,
+    periodEnd: null,
+    dayCount: null,
+    summary: null,
+    insights: null,
+    startedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  },
+  {
+    ...READY_HEALTH_IMPORT,
+    id: 'import-3',
+    status: 'FAILED',
+    fileNames: ['export.pdf'],
+    errorMessage: 'Nenhum dos arquivos enviados tinha dados que reconhecemos.',
+    createdAt: '2026-10-05T18:40:00.000Z',
+  },
+  { ...READY_HEALTH_IMPORT, id: 'import-2', fileNames: ['samsunghealth_export.zip'], createdAt: '2026-10-02T13:15:00.000Z' },
+  READY_HEALTH_IMPORT,
+];
+
 // A Agenda dentro da moldura do app, logo depois de um compromisso ser salvo:
 // o aviso aparece acima da barra de abas, como o AppShell monta.
 function AgendaComAvisoDeSalvo() {
@@ -550,6 +580,19 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
       onBack={noop}
       onDeleteImport={noop}
       onImportPress={noop}
+      onRetry={noop}
+      onShowAllImports={noop}
+    />
+  ),
+  'health-imports': () => (
+    <HealthImportsScreen
+      errorMessage={null}
+      imports={HEALTH_IMPORTS_LIST}
+      isLoading={false}
+      onBack={noop}
+      onDeleteImport={async () => {}}
+      onImportPress={noop}
+      onOpenImport={noop}
       onRetry={noop}
     />
   ),

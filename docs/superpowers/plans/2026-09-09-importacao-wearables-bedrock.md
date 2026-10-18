@@ -514,7 +514,7 @@ Toda classe precisa do par `dark:`; cores só via `useThemeColors()` (regra 7).
 | Prompt injection vinda do arquivo | Só **números agregados** vão ao modelo; nenhuma string do arquivo é repassada, exceto um rótulo de fonte higienizado por `[A-Za-z0-9 _-]`. Mais `PROMPT_ATTACK` e `guardContent` |
 | **Nome da pasta do export contém o e-mail do usuário** | Ignorar nomes de pasta por completo; nunca enviá-los ao modelo nem gravá-los em `fileNames` sem sanitizar |
 | PII em texto claro no CloudWatch | **Nunca** logar prompt nem resposta; `trace: 'disabled'`; definir retenção do log group |
-| Retenção de dado cru | Ciclo de vida no S3 expirando `health-imports/` em 30 dias + botão de excluir importação |
+| Retenção de dado cru | Botão de excluir importação, que apaga a linha e os arquivos dela em `health-imports/` |
 | Consentimento | Tela dedicada antes do primeiro upload |
 | Custo | `maxTokens` explícito, janela de 365 dias, `retryAttempts: 0`, uma análise por importação |
 
@@ -651,7 +651,7 @@ Estimado sobre o export real (74 MB, 415 MB inflados, ~7,7 anos de histórico, j
 | Bedrock — tokens do modelo | 8 000 in × US$ 3/M + 1 500 out × US$ 15/M | **0,047** |
 | Bedrock — Guardrails | ~40 text units × US$ 0,00044 (content 0,00007 + prompt attack 0,00008 + topic 0,00015 + PII 0,00010) | **0,018** |
 | Lambda B | 1 536 MB × ~45 s = 69 GB-s | 0,0011 |
-| S3 | 74 MB por 30 dias + ~12 PUT | 0,0017 |
+| S3 | 74 MB por mês + ~12 PUT | 0,0017 |
 | DynamoDB + AppSync + Lambda A + Logs | ~200 WRU, ~32 RRU, ~17 operações | 0,0004 |
 | | | **≈ US$ 0,068** |
 

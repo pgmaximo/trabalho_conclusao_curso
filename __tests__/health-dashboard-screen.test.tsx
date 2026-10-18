@@ -304,3 +304,35 @@ describe('HealthDashboardScreen - excluir a importacao', () => {
     expect(screen.queryByText('Network error')).toBeNull();
   });
 });
+
+describe('HealthDashboardScreen — qual importacao esta na tela', () => {
+  // baseHealthImport foi criada em 2026-04-01T10:00Z = 07:00 em America/Sao_Paulo.
+  const ROTULO = 'Importação de 01/04/2026 às 07:00';
+
+  it('diz qual importacao esta mostrando e leva a lista de todas', () => {
+    const onShowAllImports = jest.fn();
+    renderScreen({ healthImport: baseHealthImport(), onShowAllImports });
+
+    expect(screen.getByText(ROTULO)).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: `${ROTULO}. Ver todas as importações` }));
+
+    expect(onShowAllImports).toHaveBeenCalled();
+  });
+
+  it('tambem com a analise em andamento ou com falha, para voltar a uma anterior', () => {
+    renderScreen({ healthImport: baseHealthImport({ status: 'FAILED', errorMessage: 'x' }), onShowAllImports: jest.fn() });
+
+    expect(screen.getByText('Ver todas as importações')).toBeTruthy();
+  });
+
+  it('nao aparece sem importacao, carregando ou com erro', () => {
+    renderScreen({ healthImport: null, onShowAllImports: jest.fn() });
+    expect(screen.queryByText('Ver todas as importações')).toBeNull();
+
+    renderScreen({ healthImport: baseHealthImport(), isLoading: true, onShowAllImports: jest.fn() });
+    expect(screen.queryByText('Ver todas as importações')).toBeNull();
+
+    renderScreen({ healthImport: baseHealthImport(), errorMessage: 'Sem conexão.', onShowAllImports: jest.fn() });
+    expect(screen.queryByText('Ver todas as importações')).toBeNull();
+  });
+});

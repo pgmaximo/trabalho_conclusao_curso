@@ -130,6 +130,7 @@ export const ROUTE_TAB_MAP = {
   prevention: 'more',
   vaccination: 'more',
   'health-data': 'more',
+  'health-imports': 'more', // lista de importações, aberta a partir de "Dados do smartwatch"
   profile: 'more',
 } as const satisfies Record<string, AppTabId>;
 

@@ -4,7 +4,9 @@
  * Puramente apresentacional — toda busca de dado e polling vive na rota
  * (src/app/(app)/health-data.tsx) e nos hooks useHealthImportStatus /
  * useHealthDashboardData. Cobre os 5 estados do plan.md §5.4: nunca
- * importou, PENDING/PROCESSING, travado (>6min), FAILED, READY.
+ * importou, PENDING/PROCESSING, travado (>6min), FAILED, READY. Mostra uma
+ * importação por vez; as outras ficam em "Suas importações"
+ * (HealthImportsScreen).
  */
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -28,6 +30,7 @@ import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 import type { HealthImport, MetricId, MetricSummary } from '@/types/healthInsights';
+import { formatImportLabel, formatImportPeriod } from '@/utils/healthImportDisplay';
 import { formatarValorDeMetrica, nomeDoModelo } from '@/utils/metricDisplay';
 
 type HealthDashboardScreenProps = {
@@ -41,6 +44,8 @@ type HealthDashboardScreenProps = {
   onBack?: () => void;
   /** Exclui a importação. Um erro lançado aqui aparece na tela, junto do botão. */
   onDeleteImport?: () => void | Promise<void>;
+  /** Abre "Suas importações", onde a pessoa escolhe outra importação ou exclui uma. */
+  onShowAllImports?: () => void;
 };
 
 const PRIMARY_COLOR = '#10794E';
@@ -48,15 +53,6 @@ const SECONDARY_COLOR = '#1B63C4';
 
 function formatMetricValue(metric: MetricSummary): string {
   return formatarValorDeMetrica(metric.mean ?? metric.median ?? metric.max, metric.unit);
-}
-
-function formatPeriod(periodStart: string | null, periodEnd: string | null): string {
-  if (!periodStart || !periodEnd) return '';
-  const format = (d: string) => {
-    const [year, month, day] = d.split('-');
-    return `${day}/${month}/${year}`;
-  };
-  return `${format(periodStart)} a ${format(periodEnd)}`;
 }
 
 function processingStepLabel(status: HealthImport['status']): string {
@@ -72,6 +68,7 @@ export function HealthDashboardScreen({
   onImportPress,
   onBack,
   onDeleteImport,
+  onShowAllImports,
 }: HealthDashboardScreenProps) {
   const { colorScheme } = useColorScheme();
   const colors = useThemeColors();
@@ -86,6 +83,12 @@ export function HealthDashboardScreen({
   // falha já têm o próprio botão, e não se importa por cima de uma análise em
   // andamento.
   const canImportAgain = !isLoading && !errorMessage && status === 'READY';
+
+  // Com mais de uma importação, a tela precisa dizer QUAL está mostrando —
+  // e é daqui que a pessoa chega às outras. Em qualquer estado em que há uma
+  // importação na tela, inclusive em andamento ou com falha: é justamente
+  // nesses que ela pode querer voltar para uma análise anterior.
+  const showImportSwitcher = Boolean(onShowAllImports) && !isLoading && !errorMessage;
 
   return (
     <SafeAreaView className="flex-1 bg-app-background dark:bg-app-dark-background" edges={['top']}>
@@ -112,6 +115,26 @@ export function HealthDashboardScreen({
         />
 
         <AiDisclaimerBanner />
+
+        {showImportSwitcher && healthImport ? (
+          <Pressable
+            accessibilityHint="Abre a lista de importações"
+            accessibilityLabel={`${formatImportLabel(healthImport.createdAt)}. Ver todas as importações`}
+            accessibilityRole="button"
+            className="mb-4 flex-row items-center gap-3 rounded-app border border-app-border bg-app-surface p-3 dark:border-app-dark-border dark:bg-app-dark-surface"
+            onPress={onShowAllImports}
+            style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
+          >
+            <Ionicons color={colors.iconMuted} name="albums-outline" size={20} />
+            <View className="flex-1">
+              <Text className="text-[14px] font-semibold text-app-text dark:text-app-dark-text" numberOfLines={1}>
+                {formatImportLabel(healthImport.createdAt)}
+              </Text>
+              <Text className="text-[13px] text-app-primary dark:text-app-dark-primary">Ver todas as importações</Text>
+            </View>
+            <Ionicons color={colors.iconMuted} name="chevron-forward" size={18} />
+          </Pressable>
+        ) : null}
 
         {isLoading ? (
           <ScreenSkeleton blocks={3} />
@@ -240,7 +263,7 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
         {/* `flex-wrap`: em telas de 360dp os dois selos não cabem lado a lado, e
             o segundo saía cortado pela borda da tela. */}
         <View className="flex-row flex-wrap items-center gap-2">
-          <Badge label={formatPeriod(summary.periodStart, summary.periodEnd)} variant="secondary" />
+          <Badge label={formatImportPeriod(summary.periodStart, summary.periodEnd)} variant="secondary" />
           <Badge label={`${summary.dayCount} dias`} variant="neutral" />
         </View>
       </Section>

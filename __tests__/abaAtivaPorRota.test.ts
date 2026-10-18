@@ -29,6 +29,7 @@ describe('getActiveTabId', () => {
     ['/prevention', 'more'],
     ['/vaccination', 'more'],
     ['/health-data', 'more'],
+    ['/health-imports', 'more'],
     ['/profile', 'more'],
   ])('continua acendendo a aba certa em %s (%s)', (pathname, abaEsperada) => {
     expect(getActiveTabId(pathname)).toBe(abaEsperada);
