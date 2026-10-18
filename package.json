@@ -16,6 +16,7 @@
     "validate": "npm run typecheck && npm run typecheck:backend && npm run lint && npm run test:ci",
     "amplify:sandbox": "ampx sandbox",
     "deploy:prod": "node scripts/deploy-producao.mjs",
+    "site:publicar": "tsx scripts/publicar-site-publico.mjs",
     "eas-build-pre-install": "node scripts/usar-outputs-de-producao.mjs",
     "doctor": "npx react-doctor@latest"
   },
