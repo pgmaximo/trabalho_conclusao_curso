@@ -26,6 +26,7 @@ import { useThemeColors } from '@/constants/theme';
 import { canDeleteHealthImport } from '@/services/healthImportService';
 import type { HealthImport, HealthImportSourceHint } from '@/types/healthInsights';
 import { formatImportLabel, formatImportPeriod } from '@/utils/healthImportDisplay';
+import { formatarValorDeMetrica } from '@/utils/metricDisplay';
 
 type HealthImportsScreenProps = {
   imports: HealthImport[];
@@ -67,7 +68,7 @@ function statusView(healthImport: HealthImport, deletable: boolean): StatusView 
   switch (healthImport.status) {
     case 'READY': {
       const period = formatImportPeriod(healthImport.periodStart, healthImport.periodEnd);
-      const days = healthImport.dayCount ? ` · ${healthImport.dayCount} dias` : '';
+      const days = healthImport.dayCount ? ` · ${formatarValorDeMetrica(healthImport.dayCount, 'dias')}` : '';
       return { badge: 'Pronta', variant: 'success', detail: period ? `${period}${days}` : 'Análise pronta' };
     }
     case 'FAILED':

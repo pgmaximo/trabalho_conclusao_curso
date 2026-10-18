@@ -6,6 +6,7 @@ import {
   buildLinePath,
   type ChartPoint,
   computeYDomain,
+  isolatedPointIndices,
   niceTicks,
   xLabelIndices,
   xPositionForIndex,
@@ -36,6 +37,8 @@ type LineChartProps = {
   emptyMessage: string;
   /** Resumo textual da série, para leitor de tela (o SVG é invisível para acessibilidade). */
   accessibilityLabel: string;
+  /** Rótulo do eixo X a partir do dateKey. Padrão "DD/MM"; série mensal passa "MM/AAAA". */
+  formatXLabel?: (dateKey?: string) => string;
 };
 
 const Y_AXIS_WIDTH = 34;
@@ -54,7 +57,15 @@ function formatShortDate(dateKey?: string): string {
  * mín-máx (via duas séries `style: 'dashed'`). Dia sem dado vira quebra no
  * traço (chartScale.buildLinePath), nunca interpolação.
  */
-export function LineChart({ series, height, yUnit, referenceLines = [], emptyMessage, accessibilityLabel }: LineChartProps) {
+export function LineChart({
+  series,
+  height,
+  yUnit,
+  referenceLines = [],
+  emptyMessage,
+  accessibilityLabel,
+  formatXLabel = formatShortDate,
+}: LineChartProps) {
   const [width, setWidth] = useState(0);
 
   const hasData = series.some((s) => s.points.some((p) => p.value !== null));
@@ -132,21 +143,22 @@ export function LineChart({ series, height, yUnit, referenceLines = [], emptyMes
               />
             ))}
 
-            {series.flatMap((s) =>
-              s.showDots
-                ? s.points.map((point, index) =>
-                    point.value !== null ? (
-                      <Circle
-                        cx={xPositionForIndex(index, s.points.length, chartWidth, CHART_PADDING)}
-                        cy={yPositionForValue(point.value, height, domain, CHART_PADDING)}
-                        fill={s.color}
-                        key={`${s.id}-${index}`}
-                        r={2.5}
-                      />
-                    ) : null,
-                  )
-                : [],
-            )}
+            {series.flatMap((s) => {
+              // Um ponto entre duas quebras não forma linha: sem o marcador,
+              // ele sumia do gráfico mesmo com showDots desligado.
+              const isolated = new Set(isolatedPointIndices(s.points));
+              return s.points.map((point, index) =>
+                point.value !== null && (s.showDots || isolated.has(index)) ? (
+                  <Circle
+                    cx={xPositionForIndex(index, s.points.length, chartWidth, CHART_PADDING)}
+                    cy={yPositionForValue(point.value, height, domain, CHART_PADDING)}
+                    fill={s.color}
+                    key={`${s.id}-${index}`}
+                    r={2.5}
+                  />
+                ) : null,
+              );
+            })}
           </Svg>
         ) : null}
       </View>
@@ -154,7 +166,7 @@ export function LineChart({ series, height, yUnit, referenceLines = [], emptyMes
       <View className="ml-[34px] mt-1 flex-row justify-between">
         {labelIndices.map((index) => (
           <Text className="text-[10px] text-app-textMuted dark:text-app-dark-textMuted" key={index}>
-            {formatShortDate(longestSeries.points[index]?.dateKey)}
+            {formatXLabel(longestSeries.points[index]?.dateKey)}
           </Text>
         ))}
       </View>

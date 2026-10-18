@@ -30,8 +30,8 @@ import { ScreenSkeleton } from '@/components/ScreenSkeleton';
 import { Section } from '@/components/Section';
 import { useThemeColors } from '@/constants/theme';
 import type { HealthImport, MetricId, MetricSummary } from '@/types/healthInsights';
-import { formatImportLabel, formatImportPeriod } from '@/utils/healthImportDisplay';
-import { formatarValorDeMetrica, nomeDoModelo } from '@/utils/metricDisplay';
+import { formatImportLabel, formatImportPeriod, formatMonthLabel, monthlyChartPoints } from '@/utils/healthImportDisplay';
+import { formatarValorDeMetrica, nomeDoModelo, textoDeCobertura } from '@/utils/metricDisplay';
 
 type HealthDashboardScreenProps = {
   healthImport: HealthImport | null;
@@ -127,7 +127,9 @@ export function HealthDashboardScreen({
           >
             <Ionicons color={colors.iconMuted} name="albums-outline" size={20} />
             <View className="flex-1">
-              <Text className="text-[14px] font-semibold text-app-text dark:text-app-dark-text" numberOfLines={1}>
+              {/* Sem `numberOfLines`: em 360dp a linha cortava a hora ("às 07…"),
+                  justamente o que distingue duas importações do mesmo dia. */}
+              <Text className="text-[14px] font-semibold text-app-text dark:text-app-dark-text">
                 {formatImportLabel(healthImport.createdAt)}
               </Text>
               <Text className="text-[13px] text-app-primary dark:text-app-dark-primary">Ver todas as importações</Text>
@@ -239,23 +241,34 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
   const metricLabel = (id: MetricId) => summary.metrics.find((m) => m.metric === id)?.label ?? null;
   const modelName = nomeDoModelo(healthImport.modelId);
 
+  const periodLabel = formatImportPeriod(summary.periodStart, summary.periodEnd);
+
   const stepsMetric = summary.metrics.find((m) => m.metric === 'steps');
-  const stepsBarPoints: BarChartPoint[] = (stepsMetric?.monthly ?? []).map((point) => ({
-    dateKey: `${point.month}-01`,
-    segments: point.mean !== null ? [{ id: 'steps', value: point.mean, color: PRIMARY_COLOR }] : [],
+  const stepsBarPoints: BarChartPoint[] = monthlyChartPoints(stepsMetric?.monthly ?? []).map((point) => ({
+    dateKey: point.dateKey,
+    segments: point.value !== null ? [{ id: 'steps', value: point.value, color: PRIMARY_COLOR }] : [],
   }));
 
   const sleepMetric = summary.metrics.find((m) => m.metric === 'sleepMinutes');
   const lineSeries: LineChartSeries[] = [];
   if (sleepMetric) {
+    const sleepPoints = monthlyChartPoints(sleepMetric.monthly);
     lineSeries.push({
       id: 'sleep',
       label: sleepMetric.label,
       color: SECONDARY_COLOR,
-      points: sleepMetric.monthly.map((p) => ({ dateKey: `${p.month}-01`, value: p.mean })),
-      showDots: true,
+      points: sleepPoints,
+      // Um ponto por mês ajuda a ler poucos meses; com os ~90 de um export
+      // de anos, os pontos encobriam a própria linha.
+      showDots: sleepPoints.length <= 24,
     });
   }
+
+  // A métrica com mais dias medidos primeiro. A ordem vinha da leitura dos
+  // arquivos, e o export real abria com peso e gordura corporal — as duas
+  // medidas em poucos dias de oito anos.
+  const metricsByDays = [...summary.metrics].sort((a, b) => b.daysWithData - a.daysWithData);
+  const metricRows = pairsOf(metricsByDays);
 
   return (
     <>
@@ -263,36 +276,24 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
         {/* `flex-wrap`: em telas de 360dp os dois selos não cabem lado a lado, e
             o segundo saía cortado pela borda da tela. */}
         <View className="flex-row flex-wrap items-center gap-2">
-          <Badge label={formatImportPeriod(summary.periodStart, summary.periodEnd)} variant="secondary" />
-          <Badge label={`${summary.dayCount} dias`} variant="neutral" />
+          <Badge label={periodLabel} variant="secondary" />
+          <Badge label={formatarValorDeMetrica(summary.dayCount, 'dias')} variant="neutral" />
         </View>
       </Section>
 
       <Section subtitle="Números = média diária do período · gráfico = tendência mensal" title="Métricas">
-        <View className="flex-row flex-wrap gap-2">
-          {summary.metrics.map((metric) => (
-            <View className="min-w-[47%] flex-1" key={metric.metric}>
-              <View className="rounded-app border border-app-border bg-app-surface p-3 dark:border-app-dark-border dark:bg-app-dark-surface">
-                <Text className="text-[12px] uppercase tracking-wide text-app-textSecondary dark:text-app-dark-textSecondary">
-                  {metric.label}
-                </Text>
-                <Text className="mb-1 mt-1 text-[18px] font-bold text-app-text dark:text-app-dark-text">
-                  {formatMetricValue(metric)}
-                </Text>
-                <Text className="mb-1.5 text-[10px] text-app-textMuted dark:text-app-dark-textMuted">
-                  média diária
-                </Text>
-                <Sparkline
-                  accessibilityLabel={`Tendência mensal de ${metric.label}, de ${metric.firstSeen} a ${metric.lastSeen}`}
-                  color={colors.primary}
-                  height={28}
-                  points={metric.monthly.map((p) => ({ dateKey: `${p.month}-01`, value: p.mean }))}
-                  width={110}
-                />
-                <Text className="mt-1 text-[11px] text-app-textMuted dark:text-app-dark-textMuted">
-                  cobertura de {metric.coveragePct}% dos dias
-                </Text>
-              </View>
+        {/* Uma fileira por par de métricas, e não um `flex-wrap`: no wrap, o
+            card não ocupava a altura da fileira — um rótulo de duas linhas
+            ("Percentual de gordura corporal") deixava o vizinho mais baixo —,
+            e a última métrica de uma quantidade ímpar esticava até a largura
+            inteira. */}
+        <View className="gap-2">
+          {metricRows.map((row) => (
+            <View className="flex-row gap-2" key={row[0].metric}>
+              {row.map((metric) => (
+                <MetricCard color={colors.primary} key={metric.metric} metric={metric} />
+              ))}
+              {row.length === 1 ? <View className="flex-1" /> : null}
             </View>
           ))}
         </View>
@@ -327,8 +328,9 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
       {stepsBarPoints.some((p) => p.segments.length > 0) ? (
         <Section subtitle="Média mensal" title="Passos">
           <BarChart
-            accessibilityLabel={`Passos por mês, de ${summary.periodStart} a ${summary.periodEnd}`}
+            accessibilityLabel={`Passos por mês, de ${periodLabel}`}
             emptyMessage="Sem dados suficientes de passos para exibir o gráfico."
+            formatXLabel={formatMonthLabel}
             height={140}
             points={stepsBarPoints}
             yUnit="passos/dia (média mensal)"
@@ -341,6 +343,7 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
           <LineChart
             accessibilityLabel="Duração média mensal do sono, em minutos"
             emptyMessage="Sem dados suficientes de sono para exibir o gráfico."
+            formatXLabel={formatMonthLabel}
             height={140}
             series={lineSeries}
             yUnit="minutos/noite (média mensal)"
@@ -482,6 +485,53 @@ function ReadyDashboard({ healthImport, colors, warningsExpanded, setWarningsExp
       ) : null}
     </>
   );
+}
+
+type MetricCardProps = {
+  metric: MetricSummary;
+  color: string;
+};
+
+/**
+ * `flex-1` na fileira: os dois cards de um par ficam com a mesma largura e a
+ * mesma altura. O gráfico e a cobertura descem para o pé do card (`mt-auto`),
+ * alinhados entre os dois mesmo quando um rótulo quebra em duas linhas.
+ */
+function MetricCard({ metric, color }: MetricCardProps) {
+  return (
+    <View className="flex-1 rounded-app border border-app-border bg-app-surface p-3 dark:border-app-dark-border dark:bg-app-dark-surface">
+      <Text
+        className="text-[12px] uppercase tracking-wide text-app-textSecondary dark:text-app-dark-textSecondary"
+        numberOfLines={2}
+      >
+        {metric.label}
+      </Text>
+      <Text className="mb-1 mt-1 text-[18px] font-bold text-app-text dark:text-app-dark-text">
+        {formatMetricValue(metric)}
+      </Text>
+      <Text className="mb-1.5 text-[10px] text-app-textMuted dark:text-app-dark-textMuted">média diária</Text>
+      <View className="mt-auto">
+        <Sparkline
+          accessibilityLabel={`Tendência mensal de ${metric.label}, de ${formatImportPeriod(metric.firstSeen, metric.lastSeen)}`}
+          color={color}
+          height={28}
+          points={monthlyChartPoints(metric.monthly)}
+          width={110}
+        />
+        <Text className="mt-1 text-[11px] text-app-textMuted dark:text-app-dark-textMuted">
+          {textoDeCobertura(metric.coveragePct, metric.daysWithData)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function pairsOf<T>(items: T[]): [T, ...T[]][] {
+  const rows: [T, ...T[]][] = [];
+  for (let index = 0; index < items.length; index += 2) {
+    rows.push(items.slice(index, index + 2) as [T, ...T[]]);
+  }
+  return rows;
 }
 
 function averageCoverage(metrics: MetricSummary[]): number {

@@ -43,7 +43,7 @@ import { DRUG_INTERACTION_PAIRS } from '@/data/drugInteractions/pairs';
 import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import type { UserProfile } from '@/contexts/UserContext';
 import type { DrugInteractionMatch } from '@/services/drugInteractionService';
-import type { HealthImport } from '@/types/healthInsights';
+import type { HealthImport, MetricSummary } from '@/types/healthInsights';
 import type {
   AppointmentEntry,
   MedicalDocument,
@@ -291,6 +291,97 @@ const READY_HEALTH_IMPORT: HealthImport = {
   },
   createdAt: '2026-09-29T10:00:00.000Z',
   updatedAt: '2026-09-29T10:02:00.000Z',
+};
+
+// O formato do export real (Samsung Health, 2018-2026): ~8 anos de meses,
+// meses sem dado (o backend os omite do array), métricas esparsas com
+// cobertura arredondada a 0% (peso medido em poucos dias), rótulos longos e
+// um número ímpar de cartões. O fixture curto acima esconde tudo isso.
+function previewMonths(from: string, to: string, value: (index: number) => number | null) {
+  const months: { month: string; mean: number | null }[] = [];
+  let [year, month] = from.split('-').map(Number) as [number, number];
+  const [endYear, endMonth] = to.split('-').map(Number) as [number, number];
+  for (let index = 0; year < endYear || (year === endYear && month <= endMonth); index++) {
+    const mean = value(index);
+    if (mean !== null) months.push({ month: `${year}-${String(month).padStart(2, '0')}`, mean });
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return months;
+}
+
+function previewMetric(
+  metric: MetricSummary['metric'],
+  label: string,
+  unit: string,
+  mean: number,
+  coveragePct: number,
+  daysWithData: number,
+  monthly: { month: string; mean: number | null }[],
+): MetricSummary {
+  return {
+    metric,
+    label,
+    unit,
+    n: daysWithData,
+    firstSeen: `${monthly[0]?.month ?? '2018-11'}-01`,
+    lastSeen: `${monthly[monthly.length - 1]?.month ?? '2026-09'}-01`,
+    daysWithData,
+    coveragePct,
+    mean,
+    median: mean,
+    sd: null,
+    min: null,
+    max: null,
+    p25: null,
+    p75: null,
+    weekday: null,
+    weekend: null,
+    trendSlopePerDay: null,
+    monthly,
+  };
+}
+
+// Passos com a pausa de 2020 (meses 16 a 21 sem dado), como no export real.
+const wave = (base: number, amplitude: number) => (index: number) =>
+  index >= 16 && index <= 21 ? null : Math.round(base + amplitude * Math.sin(index / 3) + (index % 5) * amplitude * 0.1);
+
+const LONG_HEALTH_IMPORT: HealthImport = {
+  ...READY_HEALTH_IMPORT,
+  id: 'import-long',
+  periodStart: '2018-11-25',
+  periodEnd: '2026-09-08',
+  dayCount: 2845,
+  summary: {
+    ...READY_HEALTH_IMPORT.summary!,
+    periodStart: '2018-11-25',
+    periodEnd: '2026-09-08',
+    dayCount: 2845,
+    metrics: [
+      previewMetric('weightKg', 'Peso corporal', 'kg', 65.7, 0, 9, [
+        { month: '2019-03', mean: 64.2 },
+        { month: '2021-08', mean: 65.1 },
+        { month: '2024-01', mean: 66 },
+        { month: '2024-02', mean: 66.4 },
+        { month: '2026-06', mean: 66.8 },
+      ]),
+      previewMetric('bodyFatPct', 'Percentual de gordura corporal', '%', 21, 0, 7, [
+        { month: '2019-03', mean: 20.1 },
+        { month: '2024-01', mean: 21.4 },
+        { month: '2026-06', mean: 21.6 },
+      ]),
+      previewMetric('respiratoryRateBrpm', 'Frequência respiratória', 'rpm', 16.7, 20, 569, previewMonths('2022-05', '2026-09', (i) => 16 + Math.sin(i) * 0.8)),
+      previewMetric('steps', 'Passos', 'passos', 13667, 67, 1906, previewMonths('2018-11', '2026-09', wave(13000, 3000))),
+      previewMetric('distanceKm', 'Distância percorrida', 'km', 10.8, 67, 1906, previewMonths('2018-11', '2026-09', wave(10, 2))),
+      previewMetric('activeEnergyKcal', 'Energia ativa', 'kcal', 512, 67, 1906, previewMonths('2018-11', '2026-09', wave(500, 90))),
+      previewMetric('activeMinutes', 'Tempo ativo', 'min', 91, 64, 1820, previewMonths('2018-11', '2026-09', wave(90, 20))),
+      previewMetric('skinTemperatureC', 'Temperatura da pele', '°C', 33.1, 15, 427, previewMonths('2023-01', '2026-09', (i) => 33 + Math.cos(i) * 0.4)),
+      previewMetric('sleepMinutes', 'Duração do sono', 'min', 402, 55, 1565, previewMonths('2018-11', '2026-09', wave(400, 25))),
+    ],
+  },
 };
 
 // Uma importação de cada estado, para a lista "Suas importações". A primeira
@@ -575,6 +666,19 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
     <HealthDashboardScreen
       errorMessage={null}
       healthImport={READY_HEALTH_IMPORT}
+      isLoading={false}
+      isTimedOut={false}
+      onBack={noop}
+      onDeleteImport={noop}
+      onImportPress={noop}
+      onRetry={noop}
+      onShowAllImports={noop}
+    />
+  ),
+  'health-dashboard-long': () => (
+    <HealthDashboardScreen
+      errorMessage={null}
+      healthImport={LONG_HEALTH_IMPORT}
       isLoading={false}
       isTimedOut={false}
       onBack={noop}

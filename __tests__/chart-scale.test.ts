@@ -1,6 +1,7 @@
 import {
   buildLinePath,
   computeYDomain,
+  isolatedPointIndices,
   niceTicks,
   xLabelIndices,
   xPositionForIndex,
@@ -113,5 +114,21 @@ describe('xLabelIndices', () => {
 
   it('returns an empty array for no points', () => {
     expect(xLabelIndices([], 5)).toEqual([]);
+  });
+});
+
+describe('isolatedPointIndices', () => {
+  // Um ponto entre duas quebras vira "M" sem "L" no path e não aparece — o
+  // peso medido em poucos meses de anos sumia do gráfico.
+  it('finds the points with no neighbour to draw a line to', () => {
+    expect(isolatedPointIndices(points([5, null, 7, 8, null, 9]))).toEqual([0, 5]);
+  });
+
+  it('ignores points that are part of a line', () => {
+    expect(isolatedPointIndices(points([1, 2, 3]))).toEqual([]);
+  });
+
+  it('treats a single point as isolated', () => {
+    expect(isolatedPointIndices(points([null, 4, null]))).toEqual([1]);
   });
 });

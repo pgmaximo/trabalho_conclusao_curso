@@ -25,6 +25,43 @@ export function formatImportLabel(createdAt: string): string {
   return `Importação de ${dia} às ${hora}`;
 }
 
+/**
+ * A série mensal de uma métrica como pontos de gráfico, com os meses sem
+ * dado preenchidos com `null` entre o primeiro e o último. O backend só
+ * manda os meses que têm dado; desenhar o array cru por índice ligava, por
+ * exemplo, março/2020 a setembro/2020 numa reta, como se houvesse medição
+ * nos meses do meio — interpolação, que a regra 2 da constituição proíbe.
+ * Com o `null`, o gráfico quebra o traço ali.
+ */
+export function monthlyChartPoints(monthly: { month: string; mean: number | null }[]): { dateKey: string; value: number | null }[] {
+  const first = monthly[0];
+  const last = monthly[monthly.length - 1];
+  if (!first || !last) return [];
+
+  const byMonth = new Map(monthly.map((point) => [point.month, point.mean]));
+  const points: { dateKey: string; value: number | null }[] = [];
+  let [year, month] = first.month.split('-').map(Number) as [number, number];
+  const [lastYear, lastMonth] = last.month.split('-').map(Number) as [number, number];
+  if (!year || !month || !lastYear || !lastMonth) return [];
+
+  while (year < lastYear || (year === lastYear && month <= lastMonth)) {
+    const key = `${year}-${doisDigitos(month)}`;
+    points.push({ dateKey: `${key}-01`, value: byMonth.get(key) ?? null });
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return points;
+}
+
+/** "11/2018" a partir de um dateKey AAAA-MM-DD — rótulo do eixo X dos gráficos mensais. */
+export function formatMonthLabel(dateKey?: string): string {
+  const [year, month] = (dateKey ?? '').split('-');
+  return year && month ? `${month}/${year}` : '';
+}
+
 /** "01/01/2026 a 31/03/2026" a partir de duas datas AAAA-MM-DD; '' sem uma delas. */
 export function formatImportPeriod(periodStart: string | null, periodEnd: string | null): string {
   if (!periodStart || !periodEnd) return '';

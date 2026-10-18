@@ -1,4 +1,4 @@
-import { formatarValorDeMetrica, nomeDoModelo } from '@/utils/metricDisplay';
+import { formatarValorDeMetrica, nomeDoModelo, textoDeCobertura } from '@/utils/metricDisplay';
 
 // O painel do smartwatch mostrava "8200.0 passos" e o identificador cru do
 // modelo ("us.anthropic.claude-sonnet-4-6")
@@ -48,5 +48,22 @@ describe('nomeDoModelo', () => {
     expect(nomeDoModelo('')).toBeNull();
     expect(nomeDoModelo('amazon.nova-pro-v1:0')).toBeNull();
     expect(nomeDoModelo('claude')).toBeNull();
+  });
+});
+
+describe('textoDeCobertura', () => {
+  it('mostra a porcentagem quando ela diz alguma coisa', () => {
+    expect(textoDeCobertura(67, 1906)).toBe('cobertura de 67% dos dias');
+    expect(textoDeCobertura(1, 30)).toBe('cobertura de 1% dos dias');
+  });
+
+  it('conta os dias quando a porcentagem arredonda para 0% mas há dado', () => {
+    // Peso medido em 9 dias de um export de 2.845: "0% dos dias" ao lado de 65,7 kg.
+    expect(textoDeCobertura(0, 9)).toBe('medido em 9 dias');
+    expect(textoDeCobertura(0, 1)).toBe('medido em 1 dia');
+  });
+
+  it('continua dizendo 0% quando não há dia nenhum', () => {
+    expect(textoDeCobertura(0, 0)).toBe('cobertura de 0% dos dias');
   });
 });

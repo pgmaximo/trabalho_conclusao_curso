@@ -336,3 +336,40 @@ describe('HealthDashboardScreen — qual importacao esta na tela', () => {
     expect(screen.queryByText('Ver todas as importações')).toBeNull();
   });
 });
+
+describe('HealthDashboardScreen — export de varios anos', () => {
+  // O formato do export real: oito anos, peso medido em poucos dias,
+  // quantidade impar de metricas.
+  function longImport() {
+    const steps = baseSummary().metrics[0]!;
+    const metric = (overrides: Partial<typeof steps>) => ({ ...steps, ...overrides });
+    return baseHealthImport({
+      dayCount: 2845,
+      summary: baseSummary({
+        dayCount: 2845,
+        metrics: [
+          metric({ metric: 'weightKg', label: 'Peso corporal', unit: 'kg', mean: 65.7, coveragePct: 0, daysWithData: 9 }),
+          metric({ metric: 'steps', label: 'Passos', daysWithData: 1906, coveragePct: 67 }),
+          metric({ metric: 'sleepMinutes', label: 'Duração do sono', unit: 'min', mean: 402, daysWithData: 1565, coveragePct: 55 }),
+        ],
+      }),
+    });
+  }
+
+  it('escreve a contagem de dias com separador de milhar', () => {
+    renderScreen({ healthImport: longImport() });
+    expect(screen.getByText('2.845 dias')).toBeTruthy();
+  });
+
+  it('conta os dias de uma metrica esparsa, em vez de dizer 0% ao lado de um valor', () => {
+    renderScreen({ healthImport: longImport() });
+    expect(screen.getByText('medido em 9 dias')).toBeTruthy();
+    expect(screen.queryByText('cobertura de 0% dos dias')).toBeNull();
+  });
+
+  it('mostra primeiro as metricas com mais dias medidos', () => {
+    renderScreen({ healthImport: longImport() });
+    const labels = screen.getAllByText(/^(Passos|Duração do sono|Peso corporal)$/).map((node) => node.props.children);
+    expect(labels.slice(0, 3)).toEqual(['Passos', 'Duração do sono', 'Peso corporal']);
+  });
+});

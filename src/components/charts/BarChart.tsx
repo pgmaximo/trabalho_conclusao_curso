@@ -1,6 +1,8 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 
+import { xLabelIndices } from './chartScale';
+
 export type BarChartSegment = {
   id: string;
   value: number;
@@ -26,6 +28,8 @@ type BarChartProps = {
   highlightWeekends?: boolean;
   emptyMessage: string;
   accessibilityLabel: string;
+  /** Rótulos do eixo X (até 5, sempre o primeiro e o último). Sem ele, o eixo não tem rótulo. */
+  formatXLabel?: (dateKey: string) => string;
 };
 
 function isWeekend(dateKey: string): boolean {
@@ -36,11 +40,31 @@ function isWeekend(dateKey: string): boolean {
 const AXIS_LABEL_HEIGHT = 20;
 
 /**
+ * Espaço entre as barras, menor quanto mais barras. Era fixo em 4px: com os
+ * ~90 meses de um export de 8 anos, só os espaços passavam da largura da tela
+ * e toda barra ficava com largura zero — o gráfico aparecia vazio.
+ */
+function barGap(count: number): number {
+  if (count <= 24) return 4;
+  if (count <= 60) return 2;
+  return 1;
+}
+
+/**
  * Barras por dia, empilháveis (estágios de sono) — construído com Views
  * (flexbox), não SVG: barras são retângulos alinhados a um eixo, mais
  * simples e robusto em RN do que medir largura para desenhar `<Rect>`.
  */
-export function BarChart({ points, height, yUnit, goalLine, highlightWeekends, emptyMessage, accessibilityLabel }: BarChartProps) {
+export function BarChart({
+  points,
+  height,
+  yUnit,
+  goalLine,
+  highlightWeekends,
+  emptyMessage,
+  accessibilityLabel,
+  formatXLabel,
+}: BarChartProps) {
   const hasData = points.some((point) => point.segments.some((segment) => segment.value > 0));
 
   if (!hasData) {
@@ -70,7 +94,7 @@ export function BarChart({ points, height, yUnit, goalLine, highlightWeekends, e
           />
         ) : null}
 
-        <View className="h-full flex-row items-end gap-1">
+        <View className="h-full flex-row items-end" style={{ gap: barGap(points.length) }}>
           {points.map((point) => {
             const weekend = Boolean(highlightWeekends) && isWeekend(point.dateKey);
 
@@ -98,6 +122,16 @@ export function BarChart({ points, height, yUnit, goalLine, highlightWeekends, e
           })}
         </View>
       </View>
+
+      {formatXLabel ? (
+        <View className="mt-1 flex-row justify-between">
+          {xLabelIndices(points, 4).map((index) => (
+            <Text className="text-[10px] text-app-textMuted dark:text-app-dark-textMuted" key={index}>
+              {formatXLabel(points[index]?.dateKey ?? '')}
+            </Text>
+          ))}
+        </View>
+      ) : null}
 
       <Text className="mt-1 text-[11px] text-app-textMuted dark:text-app-dark-textMuted">
         {yUnit}

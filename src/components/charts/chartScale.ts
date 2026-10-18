@@ -110,8 +110,21 @@ export function niceTicks(domain: YDomain, count: number): number[] {
   return Array.from({ length: count }, (_, i) => min + i * step);
 }
 
+/**
+ * Índices dos pontos com valor cujos dois vizinhos não têm. Num traço com
+ * quebras (buildLinePath), um ponto assim vira um "M" sem "L" — não desenha
+ * nada, e o dado some do gráfico. Quem desenha a linha marca esses com um ponto.
+ */
+export function isolatedPointIndices(points: ChartPoint[]): number[] {
+  return points.flatMap((point, index) =>
+    point.value !== null && (points[index - 1]?.value ?? null) === null && (points[index + 1]?.value ?? null) === null
+      ? [index]
+      : [],
+  );
+}
+
 /** Índices dos pontos a rotular no eixo X, limitando a `maxLabels` (sempre inclui o primeiro e o último). */
-export function xLabelIndices(points: ChartPoint[], maxLabels: number): number[] {
+export function xLabelIndices(points: readonly unknown[], maxLabels: number): number[] {
   if (points.length === 0) return [];
   if (points.length <= maxLabels) return points.map((_, i) => i);
 

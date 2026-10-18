@@ -18,6 +18,18 @@ function comSeparadorDeMilhar(inteiro: string): string {
   return inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
+/**
+ * Quanto do período a métrica cobre. A porcentagem vem arredondada do
+ * backend, e uma métrica medida em poucos dias de um período de anos (peso,
+ * gordura corporal) aparecia como "cobertura de 0% dos dias" ao lado de um
+ * valor e de um gráfico — o 0% dizia que não havia dado nenhum. Abaixo de
+ * 1%, conta os dias.
+ */
+export function textoDeCobertura(coveragePct: number, daysWithData: number): string {
+  if (coveragePct >= 1 || daysWithData <= 0) return `cobertura de ${coveragePct}% dos dias`;
+  return `medido em ${formatarValorDeMetrica(daysWithData, daysWithData === 1 ? 'dia' : 'dias')}`;
+}
+
 export function formatarValorDeMetrica(valor: number | null | undefined, unidade: string): string {
   if (valor === null || valor === undefined || !Number.isFinite(valor)) return '—';
 
