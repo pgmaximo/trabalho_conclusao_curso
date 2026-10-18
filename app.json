@@ -2,7 +2,7 @@
   "expo": {
     "name": "tcc",
     "slug": "tcc",
-    "scheme": "SuaSaude",
+    "scheme": "suasaude",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

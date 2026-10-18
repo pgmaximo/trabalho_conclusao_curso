@@ -153,8 +153,13 @@ vir do e-mail da própria conta.
 
 ### 4.1 Excluir a conta
 
-1. **Achar o `sub`.** No Cognito (User Pool do `amplify_outputs.json`), procure o
-   usuário pelo e-mail e anote o `sub`.
+1. **Achar o `sub`.** No Cognito, procure o usuário pelo e-mail e anote o `sub`.
+   Quem testa pelo APK está na **produção**: o User Pool é o do
+   `amplify_outputs.production.json`, e as tabelas e o bucket do passo 2 e 3 são
+   os da stack `amplify-<appId>-main-branch-…`. O `amplify_outputs.json` aponta
+   para o sandbox de desenvolvimento. Na produção, as tabelas e o User Pool têm
+   proteção contra exclusão da *tabela* ou do *pool*, não dos itens: apagar os
+   itens e o usuário funciona normalmente.
 2. **DynamoDB.** Em cada tabela abaixo, apague os itens cujo campo `owner`
    começa com `<sub>::`:
    `UserProfile`, `MedicalDocument`, `LabResult`, `PrescriptionItem`,

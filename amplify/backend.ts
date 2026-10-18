@@ -1,7 +1,7 @@
 import { defineBackend } from '@aws-amplify/backend';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
-import { Aws, Duration, Fn, Stack } from 'aws-cdk-lib';
+import { Aws, Duration, Fn, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { FunctionUrlAuthType, HttpMethod } from 'aws-cdk-lib/aws-lambda';
 import { auth } from './auth/resource.js';
 import { data } from './data/resource.js';
@@ -36,6 +36,35 @@ backend.auth.resources.cfnResources.cfnUserPoolClient.addPropertyOverride('Expli
   'ALLOW_USER_PASSWORD_AUTH',
   'ALLOW_REFRESH_TOKEN_AUTH',
 ]);
+
+// ---------------------------------------------------------------------------
+// Protecao dos dados de PRODUCAO contra exclusao. So vale no deploy de branch
+// (`npm run deploy:prod`): num sandbox, protecao contra exclusao faria o
+// `ampx sandbox delete` falhar.
+//
+// Os padroes do Amplify apagam tudo junto com a stack -- o user pool tem
+// RemovalPolicy.DESTROY fixo e as tabelas nao tem protecao nenhuma. Com isto,
+// apagar a stack de producao por engano falha em vez de levar os usuarios e o
+// dado de saude junto. Efeito colateral desejado: uma mudanca de schema que
+// SUBSTITUIRIA uma tabela tambem falha, em vez de recria-la vazia.
+//
+// O bucket nao entra aqui: ele e protegido por `keepOnDelete` em
+// storage/resource.ts, que o proprio Amplify ignora no sandbox. A leitura do
+// tipo de deploy e a mesma que o construct de storage do Amplify faz.
+// ---------------------------------------------------------------------------
+const ehProducao =
+  Stack.of(backend.auth.resources.userPool).node.tryGetContext('amplify-backend-type') === 'branch';
+
+if (ehProducao) {
+  const { cfnUserPool } = backend.auth.resources.cfnResources;
+  cfnUserPool.deletionProtection = 'ACTIVE';
+  cfnUserPool.applyRemovalPolicy(RemovalPolicy.RETAIN);
+
+  for (const tabela of Object.values(backend.data.resources.cfnResources.amplifyDynamoDbTables)) {
+    tabela.pointInTimeRecoveryEnabled = true;
+    tabela.deletionProtectionEnabled = true;
+  }
+}
 
 // A funcao le o UserProfile do dono diretamente via DynamoDB, pois a role de
 // execucao da Lambda nao carrega o claim "owner" do usuario final para

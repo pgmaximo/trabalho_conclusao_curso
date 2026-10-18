@@ -2,6 +2,10 @@ import { defineStorage } from '@aws-amplify/backend';
 
 export const storage = defineStorage({
   name: 'medicalDocuments',
+  // Sem isto, o Amplify apaga o bucket -- e todo laudo guardado -- junto com a
+  // stack de producao. No sandbox o Amplify ignora a opcao e continua apagando,
+  // que e o que se quer de um ambiente descartavel.
+  keepOnDelete: true,
   access: (allow) => ({
     // `{entity_id}` é o único token dinâmico reconhecido pelo Amplify Storage
     // (substituído pelo identityId do usuário autenticado) — `{owner}` (usado

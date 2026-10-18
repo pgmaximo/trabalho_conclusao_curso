@@ -163,15 +163,36 @@ npx ampx generate outputs --stack <cloudformation-stack-name>
 
 Esses comandos sao uteis para recriar o `amplify_outputs.json` sem subir uma sandbox nova.
 
-## Como pensar em desenvolvimento, homologacao e producao
+## Desenvolvimento e producao
 
-Neste momento, o projeto padroniza apenas o desenvolvimento colaborativo:
+Ha dois tipos de ambiente, cada um com o seu outputs:
 
-- `amplify_outputs.json` versionado aponta para o backend dev compartilhado.
-- `amplify/` documenta e valida o backend-as-code.
-- `src/services/` consome o backend em runtime.
+| Ambiente | Como publica | Outputs | Quem usa |
+|---|---|---|---|
+| Sandbox (um por desenvolvedor) | `npx ampx sandbox` | `amplify_outputs.json` (o versionado aponta para o sandbox compartilhado) | `npm start`, build `development` do EAS |
+| Producao (app Amplify `suasaude`, branch `main`) | `npm run deploy:prod` | `amplify_outputs.production.json` | APK dos perfis `preview` e `production` do EAS |
 
-Antes de release, producao deve ter outro ambiente e outro output. O ideal e definir um fluxo separado para producao, por exemplo por branch, pipeline de build ou configuracao de deploy.
+### Publicar a producao
+
+```bash
+npm run deploy:prod
+```
+
+O script `scripts/deploy-producao.mjs` so publica o `main` exatamente como esta no GitHub, roda `npm run validate`, publica com `ampx pipeline-deploy` e regera `amplify_outputs.production.json`. Se esse arquivo mudar, commite e gere um APK novo; mudanca so de Lambda nao precisa de APK novo.
+
+Nunca publique a producao com `ampx pipeline-deploy` direto: o script liga o login com Google (`SUASAUDE_LOGIN_GOOGLE=1`), e publicar sem ele tira o Google da producao.
+
+### Segredos da producao
+
+Ficam no SSM Parameter Store, em `/amplify/<appId>/main/<NOME>` (SecureString): `USPSTF_API_KEY`, `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Os sandboxes nao precisam dos dois do Google, porque o login com Google so e ligado na producao.
+
+### O APK usa a producao
+
+O hook `eas-build-pre-install` (`scripts/usar-outputs-de-producao.mjs`) troca `amplify_outputs.json` por `amplify_outputs.production.json` na maquina do build quando o perfil do EAS e `preview` ou `production`. A variavel `AMPLIFY_ENV` (`production` ou `sandbox`) forca um dos dois.
+
+### O que a producao protege
+
+So na producao: o user pool e as tabelas tem protecao contra exclusao, as tabelas tem recuperacao para um ponto no tempo (PITR) e o bucket sobrevive a exclusao da stack (`amplify/backend.ts` e `amplify/storage/resource.ts`). Por causa disso, uma mudanca de schema que substituiria uma tabela -- renomear um model, trocar o identificador -- falha no deploy de producao em vez de apagar os dados. Mudanca em `loginWith` ou em atributo obrigatorio do Cognito tambem nao pode ir para a producao.
 
 ## O que nao vai para o Git
 
