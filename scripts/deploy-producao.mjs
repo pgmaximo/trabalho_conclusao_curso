@@ -13,7 +13,7 @@
  *   3. publica com `ampx pipeline-deploy`, com o login com Google ligado
  *      (SUASAUDE_LOGIN_GOOGLE, ver amplify/auth/resource.ts) -- publicar sem
  *      ele tiraria o Google da producao;
- *   4. gera o outputs da producao em `amplify_outputs.production.json`, que o
+ *   4. copia o outputs da producao para `amplify_outputs.production.json`, que o
  *      hook do EAS (scripts/usar-outputs-de-producao.mjs) poe no APK.
  *
  * Uso:
@@ -86,17 +86,22 @@ rodar('npm', ['run', 'validate']);
 
 // 3. A publicacao.
 console.log(`\n[deploy:prod] Publicando ${BRANCH} no app ${APP_ID}. Leva de 15 a 25 minutos.\n`);
-rodar('npx', ['ampx', 'pipeline-deploy', '--branch', BRANCH, '--app-id', APP_ID], {
-  // CI=1: o pipeline-deploy recusa rodar fora de uma esteira de CI sem ele.
-  env: { ...AMBIENTE_AWS, CI: '1', SUASAUDE_LOGIN_GOOGLE: '1' },
-});
-
-// 4. O outputs da producao, para o APK.
 rodar(
   'npx',
-  ['ampx', 'generate', 'outputs', '--app-id', APP_ID, '--branch', BRANCH, '--out-dir', PASTA_DOS_OUTPUTS],
-  { env: AMBIENTE_AWS },
+  [
+    'ampx', 'pipeline-deploy', '--branch', BRANCH, '--app-id', APP_ID,
+    // SEM isto o pipeline-deploy grava o outputs da producao por cima do
+    // `amplify_outputs.json` da raiz -- o do sandbox, que e versionado. Foi o
+    // que aconteceu no primeiro deploy (2026-10-18).
+    '--outputs-out-dir', PASTA_DOS_OUTPUTS,
+  ],
+  {
+    // CI=1: o pipeline-deploy recusa rodar fora de uma esteira de CI sem ele.
+    env: { ...AMBIENTE_AWS, CI: '1', SUASAUDE_LOGIN_GOOGLE: '1' },
+  },
 );
+
+// 4. O outputs da producao, para o APK.
 copyFileSync(path.join(PASTA_DOS_OUTPUTS, 'amplify_outputs.json'), path.join(RAIZ, OUTPUTS_DE_PRODUCAO));
 
 const mudou = rodar('git', ['status', '--porcelain', OUTPUTS_DE_PRODUCAO], { capturar: true }) !== '';
