@@ -8,6 +8,7 @@ import { z } from 'zod';
 import type { ChatIdentity } from '../auth';
 import { momentoEmSaoPaulo } from '../formatoPtBr';
 import type { DegradedBlock } from '../types';
+import { observacaoComTeto } from './observacao';
 import { lerDoDono, texto } from './ownerScopedRead';
 import type { ChatTool } from './tipos';
 
@@ -17,12 +18,23 @@ type ConsultaParaOModelo = {
   profissional: string | null;
   quando: string | null;
   endereco: string | null;
+  observacoes: string | null;
+  observacoesCortadas: boolean;
 };
+
+/**
+ * Teto de cada lista (E5). Com a observacao, uma consulta pode custar perto de
+ * 110 tokens, e quem usa a Agenda ha anos acumula centenas de passadas. As
+ * futuras guardam as mais proximas e as passadas, as mais recentes: sao as que
+ * a pessoa pergunta. O que fica de fora e CONTADO em `omitidas` -- sem a
+ * contagem, a resposta trataria a lista como completa.
+ */
+export const MAX_CONSULTAS_POR_LISTA = 20;
 
 export const consultasTool: ChatTool = {
   name: 'consultar_consultas',
   description:
-    'Lista as consultas, exames e cirurgias que o usuário agendou no aplicativo, com data, profissional e endereço, separando as futuras das passadas. NÃO marca, NÃO altera e NÃO cancela agendamento nenhum.',
+    'Lista as consultas, exames e cirurgias que o usuário agendou no aplicativo, com data, profissional, endereço e o que ele anotou, separando as futuras das passadas. NÃO marca, NÃO altera e NÃO cancela agendamento nenhum.',
   inputSchema: z.object({}).strict(),
   readOnly: true,
   async run(_input: unknown, identity: ChatIdentity) {
@@ -35,6 +47,7 @@ export const consultasTool: ChatTool = {
         profissional: texto(c.professionalName),
         quando: texto(c.scheduledAt),
         endereco: texto(c.address),
+        ...observacaoComTeto(c.observations),
       }))
       .sort((a, b) => (a.quando ?? '').localeCompare(b.quando ?? ''));
 
@@ -47,14 +60,17 @@ export const consultasTool: ChatTool = {
     // como `parseScheduledAt` da Agenda: o chat nao da outra resposta sobre o
     // mesmo registro.
     const agora = momentoEmSaoPaulo(new Date());
-    const futuras = todas.filter((c) => (c.quando ?? '') >= agora);
-    const passadas = todas.filter((c) => (c.quando ?? '') < agora);
+    const futuras = todas.filter((c) => (c.quando ?? '') >= agora).slice(0, MAX_CONSULTAS_POR_LISTA);
+    // Ordem crescente: o fim da lista e o mais recente, e a consulta sem data
+    // (texto vazio) fica no comeco -- e a primeira a sair pelo teto.
+    const passadas = todas.filter((c) => (c.quando ?? '') < agora).slice(-MAX_CONSULTAS_POR_LISTA);
 
     return {
       disponivel: todas.length > 0,
       futuras,
       passadas,
       proxima: futuras[0] ?? null,
+      omitidas: todas.length - futuras.length - passadas.length,
       ...(todas.length === 0
         ? { explicacao: 'O usuário não tem nenhuma consulta registrada no aplicativo.' }
         : {}),

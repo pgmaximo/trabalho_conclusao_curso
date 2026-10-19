@@ -10,7 +10,11 @@
  */
 import { valoresDeRemedioNoTexto } from '../../ai-language-rules/languageRules';
 import { numero } from './linhasDeResultado';
+import { observacaoComTeto } from './observacao';
 import { texto, type LinhaDoBanco } from './ownerScopedRead';
+
+// O teste do E2 importa o teto daqui; o corte mora em `observacao.ts` desde o E5.
+export { MAX_CARACTERES_OBSERVACAO } from './observacao';
 
 /**
  * Cada remedio custa perto de 120 tokens com observacao cheia: 30 ficam abaixo
@@ -18,7 +22,6 @@ import { texto, type LinhaDoBanco } from './ownerScopedRead';
  * `omitidos` -- sem a contagem, a resposta pareceria completa.
  */
 export const MAX_MEDICAMENTOS = 30;
-export const MAX_CARACTERES_OBSERVACAO = 300;
 
 /*
  * As traducoes seguem os rotulos do formulario (`src/components/MedicineFormFields.tsx`
@@ -104,15 +107,6 @@ function diasLegiveis(weekDays: unknown): string[] | null {
   const codigos = weekDays.map(String);
   const conhecidos = [...DIAS].filter(([codigo]) => codigos.includes(codigo)).map(([, dia]) => dia);
   return [...conhecidos, ...codigos.filter((c) => !DIAS.has(c))];
-}
-
-function observacaoComTeto(notes: unknown): { observacoes: string | null; observacoesCortadas: boolean } {
-  const nota = texto(notes);
-  if (nota === null) return { observacoes: null, observacoesCortadas: false };
-  return {
-    observacoes: nota.slice(0, MAX_CARACTERES_OBSERVACAO),
-    observacoesCortadas: nota.length > MAX_CARACTERES_OBSERVACAO,
-  };
 }
 
 function paraOModelo(m: LinhaDoBanco): MedicamentoParaOModelo {

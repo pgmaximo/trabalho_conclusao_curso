@@ -682,3 +682,59 @@ describe('E1: respostas com data e caminho de tela passam', () => {
     });
   });
 });
+
+/**
+ * Observacao, lote e reforco (E5). Repetir o que a pessoa anotou ("jejum de 12
+ * horas"), o lote e a data de reforco registrada nao e dose nem indicacao, e
+ * tem de passar. Mas a observacao e texto livre: se ela traz quantidade de
+ * remedio, a R3 reprova a resposta que a repete -- a observacao NAO entra em
+ * `valoresCadastrados` (D2.4). E "voce deve tomar o reforco" segue reprovado.
+ */
+describe('E5: observação, lote e reforço', () => {
+  it.each([
+    'Você anotou para essa consulta: jejum de 12 horas e levar os exames antigos.',
+    'O lote da sua dose é AB123, do fabricante Butantan.',
+    'Pelo seu registro, o próximo reforço da dT está previsto para 10/03/2034. Confirme na unidade de saúde.',
+    'Não há data de reforço registrada no aplicativo. A unidade de saúde confirma.',
+  ])('operacional aprova: %s', (frase) => {
+    expect(checkLanguageRules(frase, { questionKind: 'operacional', temOrigem: false })).toEqual({
+      ok: true,
+    });
+  });
+
+  it.each([
+    'Sua anotação diz: tomar 2 comprimidos de buscopan antes do exame.',
+    'Você deve tomar o reforço da dT agora.',
+  ])('reprovada pela R3: %s', (frase) => {
+    const resultado = checkLanguageRules(frase, { questionKind: 'operacional', temOrigem: false });
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.violations.map((v) => v.rule)).toContain('R3');
+  });
+});
+
+/**
+ * Revisao do E5. "N doses" e quantidade para a R3 -- de proposito, e a regra
+ * nao muda: o prompt manda contar em registros e dizer a serie pela ordem da
+ * dose. Estas sao as redacoes que o prompt pede, e elas tem de passar.
+ */
+describe('revisão do E5: contagem em registros e serie pela ordem da dose', () => {
+  it.each([
+    'Outros 8 registros ficaram de fora desta lista; a Carteira de vacinação mostra todos.',
+    'No seu registro, a série da Hepatite B vai até a 3ª dose, e a 1ª e a 2ª estão aplicadas.',
+    'Falta registrar a 3ª dose da Hepatite B.',
+    'A data de reforço da dT registrada é 01/05/2020. A unidade de saúde confirma.',
+  ])('operacional aprova: %s', (frase) => {
+    expect(checkLanguageRules(frase, { questionKind: 'operacional', temOrigem: false })).toEqual({
+      ok: true,
+    });
+  });
+
+  it.each(['Outras 8 doses ficaram de fora desta lista.', 'A série da Hepatite B tem 3 doses no seu registro.'])(
+    'contar em doses segue reprovado pela R3: %s',
+    (frase) => {
+      const resultado = checkLanguageRules(frase, { questionKind: 'operacional', temOrigem: false });
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) expect(resultado.violations.map((v) => v.rule)).toContain('R3');
+    },
+  );
+});

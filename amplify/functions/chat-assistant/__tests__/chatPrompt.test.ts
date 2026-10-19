@@ -401,3 +401,43 @@ describe('o mapa do app (E1)', () => {
     }
   });
 });
+
+/**
+ * Agenda e vacinas (E5). Observacao e o que a pessoa escreveu, dita como
+ * anotacao dela; o reforco so sai do registro (D5.1), e sem ele a resposta
+ * diz que nao ha data, sem estimar.
+ */
+describe('agenda e vacinas (E5)', () => {
+  it('manda dizer a observacao como anotacao da pessoa e avisar quando e trecho', () => {
+    expect(SYSTEM_PROMPT).toContain('observacoes é o que a própria pessoa anotou');
+    expect(SYSTEM_PROMPT).toContain('observacoesCortadas');
+  });
+
+  it('reforco so do registro, com a unidade de saude, sem calcular nem estimar (D5.1)', () => {
+    expect(SYSTEM_PROMPT).toContain('reforcosPrevistos');
+    expect(SYSTEM_PROMPT).toContain('a unidade de saúde confirma');
+    expect(SYSTEM_PROMPT).toContain('sem calcular nem estimar');
+  });
+});
+
+/**
+ * Revisao do E5. Tres buracos que as regras de linguagem nao fecham: "8 doses"
+ * e lido pela R3 como quantidade de remedio (a resposta certa reprovava);
+ * "atrasado", "venceu" e "completa" PASSAM pela verificacao, entao so o prompt
+ * os impede; e `omitidas` sozinho nao dizia QUAIS itens ficaram de fora.
+ */
+describe('revisão do E5: contagem, data passada e o que ficou de fora', () => {
+  it('manda contar em registros e dizer a serie pela ordem da dose', () => {
+    expect(SYSTEM_PROMPT).toContain('conte em registros, não em doses');
+    expect(SYSTEM_PROMPT).toContain('a série vai até a 3ª dose');
+  });
+
+  it('proibe completa, em dia, atrasada ou vencida, mesmo com a data no passado', () => {
+    expect(SYSTEM_PROMPT).toContain('nunca diga que a carteira está completa, em dia, atrasada ou vencida');
+    expect(SYSTEM_PROMPT).toContain('se a data já passou, diga só a data registrada');
+  });
+
+  it('diz quais itens o teto deixa de fora e onde ver todos', () => {
+    expect(SYSTEM_PROMPT).toContain('ficam de fora as doses aplicadas mais antigas, as previstas mais distantes');
+  });
+});

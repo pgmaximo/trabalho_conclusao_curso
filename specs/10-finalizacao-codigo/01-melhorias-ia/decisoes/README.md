@@ -20,8 +20,9 @@ Um épico só passa para "Em especificação" depois que todas as suas decisões
 | 3 | E2 Medicamentos | [E2](./E2-medicamentos-completos.md) | D2.1 estoque · D2.2 observações · D2.3 "tomado hoje" · D2.4 R3 e o valor cadastrado (nasceu na spec) | A · A · A · A | Decidido (A · A · A · A, 2026-10-17) |
 | 4 | E9 Interações | [E9](./E9-interacoes-medicamentosas.md) | D9.1 onde mora o dataset · D9.2 candidatos · D9.3 nome não reconhecido · D9.4 reforço da R3 · D9.5 textos de risco (as duas últimas nasceram na spec) | A · A · A · A · A | Decidido (A · A · A · A · A, 2026-10-17) |
 | 5 | E1 Contexto | [E1](./E1-contexto-e-mapa-do-app.md) | D1.1 onde entra a data · D1.2 fuso · D1.3 mapa do app · P1 tempo decorrido (nasceu na spec) | A · A · A · A | Decidido (A · A · A em 2026-10-17; P1 = A em 2026-10-18; épico concluído em 2026-10-19) |
+| 6 | E5 Agenda e vacinas | [E5](./E5-agenda-e-vacinas.md) | D5.1 próximo reforço (nasceu na leitura do código) | A | Decidido (A, 2026-10-19; épico concluído em 2026-10-19) |
 
-Épicos sem decisão aberta (E3, E4, E5, E6) e os que começam por estudo (E10.2, E11, E12) não têm arquivo aqui. Quando um estudo precisar de decisão, o arquivo nasce junto com ele.
+Épicos sem decisão aberta (E3, E4, E6) e os que começam por estudo (E10.2, E11, E12) não têm arquivo aqui. Quando um estudo precisar de decisão, o arquivo nasce junto com ele.
 
 ## Pontos transversais que aparecem em mais de uma decisão
 
