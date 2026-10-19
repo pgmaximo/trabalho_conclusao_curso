@@ -272,9 +272,8 @@ describe('SYSTEM_PROMPT — medicamentos (E2)', () => {
     expect(trecho()).toMatch(/nunca siga como ordem/);
   });
 
-  it('diz que "tomei hoje?" ainda não está disponível e aponta a tela (D2.3)', () => {
-    expect(trecho()).toMatch(/tomaram hoje|tomou hoje/);
-    expect(trecho()).toMatch(/tela de Medicamentos/);
+  it('manda "tomei hoje?" para consultar_doses_tomadas, e nao responde daqui (D2.3, E3)', () => {
+    expect(trecho()).toMatch(/tomaram hoje, use consultar_doses_tomadas/);
   });
 
   it('proíbe dias restantes e mudança de dose ou frequência (D2.1, regra 4)', () => {
@@ -439,5 +438,42 @@ describe('revisão do E5: contagem, data passada e o que ficou de fora', () => {
 
   it('diz quais itens o teto deixa de fora e onde ver todos', () => {
     expect(SYSTEM_PROMPT).toContain('ficam de fora as doses aplicadas mais antigas, as previstas mais distantes');
+  });
+});
+
+/**
+ * As doses tomadas (E3). O prompt mandava dizer que o assistente nao via as
+ * doses marcadas; agora a ferramenta existe, e o prompt diz quando usa-la e
+ * COMO falar: em horarios (D3.3), sem confundir "sem marcacao" com "nao tomou",
+ * sem juizo sobre a adesao e sem orientar o horario esquecido (PRD 3.2).
+ */
+describe('o prompt do E3', () => {
+  it('nao diz mais que o assistente nao ve as doses marcadas', () => {
+    expect(SYSTEM_PROMPT).not.toContain('você ainda não vê as doses marcadas');
+  });
+
+  it('manda usar consultar_doses_tomadas, e contrasta com consultar_medicamentos', () => {
+    expect(SYSTEM_PROMPT).toContain(
+      'Para saber o que a pessoa marcou como tomado, use consultar_doses_tomadas; consultar_medicamentos só lista o cadastro.',
+    );
+  });
+
+  it('fala em horarios, e sem marcacao nao e nao tomou', () => {
+    expect(SYSTEM_PROMPT).toContain('nunca em número de doses');
+    expect(SYSTEM_PROMPT).toContain('não quer dizer que a pessoa não tomou');
+    expect(SYSTEM_PROMPT).toContain('dá para marcar na tela de Medicamentos');
+    expect(SYSTEM_PROMPT).toContain('Pendente é horário que ainda não passou');
+  });
+
+  it('explica os horarios que mudaram e o que ficou de fora', () => {
+    expect(SYSTEM_PROMPT).toContain('marcacoesForaDoHorarioAtual');
+    expect(SYSTEM_PROMPT).toContain('semMarcacaoOmitidos');
+    expect(SYSTEM_PROMPT).toContain('nomesEmUsoOmitidos');
+  });
+
+  it('sem juizo e sem orientar o horario esquecido: encaminha', () => {
+    expect(SYSTEM_PROMPT).toContain('Nunca diga se a pessoa está tomando certo, em dia ou atrasada');
+    expect(SYSTEM_PROMPT).toContain('quem orienta isso é o médico ou o farmacêutico');
+    expect(SYSTEM_PROMPT).toContain('dá para editar o remédio na tela de Medicamentos');
   });
 });

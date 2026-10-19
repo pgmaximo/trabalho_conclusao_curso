@@ -540,6 +540,10 @@ const vaccineDoseTable = backend.data.resources.tables['VaccineDose'];
 // se manda o sinalizador de memoria ativa na requisicao. Uma tabela a menos ao
 // alcance da funcao e uma superficie a menos.
 const assistantMemoryFactTable = backend.data.resources.tables['AssistantMemoryFact'];
+// O historico de doses marcadas (E3). So leitura, como as outras; o chat o
+// consulta pelo indice `medicineId` + `scheduledDate` (D3.2), e a permissao do
+// indice vem abaixo, separada.
+const medicineDoseLogTable = backend.data.resources.tables['MedicineDoseLog'];
 
 for (const tabela of [
   userProfileTable,
@@ -550,6 +554,7 @@ for (const tabela of [
   vaccineDoseTable,
   healthImportTable,
   assistantMemoryFactTable,
+  medicineDoseLogTable,
   // A UNICA tabela sem dono que o chat le (E8, D8.3): o cache publico de
   // unidades de saude, pela porta `lerPublicoPorChave`, nunca por `lerDoDono`.
   // So leitura: quem preenche o cache continua sendo a Lambda da tela (D8.2).
@@ -571,6 +576,16 @@ backend.chatAssistant.addEnvironment(
   assistantMemoryFactTable.tableName,
 );
 backend.chatAssistant.addEnvironment('SITE_CACHE_TABLE_NAME', siteCacheTable.tableName);
+backend.chatAssistant.addEnvironment('MEDICINE_DOSE_LOG_TABLE_NAME', medicineDoseLogTable.tableName);
+// A consulta de `lerDoDonoPorIndice` (E3) e autorizada pela ARN do INDICE, que o
+// grant da tabela do Amplify nao cobre -- o mesmo achado do `labResultTable`
+// (Bloco 11). So `Query`, so nos indices desta tabela: nada de escrita.
+chatAssistantLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['dynamodb:Query'],
+    resources: [`${medicineDoseLogTable.tableArn}/index/*`],
+  }),
+);
 
 // O chat REUSA o guardrail da analise de wearables, e nao ganha um proprio.
 // A D20 mandou a extracao ter o seu porque la os dois topicos bloqueados sao o

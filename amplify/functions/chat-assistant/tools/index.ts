@@ -18,6 +18,7 @@
 import { analitosTool } from './analitos';
 import { campanhasTool } from './campanhas';
 import { consultasTool } from './consultas';
+import { dosesTomadasTool } from './dosesTomadas';
 import { examesTool } from './exames';
 import { interacoesTool } from './interacoes';
 import { medicamentosTool } from './medicamentos';
@@ -44,6 +45,9 @@ export const CHAT_TOOLS: ChatTool[] = [
   analitosTool,
   consultasTool,
   medicamentosTool,
+  // Logo depois de medicamentos (E3): medicamentos diz o que esta CADASTRADO;
+  // doses, o que foi MARCADO como tomado. "Tomei hoje?" e desta, nunca daquela.
+  dosesTomadasTool,
   // Logo depois de medicamentos (E9): e o vizinho com que o modelo mais a
   // confundiria. Medicamentos LISTA o cadastro; interacoes CRUZA os remedios
   // contra a lista curada do aplicativo.

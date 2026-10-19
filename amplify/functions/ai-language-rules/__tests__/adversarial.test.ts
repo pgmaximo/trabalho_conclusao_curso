@@ -738,3 +738,209 @@ describe('revisão do E5: contagem em registros e serie pela ordem da dose', () 
     },
   );
 });
+
+/**
+ * Adesao (E3, D3.4). Sondado em 2026-10-19 com `checkLanguageRules`: "voce pode
+ * compensar a dose esquecida", "nao dobre a dose", "mude o horario", "voce esta
+ * tomando direitinho", "sua adesao esta boa" e "voce esqueceu a dose de segunda"
+ * PASSAVAM. Compensar ou dobrar dose por conta propria e dano direto, e "sem
+ * marcacao" no aplicativo nao quer dizer que a pessoa nao tomou.
+ *
+ * Os dois lados juntos, como no E9: as que passam sao as frases que o prompt
+ * manda dizer, e uma reprovacao testada so por um lado vira resposta boa barrada.
+ */
+describe('adesão: dose esquecida, horário e juízo (E3, D3.4)', () => {
+  describe.each(TIPOS)('pergunta %s', (questionKind, sufixo) => {
+    const reprovadaPor = (frase: string, motivo: RegExp) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false });
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+        expect(r.violations[0].reason).toMatch(motivo);
+      }
+    };
+
+    it.each([
+      'Você pode compensar a dose esquecida no próximo horário.',
+      'Compense a dose de ontem.',
+      'Não dobre a dose.',
+      'Pule a dose das 20h.',
+      'Mude o horário para as 9h, assim você não esquece.',
+      'Você pode adiantar o horário da losartana.',
+      'Tome as duas doses agora.',
+      'Pode tomar as duas agora para compensar.',
+    ])('orientar a dose esquecida ou o horário é barrado: "%s"', (frase) => {
+      reprovadaPor(frase, /esquecida ou com o horário/);
+    });
+
+    it.each([
+      'Você está tomando direitinho.',
+      'Você tem tomado certinho.',
+      'Sua adesão está boa.',
+      'Você está em dia com o remédio.',
+      'Você está atrasado com a losartana.',
+    ])('julgar a adesão é barrado: "%s"', (frase) => {
+      reprovadaPor(frase, /tomando o remédio direito/);
+    });
+
+    it.each(['Você esqueceu a dose de segunda.', 'Você não tomou o remédio ontem.', 'Você pulou o horário das 8h.'])(
+      'afirmar que a pessoa não tomou é barrado: "%s"',
+      (frase) => {
+        reprovadaPor(frase, /não quer dizer que ela não tomou/);
+      },
+    );
+
+    it('contar em doses segue barrado: "Ficaram 2 doses sem marcação."', () => {
+      const r = checkLanguageRules('Ficaram 2 doses sem marcação.' + sufixo, { questionKind, temOrigem: false });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+    });
+
+    it.each([
+      'Hoje está marcado no aplicativo o horário das 8h da losartana. O das 20h ainda não chegou.',
+      'Nesta semana ficaram sem marcação os horários de segunda às 8h e de quarta às 20h.',
+      'Sem marcação não quer dizer que você não tomou: você pode ter tomado e não marcado.',
+      'Sem marcação não quer dizer que você não tomou o remédio.',
+      'Você tem 3 horários sem marcação nesta semana.',
+      'Sobre o que fazer quando esquece um horário, quem orienta é o médico ou o farmacêutico.',
+      'Pergunte ao médico se pode compensar a dose esquecida.',
+      'Para editar os horários, abra o remédio na tela de Medicamentos.',
+      'Você marcou o horário das 8h de hoje.',
+      'A dose de reforço da vacina está registrada para 10/03/2034.',
+      'Você tem 2 medicamentos cadastrados.',
+    ])('a resposta honesta passa: "%s"', (frase) => {
+      expect(checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false })).toEqual({ ok: true });
+    });
+  });
+});
+
+/**
+ * Revisao do E3 (2026-10-19). A primeira versao dos padroes de adesao pegava so
+ * o vocabulario dos testes: "tome em dobro", "reponha a dose" e "voce nao tomou
+ * a losartana" passavam. E, pelo outro lado, barrava frases honestas de
+ * navegacao e de agenda ("para mudar o horario, edite o remedio na tela", "voce
+ * perdeu o horario da consulta") -- inclusive a que o proprio prompt manda dizer.
+ * As duas listas vieram do revisor independente e do /code-review.
+ */
+describe('revisão do E3: adesão nos dois lados', () => {
+  describe.each(TIPOS)('pergunta %s', (questionKind, sufixo) => {
+    const reprovadaPor = (frase: string, motivo: RegExp) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false });
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.violations.map((v) => v.rule)).toEqual(['R3']);
+        expect(r.violations[0].reason).toMatch(motivo);
+      }
+    };
+
+    it.each([
+      'Tome em dobro na próxima vez.',
+      'Tome dobrado amanhã.',
+      'Dobre a próxima.',
+      'Duplique a próxima dose.',
+      'Reponha a dose amanhã.',
+      'Compense amanhã.',
+      'Pule a de hoje.',
+      'Ainda dá tempo de tomar a das 8h.',
+      'Pode tomar a das 8h agora, ainda está dentro da hora.',
+      'Tome a que você esqueceu assim que lembrar.',
+      'Tome agora e depois siga o horário de sempre.',
+      'Espere o próximo horário e siga normalmente.',
+      'Ignore a dose de segunda e continue normalmente.',
+      'Deixe a dose esquecida de lado.',
+      'Não tome a das 20h hoje.',
+      'Passe a tomar às 9h.',
+      'Ajuste o horário para as 9h.',
+      'Coloque o horário para as 9h.',
+      'Mova a dose para as 9h.',
+      'Tome a das 20h mais cedo hoje.',
+    ])('orientar a dose esquecida ou o horário é barrado: "%s"', (frase) => {
+      reprovadaPor(frase, /esquecida ou com o horário/);
+    });
+
+    it.each([
+      'Você está indo bem com o remédio.',
+      'Tudo certo com seus remédios esta semana.',
+      'Parabéns, você não esqueceu nenhum horário!',
+      'Você está seguindo o tratamento direitinho.',
+      'Você está tomando o remédio direitinho.',
+      'Você está sendo regular com a losartana.',
+    ])('julgar a adesão é barrado: "%s"', (frase) => {
+      reprovadaPor(frase, /tomando o remédio direito/);
+    });
+
+    it.each([
+      'Você não tomou a losartana na segunda.',
+      'Você esqueceu a losartana na segunda.',
+      'Você não tomou hoje.',
+      'Faltou a dose de segunda.',
+      'Você deixou de tomar segunda.',
+    ])('afirmar que a pessoa não tomou é barrado: "%s"', (frase) => {
+      reprovadaPor(frase, /não quer dizer que ela não tomou/);
+    });
+
+    it.each(['Você tem horários irregulares de sono.', 'Você tem marcações de pressão alta.'])(
+      'o inventário do aplicativo não exime diagnóstico: "%s"',
+      (frase) => {
+        reprovadaPor(frase, /condição médica/);
+      },
+    );
+
+    it.each([
+      'Para mudar o horário, edite o remédio na tela de Medicamentos.',
+      'Se quiser mudar o horário, dá para editar o remédio na tela de Medicamentos.',
+      'Para mudar o horário do lembrete, abra o remédio na tela de Medicamentos.',
+      'Para alterar o horário, edite o remédio na tela de Medicamentos.',
+      'Você pode mudar o horário da consulta na tela de Agenda.',
+      'Você pode adiantar o horário da consulta pela tela de Agenda.',
+      'Quer mudar o horário da consulta? Abra a tela de Agenda.',
+      'Você pode editar ou alterar o horário do remédio na tela de Medicamentos.',
+      'Você mudou o horário da losartana no cadastro, então os dias anteriores são contados com os horários de hoje.',
+      'Você alterou o horário da losartana.',
+      'Sobre compensar a dose esquecida, quem orienta é o médico ou o farmacêutico.',
+      'Quem orienta se você pode pular a dose é o médico.',
+      'Você marcou como tomado, certo.',
+      'Você perdeu o horário da consulta de ontem.',
+      'Você esqueceu o horário do exame? Ele está na tela de Agenda.',
+      'Você perdeu os horários de marcação da vacina.',
+      'Se você tomou o remédio errado, ligue para o CIATox.',
+      'Se não tiver certeza de que tomou, tudo bem: confira na tela de Medicamentos.',
+      'Você esqueceu de marcar o horário das 8h? Dá para marcar na tela de Medicamentos.',
+      'Para repor o remédio a tempo, veja o estoque registrado.',
+      'Se você não tomou, marque só o que tomou.',
+      'Sem marcação não quer dizer que você não tomou: você pode marcar na tela de Medicamentos.',
+    ])('a resposta honesta passa: "%s"', (frase) => {
+      expect(checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false })).toEqual({ ok: true });
+    });
+  });
+});
+
+/**
+ * /simplify do E3 (altitude). O "esqueceu/perdeu" aceitava qualquer objeto, e
+ * barrava respostas de wearable e de perfil como se afirmassem que a pessoa nao
+ * tomou o remedio. O objeto livre (o nome do remedio) so conta quando a frase
+ * diz QUANDO -- o dia ou o horario --, que e o que faz dela uma afirmacao sobre
+ * uma dose.
+ */
+describe('/simplify do E3: "perdeu" e "esqueceu" fora do remédio', () => {
+  describe.each(TIPOS)('pergunta %s', (questionKind, sufixo) => {
+    it.each([
+      'Você perdeu peso no último mês, segundo o registro.',
+      'Pelos dados do relógio, você perdeu 2 kg desde a última importação.',
+      'Você esqueceu o celular no período e o relógio não registrou passos.',
+    ])('a resposta honesta passa: "%s"', (frase) => {
+      expect(checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false })).toEqual({ ok: true });
+    });
+
+    it.each([
+      'Você esqueceu a losartana na segunda.',
+      'Você perdeu a losartana das 8h.',
+      'Você esqueceu a dose de segunda.',
+      'Você pulou o horário das 8h.',
+    ])('afirmar que a pessoa não tomou segue barrado: "%s"', (frase) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: false });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.violations[0].reason).toMatch(/não quer dizer que ela não tomou/);
+    });
+  });
+});

@@ -30,6 +30,13 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
       this.input = input;
     }
   },
+  // A porta pessoal por indice (E3).
+  QueryCommand: class QueryCommand {
+    input: Record<string, unknown>;
+    constructor(input: Record<string, unknown>) {
+      this.input = input;
+    }
+  },
 }));
 jest.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: class {} }));
 
@@ -48,6 +55,7 @@ const TABELAS = {
   VACCINE_DOSE_TABLE_NAME: 't-vac',
   HEALTH_IMPORT_TABLE_NAME: 't-health',
   SITE_CACHE_TABLE_NAME: 't-site',
+  MEDICINE_DOSE_LOG_TABLE_NAME: 't-dose',
 };
 
 /**
@@ -154,9 +162,10 @@ describe('o registro das tools', () => {
 
   it('consultar_interacoes esta registrada, logo depois de consultar_medicamentos (E9)', () => {
     // E o vizinho com que o modelo mais a confundiria: medicamentos LISTA o
-    // cadastro; interacoes CRUZA os remedios contra a lista do aplicativo.
+    // cadastro; interacoes CRUZA os remedios contra a lista do aplicativo. Desde
+    // o E3, as doses tomadas ficam entre as duas (o teste do E3 fixa a ordem).
     const nomes = CHAT_TOOLS.map((t) => t.name);
-    expect(nomes.indexOf('consultar_interacoes')).toBe(nomes.indexOf('consultar_medicamentos') + 1);
+    expect(nomes.indexOf('consultar_interacoes')).toBe(nomes.indexOf('consultar_medicamentos') + 2);
   });
 
   it('a descricao de consultar_interacoes diz que ela nao garante nem orienta (E9)', () => {
@@ -164,6 +173,14 @@ describe('o registro das tools', () => {
     expect(descricao).toMatch(/NÃO diz se pode tomar junto/);
     expect(descricao).toMatch(/NÃO sugere parar, trocar nem ajustar/);
     expect(descricao).toMatch(/NÃO conhece remédio fora da lista do aplicativo/);
+  });
+
+  it('consultar_doses_tomadas esta registrada, logo depois de consultar_medicamentos (E3)', () => {
+    // Medicamentos LISTA o cadastro; doses diz o que foi MARCADO. Interacoes
+    // vem logo depois das duas.
+    const nomes = CHAT_TOOLS.map((t) => t.name);
+    const i = nomes.indexOf('consultar_medicamentos');
+    expect(nomes.slice(i, i + 3)).toEqual(['consultar_medicamentos', 'consultar_doses_tomadas', 'consultar_interacoes']);
   });
 
   it('toda ferramenta publica da lista fechada existe de verdade', () => {
@@ -209,6 +226,26 @@ describe('o dono, em toda tool', () => {
         expect(entrada.FilterExpression).toBe('#owner = :owner');
         expect(entrada.ExpressionAttributeValues).toEqual({ ':owner': 's-1::u-1' });
       }
+    }
+  });
+
+  it('a leitura por indice tambem filtra pelo dono do token (E3)', async () => {
+    // Com a tabela vazia, as afirmacoes acima nunca veem uma Query: a de doses
+    // so consulta o historico de um remedio que existe. Aqui existe um.
+    mockSend.mockImplementation(async (comando: object) =>
+      comando.constructor.name === 'ScanCommand'
+        ? { Items: [{ id: 'med-1', name: 'Losartana', times: ['08:00'], frequencyType: 'DAILY', startDate: '2026-01-01', active: true }] }
+        : { Items: [] },
+    );
+
+    await runTool('consultar_doses_tomadas', {}, IDENTIDADE);
+
+    const consultas = mockSend.mock.calls.map(([c]) => c as { constructor: { name: string }; input: Record<string, unknown> });
+    const porIndice = consultas.filter((c) => c.constructor.name === 'QueryCommand');
+    expect(porIndice).toHaveLength(1);
+    for (const { input } of porIndice) {
+      expect(input.FilterExpression).toBe('#owner = :owner');
+      expect(input.ExpressionAttributeValues).toMatchObject({ ':owner': 's-1::u-1' });
     }
   });
 

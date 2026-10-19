@@ -46,8 +46,9 @@ const UNIDADES: Record<string, string> = {
   UNIT: 'unidades',
 };
 
-/** Na ordem do formulario: a semana comeca na segunda (a `Map` guarda a ordem). */
-const DIAS = new Map([
+/** Na ordem do formulario: a semana comeca na segunda (a `Map` guarda a ordem).
+ *  Exportado para as doses tomadas (E3) dizerem o dia com as mesmas palavras. */
+export const DIAS = new Map([
   ['MON', 'segunda'],
   ['TUE', 'terça'],
   ['WED', 'quarta'],
@@ -109,6 +110,12 @@ function diasLegiveis(weekDays: unknown): string[] | null {
   return [...conhecidos, ...codigos.filter((c) => !DIAS.has(c))];
 }
 
+/** O remedio esta em uso? So `active: false` encerra. A mesma regra nas duas
+ *  ferramentas que leem o cadastro (E2 e E3). */
+export function estaEmUso(m: LinhaDoBanco): boolean {
+  return m.active !== false;
+}
+
 function paraOModelo(m: LinhaDoBanco): MedicamentoParaOModelo {
   // `numero` (de `linhasDeResultado`) recusa `NaN`: um estoque `NaN` viraria
   // "estoque baixo: falso" com cara de dado.
@@ -127,7 +134,7 @@ function paraOModelo(m: LinhaDoBanco): MedicamentoParaOModelo {
     horarios: Array.isArray(m.times) ? m.times.map(String) : [],
     inicio: texto(m.startDate),
     termino: texto(m.endDate),
-    ativo: m.active !== false,
+    ativo: estaEmUso(m),
     unidade: traduzido(UNIDADES, m.unit),
     estoqueAtual,
     estoqueInicial: numero(m.initialStock),

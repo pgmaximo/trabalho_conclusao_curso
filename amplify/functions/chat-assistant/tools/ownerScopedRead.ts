@@ -25,9 +25,17 @@
  * transformaria um descuido em vazamento de dado de outra pessoa. A porta
  * publica so aceita as tabelas de uma lista fechada, e o nome do atributo-chave
  * vem da TABELA, nunca de quem chama.
+ *
+ * A SEGUNDA porta pessoal (E3, D3.2 = A): `lerDoDonoPorIndice`, logo depois de
+ * `lerDoDono`. O historico de doses cresce todo dia, para todo mundo, e um Scan
+ * dele a cada pergunta leria a tabela inteira -- e, com o teto de paginas,
+ * passaria a perder doses sem avisar. A porta nova consulta o INDICE, mas o
+ * filtro de dono continua montado aqui e vindo so da identidade: nem o valor da
+ * chave (um `medicineId`) consegue trazer linha de outra pessoa. O indice e o
+ * atributo-chave vem de uma lista fechada, como as tabelas publicas.
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 import type { ChatIdentity } from '../auth';
 
@@ -49,28 +57,100 @@ export async function lerDoDono(
     throw new Error('Nome de tabela nao configurado.');
   }
 
-  const linhas: LinhaDoBanco[] = [];
-  let cursor: Record<string, unknown> | undefined;
-  let pagina = 0;
-
-  do {
-    const saida = await ddb.send(
+  return todasAsPaginas(
+    (cursor) =>
       new ScanCommand({
         TableName: tableName,
         FilterExpression: '#owner = :owner',
         ExpressionAttributeNames: { '#owner': 'owner' },
-        // O unico lugar do codigo das tools em que um owner vira valor de
-        // consulta, e ele so pode vir da identidade.
+        // Um dos dois lugares do codigo das tools em que um owner vira valor de
+        // consulta (o outro e `lerDoDonoPorIndice`), e ele so pode vir da
+        // identidade.
         ExpressionAttributeValues: { ':owner': identity.owner },
         ExclusiveStartKey: cursor,
       }),
-    );
+  );
+}
+
+type Cursor = Record<string, unknown> | undefined;
+
+/** As paginas de uma consulta, ate `MAX_PAGINAS`. Um laco so para as duas
+ *  portas pessoais: o teto nao pode ser diferente entre elas. */
+async function todasAsPaginas(comando: (cursor: Cursor) => ScanCommand | QueryCommand): Promise<LinhaDoBanco[]> {
+  const linhas: LinhaDoBanco[] = [];
+  let cursor: Cursor;
+  let pagina = 0;
+
+  do {
+    // `send` e sobrecarregado por comando; a uniao nao escolhe sobrecarga.
+    const saida = await ddb.send(comando(cursor) as ScanCommand);
     linhas.push(...((saida.Items ?? []) as LinhaDoBanco[]));
-    cursor = saida.LastEvaluatedKey as Record<string, unknown> | undefined;
+    cursor = saida.LastEvaluatedKey as Cursor;
     pagina += 1;
   } while (cursor && pagina < MAX_PAGINAS);
 
   return linhas;
+}
+
+/**
+ * Os indices que a porta pessoal por indice aceita. Lista FECHADA, como
+ * `TABELAS_PUBLICAS`: o nome do indice e os atributos da condicao de chave sao
+ * nomes tecnicos, e vem daqui, nunca de quem chama. O nome do indice e o que o
+ * Amplify gerou para `index('medicineId').sortKeys(['scheduledDate'])`,
+ * conferido em `amplify_outputs.json` (E3).
+ */
+export const INDICES_DO_DONO = {
+  DOSES_POR_REMEDIO: {
+    env: 'MEDICINE_DOSE_LOG_TABLE_NAME',
+    indice: 'medicineDoseLogsByMedicineIdAndScheduledDate',
+    chave: 'medicineId',
+    ordenacao: 'scheduledDate',
+  },
+} as const;
+
+type IndiceDoDono = keyof typeof INDICES_DO_DONO;
+
+/**
+ * Query num indice da lista, com a chave igual a `valorDaChave` e a ordenacao
+ * dentro de `intervalo` -- e o filtro de dono, sempre, com o dono do token.
+ * Mesmo teto de paginas de `lerDoDono`.
+ */
+export async function lerDoDonoPorIndice(
+  indice: IndiceDoDono,
+  valorDaChave: string,
+  intervalo: { de: string; ate: string },
+  identity: ChatIdentity,
+): Promise<LinhaDoBanco[]> {
+  // O tipo some no JavaScript; um nome vindo de outro lugar nao vira consulta.
+  if (!Object.hasOwn(INDICES_DO_DONO, indice)) {
+    throw new Error('Indice fora da lista de leitura por dono.');
+  }
+  const { env, indice: indexName, chave, ordenacao } = INDICES_DO_DONO[indice];
+  const tableName = process.env[env];
+  if (!tableName) throw new Error('Nome de tabela nao configurado.');
+
+  const linhas = await todasAsPaginas(
+    (cursor) =>
+      new QueryCommand({
+        TableName: tableName,
+        IndexName: indexName,
+        KeyConditionExpression: '#chave = :chave AND #ordem BETWEEN :de AND :ate',
+        FilterExpression: '#owner = :owner',
+        ExpressionAttributeNames: { '#owner': 'owner', '#chave': chave, '#ordem': ordenacao },
+        ExpressionAttributeValues: {
+          ':owner': identity.owner,
+          ':chave': valorDaChave,
+          ':de': intervalo.de,
+          ':ate': intervalo.ate,
+        },
+        ExclusiveStartKey: cursor,
+      }),
+  );
+  // Segunda trava (revisao do E3): o filtro acima ja impede linha de outro dono
+  // no DynamoDB, mas a chave desta porta e um `medicineId`, e nao o dono. Se um
+  // dia a consulta mudar e o filtro sumir, o que sai daqui continua sendo so da
+  // pessoa -- e linha sem dono tambem nao sai.
+  return linhas.filter((l) => l.owner === identity.owner);
 }
 
 /**

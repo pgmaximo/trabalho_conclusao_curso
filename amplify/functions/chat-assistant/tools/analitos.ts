@@ -22,7 +22,7 @@ import type { ChatIdentity } from '../auth';
 import { ANALYTE_CATALOG, findAnalyteByCode } from '../../extract-document-data/analyteCatalog';
 import type { DegradedBlock } from '../types';
 import { unidadeLegivel } from '../../extract-document-data/unidadeLegivel';
-import { formatarData, formatarDecimal } from '../formatoPtBr';
+import { formatarData, formatarDecimal, semAcento } from '../formatoPtBr';
 import { lerDoDono, texto } from './ownerScopedRead';
 import {
   comoEstavaNoPapel,
@@ -55,19 +55,6 @@ export {
 /** Momento vazio e momento ausente sao o MESMO grupo. */
 function chaveDoMomento(momento: string | null): string {
   return (momento ?? '').trim();
-}
-
-function semAcento(texto_: string): string {
-  return texto_
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    // Pontuacao vira espaco (Bloco 10): o sinonimo oficial do LDL e
-    // "Colesterol.LDL", e quem pergunta escreve "colesterol LDL". Sem isto, o
-    // termo casava com "colesterol" -- o total -- e a pessoa ouvia sobre o exame
-    // errado.
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
 }
 
 /**

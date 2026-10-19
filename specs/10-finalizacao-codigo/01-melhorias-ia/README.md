@@ -16,7 +16,7 @@ A ordem dos cinco primeiros foi definida pelo produto em 2026-10-17. O restante 
 | 4 | **E9** | Interações medicamentosas | [E9](./decisoes/E9-interacoes-medicamentosas.md) | M | Concluído (2026-10-17; conferência no sandbox pendente, ver `E9-interacoes-medicamentosas/tasks.md`) |
 | 5 | **E1** | Data de hoje e mapa do app | [E1](./decisoes/E1-contexto-e-mapa-do-app.md) | P | Concluído (2026-10-19; conferência no sandbox pendente, ver `E1-contexto-e-mapa-do-app/tasks.md`) |
 | 6 | **E5** | Campos que faltam em agenda e vacinas | [E5](./decisoes/E5-agenda-e-vacinas.md) | P | Concluído (2026-10-19; conferência no sandbox pendente, ver `E5-agenda-e-vacinas/tasks.md`) |
-| 7 | E3 | Doses tomadas (adesão) | decidir junto com E2 (D2.3) | M | Não iniciado |
+| 7 | **E3** | Doses tomadas (adesão) | [E3](./decisoes/E3-doses-tomadas.md) (D2.3 + D3.1 a D3.5) | M | Concluído (2026-10-19; conferência no sandbox pendente, ver `E3-doses-tomadas/tasks.md`) |
 | 8 | E4 | Receitas extraídas e situação dos documentos | sem decisão aberta | M | Não iniciado |
 | 9 | E10 | Panorama geral; comparação entre domínios (estudo) | estudo em 10.2 | G | Não iniciado |
 | 10 | E6 | Wearable: histórico e série diária | sem decisão aberta | M | Não iniciado |

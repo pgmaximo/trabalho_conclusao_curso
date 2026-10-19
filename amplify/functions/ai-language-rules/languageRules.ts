@@ -194,7 +194,12 @@ const COISAS_DO_APLICATIVO =
   // e "esta acabando", e eram reprovadas como diagnostico. A QUANTIDADE ("5
   // comprimidos") continua com o padrao de numero, e so passa pela D2.4.
   // "gotas" NAO entra: "voce tem gota" e a doenca (revisao do E2).
-  'medicamentos?|rem[eé]dios?|comprimidos?|c[aá]psulas?|ampolas?';
+  'medicamentos?|rem[eé]dios?|comprimidos?|c[aá]psulas?|ampolas?|' +
+  // Horario das DOSES TOMADAS (E3, D3.4): "voce tem 3 horarios sem marcacao
+  // nesta semana" responde "esqueci alguma?", e era reprovada como diagnostico.
+  // So com a marcacao junto: "horarios" sozinho eximiria "voce tem horarios
+  // irregulares de sono", que e juizo sobre a saude (revisao do E3).
+  'hor[aá]rios?\\s+(?:sem\\s+marca[cç][aã]o|marcad[oa]s?)';
 
 /**
  * O que pode vir entre "voce tem" e o inventario sem mudar o sentido (Bloco 11):
@@ -351,8 +356,12 @@ const RECUSA_OU_PERGUNTA = new RegExp(
  * "se" continua preso a um verbo de decidir/dizer, ou abrindo a oracao logo
  * antes do "voce": solto no meio da frase ele tambem e pronome.
  */
+/** A oracao condicional logo antes do achado: "se voce deve...", "se voce nao
+ *  tomou, ...". Uma fonte so para as excecoes que a usam (E3). */
+const CONDICAO_SE = '(?:^|[^\\wÀ-ÿ])se\\s+$';
+
 const RECUSA_PERGUNTA_OU_CONDICAO = new RegExp(
-  `${RECUSA_OU_PERGUNTA.source}|(?:decid\\w*|inform\\w*|dir[aá]|diz\\w*)\\s+(?:\\S+\\s+){0,3}?se\\b|(?:^|[^\\wÀ-ÿ])se\\s+$`,
+  `${RECUSA_OU_PERGUNTA.source}|(?:decid\\w*|inform\\w*|dir[aá]|diz\\w*)\\s+(?:\\S+\\s+){0,3}?se\\b|${CONDICAO_SE}`,
   'i',
 );
 
@@ -433,6 +442,59 @@ const DEVOLVE_A_DECISAO = new RegExp(
   'i',
 );
 
+/**
+ * O que se toma, ou o horario em que se toma (E3). "Tomada" entra porque "a
+ * tomada esquecida" e a mesma dose dita de outro jeito.
+ */
+const OBJETO_DA_TOMADA =
+  'doses?|rem[eé]dios?|medicament\\w*|comprimid\\w*|c[aá]psul\\w*|hor[aá]rios?|tomadas?';
+
+/**
+ * A AGENDA e o que nao e dose, numa lista so para os tres padroes de adesao
+ * (E3): "voce pode mudar o horario da CONSULTA", "voce perdeu o horario do
+ * EXAME", "voce esta atrasado para o RETORNO". A primeira versao tinha tres
+ * listas, e elas ja divergiam (/simplify do E3).
+ */
+const AGENDA_OU_PREVENCAO = 'consulta|retorno|agendamento|agenda|compromisso|lembrete|exame|vacina|refor|preven';
+
+/** Ate onde, adiante, os padroes de adesao procuram a agenda na frase. */
+const PERTO = 60;
+
+/**
+ * O que, na frase, diz que a mudanca de horario e do APLICATIVO ou da AGENDA, e
+ * nao do tratamento: "voce pode mudar o horario da consulta na tela de Agenda",
+ * "edite o remedio na tela". A primeira versao reprovava essas, inclusive a que
+ * o prompt manda dizer (revisao do E3).
+ */
+const FORA_DO_HORARIO = `${FORA_DO_REMEDIO}|${AGENDA_OU_PREVENCAO}|edit`;
+
+/** "a dose", "as tomadas" -- o objeto dos verbos de repor, ignorar e "faltou". */
+const A_DOSE = `\\s+(?:(?:${DETERMINANTE})\\s+){0,2}(?:doses?|tomadas?)${FIM_R3}`;
+
+/**
+ * QUANDO, na frase: o dia ou o horario. E o que faz de "voce esqueceu a
+ * losartana NA SEGUNDA" uma afirmacao sobre uma dose -- sem ele, "voce perdeu
+ * peso no ultimo mes", do wearable, era lida assim (/simplify do E3).
+ */
+const QUANDO_DA_DOSE =
+  `(?=[^.!?]{0,40}(?:${INI_R3}(?:segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo|ontem|hoje|manh[aã]|tarde|noite)${FIM_R3}` +
+  `|\\d+\\s*h${FIM_R3}|${INI_R3}d[aeo]s?\\s+\\d))`;
+
+/**
+ * A excecao do padrao da dose esquecida: a da vacina e do exame, mais as duas
+ * formas de devolver a decisao que o proprio prompt pede -- "SOBRE compensar a
+ * dose esquecida, quem orienta e o medico" e "quem ORIENTA SE voce pode pular a
+ * dose e o medico" (revisao do E3).
+ */
+const DEVOLVE_A_DOSE_ESQUECIDA = new RegExp(
+  `${RECUSA_PERGUNTA_OU_CONDICAO.source}|orient\\w*\\s+(?:\\S+\\s+){0,3}?se\\b|(?:^|[^\\wÀ-ÿ])(?:sobre|quanto\\s+a)\\s+(?:\\S+\\s+)?$`,
+  'i',
+);
+
+/** A excecao do "nao tomou": a frase que diz que sem marcacao nao e falta de
+ *  dose, e a condicao ("se voce nao tomou, ..."). */
+const NAO_AFIRMA_QUE_NAO_TOMOU = new RegExp(`${DEVOLVE_A_DECISAO.source}|${CONDICAO_SE}`, 'i');
+
 type PadraoR3 = {
   padrao: RegExp;
   motivo: string;
@@ -503,6 +565,117 @@ const PADROES_R3: PadraoR3[] = [
     motivo:
       'A resposta indica uma vacina para a pessoa. Se ela deve se vacinar, e se a vacina serve para ela, é decisão de quem a examina ou da unidade de saúde.',
     excecao: RECUSA_PERGUNTA_OU_CONDICAO,
+  },
+  {
+    // A DOSE ESQUECIDA E O HORARIO (E3, D3.4). Medido em 2026-10-19: "voce pode
+    // compensar a dose esquecida no proximo horario", "nao dobre a dose" e "mude
+    // o horario para as 9h" passavam pelas cinco regras. Compensar ou dobrar
+    // dose por conta propria e dano direto, e o que fazer com um horario
+    // esquecido e de quem prescreve ou do farmaceutico.
+    //
+    // As formas, pela revisao do E3 (que provou que pegar so o vocabulario do
+    // teste deixava passar quase tudo):
+    // 1. compensar, dobrar, duplicar -- no imperativo, sozinhos ("Compense
+    //    amanha", "Dobre a proxima"); em outra forma, com a dose ou o horario;
+    // 2. pular a dose; ignorar ou deixar de lado a dose; esperar o proximo
+    //    horario; repor a DOSE ("repor o remedio" e estoque, e passa);
+    // 3. tomar "as duas", "a esquecida", "a que voce esqueceu", "a das 8h",
+    //    "agora", "em dobro", "mais cedo";
+    // 4. mudar o horario -- so no imperativo ou dito como o que a pessoa pode
+    //    ou deve fazer, e nunca com tela, agenda, lembrete ou "editar" na frase:
+    //    "para mudar o horario, edite o remedio na tela" e "voce alterou o
+    //    horario" passam.
+    // A excecao devolve a decisao: "pergunte ao medico se pode compensar",
+    // "sobre compensar a dose esquecida, quem orienta e o medico".
+    //
+    // Vem ANTES do padrao de verbo de medicacao, de proposito: "tome as duas
+    // doses" ja era reprovada por ele, mas o bilhete da nova geracao precisa
+    // dizer o que corrigir.
+    padrao: new RegExp(
+      `${INI_R3}(?:compense|compensem|dobre|dobrem|duplique|dupliquem|pule|pulem)${FIM_R3}` +
+        // "Pular" so no infinitivo (o imperativo ja e o ramo de cima): "voce
+        // PULOU o horario" e afirmacao, e fica com o padrao de "nao tomou".
+        `|${INI_R3}(?:(?:compens|dobr|duplic)${L_R3}*|pular${FIM_R3})${janela(30, FORA_DO_REMEDIO)}${INI_R3}(?:${OBJETO_DA_TOMADA})${FIM_R3}` +
+        `|${INI_R3}(?:ignore|deixe|reponha|reponham|repor)${FIM_R3}${A_DOSE}` +
+        `|${INI_R3}espere\\s+(?:o|a)\\s+pr[oó]xim[oa]${FIM_R3}` +
+        `|${INI_R3}(?:tome|tomar|tomem)${FIM_R3}(?:` +
+        `\\s+(?:(?:${DETERMINANTE})\\s+){0,2}(?:(?:doses?|rem[eé]dios?|comprimidos?)\\s+)?` +
+        // "Duas" e a dose dobrada; "tomar os dois JUNTOS" e combinacao de
+        // remedios, e fica com o padrao de interacao (E9), que diz o motivo certo.
+        `(?:duas${FIM_R3}(?!\\s+(?:juntas?|ao\\s+mesmo\\s+tempo))|esquecid${L_R3}*|perdid${L_R3}*` +
+        `|que\\s+(?:voc[eê]\\s+)?(?:esqueceu|faltou|perdeu)${FIM_R3})` +
+        `|\\s+(?:a|o)\\s+d[aeo]s?\\s+\\d` +
+        `|\\s+(?:agora|j[aá]|assim\\s+que)${FIM_R3}` +
+        `|[^.!?]{0,20}?${INI_R3}(?:em\\s+dobro|dobrad[oa]s?|mais\\s+cedo|mais\\s+tarde)${FIM_R3})` +
+        `|(?:${INI_R3}(?:mude|mudem|adiante|atrase|altere|antecipe|passe|mova|ajuste|coloque)` +
+        `|${INI_R3}(?:pode|poderia|deve|deveria|precisa|tente|melhor)\\s+(?:mudar|adiantar|atrasar|alterar|antecipar|passar|mover|ajustar))${FIM_R3}` +
+        `${janela(30, FORA_DO_HORARIO)}${INI_R3}(?:hor[aá]rios?|doses?|rem[eé]dios?|a\\s+tomar|para\\s+(?:as|[àa]s?)\\s+\\d|[àa]s\\s+\\d)` +
+        `(?![^.!?]{0,${PERTO}}(?:${FORA_DO_HORARIO}))`,
+      'i',
+    ),
+    motivo:
+      'A resposta orienta o que fazer com uma dose esquecida ou com o horário do remédio. Isso é de quem prescreve ou do farmacêutico.',
+    excecao: DEVOLVE_A_DOSE_ESQUECIDA,
+  },
+  {
+    // JUIZO SOBRE A ADESAO (E3, D3.4). "Voce esta tomando direitinho", "sua
+    // adesao esta boa" e "voce esta em dia com o remedio" passavam. O aplicativo
+    // sabe o que foi MARCADO; se o tratamento vai bem e avaliacao de quem
+    // acompanha a pessoa -- e o elogio ensina que marcar e o mesmo que tomar.
+    //
+    // O "em dia" daqui fala da PESSOA ("voce esta em dia"), e nao vale com
+    // agenda, exame ou vacina na frase: "voce esta atrasado para a consulta" e
+    // agenda, e o "em dia" de exame e vacina tem padrao proprio (E7) ou e o
+    // calendario da carteira (E8).
+    //
+    // O adverbio fica COLADO ao verbo (no maximo duas palavras, sem virgula):
+    // "tomando o remedio direitinho" casa; "se nao tiver certeza de que tomou,
+    // tudo bem" e "voce marcou como tomado, certo" nao. "Errado" e "certo" nao
+    // entram: "se voce tomou o remedio errado, ligue para o CIATox" e
+    // orientacao de seguranca (revisao do E3). Entram "indo bem com", "tudo
+    // certo com os remedios", "parabens" falando de remedio e "sendo regular".
+    padrao: new RegExp(
+      `${INI_R3}(?:tomando|tomado|tomou|seguindo)${FIM_R3}(?:\\s+[^\\s,.!?;:]+){0,2}?\\s+` +
+        `(?:direit${L_R3}*|certinh${L_R3}*|corretamente|bem)${FIM_R3}` +
+        `|${INI_R3}ades[aã]o${FIM_R3}${janela(30, FORA_DO_REMEDIO)}` +
+        `${INI_R3}(?:boa|[oó]tima|ruim|regular|baixa|alta|adequada|excelente|perfeita|satisfat[oó]ria)${FIM_R3}` +
+        `|${INI_R3}voc[eê]\\s+(?:est[aá]|ficou|anda)\\s+(?:em\\s+dia|em\\s+atraso|atrasad[oa])${FIM_R3}` +
+        `(?![^.!?]{0,${PERTO}}(?:${AGENDA_OU_PREVENCAO}))` +
+        `|${INI_R3}indo\\s+bem\\s+com${FIM_R3}` +
+        `|${INI_R3}tudo\\s+certo\\s+com\\s+(?:(?:${DETERMINANTE})\\s+){0,2}(?:rem[eé]dios?|medica${L_R3}*|tratament${L_R3}*|doses?|hor[aá]rios?)${FIM_R3}` +
+        `|${INI_R3}parab[eé]ns${FIM_R3}(?=[^.!?]{0,${PERTO}}(?:rem[eé]di|medica|tratament|dose|hor[aá]rio|marca|tom))` +
+        `|${INI_R3}sendo\\s+(?:regular|disciplinad[oa]|pontual)${FIM_R3}`,
+      'i',
+    ),
+    motivo:
+      'A resposta julga se a pessoa está tomando o remédio direito. O aplicativo mostra o que foi marcado; avaliar o tratamento é de quem acompanha a pessoa.',
+    excecao: RECUSA_OU_PERGUNTA,
+  },
+  {
+    // AFIRMAR QUE A PESSOA NAO TOMOU (E3, D3.4). "Voce esqueceu a dose de
+    // segunda" passava. Sem marcacao no aplicativo nao e falta de dose: a pessoa
+    // pode ter tomado e nao marcado (PRD 3.2). A excecao e a frase que diz
+    // exatamente isso: "nao quer dizer que voce nao tomou o remedio", e a
+    // condicao ("se voce nao tomou, ...").
+    //
+    // "Nao tomou" e "deixou de tomar" bastam sozinhos. "Esqueceu", "pulou" e
+    // "perdeu" valem com a dose ou o horario ("esqueceu a dose", "pulou o
+    // horario das 8h") ou com um nome qualquer -- o do remedio, que e o que a
+    // ferramenta devolve -- quando a frase diz QUANDO ("esqueceu a losartana na
+    // segunda"). Com agenda perto, nao valem: "voce perdeu o horario da
+    // consulta" passa. "Esqueceu DE marcar" nao e objeto, e passa
+    // (revisao e /simplify do E3).
+    padrao: new RegExp(
+      `${INI_R3}voc[eê]\\s+(?:n[aã]o\\s+tomou|deixou\\s+de\\s+tomar)${FIM_R3}` +
+        `|${INI_R3}voc[eê]\\s+(?:esqueceu|pulou|perdeu)(?:\\s+de\\s+tomar)?${FIM_R3}` +
+        `(?![^.!?]{0,${PERTO}}(?:${AGENDA_OU_PREVENCAO}))\\s+(?:(?:${DETERMINANTE}|\\d+)\\s+){0,2}` +
+        `(?:(?:${OBJETO_DA_TOMADA})${FIM_R3}|(?!de${FIM_R3})${L_R3}+${FIM_R3}${QUANDO_DA_DOSE})` +
+        `|${INI_R3}faltou${A_DOSE}`,
+      'i',
+    ),
+    motivo:
+      'A resposta afirma que a pessoa não tomou o remédio. Sem marcação no aplicativo não quer dizer que ela não tomou.',
+    excecao: NAO_AFIRMA_QUE_NAO_TOMOU,
   },
   {
     // Verbos de prescricao seguidos do que esta sendo prescrito. O imperativo
