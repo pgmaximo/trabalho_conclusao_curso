@@ -14,7 +14,7 @@ A ordem dos cinco primeiros foi definida pelo produto em 2026-10-17. O restante 
 | 2 | **E8** | Campanhas e postos de vacinação | [E8](./decisoes/E8-campanhas-e-postos.md) | M | Concluído (2026-10-17; conferência no sandbox e no dispositivo pendente, ver `E8-campanhas-e-postos/tasks.md`) |
 | 3 | **E2** | Medicamentos completos (frequência, estoque, observações) | [E2](./decisoes/E2-medicamentos-completos.md) | M (era P; a D2.4 acrescenta a exceção da R3) | Concluído (2026-10-17; conferência no sandbox pendente, ver `E2-medicamentos-completos/tasks.md`) |
 | 4 | **E9** | Interações medicamentosas | [E9](./decisoes/E9-interacoes-medicamentosas.md) | M | Concluído (2026-10-17; conferência no sandbox pendente, ver `E9-interacoes-medicamentosas/tasks.md`) |
-| 5 | **E1** | Data de hoje e mapa do app | [E1](./decisoes/E1-contexto-e-mapa-do-app.md) | P | Aguardando decisão |
+| 5 | **E1** | Data de hoje e mapa do app | [E1](./decisoes/E1-contexto-e-mapa-do-app.md) | P | Concluído (2026-10-19; conferência no sandbox pendente, ver `E1-contexto-e-mapa-do-app/tasks.md`) |
 | 6 | E5 | Campos que faltam em agenda e vacinas | sem decisão aberta | P | Não iniciado |
 | 7 | E3 | Doses tomadas (adesão) | decidir junto com E2 (D2.3) | M | Não iniciado |
 | 8 | E4 | Receitas extraídas e situação dos documentos | sem decisão aberta | M | Não iniciado |

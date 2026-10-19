@@ -42,16 +42,63 @@ export function formatarDecimal(valor: number | null | undefined): string {
 }
 
 /**
- * O dia, em AAAA-MM-DD, no fuso de Sao Paulo (E8). A funcao roda em UTC, e
- * entre 21h e meia-noite de Brasilia o UTC ja e o dia seguinte -- no ultimo dia
- * de uma campanha, isso trocaria "ativa" por "encerrada". `en-CA` e o locale
- * cujo formato curto ja e AAAA-MM-DD; `Intl` e global, e este arquivo continua
- * sem importar nada.
+ * O fuso do aplicativo (E1, D1.2 = A), num lugar so: o dia das campanhas, o
+ * corte das consultas e o bloco de data do turno precisam do MESMO fuso, ou o
+ * modelo receberia um "hoje" que discorda das futuras e passadas da
+ * ferramenta. A funcao roda em UTC, e entre 21h e meia-noite de Brasilia o UTC
+ * ja e o dia seguinte. Se vier o fuso do aparelho (D1.2 = B), e aqui que entra.
+ *
+ * `en-US` com `weekday: 'short'` da o dia como codigo estavel ("Sun"...);
+ * pedir `pt-BR` faria o texto depender do ICU do runtime da Lambda.
  */
-const DIA_EM_SAO_PAULO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+const PARTES_EM_SAO_PAULO = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Sao_Paulo',
+  weekday: 'short',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
 
+/**
+ * O instante quebrado em partes, sempre com dois digitos, no fuso do app (E1).
+ * Pelas partes, e nao pelo `format`, porque o separador entre data e hora
+ * varia entre versoes do ICU. `hourCycle: 'h23'` garante meia-noite como "00",
+ * e nunca "24". `diaDaSemana` vai de "Sun" a "Sat".
+ */
+export function partesEmSaoPaulo(instante: Date) {
+  const p = Object.fromEntries(
+    PARTES_EM_SAO_PAULO.formatToParts(instante).map((x) => [x.type, x.value]),
+  );
+  return {
+    diaDaSemana: p.weekday,
+    ano: p.year,
+    mes: p.month,
+    dia: p.day,
+    hora: p.hour,
+    minuto: p.minute,
+  };
+}
+
+/**
+ * O instante, em "AAAA-MM-DDTHH:mm" no fuso de Sao Paulo (E1). E o formato em
+ * que a Agenda grava `scheduledAt` -- hora LOCAL, sem fuso -- e por isso o
+ * unico com que esse texto pode ser comparado.
+ */
+export function momentoEmSaoPaulo(instante: Date): string {
+  const { ano, mes, dia, hora, minuto } = partesEmSaoPaulo(instante);
+  return `${ano}-${mes}-${dia}T${hora}:${minuto}`;
+}
+
+/**
+ * O dia, em AAAA-MM-DD, no fuso de Sao Paulo (E8): no ultimo dia de uma
+ * campanha, o dia do UTC trocaria "ativa" por "encerrada".
+ */
 export function dataEmSaoPaulo(instante: Date): string {
-  return DIA_EM_SAO_PAULO.format(instante);
+  const { ano, mes, dia } = partesEmSaoPaulo(instante);
+  return `${ano}-${mes}-${dia}`;
 }
 
 /** AAAA-MM-DD -> DD/MM/AAAA. Data que nao esta nesse formato volta como veio:

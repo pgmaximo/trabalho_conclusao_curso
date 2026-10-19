@@ -84,6 +84,14 @@ export type TurnInput = {
    * nunca ao modelo: o modelo so ve o que a ferramenta montou com ela.
    */
   local?: LocalDoUsuario | null;
+  /**
+   * A data e a hora do turno, ja em texto, num SEGUNDO bloco de `system` (E1,
+   * D1.1; o porque esta em `contextoDeHoje.ts`). Fica DEPOIS porque muda a
+   * cada turno, e o bloco 0 so muda com a memoria da pessoa: um ponto de
+   * prompt caching futuro iria entre os dois. Ausente, `system` sai byte a
+   * byte como antes.
+   */
+  contextoDeHoje?: string;
 };
 
 /**
@@ -208,7 +216,10 @@ function chamar(input: TurnInput, messages: unknown[], temperature: number) {
   return client.send(
     new ConverseCommand({
       modelId: input.modelId,
-      system: [{ text: input.systemPrompt ?? SYSTEM_PROMPT }],
+      system: [
+        { text: input.systemPrompt ?? SYSTEM_PROMPT },
+        ...(input.contextoDeHoje ? [{ text: input.contextoDeHoje }] : []),
+      ],
       messages: messages as never,
       inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS, temperature },
       toolConfig: especificacaoDasTools() as never,

@@ -11,6 +11,7 @@
  */
 import { SYSTEM_PROMPT, buildUserMessage } from '../chatPrompt';
 import { MAX_CITACOES, chatAnswerSchema } from '../chatSchema';
+import { MAPA_DO_APP, MAPA_DO_APP_PROMPT } from '../mapaDoApp';
 
 const PERGUNTA = 'o que diz este papel?';
 
@@ -344,5 +345,59 @@ describe('SYSTEM_PROMPT — interações (E9)', () => {
     expect(trecho()).toMatch(/parar, suspender, trocar ou ajustar/);
     expect(trecho()).toMatch(/nunca acrescente interação/);
     expect(trecho()).toMatch(/farmacêutico/);
+  });
+});
+
+/**
+ * A data de hoje (E1, D1.1). A data mesma vem num bloco SEPARADO, montado por
+ * turno; o prompt fixo so diz como usa-la -- e por isso nao muda com o
+ * relogio, o que deixa a porta aberta para prompt caching.
+ */
+describe('a data de hoje (E1)', () => {
+  it('o prompt nao muda com o relogio e nao traz data', () => {
+    expect(SYSTEM_PROMPT).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    expect(SYSTEM_PROMPT).not.toMatch(/hoje é (domingo|segunda|terça|quarta|quinta|sexta|sábado)/);
+  });
+
+  it('manda usar a data do bloco como hoje, mesmo que a conversa diga outra', () => {
+    expect(SYSTEM_PROMPT).toContain('horário de Brasília');
+    // A memoria da pessoa entra DEPOIS destas instrucoes, no mesmo bloco: o
+    // bloco de data nao e "o que segue", e um fato com dia da semana poderia
+    // ser lido como a data de hoje. O prompt aponta o bloco pelo inicio dele.
+    expect(SYSTEM_PROMPT).toContain('começa com "Data e hora deste turno"');
+    expect(SYSTEM_PROMPT).not.toContain('que segue estas instruções');
+    expect(SYSTEM_PROMPT).toContain('Use essa data como hoje, mesmo que a conversa diga outra');
+    expect(SYSTEM_PROMPT).toContain('use o que a ferramenta já separou');
+  });
+
+  it('tempo decorrido so em meses ou anos, aproximado, com a data exata, nunca em dias (P1)', () => {
+    expect(SYSTEM_PROMPT).toContain('diga a data exata');
+    expect(SYSTEM_PROMPT).toContain('o tempo aproximado em meses ou anos');
+    // Sem esta saida, o que aconteceu ha 6 dias nao tem redacao permitida.
+    expect(SYSTEM_PROMPT).toContain('se faz menos de um mês, diga só a data, sem contar dias');
+  });
+});
+
+/** O mapa do app (E1, D1.3): orientar so por ele, e nunca inventar tela. */
+describe('o mapa do app (E1)', () => {
+  it('traz o mapa e manda orientar so por ele, sem inventar, sem link, sem cadastrar pela pessoa', () => {
+    expect(SYSTEM_PROMPT).toContain(MAPA_DO_APP_PROMPT);
+    expect(SYSTEM_PROMPT).toContain('use só este mapa');
+    expect(SYSTEM_PROMPT).toContain('diga que não sabe onde fica, sem inventar tela nem botão');
+    expect(SYSTEM_PROMPT).toContain('sem link');
+    expect(SYSTEM_PROMPT).toContain('Você não cadastra nada');
+    expect(SYSTEM_PROMPT).toContain('"botão +" é o botão redondo com o sinal de mais');
+  });
+
+  it('toda "tela de X" do prompt e nome ou apelido do mapa', () => {
+    const citadas = [...SYSTEM_PROMPT.matchAll(/tela de ([A-ZÀ-Ú][a-zà-ú]+)/g)].map((m) => m[1]);
+    expect(citadas.length).toBeGreaterThan(0);
+    const conhecidos = MAPA_DO_APP.flatMap((t) => [t.nome, ...(t.apelidos ?? [])]);
+    for (const nome of citadas) {
+      expect({ nome, conhecido: conhecidos.some((c) => c.startsWith(nome)) }).toEqual({
+        nome,
+        conhecido: true,
+      });
+    }
   });
 });

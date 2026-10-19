@@ -50,6 +50,7 @@ jest.mock('../tools', () => {
 });
 
 import { LANGUAGE_RULES_PROMPT } from '../../ai-language-rules/rulesPrompt';
+import { SYSTEM_PROMPT } from '../chatPrompt';
 import {
   HISTORY_WINDOW,
   MAX_OUTPUT_TOKENS,
@@ -443,5 +444,43 @@ describe('os valores cadastrados de cada tool (E2, D2.4)', () => {
       .mockResolvedValueOnce(respondeTexto('Ok.'));
     const r = await runConversationTurn(ENTRADA);
     expect(r.transcript.toolOutputs[0].valoresCadastrados).toBeUndefined();
+  });
+});
+
+/**
+ * A data do turno (E1, D1.1): um SEGUNDO bloco de `system`, depois do prompt
+ * fixo. Fora de `messages` e do `guardContent`, porque e instrucao de sistema
+ * e nao texto de fora; e sem ela o pedido sai byte a byte como antes (regra 5).
+ */
+describe('a data do turno', () => {
+  const CONTEXTO =
+    'Data e hora deste turno, informadas pelo aplicativo: hoje é sábado, 17/10/2026, e agora são 22h30 no horário de Brasília.';
+
+  it('com contextoDeHoje, system leva dois blocos: o prompt e depois a data', async () => {
+    mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
+    await runConversationTurn({ ...ENTRADA, contextoDeHoje: CONTEXTO });
+    expect(ultimaChamada().system).toHaveLength(2);
+    expect(ultimaChamada().system[0].text).toContain(LANGUAGE_RULES_PROMPT);
+    expect(ultimaChamada().system[1]).toEqual({ text: CONTEXTO });
+  });
+
+  it('sem contextoDeHoje, system continua com um bloco so', async () => {
+    mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
+    await runConversationTurn(ENTRADA);
+    expect(ultimaChamada().system).toEqual([{ text: SYSTEM_PROMPT }]);
+  });
+
+  it('a data nao vai em messages nem no guardContent', async () => {
+    mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
+    await runConversationTurn({ ...ENTRADA, contextoDeHoje: CONTEXTO });
+    expect(JSON.stringify(ultimaChamada().messages)).not.toContain('22h30');
+  });
+
+  it('a segunda geracao leva o mesmo bloco de data', async () => {
+    mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
+    const entrada = { ...ENTRADA, contextoDeHoje: CONTEXTO };
+    const primeira = await runConversationTurn(entrada);
+    await regenerateAnswer(entrada, primeira.transcript, 'Motivo de teste.');
+    expect(ultimaChamada().system).toEqual([{ text: SYSTEM_PROMPT }, { text: CONTEXTO }]);
   });
 });

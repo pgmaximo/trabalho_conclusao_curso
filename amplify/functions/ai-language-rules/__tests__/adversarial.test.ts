@@ -653,3 +653,32 @@ describe('revisão do E9: garantia, troca e as respostas honestas', () => {
     });
   });
 });
+
+/**
+ * Data e caminho de tela (E1). O assistente passa a dizer "amanha, as 9h",
+ * "ha cerca de 7 meses" e "Mais > Agenda". Nenhuma dessas frases e dose nem
+ * orientacao, e a R3 nao pode confundir hora ou meses com posologia -- uma
+ * resposta certa reprovada cai no modo degradado.
+ */
+describe('E1: respostas com data e caminho de tela passam', () => {
+  it.each([
+    'Amanhã, domingo, 18/10, às 9h, você tem consulta com a Dra. Ana.',
+    'Sua próxima consulta é hoje, às 10h, no Posto Central.',
+    'Toque em Mais, depois em Agenda e em Novo compromisso.',
+    'Toque em Mais, depois em Agenda e no botão +, o botão redondo com o sinal de mais.',
+    'Você fez esse exame em 12/10/2026.',
+    'Para importar os dados do relógio, vá em Mais > Dados do smartwatch > Importar.',
+    'Para cadastrar um remédio, toque em Remédios, na barra de baixo, e depois em Adicionar medicamento.',
+  ])('operacional aprova: %s', (frase) => {
+    expect(checkLanguageRules(frase, { questionKind: 'operacional', temOrigem: false })).toEqual({
+      ok: true,
+    });
+  });
+
+  it('clinica aprova tempo decorrido com a data exata', () => {
+    const frase = 'Você fez esse exame em 12/03/2026, há cerca de 7 meses.' + ENCAMINHA;
+    expect(checkLanguageRules(frase, { questionKind: 'clinica', temOrigem: true })).toEqual({
+      ok: true,
+    });
+  });
+});

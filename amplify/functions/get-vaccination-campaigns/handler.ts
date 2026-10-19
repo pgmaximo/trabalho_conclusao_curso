@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dyn
 import { getCampanhasAtivas } from './campaignCalendar';
 import { fetchPniSample } from './pniClient';
 import { aggregateCampanhas, computeDataAsOf } from './campaignAggregator';
+import { diaDeHoje } from './diaDeHoje';
 
 const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient());
 
@@ -38,10 +39,6 @@ type HandlerResult = {
   campanhas: CampanhaResultado[];
   amostragem: string;
 };
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 /**
  * Nao usamos Schema['getVaccinationCampaigns']['functionHandler'] pelo mesmo
@@ -87,7 +84,7 @@ export async function handler(event: AppSyncEvent): Promise<HandlerResult> {
     return cached;
   }
 
-  const hoje = todayIso();
+  const hoje = diaDeHoje(new Date());
   const campanhasAtivas = getCampanhasAtivas(hoje);
 
   if (campanhasAtivas.length === 0) {

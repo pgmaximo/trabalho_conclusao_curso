@@ -29,6 +29,7 @@ import {
   type TurnInput,
   type TurnTranscript,
 } from './conversationLoop';
+import { montarContextoDeHoje } from './contextoDeHoje';
 import { costurar } from './encaminhamento';
 import { enriquecerCitacoes, indexarLinhasCitaveis } from './citacoes';
 import { buildDegradedAnswer } from './degradedAnswer';
@@ -537,6 +538,10 @@ export async function responder(
   const entrada: TurnInput = {
     message: request.message,
     systemPrompt: montarSystemPrompt(fatos),
+    // O relogio e lido AQUI, uma vez por turno (E1): a segunda geracao recebe
+    // esta mesma entrada, e perto da meia-noite reler o relogio poderia trocar
+    // o dia entre as duas.
+    contextoDeHoje: montarContextoDeHoje(new Date()),
     history: request.history,
     anexo: request.anexo,
     memoriaAtiva: request.memoriaAtiva,

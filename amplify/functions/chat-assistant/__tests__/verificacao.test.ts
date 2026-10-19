@@ -29,6 +29,7 @@ jest.mock('../degradedAnswer', () => ({
   buildDegradedAnswer: (...a: unknown[]) => mockBuildDegradedAnswer(...a),
 }));
 
+import { montarContextoDeHoje } from '../contextoDeHoje';
 import { TEXTO_DE_ENCAMINHAMENTO } from '../encaminhamento';
 import { INDISPONIVEL, responder, responderComVerificacao } from '../verificacao';
 
@@ -1001,6 +1002,47 @@ describe('a cidade do pedido chega ao laco (E8)', () => {
     await responder({ message: 'oi', history: [] }, { identity: IDENTIDADE });
 
     expect(mockRunConversationTurn.mock.calls[0][0].local).toBeNull();
+  });
+});
+
+/**
+ * A data do turno (E1, D1.1). O relogio e lido UMA vez, em `responder`, e a
+ * segunda geracao (D31) recebe a mesma entrada -- com o mesmo bloco de data.
+ * Ler o relogio de novo na regeneracao poderia trocar o dia entre as duas,
+ * perto da meia-noite.
+ */
+describe('a data do turno chega ao laco (E1)', () => {
+  const AGORA = new Date('2026-10-18T01:30:00Z');
+
+  beforeEach(() => {
+    jest.useFakeTimers({
+      now: AGORA,
+      doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask', 'setTimeout', 'setInterval'],
+    });
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it('responder le o relogio e entrega a data na entrada do turno', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno('Pronto.', ['consultar_consultas']));
+
+    await responder({ message: 'oi', history: [] }, { identity: IDENTIDADE });
+
+    expect(mockRunConversationTurn.mock.calls[0][0].contextoDeHoje).toBe(
+      montarContextoDeHoje(AGORA),
+    );
+  });
+
+  it('a segunda geracao recebe a mesma entrada, com a mesma data', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(COM_POSOLOGIA));
+    mockRegenerateAnswer.mockResolvedValue(
+      turno('Não indico quantidade. Leve seus exames ao seu médico.'),
+    );
+
+    await responder({ message: 'oi', history: [] }, { identity: IDENTIDADE });
+
+    const [entradaDaSegunda] = mockRegenerateAnswer.mock.calls[0];
+    expect(entradaDaSegunda).toBe(mockRunConversationTurn.mock.calls[0][0]);
+    expect(entradaDaSegunda.contextoDeHoje).toBe(montarContextoDeHoje(AGORA));
   });
 });
 

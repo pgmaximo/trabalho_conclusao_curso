@@ -1,11 +1,11 @@
 # Decisões do E1 — Data de hoje e mapa do app
 
-Épico: [E1 no PRD](../prd.md) · Ordem de entrega: 5º · Três decisões: D1.1, D1.2 e D1.3
+Épico: [E1 no PRD](../prd.md) · Ordem de entrega: 5º · Quatro decisões: D1.1, D1.2, D1.3 e P1 (esta nasceu na spec)
 
 ## O que o código faz hoje (verificado)
 
 - O prompt de sistema (`chatPrompt.ts`) é uma **string fixa**. Ele é passado ao Bedrock como `system: [{ text: ... }]` em `conversationLoop.ts`. Não há `cachePoint` de prompt hoje.
-- **O assistente não sabe a data de hoje.** Só `consultar_consultas` usa o relógio da função (`new Date().toISOString()`, em UTC) para separar consultas futuras de passadas.
+- **O assistente não sabe a data de hoje.** Só as ferramentas usam o relógio da função: `consultar_consultas` (`new Date().toISOString()`, em UTC) para separar consultas futuras de passadas, e, desde o E8 e o E9, `consultar_campanhas` e `consultar_interacoes` via `dataEmSaoPaulo(new Date())`. (Atualizado em 2026-10-17, na decisão.)
 - A mensagem do usuário entra dentro de `guardContent`, e **só** o texto do usuário passa por ali, de propósito: assim o filtro de ataque de prompt do guardrail avalia exatamente o que veio de fora, sem a nossa instrução diluindo a avaliação.
 - O projeto já força `TZ=America/Sao_Paulo` nos testes, e o usuário é brasileiro.
 - Não há nenhuma lista de telas no prompt. O app tem as rotas em `src/app/(app)` (ai, analyte-series, appointments, assistant-memory, dashboard, document-detail, exams, health-data, medicines, more, prevention, profile, vaccination) e na raiz (`add-*`, `edit-*`, `import-health-data`, entre outras).
@@ -49,7 +49,7 @@
 
 **Motivo:** é a única em que a data é autoridade de sistema, não passa pelo filtro do usuário e não atrapalha caching futuro. O ajuste de testes é pequeno.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (segundo bloco no `system`, depois do prompt fixo). Decidido em 2026-10-17.
 
 ---
 
@@ -80,7 +80,7 @@
 
 **Motivo:** o produto é nacional e o custo do erro (um dia errado perto da meia-noite, em fusos minoritários) é baixo. A opção B pode vir depois sem refazer nada, pois a função que monta a data já recebe o fuso como parâmetro.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (fixo em `America/Sao_Paulo`). Decidido em 2026-10-17.
 
 ---
 
@@ -122,7 +122,18 @@ Um bloco curto em `chatPrompt.ts`: nome da tela, caminho de navegação em texto
 
 **Motivo:** a opção C leva a respostas inventadas, e a B constrói infraestrutura para um problema pequeno. O teste de rotas da opção A reduz o risco principal, e a Parte 2 (telas) já deve atualizar o mapa quando mexer em navegação.
 
-**Decisão:** _a preencher pelo produto_
+**Decisão:** **Opção A** (lista escrita à mão no prompt, com teste que confere as rotas citadas). Decidido em 2026-10-17.
+
+---
+
+## P1 — Quem calcula o tempo decorrido (nasceu na spec, 2026-10-18)
+
+**O que decidir:** em "faz quanto tempo que fiz o exame?", quem calcula o "há quanto tempo". Nenhuma ferramenta devolve isso hoje. Detalhe em `../E1-contexto-e-mapa-do-app/spec.md`, H3.
+
+- **Opção A (recomendada):** o modelo responde só em meses ou anos, aproximado, sempre junto com a data exata que a ferramenta trouxe, e nunca conta dias. Nenhuma ferramenta muda.
+- **Opção B:** um campo calculado (`haQuantoTempo`) em exames, resultados, analito, vacinas e consultas. O cálculo fica todo no código, mas são 5 ferramentas, mais tokens por chamada e o esforço sobe para M.
+
+**Decisão:** **Opção A**. Decidido em 2026-10-18.
 
 ---
 

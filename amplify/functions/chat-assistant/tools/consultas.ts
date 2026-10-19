@@ -6,6 +6,7 @@
 import { z } from 'zod';
 
 import type { ChatIdentity } from '../auth';
+import { momentoEmSaoPaulo } from '../formatoPtBr';
 import type { DegradedBlock } from '../types';
 import { lerDoDono, texto } from './ownerScopedRead';
 import type { ChatTool } from './tipos';
@@ -40,7 +41,12 @@ export const consultasTool: ChatTool = {
     // O corte usa o relogio da funcao. "Proxima consulta" e uma pergunta sobre
     // o agora, e devolver as duas listas separadas evita que o modelo precise
     // comparar datas ele mesmo -- comparacao de data por modelo erra.
-    const agora = new Date().toISOString();
+    //
+    // O "agora" e a hora de Brasilia (E1, achado A1; com o UTC, a consulta das
+    // proximas 3 horas saia como passada). Registro so com data vale 00h00,
+    // como `parseScheduledAt` da Agenda: o chat nao da outra resposta sobre o
+    // mesmo registro.
+    const agora = momentoEmSaoPaulo(new Date());
     const futuras = todas.filter((c) => (c.quando ?? '') >= agora);
     const passadas = todas.filter((c) => (c.quando ?? '') < agora);
 
