@@ -29,6 +29,10 @@ import {
   tipoValido,
   type MemoryKind,
 } from '../../amplify/functions/chat-assistant/memoria/regras';
+import {
+  lerAcaoProposta,
+  type AcaoProposta,
+} from '../../amplify/functions/acoes-propostas-shared/camposDaAcao';
 
 export interface ChatMessage {
   id: string;
@@ -65,6 +69,9 @@ export interface AssistantReply {
   ruleCheckStatus: RuleCheckStatus;
   /** Ausente na esmagadora maioria dos turnos. */
   memoriaProposta?: MemoryProposal;
+  /** A acao proposta (E11). Nada foi gravado: o cartao abre o formulario, e
+   *  quem salva e a pessoa. */
+  acaoProposta?: AcaoProposta;
 }
 
 export interface AiAssistantService {
@@ -187,6 +194,7 @@ export async function sendMessageWithSources(
       citations?: unknown;
       ruleCheckStatus?: RuleCheckStatus;
       memoriaProposta?: unknown;
+      acaoProposta?: unknown;
     };
 
     return {
@@ -194,6 +202,9 @@ export async function sendMessageWithSources(
       citations: lerCitacoes(corpo.citations),
       ruleCheckStatus: corpo.ruleCheckStatus ?? 'INDISPONIVEL',
       memoriaProposta: lerProposta(corpo.memoriaProposta),
+      // A funcao ja conferiu e resolveu a acao (E11); aqui a conferencia e de
+      // FORMA, com o mesmo modulo das rotas, pelo mesmo motivo de `lerProposta`.
+      acaoProposta: lerAcaoProposta(corpo.acaoProposta),
     };
   } catch (erro) {
     // As mensagens que JA sao honestas passam intactas; o resto vira a

@@ -14,6 +14,11 @@ import {
   type MemoryProposal,
 } from '@/services/aiAssistantService';
 import {
+  paramsDaAcao,
+  rotaDaAcao,
+  type AcaoProposta,
+} from '../../amplify/functions/acoes-propostas-shared/camposDaAcao';
+import {
   guardarFato,
   lerInterruptor,
   type ResultadoDaGravacao,
@@ -52,6 +57,17 @@ export type AnexoPendente = { key: string; fileName: string };
  */
 export type PropostaNaTela = { proposta: MemoryProposal; depoisDaMensagem: string };
 
+/**
+ * A acao proposta viva nesta tela (E11), presa a mensagem que a gerou, como a
+ * proposta de memoria. Ela nao grava nada: o cartao so abre o formulario.
+ */
+export type AcaoNaTela = { acao: AcaoProposta; depoisDaMensagem: string };
+
+/** A chave da recusa: a mesma acao (mesmo tipo e mesmos campos) nao volta. */
+function chaveDaAcao(acao: AcaoProposta): string {
+  return JSON.stringify(acao);
+}
+
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
@@ -73,6 +89,11 @@ export interface UseChatBotReturn {
   confirmarMemoria: (proposta: MemoryProposal) => Promise<ResultadoDaGravacao>;
   recusarMemoria: () => void;
   abrirMemoria: () => void;
+  /** A acao proposta aguardando o toque da pessoa (E11). Nula quase sempre. */
+  propostaDeAcao: AcaoNaTela | null;
+  /** So navega para o formulario preenchido; nao grava nada. */
+  abrirAcao: (acao: AcaoProposta) => void;
+  recusarAcao: () => void;
   messages: ChatMessageComOrigem[];
   inputText: string;
   setInputText: (text: string) => void;
@@ -106,6 +127,17 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
   // Os textos que a pessoa ja recusou NESTA conversa. Propor de novo o que ela
   // acabou de recusar transforma o pedido de consentimento em insistencia.
   const [recusados, setRecusados] = useState<string[]>([]);
+  const [propostaDeAcao, setPropostaDeAcao] = useState<AcaoNaTela | null>(null);
+  // As acoes recusadas NESTA conversa, pelo mesmo motivo de `recusados`.
+  const [acoesRecusadas, setAcoesRecusadas] = useState<string[]>([]);
+
+  // Toda troca de conversa esquece a acao (revisao do E11): o cartao abre um
+  // formulario preenchido, e deixado na tela levaria dado de uma conversa que
+  // a pessoa nem esta vendo. As recusas tambem sao "desta conversa".
+  const esquecerAcao = useCallback(() => {
+    setPropostaDeAcao(null);
+    setAcoesRecusadas([]);
+  }, []);
   const [memoriaLigada, setMemoriaLigada] = useState<boolean | undefined>(undefined);
   const [messages, setMessages] = useState<ChatMessageComOrigem[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState('');
@@ -196,6 +228,14 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
             : null,
         );
 
+        // A acao (E11) segue a mesma regra. A funcao ja manda no maximo uma
+        // proposta por resposta, contando as duas; a tela nao precisa escolher.
+        setPropostaDeAcao(
+          reply.acaoProposta && !acoesRecusadas.includes(chaveDaAcao(reply.acaoProposta))
+            ? { acao: reply.acaoProposta, depoisDaMensagem: reply.text }
+            : null,
+        );
+
         // A gravacao acontece DEPOIS de a resposta estar na tela, e nunca
         // derruba o turno: `salvarTurno` engole a falha. Perder o registro e
         // ruim; perder a resposta por causa do registro seria pior.
@@ -211,6 +251,9 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
           void recarregarConversas();
         }
       } catch (erro) {
+        // O cartao da resposta anterior nao fica embaixo da mensagem de erro,
+        // como se viesse dela (revisao do E11).
+        setPropostaDeAcao(null);
         // A camada de servico ja escreve mensagens honestas e DIFERENTES entre
         // si -- "sua sessao expirou", "o assistente esta indisponivel nesta
         // versao". Trocar todas por uma frase fixa aqui apagaria justamente a
@@ -237,6 +280,7 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
       }
     },
     [
+      acoesRecusadas,
       anexo,
       conversationId,
       inputText,
@@ -279,6 +323,26 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
     setPropostaDeMemoria(null);
   }, [propostaDeMemoria]);
 
+  /**
+   * O toque em "Abrir formulario" (E11). SO NAVEGA: o formulario de sempre abre
+   * preenchido, e a gravacao continua sendo o toque em Salvar la. O cartao sai
+   * da tela porque a pessoa ja agiu sobre ele.
+   */
+  const abrirAcao = useCallback((acao: AcaoProposta) => {
+    setPropostaDeAcao(null);
+    router.push({ pathname: rotaDaAcao(acao.tipo), params: paramsDaAcao(acao) });
+  }, []);
+
+  const recusarAcao = useCallback(() => {
+    // Lida AQUI, e nao dentro de um atualizador de estado, pelo mesmo motivo de
+    // `recusarMemoria`: o atualizador precisa ser puro.
+    if (propostaDeAcao) {
+      const recusada = chaveDaAcao(propostaDeAcao.acao);
+      setAcoesRecusadas((antes) => [...antes, recusada]);
+    }
+    setPropostaDeAcao(null);
+  }, [propostaDeAcao]);
+
   const abrirMemoria = useCallback(() => {
     setHistoryOpen(false);
     router.push('/(app)/assistant-memory');
@@ -288,15 +352,17 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
     setMessages([{ ...WELCOME_MESSAGE, id: nextMessageId() }]);
     setInputText('');
     setAnexo(null);
+    esquecerAcao();
     // Nova conversa comeca sem id: a proxima pergunta cria a dela.
     setConversationId(null);
-  }, [setConversationId]);
+  }, [esquecerAcao, setConversationId]);
 
   /** Abre uma conversa guardada, com as citacoes de cada resposta. */
   const abrirConversa = useCallback(async (id: string) => {
     try {
       const gravadas = await lerMensagens(id);
       setConversationId(id);
+      esquecerAcao();
       setMessages(
         gravadas.map((m) => ({
           id: m.id,
@@ -310,7 +376,7 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
     } catch (erro) {
       console.warn('Nao foi possivel abrir esta conversa:', erro);
     }
-  }, [setConversationId]);
+  }, [esquecerAcao, setConversationId]);
 
   /**
    * Reabre a conversa que estava aberta quando a pessoa saiu da aba. Difere de
@@ -328,6 +394,7 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
           return;
         }
         setConversationId(id);
+        esquecerAcao();
         setMessages(
           gravadas.map((m) => ({
             id: m.id,
@@ -342,7 +409,7 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
         console.warn('Nao foi possivel retomar a conversa:', erro);
       }
     },
-    [setConversationId],
+    [esquecerAcao, setConversationId],
   );
 
   const deleteConversation = useCallback(
@@ -358,12 +425,13 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
       // em dobro.
       if (conversationId === id) {
         setConversationId(null);
+        esquecerAcao();
         setMessages([{ ...WELCOME_MESSAGE, id: nextMessageId() }]);
       }
 
       await recarregarConversas();
     },
-    [conversationId, recarregarConversas, setConversationId],
+    [conversationId, esquecerAcao, recarregarConversas, setConversationId],
   );
 
   const historyGroups = useMemo<HistoryGroup[]>(
@@ -423,5 +491,8 @@ export function useChatBot(conversaInicial?: string | null): UseChatBotReturn {
     confirmarMemoria,
     recusarMemoria,
     abrirMemoria,
+    propostaDeAcao,
+    abrirAcao,
+    recusarAcao,
   };
 }

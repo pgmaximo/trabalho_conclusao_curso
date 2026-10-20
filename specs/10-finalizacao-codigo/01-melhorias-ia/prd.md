@@ -62,7 +62,7 @@ Aumentar a utilidade do assistente no dia a dia do usuário, fazendo-o responder
 | E8 | Campanhas e postos de vacinação | M | Médio | Não (concluído em 2026-10-17) |
 | E9 | Interações medicamentosas | M | Alto | Não |
 | E10 | Visão geral e comparação de domínios | G | Alto | Não (concluído em 2026-10-19) |
-| E11 | Ações com confirmação do usuário (aprovado, escopo a definir) | G | Alto | Não |
+| E11 | Ações com confirmação do usuário (D11.1 a D11.4 = A, em 2026-10-20) | G | Alto | Não |
 | E12 | Histórico de conversas (já existe; estudar a lacuna restante) | P | Baixo | A verificar |
 
 Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2, E9, E1 (definida pelo produto em 2026-10-17), depois E5, E3, E4, E10, E6, E11, E12 (posições sugeridas por mim, ainda a confirmar). Detalhes, dependências e status em [`README.md`](./README.md).
@@ -90,7 +90,7 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
   - Um bloco estático no prompt lista as telas reais (rotas de `src/app/(app)` e telas `add-*`/`edit-*`/`import-health-data`) com uma linha sobre o que cada uma faz.
   - A resposta nomeia a tela e o caminho em texto puro (ex.: "Mais > Importar dados de saúde"). Sem link clicável nesta fase.
   - **Critérios:** teste valida que toda rota citada no mapa existe em `src/app`; o assistente não inventa tela que não existe; texto puro, sem marcação.
-  - **Decisão aberta:** deep link clicável na bolha fica fora desta fase e pode virar tarefa do E11.
+  - **Decisão aberta:** deep link clicável na bolha fica fora desta fase e pode virar tarefa do E11. No E11 (D11.2) ele ficou como a opção C, "abrir uma tela do mapa", para depois.
 
 ---
 
@@ -323,6 +323,8 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 
 **Decisão do produto (2026-10-17):** o desenho "IA propõe, usuário clica em salvar" está **aprovado**. Ainda **não** estão definidos *onde* a confirmação acontece (formulário existente pré-preenchido, cartão na própria conversa ou outro) nem *quais ações* entram. Ao chegar neste épico, o primeiro passo é um estudo cuidadoso desses dois pontos, e as tarefas 11.2 a 11.4 abaixo são **candidatas**, não escopo fechado.
 
+**Decisões do estudo (2026-10-20, [`estudos/E11-acoes-propostas.md`](./estudos/E11-acoes-propostas.md)):** D11.1 = A, cartão na conversa que abre o formulário existente já preenchido; D11.2 = A, entram 11.2 e 11.3 e o 11.4 fica fora; D11.3 = A, a dose nunca é preenchida; D11.4 = A, o código resolve a data e a hora numa gramática fechada. Spec, plano e tarefas em [`E11-acoes-propostas/`](./E11-acoes-propostas/spec.md). O código também confere que cada campo está na fala da pessoa, e uma regra nova (R5) barra a resposta que diz "agendei" ou "cadastrei".
+
 ### 11.1 Contrato de proposta de ação
 - **História:** Como usuário, quero que o assistente me ofereça "Quer que eu abra o formulário de nova consulta com estes dados?", para economizar digitação sem perder o controle.
 - **Especificação:**
@@ -335,14 +337,14 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 - **História:** Como usuário, quero dizer "marca retorno com a dra. Ana dia 20 às 14h" e ver o formulário pronto, para só confirmar.
 - **Especificação:**
   - O assistente extrai nome, data, hora e profissional da fala do usuário (nunca de dados vindos de ferramenta ou de documento) e propõe `ABRIR_NOVO_AGENDAMENTO`.
-  - O app abre `add-appointment` com os campos preenchidos. Data ambígua ("sexta") é resolvida com a data de hoje (E1.1) e **mostrada** ao usuário para conferência.
+  - O app abre `add-appointment` com os campos preenchidos. Data ambígua ("sexta") é resolvida **pelo código**, numa gramática fechada, com a data de hoje (E1.1), e **mostrada** ao usuário para conferência (D11.4 = A); o modelo só copia a expressão.
   - **Critérios:** campo faltante fica vazio, não inventado; nada é salvo sem o toque do usuário no formulário.
 
 ### 11.3 Proposta de novo lembrete de medicamento
 - **História:** Como usuário, quero pedir "me lembra de tomar vitamina D às 8h" e revisar o cadastro pronto.
 - **Especificação:**
-  - Propõe `ABRIR_NOVO_LEMBRETE` com nome e horário **ditos pelo usuário**. A **dose nunca é sugerida pela IA**: se o usuário não informar, o campo fica vazio.
-  - **Critérios:** teste de que dose só aparece quando veio literalmente da fala do usuário; caso adverso ("qual dose devo tomar?") não gera proposta e encaminha ao profissional.
+  - Propõe `ABRIR_NOVO_LEMBRETE` com nome e horário **ditos pelo usuário**. A **dose nunca é sugerida pela IA**: o campo fica sempre vazio, mesmo quando a pessoa a diz (D11.3 = A), e o nome é cortado antes do primeiro número.
+  - **Critérios:** teste de que a proposta não tem campo de dose e o nome sai sem ela; caso adverso ("qual dose devo tomar?") não gera proposta e encaminha ao profissional.
 
 ### 11.4 Registro de dose tomada (a avaliar)
 - **História:** Como usuário, quero dizer "tomei o remédio das 8h" e confirmar o registro com um toque.
@@ -383,7 +385,7 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 
 **Fechadas (2026-10-17):**
 1. **Proatividade:** fora de escopo. O assistente só responde quando perguntado.
-2. **E11:** aprovado o desenho "IA propõe, usuário confirma e salva". Falta decidir onde e quais ações (estudo ao chegar no épico).
+2. **E11:** aprovado o desenho "IA propõe, usuário confirma e salva". Onde e quais ações foram decididos no estudo de 2026-10-20 (D11.1 a D11.4 = A).
 3. **E10.2:** manter o interesse em comparar domínios, mas só após estudo de formato (ver 10.2). Nada muda no comportamento atual até lá.
 4. **Ordem de entrega:** E7, E8, E2, E9, E1 primeiro.
 

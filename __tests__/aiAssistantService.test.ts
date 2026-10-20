@@ -279,3 +279,44 @@ describe('a proposta de memoria (M5, lado do aplicativo)', () => {
     expect(r.text).toBe('Uma resposta.');
   });
 });
+
+/**
+ * A acao proposta (E11), lado do aplicativo. A funcao ja conferiu e resolveu;
+ * aqui a conferencia e de FORMA, com o mesmo modulo compartilhado, para um
+ * cartao nunca pedir que a pessoa abra um formulario com lixo.
+ */
+describe('a acao proposta (E11, lado do aplicativo)', () => {
+  const ACAO = {
+    tipo: 'ABRIR_NOVO_AGENDAMENTO',
+    campos: { appointmentName: 'retorno', scheduledDate: '2026-10-30', scheduledTime: '14:00' },
+  };
+
+  it('devolve a acao quando ela vem com forma valida', async () => {
+    respondeCom({ answer: 'Preparei o formulário.', citations: [], ruleCheckStatus: 'APROVADA', acaoProposta: ACAO });
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.acaoProposta).toEqual(ACAO);
+  });
+
+  it('descarta acao com tipo fora da lista', async () => {
+    respondeCom({ answer: 'Certo.', citations: [], ruleCheckStatus: 'APROVADA', acaoProposta: { ...ACAO, tipo: 'APAGAR' } });
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.acaoProposta).toBeUndefined();
+  });
+
+  it('descarta acao sem nenhum campo valido', async () => {
+    respondeCom({
+      answer: 'Certo.',
+      citations: [],
+      ruleCheckStatus: 'APROVADA',
+      acaoProposta: { tipo: 'ABRIR_NOVO_AGENDAMENTO', campos: { scheduledDate: '2026-13-40' } },
+    });
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.acaoProposta).toBeUndefined();
+  });
+
+  it('resposta sem acao continua igual', async () => {
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.acaoProposta).toBeUndefined();
+    expect(r.text).toBe('Uma resposta.');
+  });
+});

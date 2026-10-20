@@ -607,3 +607,50 @@ describe('o wearable dia a dia no prompt (E6)', () => {
   });
 });
 
+
+/**
+ * A acao proposta (E11). O prompt diz QUANDO propor, que os campos sao as
+ * palavras da pessoa, que dose nunca entra, e como falar do formulario: pronto
+ * para conferir e salvar, nunca "agendei". A conferencia de verdade esta no
+ * codigo (`acoes/acaoValida.ts`, R5); o prompt evita a segunda geracao.
+ */
+describe('SYSTEM_PROMPT — ação proposta (E11)', () => {
+  const paragrafoDaAcao = () => SYSTEM_PROMPT.slice(SYSTEM_PROMPT.indexOf('Sobre a ação'));
+
+  it('nomeia o campo e os dois tipos', () => {
+    expect(SYSTEM_PROMPT).toContain('"acao"');
+    expect(SYSTEM_PROMPT).toContain('ABRIR_NOVO_AGENDAMENTO');
+    expect(SYSTEM_PROMPT).toContain('ABRIR_NOVO_LEMBRETE');
+  });
+
+  it('nomeia todos os campos do schema da acao', () => {
+    for (const campo of ['nome', 'profissional', 'endereco', 'tipoDeCompromisso', 'quando', 'hora', 'horarios']) {
+      expect(paragrafoDaAcao()).toContain(`"${campo}"`);
+    }
+  });
+
+  it('manda copiar as palavras da pessoa e so a expressao de data e hora', () => {
+    expect(paragrafoDaAcao()).toMatch(/copie as palavras/i);
+    expect(paragrafoDaAcao()).toMatch(/"sexta", "dia 30", "14h"/);
+  });
+
+  it('proibe dose e dado de ferramenta ou documento', () => {
+    expect(paragrafoDaAcao()).toMatch(/nunca proponha dose/i);
+    expect(paragrafoDaAcao()).toMatch(/ferramenta ou de documento/i);
+  });
+
+  it('o formulario e dito pelo aplicativo; o modelo diz o caminho e nunca que fez (revisao do E11)', () => {
+    expect(paragrafoDaAcao()).toMatch(/não fale do formulário/i);
+    expect(paragrafoDaAcao()).not.toMatch(/diga que preparou o formulário/i);
+    expect(paragrafoDaAcao()).toMatch(/diga onde ela faz isso no aplicativo/i);
+    expect(paragrafoDaAcao()).toMatch(/nunca diga que marcou, salvou ou cadastrou/i);
+  });
+
+  it('com acao, nao propoe memoria', () => {
+    expect(paragrafoDaAcao()).toMatch(/não proponha memória/i);
+  });
+
+  it('o mapa do app continua dizendo que o assistente nao cadastra', () => {
+    expect(SYSTEM_PROMPT).toContain('Você não cadastra nada: diga onde a pessoa faz, ou proponha a ação');
+  });
+});

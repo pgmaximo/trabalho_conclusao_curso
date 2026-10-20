@@ -36,7 +36,12 @@ import { enriquecerCitacoes, indexarLinhasCitaveis } from './citacoes';
 import { buildDegradedAnswer } from './degradedAnswer';
 import { validarProposta } from './memoria/propostaValida';
 import { lerMemoria, montarSystemPrompt } from './memoria/leitura';
-import type { AnswerCitation, ChatAnswer, MemoryProposal } from './chatSchema';
+import type { AcaoProposta } from '../acoes-propostas-shared/camposDaAcao';
+import { validarAcao } from './acoes/acaoValida';
+import { costurarAcao } from './acoes/fraseDaAcao';
+import { HISTORY_WINDOW } from './janelaDoHistorico';
+import type { AcaoBruta, AnswerCitation, ChatAnswer, MemoryProposal } from './chatSchema';
+import { dataEmSaoPaulo } from './formatoPtBr';
 import { limparFormatacao } from './textoLimpo';
 import type {
   ChatContext,
@@ -122,6 +127,9 @@ export type RespostaVerificada = {
    * um texto que foi descartado por quebrar as regras.
    */
   memoriaProposta?: MemoryProposal;
+  /** A acao proposta (E11), conferida e resolvida. So em resposta aprovada,
+   *  pelo mesmo motivo da memoria. */
+  acaoProposta?: AcaoProposta;
 };
 
 /**
@@ -225,6 +233,29 @@ function propostaAceitavel(
   if (memoriaAtiva === false) return undefined;
 
   return validarProposta(memoria).ok ? memoria : undefined;
+}
+
+/**
+ * A acao proposta (E11), pelo mesmo caminho separado da memoria: reprovar a
+ * acao nunca reprova a resposta, e a recusa e silenciosa.
+ *
+ * "Fala da pessoa" e a mensagem do turno e as mensagens `role: 'user'` do
+ * historico -- nunca o anexo, as respostas do assistente ou o que as
+ * ferramentas devolveram (ver `acoes/acaoValida.ts`). Sem o dia do turno, nada
+ * sai: resolver "sexta" sem saber que dia e hoje seria chutar a data.
+ */
+function acaoAceitavel(acao: AcaoBruta | undefined, entrada: TurnInput): AcaoProposta | undefined {
+  if (!acao || !entrada.hoje) return undefined;
+  // So a janela que o modelo viu (revisao do E11): um campo "confirmado" por
+  // uma fala que ele nunca leu foi inventado e casou por acaso.
+  const falasDaPessoa = [
+    entrada.message,
+    ...entrada.history
+      .slice(-HISTORY_WINDOW)
+      .filter((m) => m.role === 'user')
+      .map((m) => m.content),
+  ];
+  return validarAcao(acao, { falasDaPessoa, falaDoTurno: entrada.message, hoje: entrada.hoje });
 }
 
 /**
@@ -414,13 +445,20 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
   // mora aqui, e nao em quem chama -- quem chama nao tem como saber.
   let indice = new Map<string, Citation>();
 
-  const aprovada = (answer: ChatAnswer, status: RuleCheckStatus): RespostaVerificada => ({
-    status,
-    texto: answer.texto,
-    citacoes: answer.citacoes,
-    indice,
-    memoriaProposta: propostaAceitavel(answer.memoria, entrada.memoriaAtiva),
-  });
+  const aprovada = (answer: ChatAnswer, status: RuleCheckStatus): RespostaVerificada => {
+    // Uma proposta por resposta, contando as duas (E11): a acao foi PEDIDA, a
+    // memoria nao. Dois cartoes juntos pediriam duas decisoes de uma vez.
+    const acaoProposta = acaoAceitavel(answer.acao, entrada);
+    return {
+      status,
+      // A frase do formulario so entra quando o cartao sai (ver `fraseDaAcao.ts`).
+      texto: acaoProposta ? costurarAcao(answer.texto) : answer.texto,
+      citacoes: answer.citacoes,
+      indice,
+      acaoProposta,
+      memoriaProposta: acaoProposta ? undefined : propostaAceitavel(answer.memoria, entrada.memoriaAtiva),
+    };
+  };
 
   // E -> C: o que fazer quando nao ha resposta exibivel. Tenta o dado sem
   // prosa; nao havendo dado, o silencio honesto.
@@ -485,6 +523,8 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
       semDados,
       valoresCadastrados: valoresCadastradosDoTurno(transcript.toolOutputs),
       cruzaDominios: cruzaDominios(segunda.answer.toolsUsadas),
+      // O modelo propos acao: a passiva de cadastro tambem e barrada (E11).
+      comAcaoProposta: segunda.answer.acao !== undefined,
     });
     const citacoesOkNaSegunda = citacoesConferem(segunda.answer, indice);
     if (citacoesOkNaSegunda && (recheck.ok || somenteR2(recheck))) {
@@ -536,6 +576,8 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     semDados,
     valoresCadastrados: valoresCadastradosDoTurno(primeira.transcript.toolOutputs),
     cruzaDominios: cruzaDominios(primeira.answer.toolsUsadas),
+    // O modelo propos acao: a passiva de cadastro tambem e barrada (E11).
+    comAcaoProposta: primeira.answer.acao !== undefined,
   });
   const citacoesOk = citacoesConferem(primeira.answer, indice);
 
@@ -584,6 +626,7 @@ export async function responder(
   // Com a memoria desligada (art. 18, IX), nem sequer lemos: revogar o
   // consentimento interrompe o tratamento, e "tratamento" inclui a leitura.
   const fatos = request.memoriaAtiva === false ? [] : await lerMemoria(context.identity);
+  const agora = new Date();
 
   const entrada: TurnInput = {
     message: request.message,
@@ -591,7 +634,10 @@ export async function responder(
     // O relogio e lido AQUI, uma vez por turno (E1): a segunda geracao recebe
     // esta mesma entrada, e perto da meia-noite reler o relogio poderia trocar
     // o dia entre as duas.
-    contextoDeHoje: montarContextoDeHoje(new Date()),
+    contextoDeHoje: montarContextoDeHoje(agora),
+    // O mesmo instante, para o "hoje" da acao (E11) nunca discordar do dia que
+    // o modelo leu no bloco de data.
+    hoje: dataEmSaoPaulo(agora),
     history: request.history,
     anexo: request.anexo,
     memoriaAtiva: request.memoriaAtiva,
@@ -612,5 +658,6 @@ export async function responder(
     citations: enriquecerCitacoes(resposta.citacoes, resposta.indice),
     ruleCheckStatus: resposta.status,
     memoriaProposta: resposta.memoriaProposta,
+    acaoProposta: resposta.acaoProposta,
   };
 }

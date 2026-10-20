@@ -13,9 +13,9 @@
  *   eles caibam, e o nome do remedio sai sem a concentracao. Um filtro "tira a
  *   dose antes de mandar" esqueceria o proximo campo que o schema ganhasse.
  */
-import { removerDose } from '../../drug-interactions-shared/normalizeDrugName';
 import { formatarData } from '../formatoPtBr';
 import type { DegradedBlock } from '../types';
+import { nomeSemPosologia } from './nomeSemPosologia';
 import { maisRecentePrimeiro, texto, type LinhaDoBanco } from './ownerScopedRead';
 import {
   EXPLICACAO_DA_LEITURA,
@@ -89,38 +89,14 @@ export function escolherReceitas(documentos: LinhaDoBanco[]): { escolhidas: Linh
   return { escolhidas: receitas.slice(0, MAX_RECEITAS), omitidas: Math.max(0, receitas.length - MAX_RECEITAS) };
 }
 
-/** A partir do primeiro digito que nao esta colado a letra (nem a outro
- *  digito colado a letra), e posologia: "AAS 100", "AAS-100", "Clav.125",
- *  "Paracetamol 750 1cp 8/8h", "de 8 em 8 horas". Codigo colado a letra
- *  ("B12", "D3") fica, porque e parte do nome. */
-const A_PARTIR_DO_PRIMEIRO_NUMERO = /(^|[^\p{L}\d])\d.*$/u;
-/** O que sobra pendurado depois do corte: "Amoxicilina de", "Dipirona 0,",
- *  "AAS-", "Losartana #". O "a" so sai dentro de "a cada": solto, e parte do
- *  nome ("Vitamina A"). */
-const SOBRA_NO_FIM = /(?:\s+(?:de|a\s+cada|cada|por|em|com|x)|[\s.,:;#%+/-])+$/i;
-
 /**
- * O nome sem concentracao nem posologia (D4.2). Comeca pela regra do E9
- * (`removerDose`), que tira parentese e "50 mg" -- mas ela so corta numero
- * seguido de unidade, e o revisor mediu "AAS 100", "Bisoprolol 2,5mg" (sobrava
- * "2,") e "Paracetamol 750 1cp 8/8h" passando pela R3. Por isso o corte daqui
- * vai alem, e e desta ferramenta: alargar `removerDose` mudaria o
- * reconhecimento de nomes do E9. Nenhum numero do papel chega ao modelo, nem
- * ao modo degradado, que nao passa pela verificacao de linguagem.
+ * O nome sem concentracao nem posologia (D4.2). O corte mora em
+ * `nomeSemPosologia.ts` desde o E11, que o divide com o lembrete proposto.
+ * Nenhum numero do papel chega ao modelo, nem ao modo degradado, que nao passa
+ * pela verificacao de linguagem.
  */
-function semPosologia(parte: string): string {
-  return ` ${removerDose(parte)}`.replace(/\s+/g, ' ').replace(A_PARTIR_DO_PRIMEIRO_NUMERO, '$1').replace(SOBRA_NO_FIM, '').trim();
-}
-
-/** Combinacao ("Amoxicilina 875 + Clavulanato 125mg"): cada parte e limpa
- *  sozinha. Cortar o rotulo inteiro no primeiro numero perdia o segundo
- *  principio ativo (risco 2 do E4). */
 export function nomeDoRemedio(medicationLabel: unknown): string {
-  const nome = (typeof medicationLabel === 'string' ? medicationLabel : '')
-    .split('+')
-    .map(semPosologia)
-    .filter(Boolean)
-    .join(' + ');
+  const nome = nomeSemPosologia(typeof medicationLabel === 'string' ? medicationLabel : '');
   return nome ? nome.slice(0, MAX_NOME_DO_REMEDIO) : NOME_ILEGIVEL;
 }
 

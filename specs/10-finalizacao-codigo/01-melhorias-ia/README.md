@@ -20,7 +20,7 @@ A ordem dos cinco primeiros foi definida pelo produto em 2026-10-17. O restante 
 | 8 | **E4** | Receitas extraídas e situação dos documentos | [E4](./decisoes/E4-receitas-e-documentos.md) (D4.1 e D4.2) | M | Concluído (2026-10-19; conferência no sandbox pendente, ver `E4-receitas-e-documentos/tasks.md`; riscos 1 a 4 corrigidos no fechamento, D4.3) |
 | 9 | **E10** | Panorama geral; comparação entre domínios | [E10](./decisoes/E10-panorama-e-comparacao.md) (D10.1 e D10.2, do [estudo 10.2](./estudos/E10.2-comparacao-entre-dominios.md); D10.3 a D10.6, do [estudo dos riscos](./estudos/E10-riscos-da-entrega.md)) | G | Concluído (2026-10-19; feito antes do E6 por decisão do produto; conferência no sandbox pendente, ver `E10-panorama-e-comparacao/tasks.md`) |
 | 10 | **E6** | Wearable: histórico e série diária | [E6](./decisoes/E6-wearable-serie-e-historico.md) (D6.1 a D6.3, nasceram na leitura do código) | M | Concluído (2026-10-20; 222 suítes, 3741 testes verdes; conferência no sandbox pendente, ver `E6-wearable-serie-e-historico/tasks.md`) |
-| 11 | E11 | Ações propostas pela IA e confirmadas pelo usuário | estudo ao chegar no épico | G | Aprovado o conceito, escopo a definir |
+| 11 | **E11** | Ações propostas pela IA e confirmadas pelo usuário | [E11](./decisoes/E11-acoes-propostas.md) (D11.1 a D11.4, do [estudo](./estudos/E11-acoes-propostas.md)) | G | Concluído (2026-10-20; 231 suítes, 3976 testes verdes, com os menores da revisão corrigidos; conferência no sandbox pendente, ver `E11-acoes-propostas/tasks.md`) |
 | 12 | E12 | Histórico de conversas (a persistência já existe; resta achar a lacuna) | estudo ao chegar no épico | P | Não iniciado |
 
 Estados possíveis: Não iniciado · Aguardando decisão · Decidido · Em especificação · Em implementação · Concluído.
@@ -42,7 +42,7 @@ Todas as decisões abertas estão em [`decisoes/`](./decisoes/README.md). Cada d
 Três épicos começam com um estudo, não com código. Os documentos serão criados em `estudos/` quando chegar a vez de cada um:
 
 - **E10.2:** formato seguro para comparar domínios (exame, sono, adesão) sem interpretar. Feito: [`estudos/E10.2-comparacao-entre-dominios.md`](./estudos/E10.2-comparacao-entre-dominios.md).
-- **E11:** onde o usuário confirma a ação (formulário pré-preenchido, cartão na conversa ou outro) e quais ações entram.
+- **E11:** onde o usuário confirma a ação (formulário pré-preenchido, cartão na conversa ou outro) e quais ações entram. Feito: [`estudos/E11-acoes-propostas.md`](./estudos/E11-acoes-propostas.md).
 - **E12:** o histórico já é persistido (`chatHistoryService`, `HistoryDrawer`). O estudo lista o que ainda falta e decide se o épico vale a pena.
 
 ## Fora de escopo desta parte

@@ -23,6 +23,7 @@
  */
 import { z } from 'zod';
 
+import { TIPOS_DE_ACAO, TIPOS_DE_COMPROMISSO } from '../acoes-propostas-shared/camposDaAcao';
 import { MAX_CARACTERES_FATO, MEMORY_KINDS } from './memoria/regras';
 
 export const citationSchema = z
@@ -54,6 +55,34 @@ export const citationSchema = z
  */
 export const MAX_CITACOES = 20;
 
+/**
+ * A acao proposta (E11), como o MODELO a manda: textos e expressoes copiados
+ * da fala da pessoa, ainda sem conferencia. Quem confere e resolve e
+ * `acoes/acaoValida.ts`; quem confere a forma final e
+ * `acoes-propostas-shared/camposDaAcao.ts`.
+ *
+ * SEM `max` NOS CAMPOS, DE PROPOSITO. Um teto aqui reprova o PARSE da resposta
+ * inteira, e a falha de parse vai para o caminho degradado: um nome longo
+ * demais na proposta derrubaria uma resposta boa (o mesmo motivo de nao haver
+ * `refine` da R4 acima). O teto e aplicado depois, e o que passa dele so faz o
+ * CAMPO sumir.
+ */
+export const acaoSchema = z
+  .object({
+    tipo: z.enum(TIPOS_DE_ACAO),
+    nome: z.string().optional(),
+    profissional: z.string().optional(),
+    endereco: z.string().optional(),
+    tipoDeCompromisso: z.enum(TIPOS_DE_COMPROMISSO).optional(),
+    /** A expressao de data que a pessoa usou ("sexta", "dia 30"), nao a data. */
+    quando: z.string().optional(),
+    /** A expressao de hora ("14h", "2 da tarde"). */
+    hora: z.string().optional(),
+    /** Lembrete: uma expressao de hora por horario. */
+    horarios: z.array(z.string()).optional(),
+  })
+  .strict();
+
 export const memoryProposalSchema = z
   .object({
     texto: z.string().min(1).max(MAX_CARACTERES_FATO),
@@ -76,11 +105,22 @@ export const chatAnswerSchema = z
      * numero porque nao ha onde escrever a origem dele.
      */
     memoria: memoryProposalSchema.optional(),
+    /**
+     * A acao proposta (E11). Ausente na maioria dos turnos; nunca grava.
+     *
+     * O `.catch(undefined)` faz a acao INVALIDA (tipo fora da lista, campo
+     * desconhecido) virar ausente em vez de reprovar o parse da resposta
+     * inteira. Antes, a recusa dependia de o Bedrock impor o formato; agora e
+     * do codigo, e proposta ruim nunca derruba resposta boa (revisao do E11).
+     * O esquema que vai ao Bedrock nao muda: `toJSONSchema` le o de dentro.
+     */
+    acao: acaoSchema.optional().catch(undefined),
   })
   .strict();
 
 export type AnswerCitation = z.infer<typeof citationSchema>;
 export type MemoryProposal = z.infer<typeof memoryProposalSchema>;
+export type AcaoBruta = z.infer<typeof acaoSchema>;
 export type ChatAnswer = z.infer<typeof chatAnswerSchema> & { toolsUsadas: string[] };
 
 /**

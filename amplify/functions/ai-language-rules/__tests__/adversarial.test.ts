@@ -1034,3 +1034,90 @@ describe('a guarda de causa nao barra os alertas de interacao (E10 x E9)', () =>
     }
   });
 });
+
+/**
+ * O assistente nao cadastra nada (E11). Com o cartao que abre o formulario, o
+ * risco novo e a resposta dizer "agendei" -- falso, e a pessoa sairia achando
+ * que esta marcado sem tocar em Salvar. A sondagem de 2026-10-20 mostrou essas
+ * frases passando. A regra mora na R5 (nao afirmar o que nao aconteceu) e vale
+ * em todo turno, com ou sem cartao. So a R5 e olhada aqui: na pergunta clinica,
+ * a R2 cobraria o encaminhamento, e isso e outro assunto.
+ */
+describe('R5: o assistente não diz que cadastrou (E11)', () => {
+  const soR5 = (frase: string, questionKind: 'clinica' | 'operacional') => {
+    const r = checkLanguageRules(frase, { questionKind, temOrigem: false });
+    return r.ok ? [] : r.violations.filter((v) => v.rule === 'R5');
+  };
+
+  describe.each(['operacional', 'clinica'] as const)('pergunta %s', (questionKind) => {
+    it.each([
+      'Pronto, agendei sua consulta para sexta.',
+      'Agendei para sexta às 14h.',
+      'Marquei o retorno com a dra. Ana.',
+      'Criei o lembrete da vitamina D.',
+      'Cadastrei o remédio para você.',
+      'Salvei o compromisso na sua agenda.',
+      'Já anotei na sua agenda.',
+      'Adicionei o exame de sangue na Agenda.',
+      'Incluí o retorno na sua agenda.',
+    ])('barrada: "%s"', (frase) => {
+      expect(soR5(frase, questionKind)).toHaveLength(1);
+    });
+
+    it.each([
+      'Preparei o formulário para você conferir e salvar.',
+      'Você pode marcar na Agenda, em Mais > Agenda > botão +.',
+      'Você marcou a dose das 8h na segunda.',
+      'Não marquei nada: quem salva é você, no formulário.',
+      'Marquei como importante o que você disse.',
+      'O compromisso só fica salvo quando você tocar em Salvar compromisso.',
+      // Revisao do E11, achado 2: o presente "inclui" e honesto; so o "incluí" e cadastro.
+      'A Agenda inclui consultas, exames e cirurgias.',
+      'O cadastro inclui o horário das 8h.',
+    ])('aprovada: "%s"', (frase) => {
+      expect(soR5(frase, questionKind)).toEqual([]);
+    });
+  });
+});
+
+/**
+ * A voz passiva (revisao do E11, menor). "Consulta marcada!" diz que algo foi
+ * feito sem dizer quem fez, e passava pela R5. Mas a passiva tambem e a forma
+ * honesta de falar do que JA esta cadastrado ("sua consulta esta marcada para
+ * sexta", dado de `consultar_consultas`). Por isso ela so e barrada nos turnos
+ * em que o modelo propos uma acao -- ai nada foi salvo, e nenhuma passiva de
+ * cadastro e verdade.
+ */
+describe('R5: voz passiva nos turnos com acao proposta (E11)', () => {
+  const r5 = (frase: string, comAcaoProposta?: boolean) => {
+    const r = checkLanguageRules(frase, { questionKind: 'operacional', comAcaoProposta });
+    return r.ok ? [] : r.violations.filter((v) => v.rule === 'R5');
+  };
+
+  it.each([
+    'Sua consulta foi agendada para sexta.',
+    'Consulta marcada!',
+    'Agendado!',
+    'Pronto, lembrete criado.',
+    'O remédio ficou cadastrado.',
+    'Seu retorno está salvo na agenda.',
+  ])('barrada com acao: "%s"', (frase) => {
+    expect(r5(frase, true)).toHaveLength(1);
+  });
+
+  it.each([
+    'Nada foi salvo ainda.',
+    'Ainda não está marcado: confira no formulário.',
+    'Para marcar, vá em Mais > Agenda > botão +.',
+    'O compromisso só fica salvo quando você tocar em Salvar compromisso.',
+  ])('aprovada com acao: "%s"', (frase) => {
+    expect(r5(frase, true)).toEqual([]);
+  });
+
+  it.each(['Sua consulta está marcada para sexta, às 14h.', 'A losartana está cadastrada às 8h.'])(
+    'sem acao, a passiva honesta passa: "%s"',
+    (frase) => {
+      expect(r5(frase)).toEqual([]);
+    },
+  );
+});

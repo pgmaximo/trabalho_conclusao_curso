@@ -85,6 +85,14 @@ export type OpcoesDeVerificacao = {
    * remedios e 1 exame") nao compara nada.
    */
   cruzaDominios?: boolean;
+  /**
+   * O modelo propos uma acao neste turno (E11): nada foi salvo, e nenhuma
+   * frase de cadastro concluido e verdade -- nem na voz passiva ("Consulta
+   * marcada!"). Vem de quem chama, como os de cima. AUSENTE significa que a
+   * guarda da passiva nao vale: fora desses turnos, "sua consulta esta
+   * marcada para sexta" e o dado honesto de `consultar_consultas`.
+   */
+  comAcaoProposta?: boolean;
 };
 
 export type Violation = {
@@ -1659,3 +1667,68 @@ const verificarR5: Verificador = (texto, { semDados }) => {
 };
 
 VERIFICADORES.push(verificarR5);
+
+/**
+ * A R5 no outro sentido que da para verificar (E11): o assistente dizer que FEZ
+ * um cadastro. Ele nao faz -- quem salva e a pessoa, no formulario. Com o
+ * cartao que abre o formulario preenchido, "Pronto, agendei sua consulta" faria
+ * a pessoa sair achando que esta marcado sem tocar em Salvar. A sondagem de
+ * 2026-10-20 mostrou essas frases passando.
+ *
+ * "Agendei" e "cadastrei" bastam sozinhos: nao tem outro sentido aqui. Os
+ * outros verbos ("marquei", "salvei", "criei"...) so barram com o objeto de
+ * cadastro perto, porque "marquei como importante" nao e cadastro. Primeira
+ * pessoa so: "voce marcou a dose" e dado de `consultar_doses_tomadas`, e
+ * "incluí" exige o acento -- "o cadastro inclui o horario" e presente, e
+ * honesto (revisao do E11). E o
+ * "nao" logo antes absolve: "nao marquei nada" e a frase honesta.
+ */
+const ACAO_CONCLUIDA = new RegExp(
+  `${INI_R3}(?<!n[aã]o\\s)(?:(?:agendei|cadastrei)${FIM_R3}` +
+    `|(?:marquei|salvei|registrei|criei|anotei|adicionei|incluí)${FIM_R3}[^.!?]{0,40}?` +
+    `${INI_R3}(?:consultas?|retornos?|compromissos?|exames?|cirurgias?|lembretes?|rem[eé]dios?|` +
+    `medicamentos?|agenda|alarmes?|hor[aá]rios?)${FIM_R3})`,
+  'i',
+);
+
+const MOTIVO_ACAO_CONCLUIDA =
+  'A resposta diz que o assistente fez um cadastro, e ele não faz. Diga que o formulário está pronto para a pessoa conferir e salvar.';
+
+const verificarAcaoConcluida: Verificador = (texto) => {
+  const achado = ACAO_CONCLUIDA.exec(texto);
+  if (!achado) return [];
+  return [{ rule: 'R5', reason: MOTIVO_ACAO_CONCLUIDA, excerpt: trecho(texto, achado.index, achado[0].length) }];
+};
+
+VERIFICADORES.push(verificarAcaoConcluida);
+
+/** Participio de cadastro: "agendada", "marcado", "salvo", "criado"... */
+const CADASTRO_NA_PASSIVA = new RegExp(
+  `${INI_R3}(?:agendad|marcad|cadastrad|registrad|criad|anotad|adicionad|incluíd)[oa]s?${FIM_R3}` +
+    `|${INI_R3}salv[oa]s?${FIM_R3}`,
+  'gi',
+);
+
+/** A oracao que nega ou condiciona o cadastro e a frase honesta: "nada foi
+ *  salvo", "ainda nao esta marcado", "so fica salvo quando voce tocar". */
+const PASSIVA_HONESTA = /n[aã]o|nada|nunca|s[oó]\s+fica|quando\s+voc[eê]/i;
+
+/**
+ * A passiva nos turnos com acao proposta (revisao do E11): "Consulta
+ * marcada!" diz que algo foi feito sem dizer quem fez. So vale com
+ * `comAcaoProposta`, porque fora dele a passiva e a forma honesta de falar do
+ * que ja esta cadastrado. A negacao ou a condicao na mesma oracao absolve.
+ */
+const verificarPassivaDeCadastro: Verificador = (texto, { comAcaoProposta }) => {
+  if (!comAcaoProposta) return [];
+  for (const achado of texto.matchAll(CADASTRO_NA_PASSIVA)) {
+    const inicio = achado.index ?? 0;
+    const antes = texto.slice(0, inicio);
+    const oracao = antes.slice(Math.max(...[...'.,;:!?'].map((s) => antes.lastIndexOf(s))) + 1);
+    if (PASSIVA_HONESTA.test(oracao)) continue;
+    return [{ rule: 'R5', reason: MOTIVO_ACAO_CONCLUIDA, excerpt: trecho(texto, inicio, achado[0].length) }];
+  }
+  return [];
+};
+
+VERIFICADORES.push(verificarPassivaDeCadastro);

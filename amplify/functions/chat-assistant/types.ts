@@ -4,6 +4,7 @@
  * funcao e o aplicativo. Fica num arquivo proprio para que o handler nao
  * precise importar o laco so para conhecer o formato da resposta.
  */
+import type { AcaoProposta } from '../acoes-propostas-shared/camposDaAcao';
 import type { AnswerCitation, MemoryProposal } from './chatSchema';
 import type { ChatIdentity } from './auth';
 import type { FormatoDeImagem } from '../extract-document-data/formatoDoArquivo';
@@ -58,6 +59,12 @@ export type ChatTurnResult = {
    * leitura -- o consentimento do art. 11, I virando caminho de codigo.
    */
   memoriaProposta?: MemoryProposal;
+  /**
+   * A acao proposta (E11), ja conferida contra a fala da pessoa e com data e
+   * hora resolvidas. Como a memoria, NAO grava nada: o app mostra um cartao que
+   * abre o formulario preenchido, e quem salva e a pessoa.
+   */
+  acaoProposta?: AcaoProposta;
 };
 
 /**

@@ -17,6 +17,7 @@ import { toStructuredOutputSchema } from '../extract-document-data/extractionSch
 
 import { SYSTEM_PROMPT, buildUserMessage } from './chatPrompt';
 import { chatAnswerSchema, extrairResposta, type ChatAnswer } from './chatSchema';
+import { HISTORY_WINDOW } from './janelaDoHistorico';
 import { CHAT_TOOLS, findTool, runTool } from './tools';
 import type { ChatIdentity } from './auth';
 import type { AnexoLido, ContextoDoTurno, LocalDoUsuario } from './types';
@@ -31,8 +32,9 @@ const client = new BedrockRuntimeClient({ maxAttempts: 3, retryMode: 'adaptive' 
  */
 export const MAX_TOOL_ITERATIONS = 6;
 
-/** Mandar a conversa inteira cresce sem limite e paga por isso a cada turno. */
-export const HISTORY_WINDOW = 12;
+// O teto do historico mora em `janelaDoHistorico.ts` desde o E11, porque a
+// validacao da acao proposta precisa do mesmo numero.
+export { HISTORY_WINDOW };
 
 /**
  * SEMPRE explicito. Em branco reserva a cota maxima do modelo e e a causa
@@ -92,6 +94,12 @@ export type TurnInput = {
    * byte como antes.
    */
   contextoDeHoje?: string;
+  /**
+   * O dia do turno em AAAA-MM-DD, no fuso do app, lido no MESMO instante de
+   * `contextoDeHoje` (E11). Nao vai ao modelo: e o "hoje" com que o codigo
+   * resolve "sexta" e "dia 30" na acao proposta. Ausente, nenhuma acao sai.
+   */
+  hoje?: string;
 };
 
 /**
