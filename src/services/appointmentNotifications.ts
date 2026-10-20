@@ -88,7 +88,10 @@ export async function scheduleAppointmentReminder(
         body: `${title} começa em 2 horas.`,
         sound: true,
       },
+      // Sem `type`, o expo-notifications ignora `date` e trata o objeto como
+      // trigger de canal, que dispara na hora (Android) — o `type` é obrigatório.
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: reminderDate,
         channelId: 'appointments-reminders',
       },
