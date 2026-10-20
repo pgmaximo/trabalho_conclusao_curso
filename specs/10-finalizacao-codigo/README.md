@@ -8,17 +8,14 @@ Esta pasta reúne tudo o que falta para **fechar o código** do SuaSaúde. Ela v
 specs/10-finalizacao-codigo/
 ├── README.md                  ← este arquivo: o que é a fase e como ela está organizada
 ├── PROMPT-PADRAO.md           ← o prompt que se manda ao agente com @ para executar um épico (SDD completo)
-├── 01-melhorias-ia/           ← PARTE 1 (em andamento): dar mais poder ao assistente de IA
+├── 01-melhorias-ia/           ← PARTE 1 (código concluído; conferência no sandbox pendente): mais poder ao assistente de IA
 │   ├── README.md              ← índice, ordem de entrega, dependências e status de cada épico
 │   ├── prd.md                 ← o PRD: 12 épicos, cada um com tarefas, história de usuário e especificação
-│   └── decisoes/              ← decisões que o produto precisa tomar, uma por épico
-│       ├── README.md          ← índice e status das decisões
-│       ├── E7-recomendacoes-prevencao.md
-│       ├── E8-campanhas-e-postos.md
-│       ├── E2-medicamentos-completos.md
-│       ├── E9-interacoes-medicamentosas.md
-│       └── E1-contexto-e-mapa-do-app.md
-└── 02-ui-usabilidade/         ← PARTE 2 (ainda não iniciada): melhorias de UI e usabilidade
+│   ├── decisoes/              ← decisões do produto, uma por épico (E1 a E12), com o índice em README.md
+│   ├── estudos/               ← estudos que antecederam o código (E10.2, riscos do E10, E11, E12)
+│   └── E*-<nome>/             ← uma pasta por épico (os 12), com spec.md, plan.md e tasks.md;
+│                                 o fim de cada tasks.md traz o roteiro da conferência no sandbox
+└── 02-ui-usabilidade/         ← PARTE 2 (pode começar; falta o PRD): melhorias de UI e usabilidade
     └── README.md
 ```
 
@@ -43,6 +40,7 @@ Em uma conversa nova (`/clear`), mande `@specs/10-finalizacao-codigo/PROMPT-PADR
 
 ## Regras que valem para a fase inteira
 
+- Uma branch só para a fase inteira, a `sdd-10-finalizacao-codigo`, no checkout principal e sem worktree; o merge na `main` só acontece no fim. Isso vale acima do que o `PROMPT-PADRAO.md` diz sobre branch ou worktree por épico.
 - Textos, comentários e testes em pt-BR.
 - Nada de dado mockado deixado no app (`docs/DADOS_MOCKADOS.md` registra as exceções).
 - Mudança de schema do Amplify Data é decisão explícita, registrada antes de ser feita.
