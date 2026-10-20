@@ -8,7 +8,7 @@ Passo a passo com teste antes da implementação: `docs/superpowers/plans/2026-1
 
 `npm run validate`: linha de base 231 suítes / 3976 testes → 3995 depois de T5 → **231 suítes / 3998 testes** depois da revisão, exit 0; typecheck e typecheck:backend limpos; lint 0 erros e 12 avisos, todos preexistentes em `src/`.
 
-Branch: `sdd-10-finalizacao-codigo`, única para todo o SDD 10, no checkout principal, **sem worktree**. Commit só quando o usuário pedir. Alterações alheias ao épico: `metro.config.js`, `package.json`, `package-lock.json` (não tocar, não incluir em commit).
+Branch: `sdd-10-finalizacao-codigo`, única para todo o SDD 10, no checkout principal, **sem worktree**. Commit só quando o usuário pedir. Alterações alheias ao épico: `metro.config.js`, `package.json`, `package-lock.json` (não tocadas pelo épico; a pedido do usuário, foram commitadas à parte em 2026-10-20, no commit `chore: atualiza dependencias e configuracao do metro`).
 
 ## Tarefas (ordem de execução)
 
