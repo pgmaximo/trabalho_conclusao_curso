@@ -200,7 +200,7 @@ describe('o laco', () => {
     const r = await runConversationTurn(ENTRADA);
     // O quarto argumento e o contexto do turno (E8). Sem `local` na entrada,
     // ele vai explicito e nulo -- a ferramenta nunca precisa adivinhar.
-    expect(mockRunTool).toHaveBeenCalledWith('consultar_analito', {}, ENTRADA.identity, { local: null });
+    expect(mockRunTool).toHaveBeenCalledWith('consultar_analito', {}, ENTRADA.identity, expect.objectContaining({ local: null }));
     expect(r.ok).toBe(true);
   });
 
@@ -210,7 +210,23 @@ describe('o laco', () => {
       .mockResolvedValueOnce(respondeTexto('Pronto.'));
     const local = { uf: 'SP', codigoMunicipio: '355030' };
     await runConversationTurn({ ...ENTRADA, local });
-    expect(mockRunTool).toHaveBeenCalledWith('consultar_analito', {}, ENTRADA.identity, { local });
+    expect(mockRunTool).toHaveBeenCalledWith('consultar_analito', {}, ENTRADA.identity, expect.objectContaining({ local }));
+  });
+
+  it('as ferramentas de um turno dividem o registro de leituras; outro turno tem o seu (risco 3 do E4)', async () => {
+    mockSend
+      .mockResolvedValueOnce(pedeTool('consultar_analito'))
+      .mockResolvedValueOnce(pedeTool('consultar_analito'))
+      .mockResolvedValueOnce(respondeTexto('Pronto.'))
+      .mockResolvedValueOnce(pedeTool('consultar_analito'))
+      .mockResolvedValueOnce(respondeTexto('Pronto.'));
+    await runConversationTurn(ENTRADA);
+    await runConversationTurn(ENTRADA);
+    const registros = mockRunTool.mock.calls.map(([, , , contexto]) => (contexto as { leituras: unknown }).leituras);
+    expect(registros).toHaveLength(3);
+    expect(registros[0]).toBeInstanceOf(Map);
+    expect(registros[1]).toBe(registros[0]);
+    expect(registros[2]).not.toBe(registros[0]);
   });
 
   it('a cidade NAO vai ao modelo -- so a saida das ferramentas vai (E8, LGPD)', async () => {

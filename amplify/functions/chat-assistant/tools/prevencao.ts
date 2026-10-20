@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { computeBmiBucket, filterRecommendations, mapSex } from '../../uspstf-shared/uspstfFilter';
 import type { UspstfDataset } from '../../uspstf-shared/uspstfClient';
 import type { ChatIdentity } from '../auth';
-import type { DegradedBlock } from '../types';
+import type { DegradedBlock, ContextoDoTurno } from '../types';
 // `numero` de `linhasDeResultado`, e nao uma copia: a copia aceitava
 // `Infinity`, e um peso infinito virava a faixa de IMC "obesidade".
 import { numero } from './linhasDeResultado';
@@ -73,8 +73,8 @@ export const prevencaoTool: ChatTool = {
     'Lista as recomendações GERAIS de prevenção da USPSTF (rastreamentos e aconselhamentos) para a faixa de idade, sexo e IMC do perfil do usuário — as mesmas da tela de Prevenção —, com nota, ano e texto original em inglês. NÃO indica exame para a pessoa, NÃO diz se ela precisa fazer nem se está em dia, NÃO agenda e NÃO lê exames já feitos.',
   inputSchema: z.object({}).strict(),
   readOnly: true,
-  async run(_input: unknown, identity: ChatIdentity) {
-    const [perfil] = await lerDoDono(process.env.USER_PROFILE_TABLE_NAME, identity);
+  async run(_input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno) {
+    const [perfil] = await lerDoDono(process.env.USER_PROFILE_TABLE_NAME, identity, contexto?.leituras);
     if (!perfil) return semDado(SEM_PERFIL);
 
     // `birthDate` e obrigatorio no schema, mas uma data invalida faria o

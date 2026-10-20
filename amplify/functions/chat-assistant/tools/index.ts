@@ -17,18 +17,22 @@
  */
 import { analitosTool } from './analitos';
 import { campanhasTool } from './campanhas';
+import { comparacaoTool } from './comparacao';
 import { consultasTool } from './consultas';
 import { dosesTomadasTool } from './dosesTomadas';
 import { examesTool } from './exames';
 import { interacoesTool } from './interacoes';
 import { medicamentosTool } from './medicamentos';
+import { panoramaTool } from './panorama';
 import { perfilTool } from './perfil';
 import { postosTool } from './postos';
 import { prevencaoTool } from './prevencao';
+import { receitasTool } from './receitas';
 import { resultadosTool } from './resultados';
 import type { ChatTool } from './tipos';
 import { vacinasTool } from './vacinas';
 import { wearableTool } from './wearable';
+import { wearableDiasTool } from './wearableDias';
 
 import type { ChatIdentity } from '../auth';
 import type { ContextoDoTurno } from '../types';
@@ -36,6 +40,10 @@ import type { ContextoDoTurno } from '../types';
 export type { ChatTool } from './tipos';
 
 export const CHAT_TOOLS: ChatTool[] = [
+  // Primeira (E10): "como eu to?" e "o que tenho registrado?" comecam pelo
+  // resumo, e a descricao manda chamar a ferramenta do assunto so se a pessoa
+  // pedir detalhe -- e o que poupa iteracoes numa pergunta ampla.
+  panoramaTool,
   perfilTool,
   examesTool,
   // A ordem importa pouco para o funcionamento e muito para a escolha do
@@ -43,6 +51,10 @@ export const CHAT_TOOLS: ChatTool[] = [
   // porque e o passo natural depois de saber QUE documentos existem.
   resultadosTool,
   analitosTool,
+  // Fecha o bloco de documentos (E4): exames diz QUE documentos existem;
+  // receitas, o que a receita trazia. Nao e a lista de remedios cadastrados
+  // (consultar_medicamentos), e a descricao diz isso.
+  receitasTool,
   consultasTool,
   medicamentosTool,
   // Logo depois de medicamentos (E3): medicamentos diz o que esta CADASTRADO;
@@ -63,7 +75,15 @@ export const CHAT_TOOLS: ChatTool[] = [
   // `tools.test.ts`).
   campanhasTool,
   postosTool,
+  // Logo antes do wearable (E10): e o vizinho com que o modelo mais a
+  // confundiria. Wearable e o resumo da importacao, sem exame; comparacao poe
+  // um exame AO LADO da media dos 28 dias antes da coleta, sem ligar um ao
+  // outro.
+  comparacaoTool,
   wearableTool,
+  // Logo depois do wearable (E6): wearable e o RESUMO da importacao, com a
+  // lista e a analise da tela; dias e o dia a dia e a comparacao de periodos.
+  wearableDiasTool,
 ];
 
 const POR_NOME = new Map(CHAT_TOOLS.map((t) => [t.name, t]));

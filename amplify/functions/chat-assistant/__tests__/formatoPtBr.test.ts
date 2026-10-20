@@ -4,7 +4,7 @@
  * seguinte -- e e exatamente no ultimo dia de uma campanha que isso mudaria a
  * resposta.
  */
-import { dataEmSaoPaulo, momentoEmSaoPaulo } from '../formatoPtBr';
+import { dataEmSaoPaulo, formatarInteiro, momentoEmSaoPaulo } from '../formatoPtBr';
 
 describe('dataEmSaoPaulo', () => {
   it('23h30 de Brasilia ainda e o mesmo dia, mesmo com o UTC ja no seguinte', () => {
@@ -30,5 +30,16 @@ describe('momentoEmSaoPaulo', () => {
     expect(momentoEmSaoPaulo(new Date('2026-10-18T01:30:00Z'))).toBe('2026-10-17T22:30');
     expect(momentoEmSaoPaulo(new Date('2026-10-18T03:00:00Z'))).toBe('2026-10-18T00:00');
     expect(momentoEmSaoPaulo(new Date('2026-10-18T12:05:00Z'))).toBe('2026-10-18T09:05');
+  });
+});
+
+describe('formatarInteiro (E10)', () => {
+  it.each([
+    [7430.4, '7.430'],
+    [1234567, '1.234.567'],
+    [999, '999'],
+    [0, '0'],
+  ])('%p vira %p, sem depender do locale do runtime', (valor, esperado) => {
+    expect(formatarInteiro(valor)).toBe(esperado);
   });
 });

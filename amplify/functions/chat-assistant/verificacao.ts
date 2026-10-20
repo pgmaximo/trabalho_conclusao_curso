@@ -30,6 +30,7 @@ import {
   type TurnTranscript,
 } from './conversationLoop';
 import { montarContextoDeHoje } from './contextoDeHoje';
+import { costurarComparacao } from './comparacaoFixa';
 import { costurar } from './encaminhamento';
 import { enriquecerCitacoes, indexarLinhasCitaveis } from './citacoes';
 import { buildDegradedAnswer } from './degradedAnswer';
@@ -85,6 +86,14 @@ import type {
  * `consultar_interacoes` ENTRA (E9): a pergunta por tras e "posso tomar?", e o
  * texto de um alerta ("risco de sangramento") nao tem unidade nenhuma. Quem diz
  * se a combinacao serve para a pessoa e quem prescreve ou o farmaceutico.
+ *
+ * `consultar_comparacao` ENTRA (E10): exame ao lado do sono e convite a ler um
+ * pelo outro, e o texto dos blocos pode nao ter unidade de exame nenhuma.
+ * `consultar_panorama` NAO entra: e contagem e data, metadado como o de
+ * `consultar_exames` (U3); se a resposta trouxer medida, o texto a pega.
+ *
+ * `consultar_wearable_dias` ENTRA (E6), como o wearable: o sono de uma noite
+ * convida a "isso e apneia?", e "6 h 40 min" nao e unidade de exame.
  */
 const TOOLS_CLINICAS = new Set([
   'consultar_analito',
@@ -93,6 +102,8 @@ const TOOLS_CLINICAS = new Set([
   'consultar_prevencao',
   'consultar_campanhas',
   'consultar_interacoes',
+  'consultar_comparacao',
+  'consultar_wearable_dias',
 ]);
 
 export type RespostaVerificada = {
@@ -140,6 +151,38 @@ const MOTIVO_DA_FORMA: Record<'formato' | 'max_tokens', string> = {
   max_tokens:
     'A resposta ficou longa demais e foi cortada. Escreva uma resposta mais curta: mostre menos valores e pergunte se a pessoa quer ver os outros.',
 };
+
+/**
+ * O dominio de saude de cada ferramenta que traz dado da pessoa (E10, D10.6;
+ * o remedio entrou na revisao do E6: "meu sono mudou depois da losartana?"
+ * junta relogio e remedio, e o veredito de eficacia e o risco maior).
+ *
+ * Fora de proposito: `consultar_interacoes`, cujo alerta curado do E9 junta
+ * remedio e efeito na mesma frase e seria reescrito; o panorama, cuja
+ * contagem de assuntos nao compara nada; e as ferramentas sem dado de saude.
+ */
+const DOMINIO_DA_TOOL: Record<string, 'exame' | 'relogio' | 'remedio'> = {
+  consultar_analito: 'exame',
+  consultar_resultados: 'exame',
+  consultar_wearable: 'relogio',
+  consultar_wearable_dias: 'relogio',
+  consultar_medicamentos: 'remedio',
+  consultar_doses_tomadas: 'remedio',
+  consultar_receitas: 'remedio',
+};
+
+/**
+ * O turno cruzou dominios de saude? A comparacao sempre cruza; fora dela,
+ * cruza o turno com ferramentas de dois dominios. Nesses turnos vale "uma
+ * frase, um dominio" (`ai-language-rules`): o lexico de causa pega perto de
+ * metade das frases nunca vistas, e separar os dados por frase tira a causa
+ * da frase.
+ */
+function cruzaDominios(toolsUsadas: string[]): boolean {
+  if (toolsUsadas.includes('consultar_comparacao')) return true;
+  const dominios = new Set(toolsUsadas.map((t) => DOMINIO_DA_TOOL[t]).filter(Boolean));
+  return dominios.size >= 2;
+}
 
 /**
  * O eixo e O QUE A RESPOSTA DIZ, e so em segundo lugar o que foi consultado.
@@ -404,12 +447,17 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     answer: ChatAnswer,
     status: RuleCheckStatus,
     tipo: QuestionKind,
+    toolOutputs: TurnTranscript['toolOutputs'],
   ): RespostaVerificada => {
-    if (tipo !== 'clinica') return aprovada(answer, status);
+    // A frase da comparacao (E10) vem ANTES do encaminhamento e nao depende da
+    // classificacao: a ressalva de que a comparacao nao mostra causa e do
+    // aplicativo, como o encaminhamento, e vale sempre que houve par.
+    const comRessalva = { ...answer, texto: costurarComparacao(answer.texto, toolOutputs) };
+    if (tipo !== 'clinica') return aprovada(comRessalva, status);
 
-    const costura = costurar(answer.texto);
+    const costura = costurar(comRessalva.texto);
     registrarEncaminhamento(costura.costurado);
-    return aprovada({ ...answer, texto: costura.texto }, status);
+    return aprovada({ ...comRessalva, texto: costura.texto }, status);
   };
 
   /**
@@ -436,10 +484,11 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
       // cadastrados tambem.
       semDados,
       valoresCadastrados: valoresCadastradosDoTurno(transcript.toolOutputs),
+      cruzaDominios: cruzaDominios(segunda.answer.toolsUsadas),
     });
     const citacoesOkNaSegunda = citacoesConferem(segunda.answer, indice);
     if (citacoesOkNaSegunda && (recheck.ok || somenteR2(recheck))) {
-      return entregar(segunda.answer, 'APROVADA_NA_SEGUNDA', tipoDaSegunda);
+      return entregar(segunda.answer, 'APROVADA_NA_SEGUNDA', tipoDaSegunda, transcript.toolOutputs);
     }
 
     registrarReprovacao(
@@ -486,6 +535,7 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     temOrigem: temOrigemDeclarada(primeira.answer, entrada),
     semDados,
     valoresCadastrados: valoresCadastradosDoTurno(primeira.transcript.toolOutputs),
+    cruzaDominios: cruzaDominios(primeira.answer.toolsUsadas),
   });
   const citacoesOk = citacoesConferem(primeira.answer, indice);
 
@@ -493,7 +543,7 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
   // inteira para pedir ao modelo uma frase que o aplicativo sabe escrever era
   // o desperdicio que a A2 conserta. Medido: 2 de 2 reprovacoes em producao.
   if (citacoesOk && (check.ok || somenteR2(check))) {
-    return entregar(primeira.answer, 'APROVADA', tipo);
+    return entregar(primeira.answer, 'APROVADA', tipo, primeira.transcript.toolOutputs);
   }
 
   // A: UMA nova geracao. Nao e remendo -- e pedir ao modelo que escreva de

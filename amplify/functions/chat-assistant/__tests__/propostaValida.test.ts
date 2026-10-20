@@ -164,6 +164,20 @@ describe('a verificação de linguagem também se aplica', () => {
   });
 });
 
+describe('causa entre dados de saúde não vira fato (revisão do E6)', () => {
+  // A guarda de causa (E10) vale também aqui, e de propósito: a memória volta ao
+  // prompt em todo turno, e um fato que liga dois dados repetiria a ligação.
+  // O remédio já é registro, e não memória (proibição 4), com ou sem causa.
+  it('recusa o fato que liga dois dados de saúde', () => {
+    recusa('Faço caminhada porque o colesterol está alto');
+    recusa('Toma losartana, que controla a pressão');
+  });
+
+  it('aceita a rotina dita sem ligar a dado de saúde', () => {
+    aceita('Faço caminhada três vezes por semana', 'ROTINA');
+  });
+});
+
 describe('o próprio arquivo de padrões', () => {
   it('não escreve o termo vetado', () => {
     // A raiz continua montada a partir de partes em UM lugar só, em

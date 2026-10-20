@@ -10,7 +10,7 @@
  */
 import { partesEmSaoPaulo } from './formatoPtBr';
 
-const DIA_DA_SEMANA: Record<string, string> = {
+export const DIA_DA_SEMANA: Record<string, string> = {
   Sun: 'domingo',
   Mon: 'segunda-feira',
   Tue: 'terça-feira',

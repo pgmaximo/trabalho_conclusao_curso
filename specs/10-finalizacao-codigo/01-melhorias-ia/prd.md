@@ -57,11 +57,11 @@ Aumentar a utilidade do assistente no dia a dia do usuário, fazendo-o responder
 | E3 | Adesão: doses tomadas | M | Alto | Não |
 | E4 | Receitas e documentos | M | Médio | Não |
 | E5 | Agenda e vacinas: campos faltantes | P | Médio | Não |
-| E6 | Wearable: série diária e histórico | M | Médio | Não (leitura de S3) |
+| E6 | Wearable: série diária e histórico | M | Médio | Não (leitura de S3; concluído em 2026-10-19) |
 | E7 | Recomendações de prevenção | M | Médio | Não (D7.1 = A; concluído em 2026-10-17) |
 | E8 | Campanhas e postos de vacinação | M | Médio | Não (concluído em 2026-10-17) |
 | E9 | Interações medicamentosas | M | Alto | Não |
-| E10 | Visão geral e comparação de domínios | G | Alto | Não |
+| E10 | Visão geral e comparação de domínios | G | Alto | Não (concluído em 2026-10-19) |
 | E11 | Ações com confirmação do usuário (aprovado, escopo a definir) | G | Alto | Não |
 | E12 | Histórico de conversas (já existe; estudar a lacuna restante) | P | Baixo | A verificar |
 
@@ -153,7 +153,7 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 ### 4.1 Ferramenta de itens de receita
 - **História:** Como usuário, quero perguntar "o que o médico receitou na minha última receita?", para lembrar sem reabrir o papel.
 - **Especificação:**
-  - Nova ferramenta `consultar_receitas`: por documento, devolve `medicationLabel`, `dose`, `unit`, `frequency`, `duration` e `reviewStatus`.
+  - Nova ferramenta `consultar_receitas`: por documento, devolve o nome do remédio (sem concentração) e a situação de conferência. Dose, unidade, frequência e duração ficam na receita (D4.2 = A, 2026-10-19); todo item vai como leitura automática não conferida (D4.1 = A).
   - Itens com `reviewStatus` pendente de conferência vêm marcados como "aguardando conferência" e a resposta os trata como não confirmados (mesmo princípio dos resultados de exame).
   - **Não** cria nem altera `Medicine`. A spec de extração proíbe isso (ação de risco alto).
   - **Critérios:** teste de item pendente, de item confirmado e de documento sem itens; teste de que a ferramenta não grava.
@@ -161,7 +161,7 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 ### 4.2 Situação da leitura dos documentos
 - **História:** Como usuário, quero saber "meu exame já foi lido?" ou "por que não aparece valor?", para entender o que está pendente.
 - **Especificação:**
-  - Em `consultar_exames`, acrescentar o estado da extração (`PENDING`, `PROCESSING`, `READY`, `FAILED`, conforme o schema) em linguagem simples.
+  - Em `consultar_exames`, acrescentar o estado da extração (`PENDING`, `PROCESSING`, `SUCCEEDED`, `NO_RESULTS`, `FAILED` e o nulo de "nunca lido", conforme o schema; `READY` não existe neste enum, corrigido no E4) em linguagem simples.
   - O texto bruto extraído (`rawText`) **não** vai ao modelo nesta fase: é grande, e os valores já chegam estruturados.
   - **Critérios:** teste dos quatro estados; a resposta nunca promete prazo de conclusão.
 
@@ -191,6 +191,8 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 
 **Por que:** hoje só lê `metricsJson` da última importação concluída. Não compara períodos nem olha dia a dia.
 
+**Estado (2026-10-20):** concluído (conferência no sandbox pendente). Decisões D6.1 a D6.3 (A · A · A) em `decisoes/E6-wearable-serie-e-historico.md`. A posse do `result.json` é provada pelo `importId` da linha do dono (D6.1), e não pelo identityId, que o chat não conhece. Da análise da tela vão o resumo, os títulos, as limitações e as contagens (D6.2). "Mudou?" compara dois períodos de dias da série diária, e a lista de importações não traz médias (D6.3). A comparação com exame (E10.2) passou para os 28 dias reais antes da coleta.
+
 ### 6.1 Histórico de importações
 - **História:** Como usuário, quero perguntar "como meu sono mudou em relação à importação anterior?", para ver tendência.
 - **Especificação:**
@@ -207,6 +209,7 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
   - A resposta sempre diz até que data vai a importação ("seus dados vão até DD/MM"), porque o dado não é ao vivo.
   - Reaproveitar também `insightsJson` e `warnings`: o app já os mostra, e o chat deve ser coerente com a tela.
   - **Critérios:** teste de chave de outro dono rejeitada; `result.json` ausente ou corrompido vira ausência de dado; dia fora do período devolve "sem dado neste dia".
+  - **Vindo do E10 (D10.5):** com a série diária lida, `consultar_comparacao` troca o mês (o que mais cobre as 4 semanas antes da coleta) pelos **28 dias reais antes da coleta**, com a mesma regra de cobertura mínima. O `avisoDoAlinhamento` muda junto.
 
 ---
 
@@ -290,6 +293,8 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 
 **Por que:** cada ferramenta é um silo, e a de wearable proíbe relacionar com exames. Perguntas reais costumam cruzar assuntos.
 
+**Estado (2026-10-19):** concluído. 10.1 entregue como `consultar_panorama`. 10.2 entregue como `consultar_comparacao` (D10.1 = B), com a frase fixa do código e a guarda de causa (D10.2, D10.3 e D10.6). Estudos em `estudos/E10.2-comparacao-entre-dominios.md` e `estudos/E10-riscos-da-entrega.md`. A janela de 28 dias reais entrou com o E6.2 (2026-10-19).
+
 ### 10.1 Ferramenta de panorama
 - **História:** Como usuário, quero perguntar "me dá um resumo da minha saúde", para ter o quadro geral em uma resposta.
 - **Especificação:**
@@ -371,6 +376,8 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 | R4 | Dado ampliado empurra a IA para além do informativo (adesão, interação, cruzamento). | RT5, E3.2, E9.2, E10.2, e casos adversos na suíte de linguagem. |
 | R5 | Dataset duplicado entre `src/` e `amplify/` diverge. | E9.1. |
 | R6 | Ação proposta pela IA vira escrita sem consentimento. | E11: função segue `readOnly`; gravação só no cliente, após toque do usuário. |
+| R7 | O `Scan` filtrado por dono para no teto de 10 páginas da tabela inteira, e as linhas do dono que estão depois não são vistas (achado do E10). | E10 (D10.4): o panorama e a comparação avisam (`leituraIncompleta`). Dívida: um índice por dono (GSI `owner`) e `Query` em todas as ferramentas, que é mudança de schema e pede decisão. Gatilho: alguma tabela acima de alguns MB. |
+| R8 | A guarda de causa (E10, D10.3) é léxica e pega perto de metade das frases de causa nunca vistas. | D10.6: "uma frase, um domínio" nos turnos que cruzam domínios. Nas sondas cegas 3 e 4, aplicadas nesses turnos, barrou 7 de 10 e 7 de 8 frases de causa e 0 de 8 e 1 de 8 honestas (medido antes do último ajuste). Fora desses turnos fica só o léxico; o resíduo é a paráfrase de um domínio só, sem conector conhecido. |
 
 ## 7. Decisões
 
@@ -388,6 +395,8 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 | E8 | D8.1 como o chat obtém o município; D8.2 campanhas com cache vazio; D8.3 leitura de tabela pública; P1 campanhas pelo calendário e D8.4 reforço da R3 para vacina (nasceram na spec) — **fechadas em 2026-10-17 (A · A · A · A · A)**. Com P1 = A, 8.1 não lê o cache de campanhas: usa o calendário da tela (ver spec do E8). | `E8-campanhas-e-postos.md` |
 | E2 | D2.1 estoque; D2.2 observações; D2.3 "tomado hoje"; D2.4 R3 e o valor cadastrado (nasceu na spec) — **fechadas em 2026-10-17 (A · A · A · A)**. A D2.4 sobe o esforço de P para M. | `E2-medicamentos-completos.md` |
 | E9 | D9.1 onde mora o dataset; D9.2 medicamento citado na conversa; D9.3 nome não reconhecido | `E9-interacoes-medicamentosas.md` |
+| E6 | D6.1 posse do `result.json`; D6.2 o que da análise da tela vai ao chat; D6.3 o que é "comparar" no 6.1 (nasceram na leitura do código) — **fechadas em 2026-10-19 (A · A · A)** | `E6-wearable-serie-e-historico.md` |
+| E4 | D4.1 itens de receita que a tela não mostra; D4.2 posologia e a R3 (nasceram na leitura do código) — **fechadas em 2026-10-19 (A · A)** | `E4-receitas-e-documentos.md` |
 | E1 | D1.1 onde entra a data; D1.2 fuso; D1.3 mapa do app | `E1-contexto-e-mapa-do-app.md` |
 
 ## 8. Verificações feitas e pendentes
@@ -400,7 +409,8 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 
 **Pendentes (fazer ao chegar no épico):**
 - Qual lacuna real resta no histórico de conversas, já que ele é persistido (E12.1).
-- Valores reais dos enums de status de extração de documento (E4.2) e a lista de rotas do mapa do app (E1.2).
+- ~~Valores reais dos enums de status de extração de documento (E4.2)~~: verificados no E4 (`extractionEnums.ts`). A lista de rotas do mapa do app (E1.2) foi feita no E1.
+- ~~Itens de receita de leituras antigas (achado do E4)~~: corrigido no fechamento do E4 (D4.3): a releitura apaga os itens superados, e o chat esconde os que já estavam no banco.
 - Tamanho real da resposta da API da USPSTF e latência medida (E7). Continua pendente depois da entrega: depende do sandbox, roteiro em `E7-recomendacoes-prevencao/tasks.md`.
 
 ## 9. Fora desta versão

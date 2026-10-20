@@ -20,6 +20,7 @@
  * 2. Na duvida, reprova. Uma resposta boa reprovada custa uma nova geracao;
  *    uma resposta com posologia aprovada custa muito mais.
  */
+import { DRUG_ALIASES } from '../drug-interactions-shared/aliases';
 import { parseDecimal } from '../extract-document-data/numberParser';
 
 export type RuleId = 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
@@ -73,6 +74,17 @@ export type OpcoesDeVerificacao = {
    * reprova" de novo. Se viesse do modelo, a resposta diria o que e cadastro.
    */
   valoresCadastrados?: readonly string[];
+  /**
+   * O turno CRUZOU dominios de saude: usou a comparacao, ou o wearable junto
+   * com valor de exame (E10, D10.6). Nele, cada dado vai na sua propria frase
+   * ("uma frase, um dominio").
+   *
+   * Vem de quem chama, como os de cima: so ele sabe que ferramentas o turno
+   * usou. AUSENTE significa que a regra nao vale -- como `semDados`, e uma
+   * PRECONDICAO, e nao uma desculpa: fora desses turnos, juntar dominios ("2
+   * remedios e 1 exame") nao compara nada.
+   */
+  cruzaDominios?: boolean;
 };
 
 export type Violation = {
@@ -1122,6 +1134,283 @@ const verificarR3: Verificador = (texto, { valoresCadastrados }) => {
 };
 
 VERIFICADORES.push(verificarR3);
+
+/**
+ * CAUSA ENTRE DADOS DE SAUDE (E10, D10.2) -- um verificador da R3 a parte, e nao
+ * mais um item de `PADROES_R3`, porque a pergunta nao cabe numa expressao: a
+ * frase liga DOIS dados de saude de dominios diferentes? Sondado em 2026-10-19:
+ * "seu sono pode ter causado o colesterol alto" passava, e so "melhorou" e
+ * "piorou" eram barrados.
+ *
+ * Por que dois dominios (achado da revisao do E10): com um assunto so, a
+ * primeira versao barrava o alerta de interacao ("esses dois remedios podem
+ * causar sangramento", texto curado do E9) e frases operacionais ("a glicose
+ * ficou fora da comparacao devido a unidade", "a leitura do exame nao
+ * funcionou"). Causa entre dados exige dois lados.
+ */
+const dominio = (termos: string) => new RegExp(`${INI_R3}(?:${termos})${FIM_R3}`, 'i');
+
+/** Os nomes de remedio do dataset de interacoes (E9), alem das palavras
+ *  genericas: "a losartana esta controlando sua pressao" nao diz "remedio". */
+const NOMES_DE_REMEDIO = Object.entries(DRUG_ALIASES)
+  .flatMap(([nome, apelidos]) => [nome, ...apelidos])
+  .join('|');
+
+/**
+ * Os dominios de saude, cada um com os seus termos. Sinais do relogio
+ * (estresse, batimentos) sao um dominio a parte da medida de exame: "o
+ * estresse elevou sua pressao" liga dois dados, e no mesmo dominio passaria.
+ */
+const TERMOS_DO_REMEDIO = `rem[eé]dios?|medicament${L_R3}*|medica[cç](?:[aã]o|[oõ]es)|tratamentos?|${NOMES_DE_REMEDIO}`;
+const TERMOS_DE_SAUDE = [
+  `sono|dorm${L_R3}*|noites`,
+  `passos|caminh${L_R3}*|and(?:a|am|ar|ou|ando)|exerc[ií]cios?|exercit${L_R3}*|atividade\\s+f[ií]sica|academia|sedentar${L_R3}*`,
+  TERMOS_DO_REMEDIO,
+  `frequ[eê]ncia\\s+card${L_R3}*|batimentos|estresse`,
+  `exames?|resultados?|colesterol|glicose|glicemia|glicada|press[aã]o|triglic${L_R3}*|hemoglobina|vitaminas?|peso|ldl|hdl`,
+];
+const DOMINIO_DO_REMEDIO = dominio(TERMOS_DO_REMEDIO);
+const DOMINIOS_DE_SAUDE: RegExp[] = TERMOS_DE_SAUDE.map(dominio);
+
+/** Verbo de mudanca de um dado: o que "fez subir", "subiu pelo" e "baixou" tem. */
+const MUDANCA = `(?:sub[ií]|ca[ií]|aument|diminu|baix|reduz|abaix|elev|melhor|pior)${L_R3}*`;
+
+/** Um dado de saude como OBJETO logo adiante: "elevou SUA PRESSAO". */
+const OBJETO_DE_SAUDE = `(?=\\s+(?:o|a|os|as|seus?|suas?)\\s+(?:${TERMOS_DE_SAUDE.join('|')})${FIM_R3})`;
+
+/**
+ * O que relaciona um dado ao outro como causa, POR FAMILIA (E10, D10.3 = A1).
+ * A primeira guarda era uma lista de expressoes inteiras, e a sonda de
+ * 2026-10-19 mediu 44 de 46 frases de causa passando: o portugues diz causa por
+ * verbo, substantivo, locucao e conjuncao, e nenhuma lista de frases acompanha.
+ * Radicais, e nao frases. Sem o infinitivo "causar": "pode causar sangramento"
+ * e o alerta de interacao (E9), que o prompt manda repetir.
+ */
+const CONECTOR_DE_CAUSA = new RegExp(
+  [
+    // verbo causativo
+    `caus(?:a|as|ou|aram|ad[oa]s?|ando|aria|ariam)`,
+    `provoc${L_R3}*`,
+    `ger(?:a|am|ou|aram|ad[oa]s?|ando)`,
+    `desencade${L_R3}*`,
+    `ocasion${L_R3}*`,
+    `acarret${L_R3}*`,
+    `result(?:a|am|ou|aram|ando)\\s+(?:em|n[oa]s?)`,
+    `afet(?:a|am|ou|aram|ando)`,
+    `interfer(?:e|em|iu|iram|indo)`,
+    `impact(?:a|am|ou|aram|ando)`,
+    `prejudic${L_R3}*`,
+    `favorec${L_R3}*`,
+    `ajud(?:a|am|ou|aram|ando)\\s+(?:a|o|os|as|seus?|suas?)`,
+    `contribu(?:i|em|iu|[ií]ram|indo)`,
+    `influenci(?:a|am|ou|aram|ando)`,
+    `explic(?:a|am|aria|ariam|ou|aram)`,
+    `justific(?:a|am|ou|aram)`,
+    `(?:fez|faz|fazem|fizeram)(?:\\s+${L_R3}+){1,3}\\s+${MUDANCA}`,
+    `deix(?:a|am|ou|aram)(?:\\s+${L_R3}+){1,3}\\s+(?:mais\\s+)?(?:alt|baix|elevad)${L_R3}*`,
+    // substantivo de causa
+    `motivos?`,
+    `consequ[eê]ncias?`,
+    `reflexos?`,
+    `frutos?`,
+    `respons[aá]ve(?:l|is)`,
+    `fator(?:es)?`,
+    `culpa`,
+    `raz[aã]o\\s+d[eoa]s?`,
+    // locucao
+    `devido\\s+(?:a|ao|à)s?`,
+    `em\\s+raz[aã]o\\s+d[eoa]s?`,
+    `gra[cç]as\\s+(?:a|ao|à)s?`,
+    `por\\s+conta\\s+d[eoa]s?`,
+    `em\\s+fun[cç][aã]o\\s+d[eoa]s?`,
+    `em\\s+decorr[eê]ncia\\s+d[eoa]s?`,
+    `${MUDANCA}\\s+pel[oa]s?`,
+    `com\\s+(?:o|a|os|as)\\s+(?:rem[eé]dios?|medicament${L_R3}*|tratamentos?)`,
+    `efeito\\s+d[eoa]s?`,
+    `como\\s+resultado\\s+d[eoa]s?`,
+    // "com mais PASSOS", e nao "o mes com mais dias"
+    `com\\s+(?:mais|menos)(?=\\s+(?:${TERMOS_DE_SAUDE.join('|')})${FIM_R3})`,
+    // verbo de mudanca com um dado de saude como objeto: "o estresse ELEVOU sua pressao"
+    `${MUDANCA}${OBJETO_DE_SAUDE}`,
+    // o remedio como SUJEITO de um verbo de mudanca: "o remedio baixou seu
+    // colesterol". Aqui, e nao no veredito, porque precisa do segundo dado: "a
+    // fluoxetina reduz a agregacao plaquetaria" e o mecanismo do alerta (E9).
+    `(?<=(?:rem[eé]dios?|medicament${L_R3}*|tratamentos?|${NOMES_DE_REMEDIO})\\s+)${MUDANCA}`,
+    // conjuncao (as ambiguas so na posicao em que sao causais)
+    `porque`,
+    `pois`,
+    `j[aá]\\s+que`,
+    `visto\\s+que`,
+    `uma\\s+vez\\s+que`,
+    `consequentemente`,
+    `com\\s+isso`,
+    `por\\s+isso`,
+    `(?<=,\\s*)ent[aã]o`,
+    `(?<=(?:,\\s*|${INI_R3}e\\s+))assim`,
+    `(?<=(?:^|[.!?;]\\s*))como`,
+    // correlacao dita como explicacao
+    `tem\\s+a\\s+ver`,
+    `ligad[oa]s?\\s+(?:a|ao|à|com)`,
+    `por\\s+tr[aá]s`,
+    `se\\s+deve(?:m)?\\s+(?:a|ao|à)s?`,
+    `relacionad[oa]s?\\s+(?:a|ao|à|com)`,
+    `associad[oa]s?\\s+(?:a|ao|à|com)`,
+    `(?:levou|levaram|levado|levar)\\s+(?:a|ao|à)s?`,
+  ]
+    .map((familia) => `${INI_R3}(?:${familia})${FIM_R3}`)
+    .join('|'),
+  'gi',
+);
+
+/** O veredito sobre tratamento. Basta o remedio na frase: "o remedio esta
+ *  funcionando" ja e juizo de eficacia, sem segundo dado. */
+const VEREDITO_DE_TRATAMENTO = new RegExp(
+  `${INI_R3}(?:funcionou|est[aá]o?\\s+(?:funcionando|fazendo\\s+efeito|dando\\s+resultado|dando\\s+certo)|` +
+    `(?:fez|faz|fazem|fizeram)\\s+efeito|(?:d[aá]|deu|deram)\\s+certo|resolv(?:e|eu|eram|endo)|` +
+    `control(?:a|am|ou|aram|ando)|normaliz${L_R3}*|est[aá]o?\\s+controlando)${FIM_R3}`,
+  'gi',
+);
+
+/**
+ * A frase que explica a FALTA de dado, ou qual mes a comparacao usou, nao liga
+ * um dado ao outro: "o exame ficou de fora porque nao ha dado de sono naquele
+ * mes" e a resposta honesta da comparacao. Lista fechada e especifica de proposito: um "nao ha" solto
+ * ("nao ha duvida: o sono causou...") nao absolve.
+ */
+const EXPLICA_O_DADO = new RegExp(
+  `n[aã]o\\s+h[aá]\\s+(?:dados?|registros?|informa[cç](?:[aã]o|[oõ]es)|m[eé]dia|exames?|resultados?)|n[aã]o\\s+tem\\s+dados?|` +
+    // e a explicacao da janela da comparacao (D10.5): "e o mes com mais dias nas 4 semanas antes do exame"
+    `m[eê]s\\s+com\\s+mais\\s+dias|` +
+    `n[aã]o\\s+h[aá]\\s+o\\s+que\\s+mostrar|n[aã]o\\s+encontrei|n[aã]o\\s+cobre|n[aã]o\\s+aparece|fic(?:ou|a|aram|am)\\s+de\\s+fora|poucos\\s+dias|sem\\s+dados?|` +
+    `n[aã]o\\s+(?:consigo|d[aá]\\s+para|[eé]\\s+poss[ií]vel)\\s+comparar|come[cç]am?\\s+em|precisa\\s+cobrir`,
+  'i',
+);
+
+/**
+ * A recusa de ligar os dados absolve -- mas so a que fala de LIGAR: "nao mostra
+ * SE um influenciou o outro" (a frase fixa) e "nao consigo dizer SE". A revisao
+ * do E10 achou "seu exame nao mostra a data, e o sono causou o colesterol"
+ * aprovada pela primeira versao, que aceitava qualquer "nao mostra" antes.
+ */
+const NAO_LIGA_OS_DADOS =
+  /n[aã]o\s+(?:(?:posso|consigo|sei|d[aá]\s+para|[eé]\s+poss[ií]vel)\s+(?:dizer|saber|afirmar)\s+|mostra\s+|diz\s+|indica\s+|prova\s+|sabe\s+)se\b/gi;
+
+/**
+ * "Por isso, MOSTRO o exame e o remedio lado a lado" (revisao do E6): a
+ * conjuncao apresenta o que o assistente faz, e nao liga um dado ao outro. A
+ * primeira versao reprovava a frase e forcava uma nova geracao. So as
+ * conjuncoes de consequencia, so com o verbo LOGO depois, e nunca "mostro
+ * QUE": "por isso, mostro que o colesterol subiu" e afirmacao. Os verbos de
+ * causa da mesma frase ("causou", "explica") seguem julgados a parte.
+ */
+const CONJUNCAO_DE_CONSEQUENCIA = /^(?:por\s+isso|com\s+isso|assim|ent[aã]o)$/i;
+const ACAO_DO_ASSISTENTE = new RegExp(
+  `^,?\\s*(?:(?:aqui|eu)\\s+)?(?:mostr(?:o|ei)|trago|trouxe|list(?:o|ei)|coloco|coloquei|separ(?:o|ei)|apresent(?:o|ei)|` +
+    `vou\\s+(?:mostrar|listar|trazer|colocar|separar|apresentar))${FIM_R3}(?!\\s+que${FIM_R3})`,
+  'i',
+);
+
+/** O conector casado so apresenta o que o assistente mostra? */
+const apresentaOQueMostra = (texto: string, m: RegExpMatchArray) =>
+  CONJUNCAO_DE_CONSEQUENCIA.test(m[0]) && ACAO_DO_ASSISTENTE.test(texto.slice(m.index! + m[0].length));
+
+const MOTIVO_DA_CAUSA =
+  'A resposta liga dois dados de saúde como se um tivesse origem no outro. Mostre os dados lado a lado, cada um com sua data, sem ligar um ao outro: quem avalia é quem examina a pessoa.';
+
+/**
+ * Cada conector e julgado pela FRASE em volta dele, com o mesmo limite de frase
+ * da excecao do valor cadastrado (`FIM_DE_FRASE`): "7.200 passos" e "aprox."
+ * nao partem a frase, e partir separaria os dois dados que ela liga.
+ */
+const verificarCausaEntreDados: Verificador = (texto) => {
+  // Causa precisa de dois dominios na frase; veredito de tratamento, so do remedio.
+  const doisDominios = (frase: string) => DOMINIOS_DE_SAUDE.filter((d) => d.test(frase)).length >= 2;
+  const temRemedio = (frase: string) => DOMINIO_DO_REMEDIO.test(frase);
+  const achados = [
+    ...[...texto.matchAll(CONECTOR_DE_CAUSA)].map((m) => ({ m, basta: doisDominios })),
+    ...[...texto.matchAll(VEREDITO_DE_TRATAMENTO)].map((m) => ({ m, basta: temRemedio })),
+  ];
+  for (const { m, basta } of achados) {
+    const frase = trechoEmVolta(texto, m.index, m.index + m[0].length, FIM_DE_FRASE);
+    // A explicacao de falta de dado vale so na ORACAO do conector: "nao ha dados
+    // de passos, MAS o sono causou o colesterol" tem a explicacao e a causa lado a lado.
+    const oracao = trechoEmVolta(texto, m.index, m.index + m[0].length, QUEBRA_DE_ORACAO_GLOBAL);
+    if (!basta(frase) || EXPLICA_O_DADO.test(oracao) || apresentaOQueMostra(texto, m)) continue;
+    if (absolvido(texto, m.index, NAO_LIGA_OS_DADOS)) continue;
+    return [{ rule: 'R3', reason: MOTIVO_DA_CAUSA, excerpt: trecho(texto, m.index, m[0].length) }];
+  }
+  return [];
+};
+
+VERIFICADORES.push(verificarCausaEntreDados);
+
+/** As frases do texto, pelo mesmo limite de `FIM_DE_FRASE`: "7.200 passos" e
+ *  "aprox." nao partem a frase. */
+function frasesDe(texto: string): string[] {
+  const frases: string[] = [];
+  let inicio = 0;
+  for (const m of texto.matchAll(FIM_DE_FRASE)) {
+    frases.push(texto.slice(inicio, m.index + 1));
+    inicio = m.index + 1;
+  }
+  frases.push(texto.slice(inicio));
+  return frases.map((f) => f.trim()).filter(Boolean);
+}
+
+/** As oracoes de uma frase, pelos limites de `QUEBRA_DE_ORACAO`. */
+function oracoesDe(frase: string): string[] {
+  const oracoes: string[] = [];
+  let inicio = 0;
+  for (const m of frase.matchAll(QUEBRA_DE_ORACAO_GLOBAL)) {
+    oracoes.push(frase.slice(inicio, m.index));
+    inicio = m.index + m[0].length;
+  }
+  oracoes.push(frase.slice(inicio));
+  return oracoes;
+}
+
+const contaDominios = (trecho: string) => DOMINIOS_DE_SAUDE.filter((d) => d.test(trecho)).length;
+
+const MOTIVO_DE_UMA_FRASE =
+  'Esta conversa junta dados de assuntos diferentes. Escreva cada dado de saúde na sua própria frase, com a sua data, sem juntar dois assuntos na mesma frase.';
+
+/**
+ * "UMA FRASE, UM DOMINIO" (E10, D10.6). O lexico da causa entre dados pega
+ * perto de metade das frases de causa nunca vistas -- cada sonda cega achou uma
+ * familia nova ("veio do", "trouxe", "tem relacao com"). Nos turnos que cruzam
+ * dominios, a regra deixa de depender de palavra: a frase que fala de dois
+ * dominios de saude e reescrita, e causa entre dados precisa dos dois na mesma
+ * frase. Separados, sobra o lado a lado.
+ *
+ * Passam: a explicacao de falta de dado ou do mes usado (`EXPLICA_O_DADO`), a
+ * recusa de ligar os dados (`NAO_LIGA_OS_DADOS`) e o encaminhamento. O que esta
+ * regra NAO pega, registrado: a anafora em outra frase ("isso explica o
+ * colesterol" depois de uma frase so de sono) -- essa fica com o lexico.
+ */
+const verificarUmaFraseUmDominio: Verificador = (texto, { cruzaDominios }) => {
+  if (!cruzaDominios) return [];
+  for (const frase of frasesDe(texto)) {
+    const dominios = DOMINIOS_DE_SAUDE.filter((d) => d.test(frase)).length;
+    if (dominios === 0) continue;
+    // `search`, e nao `test`: as duas expressoes tem `g`, e `test` guardaria posicao.
+    const explicada = (trecho: string) =>
+      EXPLICA_O_DADO.test(trecho) || trecho.search(NAO_LIGA_OS_DADOS) !== -1 || temEncaminhamento(trecho);
+    // A explicacao vale por ORACAO, como no conector de causa: "nao ha dados de
+    // passos naquele mes, MAS o sono causou o colesterol" nao se absolve inteira.
+    if (explicada(frase) && oracoesDe(frase).every((o) => explicada(o) || contaDominios(o) < 2)) continue;
+    if (dominios >= 2) return [{ rule: 'R3', reason: MOTIVO_DE_UMA_FRASE, excerpt: frase.slice(0, 80) }];
+    // A ANAFORA (sonda cega 3): "voce dormiu 5 h. ISSO EXPLICA o colesterol" --
+    // o outro dado esta na frase anterior. No turno que cruza, os dois assuntos
+    // ja estao na conversa, e conector de causa junto de um dado aponta para o
+    // outro. Fora desses turnos, isto ficaria largo demais.
+    if ([...frase.matchAll(CONECTOR_DE_CAUSA)].some((m) => !apresentaOQueMostra(frase, m))) {
+      return [{ rule: 'R3', reason: MOTIVO_DA_CAUSA, excerpt: frase.slice(0, 80) }];
+    }
+  }
+  return [];
+};
+
+VERIFICADORES.push(verificarUmaFraseUmDominio);
 
 /**
  * Formas de encaminhar que a R2 aceita. Ampla de proposito: o objetivo e

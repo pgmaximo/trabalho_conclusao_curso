@@ -298,6 +298,15 @@ backend.extractDocumentData.addEnvironment(
   'MEDICAL_DOCUMENT_TABLE_NAME',
   medicalDocumentTable.tableName,
 );
+// O mesmo para os itens de receita (risco 1 do E4): a releitura lista os itens
+// que a leitura anterior gravou, pelo indice por documento, para apagar os que
+// a nova nao gravou.
+extractDocumentDataLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['dynamodb:Query'],
+    resources: [`${prescriptionItemTable.tableArn}/index/*`],
+  }),
+);
 backend.extractDocumentData.addEnvironment('LAB_RESULT_TABLE_NAME', labResultTable.tableName);
 backend.extractDocumentData.addEnvironment(
   'PRESCRIPTION_ITEM_TABLE_NAME',
@@ -544,6 +553,9 @@ const assistantMemoryFactTable = backend.data.resources.tables['AssistantMemoryF
 // consulta pelo indice `medicineId` + `scheduledDate` (D3.2), e a permissao do
 // indice vem abaixo, separada.
 const medicineDoseLogTable = backend.data.resources.tables['MedicineDoseLog'];
+// `prescriptionItemTable` (declarada com a extracao, acima) entra so para
+// LEITURA (E4): quem grava os itens e a extract-document-data. O chat os
+// consulta pelo indice `documentId`, e a permissao do indice vem abaixo.
 
 for (const tabela of [
   userProfileTable,
@@ -555,6 +567,7 @@ for (const tabela of [
   healthImportTable,
   assistantMemoryFactTable,
   medicineDoseLogTable,
+  prescriptionItemTable,
   // A UNICA tabela sem dono que o chat le (E8, D8.3): o cache publico de
   // unidades de saude, pela porta `lerPublicoPorChave`, nunca por `lerDoDono`.
   // So leitura: quem preenche o cache continua sendo a Lambda da tela (D8.2).
@@ -577,6 +590,7 @@ backend.chatAssistant.addEnvironment(
 );
 backend.chatAssistant.addEnvironment('SITE_CACHE_TABLE_NAME', siteCacheTable.tableName);
 backend.chatAssistant.addEnvironment('MEDICINE_DOSE_LOG_TABLE_NAME', medicineDoseLogTable.tableName);
+backend.chatAssistant.addEnvironment('PRESCRIPTION_ITEM_TABLE_NAME', prescriptionItemTable.tableName);
 // A consulta de `lerDoDonoPorIndice` (E3) e autorizada pela ARN do INDICE, que o
 // grant da tabela do Amplify nao cobre -- o mesmo achado do `labResultTable`
 // (Bloco 11). So `Query`, so nos indices desta tabela: nada de escrita.
@@ -584,6 +598,13 @@ chatAssistantLambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['dynamodb:Query'],
     resources: [`${medicineDoseLogTable.tableArn}/index/*`],
+  }),
+);
+// O mesmo para os itens de receita (E4): so `Query`, so nos indices da tabela.
+chatAssistantLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['dynamodb:Query'],
+    resources: [`${prescriptionItemTable.tableArn}/index/*`],
   }),
 );
 
@@ -629,6 +650,12 @@ chatAssistantLambda.addToRolePolicy(
 // conceder leitura do historico aqui daria ao chat um caminho para o arquivo
 // que ele nao precisa ter.
 backend.storage.resources.bucket.grantRead(chatAssistantLambda, 'chat-attachments/*');
+// A serie diaria do wearable (E6): so o `result.json` que a analise grava para
+// cada importacao. Os arquivos brutos que a pessoa exportou (CSV, ZIP) ficam
+// fora: o chat nao precisa deles. O papel alcanca a pasta de todo mundo; a
+// posse e conferida na porta, pelo `importId` da linha do dono (D6.1,
+// `lerSerieDaImportacao` em `tools/ownerScopedRead.ts`).
+backend.storage.resources.bucket.grantRead(chatAssistantLambda, 'health-imports/*/result.json');
 backend.chatAssistant.addEnvironment(
   'HEALTH_BUCKET_NAME',
   backend.storage.resources.bucket.bucketName,

@@ -33,6 +33,7 @@ import { normalizePrescriptionItem } from './prescriptionNormalizer';
 import { planejarRegravacao } from './regravacao';
 import {
   apagarLinhas,
+  listarItensDaReceita,
   listarLinhasDoDocumento,
   markFailed,
   markNoResults,
@@ -43,6 +44,7 @@ import {
   readDocumentRow,
   separarLinhasGravaveis,
 } from './resultRepository';
+import { itensDaReceitaParaApagar } from './regravacaoDaReceita';
 import { rebaixarLidasDeGrafico } from './valorDeGrafico';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient());
@@ -154,6 +156,9 @@ export async function handler(event: InvokeEvent): Promise<void> {
     // 3b. Varias folhas (E6): toda folha e FOTO, e toda folha cabe no bloco de
     //     imagem. PDF ja tem paginas, e misturar os dois nao e oferecido.
     let folhasDeImagem: Extract<ExtractionSource, { kind: 'folhas' }>['folhas'] | null = null;
+    // Partes do PDF dividido que nao foram lidas. A limpeza da releitura de
+    // receita (risco 1 do E4) nao apaga nada quando ha alguma.
+    let partesQueFalharam = 0;
     if (folhas.length > 1) {
       folhasDeImagem = [];
       for (const folha of folhas) {
@@ -199,13 +204,8 @@ export async function handler(event: InvokeEvent): Promise<void> {
         });
       }
       saida = juntarPartes(leituras);
-      console.info(
-        JSON.stringify({
-          evento: 'pdf-dividido',
-          partes: leituras.length,
-          partesQueFalharam: leituras.filter((l) => !l.saida.ok).length,
-        }),
-      );
+      partesQueFalharam = leituras.filter((l) => !l.saida.ok).length;
+      console.info(JSON.stringify({ evento: 'pdf-dividido', partes: leituras.length, partesQueFalharam }));
     }
     if (!saida.ok) {
       await markFailed(ddb, documentTable, documentId, copyDaFalha(saida.motivo));
@@ -322,6 +322,18 @@ export async function handler(event: InvokeEvent): Promise<void> {
     await putLabResults(ddb, labResultTable, plano.gravar);
     await apagarLinhas(ddb, labResultTable, plano.apagar);
     await putPrescriptionItems(ddb, prescriptionTable, itensReceita);
+    // Releitura de receita (risco 1 do E4): o que a leitura anterior gravou e
+    // esta nao, sai -- DEPOIS de gravar os novos, pelo mesmo motivo de acima.
+    // So em receita: exame nao tem item, e a consulta seria trabalho a toa.
+    if (kind === 'prescription') {
+      const existentes = await listarItensDaReceita(ddb, prescriptionTable, documentId);
+      const gravados = new Set(itensReceita.map((i) => i.id));
+      await apagarLinhas(
+        ddb,
+        prescriptionTable,
+        itensDaReceitaParaApagar(existentes, gravados, { owner, leituraCompleta: partesQueFalharam === 0 }),
+      );
+    }
 
     await markSucceeded(ddb, documentTable, documentId, {
       checksum,

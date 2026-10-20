@@ -7,6 +7,7 @@
 import type { AnswerCitation, MemoryProposal } from './chatSchema';
 import type { ChatIdentity } from './auth';
 import type { FormatoDeImagem } from '../extract-document-data/formatoDoArquivo';
+import type { LeiturasDoTurno, SeriesDoTurno } from './tools/ownerScopedRead';
 
 /**
  * Qual dos quatro caminhos da D31 aconteceu. E o dado que calibra a secao 7 da
@@ -70,7 +71,15 @@ export type LocalDoUsuario = { uf: string | null; codigoMunicipio: string | null
  * O que o turno sabe alem da identidade e da entrada do modelo, e que chega as
  * ferramentas como parametro proprio (ver `tools/tipos.ts`).
  */
-export type ContextoDoTurno = { local: LocalDoUsuario | null };
+export type ContextoDoTurno = {
+  local: LocalDoUsuario | null;
+  /** O registro de leituras deste turno (risco 3 do E4). Opcional: os testes
+   *  chamam as ferramentas sem ele, e ai cada uma le por conta propria. */
+  leituras?: LeiturasDoTurno;
+  /** As series diarias do wearable ja lidas neste turno (E6), pelo mesmo
+   *  motivo e com a mesma vida de `leituras`. */
+  series?: SeriesDoTurno;
+};
 
 export type ChatTurnRequest = {
   message: string;

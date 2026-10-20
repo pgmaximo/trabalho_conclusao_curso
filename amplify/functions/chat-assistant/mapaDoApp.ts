@@ -168,3 +168,16 @@ function linhaDaTela({ nome, apelidos, caminho, oQueFaz }: TelaDoMapa): string {
 
 /** Uma linha por tela, sem rota. Entra no prompt fixo, em todo turno. */
 export const MAPA_DO_APP_PROMPT = MAPA_DO_APP.map(linhaDaTela).join('\n');
+
+/**
+ * O caminho de uma tela, em toques ("Mais > Dados do smartwatch > Importar"),
+ * para uma ferramenta dizer onde ver ou como atualizar (E6). Sai do MESMO mapa
+ * que o prompt usa: um caminho escrito a mao na ferramenta envelheceria quando a
+ * tela mudasse, e o teste do mapa nao o veria. Rota desconhecida e erro de
+ * programacao, e falha alto.
+ */
+export function caminhoDaTela(rota: string): string {
+  const tela = MAPA_DO_APP.find((t) => t.rota === rota);
+  if (!tela) throw new Error(`Tela fora do mapa do app: ${rota}`);
+  return tela.caminho.join(' > ');
+}

@@ -60,6 +60,9 @@ function comoCitacao(
  * aqui o comentario deste arquivo dizia que nenhuma outra tool alem da de
  * analitos devolvia linha: as citacoes das respostas que ela alimentava eram
  * descartadas no enriquecimento, e a pessoa via o numero sem origem.
+ *
+ * A `consultar_comparacao` (E10) entra pelo mesmo motivo: o exame de cada par
+ * e um valor citado.
  */
 export function indexarLinhasCitaveis(
   toolOutputs: { name: string; output: unknown }[],
@@ -72,6 +75,18 @@ export function indexarLinhasCitaveis(
       if (!Array.isArray(linhas)) continue;
       for (const l of linhas as LinhaDeResultados[]) {
         const c = comoCitacao(l.id, typeof l.analito === 'string' ? l.analito : '', l);
+        if (c) indice.set(c.resultId, c);
+      }
+      continue;
+    }
+    if (name === 'consultar_comparacao') {
+      // O exame de cada par (E10): e um numero de exame citado, e a R4 vale
+      // para ele como para a serie de onde saiu.
+      const saida = output as { analito?: unknown; pares?: { exame?: ColetaDaTool }[] } | null;
+      if (!Array.isArray(saida?.pares)) continue;
+      const rotulo = typeof saida.analito === 'string' ? saida.analito : '';
+      for (const par of saida.pares) {
+        const c = par.exame ? comoCitacao(par.exame.id, rotulo, par.exame) : null;
         if (c) indice.set(c.resultId, c);
       }
       continue;

@@ -26,7 +26,7 @@
 import { z } from 'zod';
 
 import type { ChatIdentity } from '../auth';
-import type { DegradedBlock } from '../types';
+import type { DegradedBlock, ContextoDoTurno } from '../types';
 import { montarSaida, valoresCadastradosDosMedicamentos, type SaidaDosMedicamentos } from './medicamentosSaida';
 import { lerDoDono } from './ownerScopedRead';
 import type { ChatTool } from './tipos';
@@ -37,8 +37,8 @@ export const medicamentosTool: ChatTool = {
     'Lista os medicamentos que o próprio usuário cadastrou no aplicativo, exatamente como ele os registrou: nome, dose digitada, horários, período, frequência, forma, estoque registrado e observações. NÃO prescreve, NÃO sugere dose, NÃO altera cadastro, NÃO diz se um medicamento é adequado e NÃO diz se a dose foi tomada.',
   inputSchema: z.object({}).strict(),
   readOnly: true,
-  async run(_input: unknown, identity: ChatIdentity): Promise<SaidaDosMedicamentos> {
-    return montarSaida(await lerDoDono(process.env.MEDICINE_TABLE_NAME, identity));
+  async run(_input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno): Promise<SaidaDosMedicamentos> {
+    return montarSaida(await lerDoDono(process.env.MEDICINE_TABLE_NAME, identity, contexto?.leituras));
   },
   valoresCadastrados: valoresCadastradosDosMedicamentos,
   renderDegraded(output: unknown): DegradedBlock | null {

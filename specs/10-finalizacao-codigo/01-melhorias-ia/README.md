@@ -17,9 +17,9 @@ A ordem dos cinco primeiros foi definida pelo produto em 2026-10-17. O restante 
 | 5 | **E1** | Data de hoje e mapa do app | [E1](./decisoes/E1-contexto-e-mapa-do-app.md) | P | Concluído (2026-10-19; conferência no sandbox pendente, ver `E1-contexto-e-mapa-do-app/tasks.md`) |
 | 6 | **E5** | Campos que faltam em agenda e vacinas | [E5](./decisoes/E5-agenda-e-vacinas.md) | P | Concluído (2026-10-19; conferência no sandbox pendente, ver `E5-agenda-e-vacinas/tasks.md`) |
 | 7 | **E3** | Doses tomadas (adesão) | [E3](./decisoes/E3-doses-tomadas.md) (D2.3 + D3.1 a D3.5) | M | Concluído (2026-10-19; conferência no sandbox pendente, ver `E3-doses-tomadas/tasks.md`) |
-| 8 | E4 | Receitas extraídas e situação dos documentos | sem decisão aberta | M | Não iniciado |
-| 9 | E10 | Panorama geral; comparação entre domínios (estudo) | estudo em 10.2 | G | Não iniciado |
-| 10 | E6 | Wearable: histórico e série diária | sem decisão aberta | M | Não iniciado |
+| 8 | **E4** | Receitas extraídas e situação dos documentos | [E4](./decisoes/E4-receitas-e-documentos.md) (D4.1 e D4.2) | M | Concluído (2026-10-19; conferência no sandbox pendente, ver `E4-receitas-e-documentos/tasks.md`; riscos 1 a 4 corrigidos no fechamento, D4.3) |
+| 9 | **E10** | Panorama geral; comparação entre domínios | [E10](./decisoes/E10-panorama-e-comparacao.md) (D10.1 e D10.2, do [estudo 10.2](./estudos/E10.2-comparacao-entre-dominios.md); D10.3 a D10.6, do [estudo dos riscos](./estudos/E10-riscos-da-entrega.md)) | G | Concluído (2026-10-19; feito antes do E6 por decisão do produto; conferência no sandbox pendente, ver `E10-panorama-e-comparacao/tasks.md`) |
+| 10 | **E6** | Wearable: histórico e série diária | [E6](./decisoes/E6-wearable-serie-e-historico.md) (D6.1 a D6.3, nasceram na leitura do código) | M | Concluído (2026-10-20; 222 suítes, 3741 testes verdes; conferência no sandbox pendente, ver `E6-wearable-serie-e-historico/tasks.md`) |
 | 11 | E11 | Ações propostas pela IA e confirmadas pelo usuário | estudo ao chegar no épico | G | Aprovado o conceito, escopo a definir |
 | 12 | E12 | Histórico de conversas (a persistência já existe; resta achar a lacuna) | estudo ao chegar no épico | P | Não iniciado |
 
@@ -29,7 +29,7 @@ Estados possíveis: Não iniciado · Aguardando decisão · Decidido · Em espec
 
 - **E3 depende do E2:** para saber quais doses eram esperadas, o E3 precisa da frequência completa que o E2 passa a devolver.
 - **E11 depende do E1.1:** propor "marcar retorno sexta" exige a data de hoje no contexto. O E1 já vem antes.
-- **E10.1 (panorama) depende de ferramentas dos demais:** vem depois do E2, E5 e E6 para resumir domínios completos.
+- **E10.1 (panorama) depende de ferramentas dos demais:** vem depois do E2 e do E5. O E6 não bloqueia (decisão do produto, 2026-10-19): o panorama só usa a data da última importação, que o chat já lê. A janela diária da comparação (E10.2) esperava o E6.2, e entrou com ele.
 - **E9 depende de ler medicamentos cadastrados:** já existe. O E2 melhora a qualidade do cruzamento, mas não bloqueia.
 - **E7 e E8 são independentes** entre si e dos demais.
 
@@ -41,7 +41,7 @@ Todas as decisões abertas estão em [`decisoes/`](./decisoes/README.md). Cada d
 
 Três épicos começam com um estudo, não com código. Os documentos serão criados em `estudos/` quando chegar a vez de cada um:
 
-- **E10.2:** formato seguro para comparar domínios (exame, sono, adesão) sem interpretar.
+- **E10.2:** formato seguro para comparar domínios (exame, sono, adesão) sem interpretar. Feito: [`estudos/E10.2-comparacao-entre-dominios.md`](./estudos/E10.2-comparacao-entre-dominios.md).
 - **E11:** onde o usuário confirma a ação (formulário pré-preenchido, cartão na conversa ou outro) e quais ações entram.
 - **E12:** o histórico já é persistido (`chatHistoryService`, `HistoryDrawer`). O estudo lista o que ainda falta e decide se o épico vale a pena.
 

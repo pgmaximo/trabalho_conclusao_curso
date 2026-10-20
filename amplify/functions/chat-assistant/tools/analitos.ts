@@ -20,7 +20,7 @@ import { z } from 'zod';
 
 import type { ChatIdentity } from '../auth';
 import { ANALYTE_CATALOG, findAnalyteByCode } from '../../extract-document-data/analyteCatalog';
-import type { DegradedBlock } from '../types';
+import type { DegradedBlock, ContextoDoTurno } from '../types';
 import { unidadeLegivel } from '../../extract-document-data/unidadeLegivel';
 import { formatarData, formatarDecimal, semAcento } from '../formatoPtBr';
 import { lerDoDono, texto } from './ownerScopedRead';
@@ -126,6 +126,111 @@ const entrada = z
   .object({ analyteCode: z.string().optional(), termo: z.string().optional() })
   .strict();
 
+/**
+ * A serie de um analito a partir das linhas do dono, sem leitura (E10). E o
+ * corpo de `consultar_analito`, exportado para a comparacao do E10 usar a
+ * MESMA resolucao de termo e as MESMAS exclusoes: uma segunda copia citaria
+ * um numero que a serie esconde.
+ */
+export function serieDoAnalito(linhas: LinhaDeResultado[], pedido: { analyteCode?: string; termo?: string }) {
+  // O catalogo vem primeiro -- MAS so vence se a pessoa tiver linha com o
+  // codigo dele. A razao e a ampliacao do Bloco 10: analitos que eram de
+  // codigo local (D32) passaram a ter codigo LOINC, e as linhas gravadas
+  // ANTES continuam com o local. Sem esta regra, "zinco" resolveria para o
+  // codigo novo, que ninguem tem, e o zinco que a tela mostra ficaria
+  // invisivel a conversa.
+  const temLinha = (c: string) => linhas.some((l) => l.analyteCode === c);
+  const peloCatalogo = pedido.termo ? resolverPeloCatalogo(pedido.termo) : null;
+  const peloHistorico = pedido.termo ? resolverPeloHistorico(pedido.termo, linhas) : null;
+  const codigo =
+    (pedido.analyteCode ? pedido.analyteCode : null) ??
+    (peloCatalogo && temLinha(peloCatalogo) ? peloCatalogo : (peloHistorico ?? peloCatalogo));
+
+  if (!codigo) {
+    return { disponivel: false as const, explicacao: AUSENTE_NO_CATALOGO };
+  }
+
+  const doAnalito = linhas.filter((l) => l.analyteCode === codigo);
+  const doCatalogo = findAnalyteByCode(codigo);
+  const nome = doCatalogo?.projectLabel ?? doAnalito[0]?.projectLabel ?? codigo;
+
+  if (doAnalito.length === 0) {
+    return {
+      disponivel: false as const,
+      analyteCode: codigo,
+      nome,
+      explicacao: 'O usuário não tem nenhum resultado registrado deste exame.',
+    };
+  }
+
+  // Uma serie por momento da coleta (D22): glicose em jejum e de 120 minutos
+  // sao condicoes que nao se comparam, e junta-las faria o modelo descrever
+  // uma serra que nao existe.
+  const grupos = new Map<string, LinhaDeResultado[]>();
+  for (const l of doAnalito) {
+    const chave = chaveDoMomento(l.collectionMoment);
+    grupos.set(chave, [...(grupos.get(chave) ?? []), l]);
+  }
+
+  const series = [...grupos.entries()].map(([chave, doGrupo]) => {
+    const unidade = unidadeDaSerie(doGrupo);
+    const comparaveis: LinhaDeResultado[] = [];
+    const naoComparaveis: { id: string; dataDaColeta: string | null; documentoId: string; motivo: string }[] = [];
+
+    for (const l of doGrupo) {
+      const motivo = motivoDaExclusao(l, unidade);
+      if (motivo === null) comparaveis.push(l);
+      // Contadas e explicadas, nunca omitidas -- o modelo precisa saber que
+      // existem para poder mencionar, e a R5 manda ele dizer o que nao sabe.
+      else
+        naoComparaveis.push({
+          id: l.id,
+          dataDaColeta: l.collectedAt,
+          documentoId: l.documentId,
+          motivo: MOTIVOS_DE_EXCLUSAO[motivo],
+        });
+    }
+
+    return {
+      momento: chave === '' ? null : chave,
+      // A comparacao acima usa o token; o que sai para o modelo e o legivel.
+      unidade: unidadeLegivel(unidade),
+      coletas: comparaveis
+        .sort((a, b) => (a.collectedAt ?? '').localeCompare(b.collectedAt ?? ''))
+        .map((l) => ({
+          id: l.id,
+          valor: l.value,
+          unidade: unidadeLegivel(l.unit),
+          dataDaColeta: l.collectedAt,
+          // O que estava no papel, ao lado do numero lido -- e o que permite
+          // a pessoa conferir sem abrir o documento.
+          comoEstavaNoPapel: comoEstavaNoPapel(l),
+          faixaDoLaboratorio: {
+            minimo: l.referenceLow,
+            maximo: l.referenceHigh,
+            // A faixa que o laudo escreveu em tabela, quando nao ha dois numeros
+            // (Bloco 9). Ela vem na unidade do PAPEL e nunca foi convertida --
+            // o modelo a repassa como esta, e nao escolhe linha dentro dela.
+            comoOLaudoEscreveu: l.rawReferenceText,
+          },
+          documentoId: l.documentId,
+        })),
+      naoComparaveis,
+    };
+  });
+
+  return {
+    disponivel: true as const,
+    analyteCode: codigo,
+    nome,
+    nomeOficial: doCatalogo?.label ?? doAnalito[0]?.analyteLabel ?? null,
+    series,
+  };
+}
+
+/** O que `consultar_analito` devolve. */
+export type SaidaDoAnalito = ReturnType<typeof serieDoAnalito>;
+
 export const analitosTool: ChatTool = {
   name: 'consultar_analito',
   description:
@@ -133,107 +238,14 @@ export const analitosTool: ChatTool = {
   inputSchema: entrada,
   readOnly: true,
 
-  async run(input: unknown, identity: ChatIdentity) {
+  async run(input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno) {
     const pedido = input as z.infer<typeof entrada>;
 
     // As linhas do dono vem primeiro, e nao depois de resolver o codigo: o
     // historico e a segunda fonte da busca por termo (codigo local, D32), e
     // sem ele um analito que a tela mostra ficaria invisivel a conversa.
-    const linhas = (await lerDoDono(process.env.LAB_RESULT_TABLE_NAME, identity)).map(comoLinha);
-
-    // O catalogo vem primeiro -- MAS so vence se a pessoa tiver linha com o
-    // codigo dele. A razao e a ampliacao do Bloco 10: analitos que eram de
-    // codigo local (D32) passaram a ter codigo LOINC, e as linhas gravadas
-    // ANTES continuam com o local. Sem esta regra, "zinco" resolveria para o
-    // codigo novo, que ninguem tem, e o zinco que a tela mostra ficaria
-    // invisivel a conversa.
-    const temLinha = (c: string) => linhas.some((l) => l.analyteCode === c);
-    const peloCatalogo = pedido.termo ? resolverPeloCatalogo(pedido.termo) : null;
-    const peloHistorico = pedido.termo ? resolverPeloHistorico(pedido.termo, linhas) : null;
-    const codigo =
-      (pedido.analyteCode ? pedido.analyteCode : null) ??
-      (peloCatalogo && temLinha(peloCatalogo) ? peloCatalogo : (peloHistorico ?? peloCatalogo));
-
-    if (!codigo) {
-      return { disponivel: false, explicacao: AUSENTE_NO_CATALOGO };
-    }
-
-    const doAnalito = linhas.filter((l) => l.analyteCode === codigo);
-    const doCatalogo = findAnalyteByCode(codigo);
-    const nome = doCatalogo?.projectLabel ?? doAnalito[0]?.projectLabel ?? codigo;
-
-    if (doAnalito.length === 0) {
-      return {
-        disponivel: false,
-        analyteCode: codigo,
-        nome,
-        explicacao: 'O usuário não tem nenhum resultado registrado deste exame.',
-      };
-    }
-
-    // Uma serie por momento da coleta (D22): glicose em jejum e de 120 minutos
-    // sao condicoes que nao se comparam, e junta-las faria o modelo descrever
-    // uma serra que nao existe.
-    const grupos = new Map<string, LinhaDeResultado[]>();
-    for (const l of doAnalito) {
-      const chave = chaveDoMomento(l.collectionMoment);
-      grupos.set(chave, [...(grupos.get(chave) ?? []), l]);
-    }
-
-    const series = [...grupos.entries()].map(([chave, doGrupo]) => {
-      const unidade = unidadeDaSerie(doGrupo);
-      const comparaveis: LinhaDeResultado[] = [];
-      const naoComparaveis: { id: string; dataDaColeta: string | null; documentoId: string; motivo: string }[] = [];
-
-      for (const l of doGrupo) {
-        const motivo = motivoDaExclusao(l, unidade);
-        if (motivo === null) comparaveis.push(l);
-        // Contadas e explicadas, nunca omitidas -- o modelo precisa saber que
-        // existem para poder mencionar, e a R5 manda ele dizer o que nao sabe.
-        else
-          naoComparaveis.push({
-            id: l.id,
-            dataDaColeta: l.collectedAt,
-            documentoId: l.documentId,
-            motivo: MOTIVOS_DE_EXCLUSAO[motivo],
-          });
-      }
-
-      return {
-        momento: chave === '' ? null : chave,
-        // A comparacao acima usa o token; o que sai para o modelo e o legivel.
-        unidade: unidadeLegivel(unidade),
-        coletas: comparaveis
-          .sort((a, b) => (a.collectedAt ?? '').localeCompare(b.collectedAt ?? ''))
-          .map((l) => ({
-            id: l.id,
-            valor: l.value,
-            unidade: unidadeLegivel(l.unit),
-            dataDaColeta: l.collectedAt,
-            // O que estava no papel, ao lado do numero lido -- e o que permite
-            // a pessoa conferir sem abrir o documento.
-            comoEstavaNoPapel: comoEstavaNoPapel(l),
-            faixaDoLaboratorio: {
-              minimo: l.referenceLow,
-              maximo: l.referenceHigh,
-              // A faixa que o laudo escreveu em tabela, quando nao ha dois numeros
-              // (Bloco 9). Ela vem na unidade do PAPEL e nunca foi convertida --
-              // o modelo a repassa como esta, e nao escolhe linha dentro dela.
-              comoOLaudoEscreveu: l.rawReferenceText,
-            },
-            documentoId: l.documentId,
-          })),
-        naoComparaveis,
-      };
-    });
-
-    return {
-      disponivel: true,
-      analyteCode: codigo,
-      nome,
-      nomeOficial: doCatalogo?.label ?? doAnalito[0]?.analyteLabel ?? null,
-      series,
-    };
+    const linhas = (await lerDoDono(process.env.LAB_RESULT_TABLE_NAME, identity, contexto?.leituras)).map(comoLinha);
+    return serieDoAnalito(linhas, pedido);
   },
 
   renderDegraded(output: unknown): DegradedBlock | null {

@@ -254,7 +254,7 @@ describe('SYSTEM_PROMPT — campanhas e postos (E8)', () => {
 
 describe('SYSTEM_PROMPT — medicamentos (E2)', () => {
   const trecho = () => {
-    const inicio = SYSTEM_PROMPT.indexOf('consultar_medicamentos');
+    const inicio = SYSTEM_PROMPT.indexOf('Para os remédios que a pessoa cadastrou, use consultar_medicamentos');
     expect(inicio).toBeGreaterThan(-1);
     return SYSTEM_PROMPT.slice(inicio, SYSTEM_PROMPT.indexOf('\n', inicio));
   };
@@ -293,7 +293,7 @@ describe('SYSTEM_PROMPT — medicamentos (E2)', () => {
 
 describe('SYSTEM_PROMPT — medicamentos, revisão do E2', () => {
   const trecho = () => {
-    const inicio = SYSTEM_PROMPT.indexOf('consultar_medicamentos');
+    const inicio = SYSTEM_PROMPT.indexOf('Para os remédios que a pessoa cadastrou, use consultar_medicamentos');
     return SYSTEM_PROMPT.slice(inicio, SYSTEM_PROMPT.indexOf('\n', inicio));
   };
 
@@ -477,3 +477,133 @@ describe('o prompt do E3', () => {
     expect(SYSTEM_PROMPT).toContain('dá para editar o remédio na tela de Medicamentos');
   });
 });
+
+describe('SYSTEM_PROMPT — receitas e situação da leitura (E4)', () => {
+  it('diz quando usar consultar_receitas e em que ela difere de consultar_medicamentos (CA-18)', () => {
+    expect(SYSTEM_PROMPT).toMatch(/consultar_receitas[^\n]*consultar_medicamentos/);
+  });
+
+  it('trata todo item como leitura da foto, e nome duvidoso como possível erro', () => {
+    expect(SYSTEM_PROMPT).toContain('lidos automaticamente do arquivo da receita e ninguém os conferiu');
+    expect(SYSTEM_PROMPT).toMatch(/leituraDuvidosa[^\n]*pode estar errado/);
+  });
+
+  it('nunca diz dose, frequência ou duração da receita, e encaminha com palavra que a R2 reconhece', () => {
+    expect(SYSTEM_PROMPT).toMatch(/Nunca diga dose, frequência ou duração da receita/);
+    expect(SYSTEM_PROMPT).toContain('o médico que receitou ou o farmacêutico orienta');
+  });
+
+  it('contrasta receitas também com consultar_exames, e a validade sem juízo (revisao do E4, CA-18)', () => {
+    expect(SYSTEM_PROMPT).toMatch(/consultar_receitas[^\n]*consultar_exames/);
+    expect(SYSTEM_PROMPT).toMatch(/validaAte[^\n]*sem dizer se ainda vale/);
+  });
+
+  it('o caminho da receita e o botão que existe na tela (revisao do E4)', () => {
+    expect(SYSTEM_PROMPT).toContain('Exames > tocar no documento > Baixar documento');
+  });
+
+  it('situação da leitura: palavras da explicação, sem prometer prazo', () => {
+    expect(SYSTEM_PROMPT).toMatch(/leitura\.situacao[^\n]*explicacaoDaLeitura/);
+    expect(SYSTEM_PROMPT).toMatch(/Nunca diga quanto tempo a leitura vai levar/);
+  });
+});
+
+describe('o panorama e a comparacao no prompt (E10)', () => {
+  const linhaDe = (ferramenta: string) => {
+    const inicio = SYSTEM_PROMPT.indexOf(`use ${ferramenta}`);
+    expect(inicio).toBeGreaterThan(-1);
+    const comeco = SYSTEM_PROMPT.lastIndexOf('\n', inicio);
+    return SYSTEM_PROMPT.slice(comeco, SYSTEM_PROMPT.indexOf('\n', inicio));
+  };
+
+  it('o resumo geral e do panorama, e nao mais de consultar_resultados', () => {
+    expect(SYSTEM_PROMPT).not.toMatch(/como a pessoa está de modo geral, use consultar_resultados/);
+    expect(linhaDe('consultar_panorama')).toMatch(/contagens e datas/);
+    expect(linhaDe('consultar_panorama')).toMatch(/só se a pessoa pedir/);
+  });
+
+  it('proibe dizer se a pessoa esta bem ou mal', () => {
+    expect(linhaDe('consultar_panorama')).toMatch(/Nunca diga se a pessoa está bem ou mal/);
+  });
+
+  it('a comparacao manda separar os blocos e dizer as datas da janela de 28 dias (E6)', () => {
+    expect(linhaDe('consultar_comparacao')).toMatch(/dois blocos separados/);
+    expect(linhaDe('consultar_comparacao')).toMatch(/28 dias antes/);
+    expect(SYSTEM_PROMPT).not.toMatch(/mês com mais dias nas 4 semanas/);
+  });
+
+  it('a comparacao manda nao escrever a frase fixa, que e do aplicativo', () => {
+    expect(linhaDe('consultar_comparacao')).toMatch(/O aplicativo acrescenta a frase/);
+    expect(linhaDe('consultar_comparacao')).toMatch(/não a escreva/);
+  });
+
+  it('o prompt nao escreve conector de causa: o modelo imita o que le', () => {
+    expect(linhaDe('consultar_comparacao')).not.toMatch(/caus|explic|influenci|contribu/i);
+  });
+});
+
+describe('a leitura que parou no teto (E10, D10.4)', () => {
+  it('manda dizer "pelo menos" no panorama e que pode haver mais na comparacao', () => {
+    expect(SYSTEM_PROMPT).toMatch(/leituraIncompleta/);
+    expect(SYSTEM_PROMPT).toMatch(/pelo menos/);
+  });
+});
+
+describe('uma frase, um dominio no prompt (E10, D10.6)', () => {
+  it('manda escrever cada dado na sua propria frase quando a resposta junta assuntos', () => {
+    expect(SYSTEM_PROMPT).toMatch(/cada dado na sua própria frase/);
+    expect(SYSTEM_PROMPT).toMatch(/consultar_wearable/);
+  });
+});
+
+describe('o wearable dia a dia no prompt (E6)', () => {
+  const linhaDe = (ferramenta: string) => {
+    const inicio = SYSTEM_PROMPT.indexOf(`use ${ferramenta}`);
+    expect(inicio).toBeGreaterThan(-1);
+    const comeco = SYSTEM_PROMPT.lastIndexOf('\n', inicio);
+    return SYSTEM_PROMPT.slice(comeco, SYSTEM_PROMPT.indexOf('\n', inicio));
+  };
+
+  it('diz quando usar consultar_wearable_dias e a contrasta com o resumo e a comparacao', () => {
+    const linha = linhaDe('consultar_wearable_dias');
+    expect(linha).toMatch(/consultar_wearable\b/);
+    expect(linha).toMatch(/consultar_comparacao/);
+  });
+
+  it('os dados sao da ultima importacao, nunca de hoje: dizer ate que dia vao e como atualizar', () => {
+    const linha = linhaDe('consultar_wearable_dias');
+    expect(linha).toMatch(/última importação/);
+    expect(linha).toMatch(/nunca são de hoje/);
+    expect(linha).toMatch(/até que dia/);
+    expect(linha).toMatch(/comoAtualizar/);
+  });
+
+  it('confere a data e o dia da semana da ferramenta, e o sono e a noite que terminou naquela manha', () => {
+    const linha = linhaDe('consultar_wearable_dias');
+    expect(linha).toMatch(/dia da semana/);
+    expect(linha).toMatch(/noite que terminou/);
+  });
+
+  it('a diferenca e a da ferramenta, e nunca um julgamento', () => {
+    const linha = linhaDe('consultar_wearable_dias');
+    expect(linha).toMatch(/diferença com as palavras da ferramenta/);
+    expect(linha).toMatch(/[Nn]unca diga que melhorou, piorou/);
+  });
+
+  it('a analise da tela: o que ela mostrou, e o resto na tela', () => {
+    expect(linhaDe('consultar_wearable_dias')).toMatch(/analiseDaTela/);
+  });
+
+  it('a regra de uma frase, um dominio cita os tres assuntos e as suas ferramentas (revisao do E6)', () => {
+    expect(SYSTEM_PROMPT).toMatch(/exame \(consultar_analito, consultar_resultados\)/);
+    expect(SYSTEM_PROMPT).toMatch(/relógio \(consultar_wearable, consultar_wearable_dias\)/);
+    expect(SYSTEM_PROMPT).toMatch(/remédio \(consultar_medicamentos, consultar_doses_tomadas, consultar_receitas\)/);
+    // o aviso antes evita a nova geracao: o fato, sem "porque" ligando uma frase a outra
+    expect(SYSTEM_PROMPT).toMatch(/sem ligar uma frase à outra por "porque" ou "por isso"/);
+  });
+
+  it('a janela da comparacao vai numa frase so do wearable (D10.6)', () => {
+    expect(linhaDe('consultar_comparacao')).toMatch(/datas da janela/);
+  });
+});
+

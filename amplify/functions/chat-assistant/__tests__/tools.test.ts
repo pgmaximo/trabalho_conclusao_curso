@@ -39,6 +39,9 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
   },
 }));
 jest.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: class {} }));
+// A serie do wearable (E6) vem do bucket, pela porta do dono. Simulada vazia:
+// as afirmacoes deste arquivo sao sobre o banco.
+jest.mock('../tools/bucketDaSerie', () => ({ baixarTextoDoBucket: jest.fn().mockResolvedValue(null) }));
 
 import type { ChatIdentity } from '../auth';
 import { CHAT_TOOLS, runTool } from '../tools';
@@ -56,6 +59,8 @@ const TABELAS = {
   HEALTH_IMPORT_TABLE_NAME: 't-health',
   SITE_CACHE_TABLE_NAME: 't-site',
   MEDICINE_DOSE_LOG_TABLE_NAME: 't-dose',
+  PRESCRIPTION_ITEM_TABLE_NAME: 't-presc',
+  HEALTH_BUCKET_NAME: 'b-saude',
 };
 
 /**
@@ -68,6 +73,17 @@ const TABELAS = {
 const FERRAMENTAS_PUBLICAS = new Set(['consultar_campanhas', 'consultar_postos']);
 const comDono = () => CHAT_TOOLS.filter((t) => !FERRAMENTAS_PUBLICAS.has(t.name));
 const COM_CIDADE = { local: { uf: 'SP', codigoMunicipio: '355030' } };
+
+/**
+ * A entrada minima valida de quem tem campo obrigatorio (E10). Sem ela, a
+ * chamada com `{}` seria reprovada pelo schema ANTES de ler -- e as afirmacoes
+ * sobre o dono passariam por nao terem lido nada.
+ */
+const ENTRADA_MINIMA: Record<string, unknown> = {
+  consultar_comparacao: { termo: 'colesterol', dadoDoWearable: 'sono' },
+  consultar_wearable_dias: { metrica: 'sono' },
+};
+const entradaDe = (nome: string) => ENTRADA_MINIMA[nome] ?? {};
 
 beforeAll(() => Object.assign(process.env, TABELAS));
 beforeEach(() => mockSend.mockReset().mockResolvedValue({ Items: [] }));
@@ -143,6 +159,13 @@ describe('o registro das tools', () => {
     }
   });
 
+  it('consultar_wearable_dias esta registrada, logo depois de consultar_wearable (E6)', () => {
+    // Wearable e o RESUMO da importacao; dias e o dia a dia e a comparacao de
+    // periodos. Lado a lado, as descricoes se contrastam.
+    const nomes = CHAT_TOOLS.map((t) => t.name);
+    expect(nomes.indexOf('consultar_wearable_dias')).toBe(nomes.indexOf('consultar_wearable') + 1);
+  });
+
   it('consultar_prevencao esta registrada, logo depois de consultar_vacinas (E7)', () => {
     // Registrada, ela passa a ser coberta por todos os testes de lista inteira
     // deste arquivo -- nenhuma escreve, dono so do token, dono plantado
@@ -183,6 +206,13 @@ describe('o registro das tools', () => {
     expect(nomes.slice(i, i + 3)).toEqual(['consultar_medicamentos', 'consultar_doses_tomadas', 'consultar_interacoes']);
   });
 
+  it('consultar_receitas esta registrada, logo depois de consultar_analito (E4)', () => {
+    // Fecha o bloco de documentos: exames diz QUE documentos existem; receitas,
+    // o que a receita trazia. A descricao a contrasta com consultar_medicamentos.
+    const nomes = CHAT_TOOLS.map((t) => t.name);
+    expect(nomes.indexOf('consultar_receitas')).toBe(nomes.indexOf('consultar_analito') + 1);
+  });
+
   it('toda ferramenta publica da lista fechada existe de verdade', () => {
     const registrados = new Set(CHAT_TOOLS.map((t) => t.name));
     for (const nome of FERRAMENTAS_PUBLICAS) expect(registrados.has(nome)).toBe(true);
@@ -208,7 +238,7 @@ describe('o dono, em toda tool', () => {
   it('toda consulta e montada com o dono do TOKEN', async () => {
     for (const tool of comDono()) {
       mockSend.mockClear();
-      await runTool(tool.name, {}, IDENTIDADE);
+      await runTool(tool.name, entradaDe(tool.name), IDENTIDADE);
       expect(mockSend).toHaveBeenCalled();
       const consultas = JSON.stringify(mockSend.mock.calls);
       expect(consultas).toContain('s-1::u-1');
@@ -220,7 +250,7 @@ describe('o dono, em toda tool', () => {
     // ligado a `:owner` precisa ser ELE, e a expressao precisa ser a do dono.
     for (const tool of comDono()) {
       mockSend.mockClear();
-      await runTool(tool.name, {}, IDENTIDADE);
+      await runTool(tool.name, entradaDe(tool.name), IDENTIDADE);
       for (const [comando] of mockSend.mock.calls) {
         const entrada = (comando as { input: Record<string, unknown> }).input;
         expect(entrada.FilterExpression).toBe('#owner = :owner');
@@ -247,6 +277,23 @@ describe('o dono, em toda tool', () => {
       expect(input.FilterExpression).toBe('#owner = :owner');
       expect(input.ExpressionAttributeValues).toMatchObject({ ':owner': 's-1::u-1' });
     }
+  });
+
+  it('a leitura dos itens de receita tambem filtra pelo dono do token (E4)', async () => {
+    // Mesma razao do teste acima: so ha Query de itens quando ha receita.
+    mockSend.mockImplementation(async (comando: object) =>
+      comando.constructor.name === 'ScanCommand'
+        ? { Items: [{ id: 'doc-1', documentType: 'prescription', documentDate: '2026-10-10' }] }
+        : { Items: [] },
+    );
+
+    await runTool('consultar_receitas', {}, IDENTIDADE);
+
+    const consultas = mockSend.mock.calls.map(([c]) => c as { constructor: { name: string }; input: Record<string, unknown> });
+    const porIndice = consultas.filter((c) => c.constructor.name === 'QueryCommand');
+    expect(porIndice).toHaveLength(1);
+    expect(porIndice[0].input.FilterExpression).toBe('#owner = :owner');
+    expect(porIndice[0].input.ExpressionAttributeValues).toMatchObject({ ':owner': 's-1::u-1' });
   });
 
   it('um dono plantado na entrada REPROVA a chamada, em vez de seguir adiante', async () => {
@@ -344,7 +391,7 @@ describe('ausencia de dado e RESPOSTA, nao erro', () => {
 
   it('toda tool responde lista vazia sem erro quando nao ha dado', async () => {
     for (const tool of CHAT_TOOLS) {
-      const saida = await runTool(tool.name, {}, IDENTIDADE);
+      const saida = await runTool(tool.name, entradaDe(tool.name), IDENTIDADE);
       expect(saida).not.toHaveProperty('erro');
     }
   });

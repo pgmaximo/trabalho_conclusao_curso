@@ -7,7 +7,7 @@
 import { z } from 'zod';
 
 import type { ChatIdentity } from '../auth';
-import type { DegradedBlock } from '../types';
+import type { DegradedBlock, ContextoDoTurno } from '../types';
 import { lerDoDono } from './ownerScopedRead';
 import type { ChatTool } from './tipos';
 import { montarSaida, type DoseParaOModelo } from './vacinasSaida';
@@ -18,8 +18,8 @@ export const vacinasTool: ChatTool = {
     'Lista a carteira de vacinação do usuário, separando as doses já aplicadas (com data, local, lote e fabricante) das recomendadas ainda não aplicadas, e o reforço previsto pelo registro. NÃO agenda, NÃO recomenda vacina nova e NÃO diz se a carteira está completa.',
   inputSchema: z.object({}).strict(),
   readOnly: true,
-  async run(_input: unknown, identity: ChatIdentity) {
-    return montarSaida(await lerDoDono(process.env.VACCINE_DOSE_TABLE_NAME, identity));
+  async run(_input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno) {
+    return montarSaida(await lerDoDono(process.env.VACCINE_DOSE_TABLE_NAME, identity, contexto?.leituras));
   },
   // Lote e observacao ficam de fora de proposito: o degradado (D31) mostra so
   // o que nao reprova, e observacao e texto livre.

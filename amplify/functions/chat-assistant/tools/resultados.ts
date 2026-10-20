@@ -23,7 +23,7 @@ import { unidadeLegivel } from '../../extract-document-data/unidadeLegivel';
 import { formatarData, formatarDecimal } from '../formatoPtBr';
 
 import type { ChatIdentity } from '../auth';
-import type { DegradedBlock } from '../types';
+import type { DegradedBlock, ContextoDoTurno } from '../types';
 import {
   comoEstavaNoPapel,
   comoLinha,
@@ -81,9 +81,9 @@ export const resultadosTool: ChatTool = {
   inputSchema: entrada,
   readOnly: true,
 
-  async run(input: unknown, identity: ChatIdentity) {
+  async run(input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno) {
     const pedido = input as z.infer<typeof entrada>;
-    const todas = (await lerDoDono(process.env.LAB_RESULT_TABLE_NAME, identity)).map(comoLinha);
+    const todas = (await lerDoDono(process.env.LAB_RESULT_TABLE_NAME, identity, contexto?.leituras)).map(comoLinha);
 
     const doEscopo = pedido.documentId
       ? todas.filter((l) => l.documentId === pedido.documentId)

@@ -110,6 +110,9 @@ function diasLegiveis(weekDays: unknown): string[] | null {
   return [...conhecidos, ...codigos.filter((c) => !DIAS.has(c))];
 }
 
+/** O texto do cadastro vazio, um so para esta ferramenta e o panorama (E10). */
+export const SEM_MEDICAMENTOS = 'O usuário não cadastrou nenhum medicamento no aplicativo.';
+
 /** O remedio esta em uso? So `active: false` encerra. A mesma regra nas duas
  *  ferramentas que leem o cadastro (E2 e E3). */
 export function estaEmUso(m: LinhaDoBanco): boolean {
@@ -158,7 +161,7 @@ export function montarSaida(linhas: LinhaDoBanco[]): SaidaDosMedicamentos {
     encerrados,
     omitidos: medicamentos.length - emUso.length - encerrados.length,
     ...(medicamentos.length === 0
-      ? { explicacao: 'O usuário não cadastrou nenhum medicamento no aplicativo.' }
+      ? { explicacao: SEM_MEDICAMENTOS }
       : {}),
   };
 }

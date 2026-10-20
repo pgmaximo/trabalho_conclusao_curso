@@ -10,6 +10,7 @@
 import { z } from 'zod';
 
 import type { ChatIdentity } from '../auth';
+import type { ContextoDoTurno } from '../types';
 import { lerDoDono, texto } from './ownerScopedRead';
 import type { ChatTool } from './tipos';
 
@@ -19,8 +20,8 @@ export const perfilTool: ChatTool = {
     'Consulta o perfil de saúde que o próprio usuário preencheu: data de nascimento, sexo, peso, altura, condições crônicas, medicações e alergias declaradas. NÃO calcula índices, NÃO grava nada e NÃO traz dados de exames.',
   inputSchema: z.object({}).strict(),
   readOnly: true,
-  async run(_input: unknown, identity: ChatIdentity) {
-    const linhas = await lerDoDono(process.env.USER_PROFILE_TABLE_NAME, identity);
+  async run(_input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno) {
+    const linhas = await lerDoDono(process.env.USER_PROFILE_TABLE_NAME, identity, contexto?.leituras);
     const perfil = linhas[0];
 
     if (!perfil) {

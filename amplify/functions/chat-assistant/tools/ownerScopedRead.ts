@@ -33,11 +33,20 @@
  * filtro de dono continua montado aqui e vindo so da identidade: nem o valor da
  * chave (um `medicineId`) consegue trazer linha de outra pessoa. O indice e o
  * atributo-chave vem de uma lista fechada, como as tabelas publicas.
+ *
+ * A QUARTA porta (E6, D6.1 = A): `lerSerieDaImportacao`, a unica leitura de
+ * BUCKET das ferramentas. Ela le a serie diaria do wearable (`result.json`), e
+ * recebe a LINHA que `lerDoDono` trouxe -- nunca uma chave solta, para nao
+ * existir assinatura por onde uma chave escrita pelo modelo chegue ao S3.
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
+import { isFileKeyValid } from '../../health-import-shared/fileKeyValidation';
 import type { ChatIdentity } from '../auth';
+
+import { baixarTextoDoBucket } from './bucketDaSerie';
+import { serieDoResultado, type SerieDiaria } from './serieDiaria';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient());
 
@@ -47,16 +56,63 @@ const MAX_PAGINAS = 10;
 
 export type LinhaDoBanco = Record<string, unknown>;
 
+/**
+ * As leituras ja feitas NESTE turno, por dono e tabela (risco 3 do E4). Quando
+ * o modelo chama duas ferramentas que leem a mesma tabela -- exames e receitas
+ * leem os documentos; medicamentos, doses e interacoes, os remedios --, a
+ * tabela e lida uma vez. Vive so durante um pedido: o laco cria um registro
+ * novo a cada turno, entao nada de um turno vaza para o seguinte, nem dado
+ * velho fica guardado no conteiner.
+ */
+export type LeiturasDoTurno = Map<string, Promise<LeituraDoDono>>;
+
+/**
+ * O que uma leitura trouxe, e se ela PAROU NO TETO de paginas (E10, D10.4 =
+ * B1). O Scan le a tabela de todo mundo, e depois de `MAX_PAGINAS` as linhas do
+ * dono que estao adiante nunca sao vistas. Sem este sinal, uma contagem
+ * truncada saia como exata.
+ */
+export type LeituraDoDono = { linhas: LinhaDoBanco[]; incompleta: boolean };
+
 export async function lerDoDono(
   tableName: string | undefined,
   identity: ChatIdentity,
+  leituras?: LeiturasDoTurno,
 ): Promise<LinhaDoBanco[]> {
+  return (await lerDoDonoComCorte(tableName, identity, leituras)).linhas;
+}
+
+/**
+ * `lerDoDono` que tambem diz se a leitura parou no teto. Uma porta irma, e nao
+ * uma mudanca de `lerDoDono`, para as ferramentas que nao contam nada seguirem
+ * como estao; quem devolve contagem (o panorama e a comparacao do E10) usa esta.
+ */
+export async function lerDoDonoComCorte(
+  tableName: string | undefined,
+  identity: ChatIdentity,
+  leituras?: LeiturasDoTurno,
+): Promise<LeituraDoDono> {
   if (!tableName) {
     // Configuracao ausente e falha nossa, nao do usuario. Lancar aqui faz o
     // despachante devolver erro tratado ao modelo, e o rastro fica no log.
     throw new Error('Nome de tabela nao configurado.');
   }
+  if (!leituras) return lerTabelaDoDono(tableName, identity);
 
+  const chave = `${identity.owner}|${tableName}`;
+  let leitura = leituras.get(chave);
+  if (!leitura) {
+    leitura = lerTabelaDoDono(tableName, identity);
+    leituras.set(chave, leitura);
+    // Falha nao fica guardada: a proxima ferramenta tenta de novo.
+    leitura.catch(() => leituras.delete(chave));
+  }
+  // Uma copia por chamada: a ferramenta que reordena nao mexe na lista da outra.
+  const { linhas, incompleta } = await leitura;
+  return { linhas: [...linhas], incompleta };
+}
+
+function lerTabelaDoDono(tableName: string, identity: ChatIdentity): Promise<LeituraDoDono> {
   return todasAsPaginas(
     (cursor) =>
       new ScanCommand({
@@ -76,7 +132,7 @@ type Cursor = Record<string, unknown> | undefined;
 
 /** As paginas de uma consulta, ate `MAX_PAGINAS`. Um laco so para as duas
  *  portas pessoais: o teto nao pode ser diferente entre elas. */
-async function todasAsPaginas(comando: (cursor: Cursor) => ScanCommand | QueryCommand): Promise<LinhaDoBanco[]> {
+async function todasAsPaginas(comando: (cursor: Cursor) => ScanCommand | QueryCommand): Promise<LeituraDoDono> {
   const linhas: LinhaDoBanco[] = [];
   let cursor: Cursor;
   let pagina = 0;
@@ -89,16 +145,20 @@ async function todasAsPaginas(comando: (cursor: Cursor) => ScanCommand | QueryCo
     pagina += 1;
   } while (cursor && pagina < MAX_PAGINAS);
 
-  return linhas;
+  // Saiu com cursor: havia mais pagina, e o teto a cortou.
+  return { linhas, incompleta: Boolean(cursor) };
 }
 
 /**
  * Os indices que a porta pessoal por indice aceita. Lista FECHADA, como
  * `TABELAS_PUBLICAS`: o nome do indice e os atributos da condicao de chave sao
  * nomes tecnicos, e vem daqui, nunca de quem chama. O nome do indice e o que o
- * Amplify gerou para `index('medicineId').sortKeys(['scheduledDate'])`,
- * conferido em `amplify_outputs.json` (E3).
+ * Amplify gerou, conferido em `amplify_outputs.json`: para
+ * `index('medicineId').sortKeys(['scheduledDate'])` (E3) e para
+ * `index('documentId')` de `PrescriptionItem` (E4), que nao tem ordenacao.
  */
+type EntradaDeIndice = { env: string; indice: string; chave: string; ordenacao?: string };
+
 export const INDICES_DO_DONO = {
   DOSES_POR_REMEDIO: {
     env: 'MEDICINE_DOSE_LOG_TABLE_NAME',
@@ -106,42 +166,56 @@ export const INDICES_DO_DONO = {
     chave: 'medicineId',
     ordenacao: 'scheduledDate',
   },
-} as const;
+  // Os itens lidos de uma receita (E4). Pelo indice, e nao por Scan, pelo
+  // mesmo motivo das doses (D3.2): o Scan leria os itens de todo mundo.
+  ITENS_POR_RECEITA: {
+    env: 'PRESCRIPTION_ITEM_TABLE_NAME',
+    indice: 'prescriptionItemsByDocumentId',
+    chave: 'documentId',
+  },
+} as const satisfies Record<string, EntradaDeIndice>;
 
 type IndiceDoDono = keyof typeof INDICES_DO_DONO;
 
 /**
- * Query num indice da lista, com a chave igual a `valorDaChave` e a ordenacao
- * dentro de `intervalo` -- e o filtro de dono, sempre, com o dono do token.
- * Mesmo teto de paginas de `lerDoDono`.
+ * Query num indice da lista, com a chave igual a `valorDaChave` e, quando o
+ * indice tem ordenacao, a ordenacao dentro de `intervalo` -- e o filtro de
+ * dono, sempre, com o dono do token. Mesmo teto de paginas de `lerDoDono`.
+ *
+ * Intervalo e ordenacao andam juntos: um intervalo num indice sem ordenacao
+ * seria ignorado em silencio, e um indice com ordenacao lido sem intervalo
+ * traria o historico inteiro (as doses de anos) -- os dois lancam.
  */
 export async function lerDoDonoPorIndice(
   indice: IndiceDoDono,
   valorDaChave: string,
-  intervalo: { de: string; ate: string },
+  intervalo: { de: string; ate: string } | undefined,
   identity: ChatIdentity,
 ): Promise<LinhaDoBanco[]> {
   // O tipo some no JavaScript; um nome vindo de outro lugar nao vira consulta.
   if (!Object.hasOwn(INDICES_DO_DONO, indice)) {
     throw new Error('Indice fora da lista de leitura por dono.');
   }
-  const { env, indice: indexName, chave, ordenacao } = INDICES_DO_DONO[indice];
+  const { env, indice: indexName, chave, ordenacao }: EntradaDeIndice = INDICES_DO_DONO[indice];
+  if (Boolean(ordenacao) !== Boolean(intervalo)) {
+    throw new Error('Intervalo so cabe em indice com ordenacao, e e obrigatorio nele.');
+  }
   const tableName = process.env[env];
   if (!tableName) throw new Error('Nome de tabela nao configurado.');
 
-  const linhas = await todasAsPaginas(
+  const { linhas } = await todasAsPaginas(
     (cursor) =>
       new QueryCommand({
         TableName: tableName,
         IndexName: indexName,
-        KeyConditionExpression: '#chave = :chave AND #ordem BETWEEN :de AND :ate',
+        KeyConditionExpression: `#chave = :chave${intervalo ? ' AND #ordem BETWEEN :de AND :ate' : ''}`,
         FilterExpression: '#owner = :owner',
-        ExpressionAttributeNames: { '#owner': 'owner', '#chave': chave, '#ordem': ordenacao },
+        // A checagem acima garante: com intervalo, ha ordenacao.
+        ExpressionAttributeNames: { '#owner': 'owner', '#chave': chave, ...(intervalo && { '#ordem': ordenacao! }) },
         ExpressionAttributeValues: {
           ':owner': identity.owner,
           ':chave': valorDaChave,
-          ':de': intervalo.de,
-          ':ate': intervalo.ate,
+          ...(intervalo && { ':de': intervalo.de, ':ate': intervalo.ate }),
         },
         ExclusiveStartKey: cursor,
       }),
@@ -187,6 +261,73 @@ export async function lerPublicoPorChave(
     new GetCommand({ TableName: tableName, Key: { [chave]: valorDaChave } }),
   );
   return (saida.Item as LinhaDoBanco | undefined) ?? null;
+}
+
+/**
+ * As series ja lidas NESTE turno, por importacao (E6). Mesma vida e mesmo
+ * motivo de `LeiturasDoTurno`: duas ferramentas no mesmo turno (os dias e a
+ * comparacao com exame) leem o arquivo, de alguns MB, uma vez so.
+ */
+export type SeriesDoTurno = Map<string, Promise<SerieDiaria | null>>;
+
+/** Acima disto o arquivo nao e lido: uma exportacao de 7,7 anos da alguns MB,
+ *  e o teto separa o arquivo grande do arquivo que nao devia estar ali. */
+export const TETO_DO_RESULTADO_BYTES = 20 * 1024 * 1024;
+
+/**
+ * A chave so serve se for `health-imports/<pasta>/<id DESTA linha>/result.json`.
+ *
+ * POR QUE O `importId` PROVA A POSSE (D6.1 = A): o dono edita a propria linha
+ * de `HealthImport`, inclusive `resultArtifactKey`, e o chat nao conhece o
+ * identityId que nomeia a pasta (so o `sub`, ver `metadadoDoDono.ts`). O que A
+ * nao consegue e ter uma linha com o id de uma importacao de B: o id e a chave
+ * primaria da tabela, e e um UUID. Entao o arquivo que a analise gravou para B
+ * fica fora do alcance de A. E a mesma garantia que `start-health-analysis` ja
+ * usa para os arquivos brutos, pelo mesmo `isFileKeyValid`. A pasta continua
+ * sem conferencia: quem pode gravar ali com o id da importacao de A e o dono da
+ * pasta, entregando o proprio dado.
+ */
+function chaveDaPropriaImportacao(linha: LinhaDoBanco): { key: string; importId: string } | null {
+  const key = linha.resultArtifactKey;
+  const importId = texto(linha.id);
+  if (typeof key !== 'string' || !importId) return null;
+  return isFileKeyValid(key, importId) && key.endsWith('/result.json') ? { key, importId } : null;
+}
+
+/**
+ * A serie diaria de uma importacao, ou `null` (ausencia, nunca erro): chave
+ * fora da forma, arquivo inexistente, grande demais, ilegivel, ou o S3
+ * recusando. A `linha` TEM de vir de `lerDoDono`.
+ */
+export async function lerSerieDaImportacao(linha: LinhaDoBanco, series?: SeriesDoTurno): Promise<SerieDiaria | null> {
+  const bucket = process.env.HEALTH_BUCKET_NAME;
+  if (!bucket) throw new Error('Nome do bucket nao configurado.');
+
+  const chave = chaveDaPropriaImportacao(linha);
+  // Recusada aqui, antes do S3: nem a existencia do objeto de outra pessoa e
+  // perguntada.
+  if (!chave) return null;
+
+  // Sem o registro do turno (testes), um mapa so desta chamada: um caminho so.
+  const cache = series ?? new Map();
+  let leitura = cache.get(chave.importId);
+  if (!leitura) {
+    leitura = baixarSerie(bucket, chave.key);
+    cache.set(chave.importId, leitura);
+  }
+  return leitura;
+}
+
+async function baixarSerie(bucket: string, key: string): Promise<SerieDiaria | null> {
+  try {
+    const conteudo = await baixarTextoDoBucket(bucket, key, TETO_DO_RESULTADO_BYTES);
+    return conteudo === null ? null : serieDoResultado(conteudo);
+  } catch (erro) {
+    // So o nome do erro: a mensagem do SDK traz a chave, e o conteudo do
+    // arquivo e dado de saude.
+    console.warn(JSON.stringify({ evento: 'serie-do-wearable-indisponivel', erro: (erro as Error)?.name ?? 'desconhecido' }));
+    return null;
+  }
 }
 
 /** Texto de campo, quando ele existe e nao esta vazio. */

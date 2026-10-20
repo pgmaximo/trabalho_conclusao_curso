@@ -1,3 +1,4 @@
+import { DRUG_INTERACTION_PAIRS } from '../../drug-interactions-shared/pairs';
 import { checkLanguageRules } from '../languageRules';
 
 /**
@@ -942,5 +943,94 @@ describe('/simplify do E3: "perdeu" e "esqueceu" fora do remédio', () => {
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.violations[0].reason).toMatch(/não quer dizer que ela não tomou/);
     });
+  });
+});
+
+/**
+ * Causa entre dados (E10, D10.2). Sondado em 2026-10-19 com `checkLanguageRules`:
+ * de 8 frases que ligavam dois dados de saude por causa, 6 PASSAVAM -- so
+ * "melhorou" e "piorou" eram barradas. O modelo ja podia juntar wearable e
+ * exame no mesmo turno, e a comparacao do E10 torna isso mais provavel.
+ *
+ * Os dois lados, como no E3 e no E9: as que passam sao a frase fixa da
+ * comparacao, as recusas honestas e o "por causa de" que nao fala de saude.
+ */
+describe('causa entre dados (E10, D10.2)', () => {
+  describe.each(TIPOS)('pergunta %s', (questionKind, sufixo) => {
+    it.each([
+      'Seu sono curto pode ter causado o colesterol alto.',
+      'O colesterol subiu por causa das noites mal dormidas.',
+      'Dormir pouco explica o aumento da glicose.',
+      'Os passos aumentaram e isso contribuiu para a queda da pressão.',
+      'O remédio está funcionando, o colesterol caiu.',
+      'A glicose alta é efeito do sono ruim.',
+      'Seu sono influenciou o resultado do exame.',
+      'Devido ao sedentarismo, seu colesterol subiu.',
+      'Não sei sua idade, mas seu sono explica o colesterol.',
+      'Seu peso aumentou por causa do remédio.',
+      // Achados da revisao do E10: negacao sem relacao nao absolve, e os
+      // conectores que faltavam na primeira lista.
+      'Seu exame não mostra a data, e o pouco sono causou o colesterol alto.',
+      'Seu colesterol alto pode estar relacionado ao pouco sono.',
+      'O sono curto está associado ao colesterol mais alto.',
+      'O pouco sono pode ter levado ao aumento da glicose.',
+      'O colesterol subiu por conta do sono.',
+      'Você dormiu pouco, por isso a sua glicose subiu.',
+      'O remédio está dando certo: seu colesterol caiu.',
+      'O remédio está funcionando.',
+      'O tratamento fez efeito.',
+      // Ponto de milhar nao quebra a frase (revisao do E10, /simplify).
+      'O colesterol de 210 caiu por conta da média de 7.200 passos.',
+    ])('barrada: "%s"', (frase) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: true });
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        const r3 = r.violations.filter((v) => v.rule === 'R3');
+        expect(r3).toHaveLength(1);
+        expect(r3[0].reason).toMatch(/origem no outro/);
+      }
+    });
+
+    it.each([
+      'Não consigo dizer se uma coisa influenciou a outra.',
+      'Os dados aparecem lado a lado, e isso não mostra se um influenciou o outro.',
+      'O exame de colesterol e o sono de março aparecem lado a lado, e isso não mostra se um influenciou o outro.',
+      'Os dados aparecem lado a lado.',
+      'A consulta foi remarcada por causa da chuva.',
+      'Esse remédio está cadastrado desde janeiro.',
+      'O aplicativo não sabe explicar a relação entre o sono e o exame; quem examina você pode avaliar.',
+      'A tela de Wearable mostra a relação entre sono e frequência cardíaca que a importação calculou.',
+      'Graças a você, seus dados estão em dia na tela.',
+      // Achados da revisao do E10: frases de interacao (E9) e operacionais com
+      // UM so assunto de saude nao ligam dois dados.
+      'A combinação desses dois remédios pode causar sangramento.',
+      'Juntos, esses medicamentos podem causar hipercalemia.',
+      'Uma coleta de glicose ficou fora da comparação devido à unidade diferente.',
+      'A leitura automática do exame não funcionou.',
+      'A consulta de retorno do exame foi remarcada por causa da agenda.',
+      'A tela de Exames explica como baixar o documento.',
+      'O resultado do exame ficou fora devido à unidade diferente.',
+    ])('aprovada: "%s"', (frase) => {
+      const r = checkLanguageRules(frase + sufixo, { questionKind, temOrigem: true });
+      const r3 = r.ok ? [] : r.violations.filter((v) => v.rule === 'R3');
+      expect(r3).toEqual([]);
+    });
+  });
+});
+
+/**
+ * Os textos curados de interacao (E9) passam pela guarda de causa do E10: eles
+ * dizem "pode causar", "efeito anticoagulante", "associado a" -- e e isso que o
+ * prompt manda repetir. A revisao do E10 achou a primeira versao da guarda
+ * barrando essas respostas; este teste e a cerca.
+ */
+describe('a guarda de causa nao barra os alertas de interacao (E10 x E9)', () => {
+  it.each(DRUG_INTERACTION_PAIRS.map((p) => [p.id, p] as const))('%s', (_id, par) => {
+    for (const texto of [par.riskPt, par.mechanismPt]) {
+      const frase = `A lista do aplicativo traz um alerta para ${par.a} com ${par.b}: ${texto}`;
+      const r = checkLanguageRules(frase, { questionKind: 'clinica', temOrigem: true });
+      const deCausa = r.ok ? [] : r.violations.filter((v) => /origem no outro/.test(v.reason));
+      expect(deCausa).toEqual([]);
+    }
   });
 });

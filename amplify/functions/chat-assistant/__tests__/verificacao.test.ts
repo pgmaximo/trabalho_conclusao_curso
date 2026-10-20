@@ -30,6 +30,7 @@ jest.mock('../degradedAnswer', () => ({
 }));
 
 import { montarContextoDeHoje } from '../contextoDeHoje';
+import { TEXTO_DA_COMPARACAO } from '../comparacaoFixa';
 import { TEXTO_DE_ENCAMINHAMENTO } from '../encaminhamento';
 import { INDISPONIVEL, responder, responderComVerificacao } from '../verificacao';
 
@@ -635,6 +636,114 @@ describe('classificacao clinica (U2)', () => {
 
     expect(r.status).toBe('APROVADA');
     expect(r.texto).toBe(`${ALERTA} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('comparacao lado a lado e clinica: sai com o encaminhamento do aplicativo (E10)', async () => {
+    // Exame ao lado do sono e convite a ler um pelo outro; sem a ferramenta na
+    // lista, um texto sem unidade de exame sairia sem encaminhar a ninguem.
+    const BLOCOS = 'O exame de colesterol é de março. O sono de março aparece logo abaixo.';
+    mockRunConversationTurn.mockResolvedValue(turno(BLOCOS, ['consultar_comparacao']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${BLOCOS} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('o wearable dia a dia e clinico: sai com o encaminhamento do aplicativo (E6)', async () => {
+    // "Dormi 4 horas, e apneia?" e pergunta clinica, e a resposta sobre o sono
+    // de uma noite nao tem unidade de exame que a classifique pelo texto.
+    const SONO = 'Na quinta-feira, 08/10/2026, o relógio registrou 6 h 40 min de sono.';
+    mockRunConversationTurn.mockResolvedValue(turno(SONO, ['consultar_wearable_dias']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${SONO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  describe('uma frase, um dominio, nos turnos que cruzam (E10, D10.6)', () => {
+    const JUNTA = 'O exame de colesterol de março aparece ao lado do sono de março, que teve média de 6 h por dia.';
+    const SEPARA = 'O exame de colesterol é de março. Em março, o sono teve média de 6 h por dia.';
+
+    it.each([[['consultar_comparacao']], [['consultar_wearable', 'consultar_analito']], [['consultar_resultados', 'consultar_wearable']], [['consultar_wearable_dias', 'consultar_analito']]])(
+      'com %j, a frase que junta dois dominios e reescrita',
+      async (tools) => {
+        mockRunConversationTurn.mockResolvedValue(turno(JUNTA, tools));
+        mockRegenerateAnswer.mockResolvedValue(turno(SEPARA, tools));
+        const r = await responderComVerificacao(ENTRADA);
+        expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+        const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
+        expect(motivo).toMatch(/sua própria frase/);
+      },
+    );
+
+    // Desde a revisao do E6, o remedio e um dominio: dois dominios de
+    // ferramenta no mesmo turno cruzam ("meu sono mudou depois da losartana?").
+    const JUNTA_REMEDIO = 'A losartana está cadastrada desde março, e o sono de março teve média de 6 h por dia.';
+    const SEPARA_REMEDIO = 'A losartana está cadastrada desde março. Em março, o sono teve média de 6 h por dia.';
+
+    it.each([
+      [['consultar_wearable_dias', 'consultar_medicamentos']],
+      [['consultar_wearable', 'consultar_doses_tomadas']],
+      [['consultar_resultados', 'consultar_medicamentos']],
+      [['consultar_analito', 'consultar_receitas']],
+    ])('com %j (remedio e outro dominio), a frase que junta dois dominios e reescrita', async (tools) => {
+      mockRunConversationTurn.mockResolvedValue(turno(JUNTA_REMEDIO, tools));
+      mockRegenerateAnswer.mockResolvedValue(turno(SEPARA_REMEDIO, tools));
+      const r = await responderComVerificacao(ENTRADA);
+      expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+      const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
+      expect(motivo).toMatch(/sua própria frase/);
+    });
+
+    it.each([
+      [['consultar_panorama']],
+      [['consultar_wearable']],
+      [['consultar_wearable_dias']],
+      [['consultar_analito']],
+      [['consultar_medicamentos', 'consultar_doses_tomadas', 'consultar_receitas']],
+      // a interacao fica fora: o alerta curado do E9 junta remedio e efeito na mesma frase
+      [['consultar_interacoes', 'consultar_analito']],
+    ])(
+      'com %j, a regra nao vale',
+      async (tools) => {
+        mockRunConversationTurn.mockResolvedValue(turno('Você tem 2 remédios em uso e 1 exame guardado.', tools));
+        const r = await responderComVerificacao(ENTRADA);
+        expect(r.status).toBe('APROVADA');
+      },
+    );
+  });
+
+  describe('a frase fixa da comparacao (E10, D10.1 = B)', () => {
+    const SAIDA_COM_PAR = {
+      disponivel: true,
+      analito: 'Colesterol total',
+      pares: [{ exame: { id: 'l-9', valor: 210, unidade: 'mg/dL', dataDaColeta: '2026-03-12', documentoId: 'doc-9' } }],
+    };
+    const comPar = (texto: string) => {
+      const t = turno(texto, ['consultar_comparacao']);
+      t.transcript.toolOutputs = [{ name: 'consultar_comparacao', output: SAIDA_COM_PAR }];
+      return t;
+    };
+    const BLOCOS = 'O exame de colesterol é de março. O sono de março aparece logo abaixo.';
+
+    it('entra antes do encaminhamento, na resposta aprovada', async () => {
+      mockRunConversationTurn.mockResolvedValue(comPar(BLOCOS));
+      const r = await responderComVerificacao(ENTRADA);
+      expect(r.status).toBe('APROVADA');
+      expect(r.texto).toBe(`${BLOCOS} ${TEXTO_DA_COMPARACAO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+    });
+
+    it('entra tambem na aprovada na segunda', async () => {
+      mockRunConversationTurn.mockResolvedValue(comPar('Seu sono curto pode ter causado o colesterol alto.'));
+      mockRegenerateAnswer.mockResolvedValue(comPar(BLOCOS));
+      const r = await responderComVerificacao(ENTRADA);
+      expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+      expect(r.texto).toBe(`${BLOCOS} ${TEXTO_DA_COMPARACAO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+      const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
+      expect(motivo).toMatch(/origem no outro/);
+    });
   });
 
   it('garantia de combinacao segura NAO e salva pela costura do encaminhamento (E9, D9.4)', async () => {

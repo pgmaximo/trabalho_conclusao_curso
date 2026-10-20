@@ -42,6 +42,14 @@ export function formatarDecimal(valor: number | null | undefined): string {
 }
 
 /**
+ * Inteiro com ponto de milhar ("7.430"), sem depender do locale do runtime,
+ * pelo mesmo motivo de `formatarDecimal` (E10: media de passos do wearable).
+ */
+export function formatarInteiro(valor: number): string {
+  return String(Math.round(valor)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+/**
  * O fuso do aplicativo (E1, D1.2 = A), num lugar so: o dia das campanhas, o
  * corte das consultas e o bloco de data do turno precisam do MESMO fuso, ou o
  * modelo receberia um "hoje" que discorda das futuras e passadas da

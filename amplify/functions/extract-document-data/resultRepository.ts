@@ -21,6 +21,7 @@ import { EXTRACTION_STATUS, type ReviewStatus } from '../../data/schemas/extract
 import { buildUpdateExpression } from '../health-import-shared/updateExpressionBuilder';
 
 import { comoLinhaExistente, type LinhaExistente } from './regravacao';
+import type { ItemExistente } from './regravacaoDaReceita';
 import { buildLabResultUpdate, type LabResultRow } from './resultWriteBuilder';
 
 export type { LabResultRow } from './resultWriteBuilder';
@@ -90,6 +91,37 @@ export async function listarLinhasDoDocumento(
     cursor = saida.LastEvaluatedKey;
   } while (cursor);
   return linhas;
+}
+
+/** Os itens de receita que a leitura anterior deste documento gravou (risco 1
+ *  do E4), pelo indice por documento. So id, conferencia e dono: e o que a limpeza
+ *  da releitura precisa (`regravacaoDaReceita.ts`). */
+export async function listarItensDaReceita(
+  ddb: DynamoDBDocumentClient,
+  tableName: string,
+  documentId: string,
+): Promise<ItemExistente[]> {
+  const itens: ItemExistente[] = [];
+  let cursor: Record<string, unknown> | undefined;
+  do {
+    const saida = await ddb.send(
+      new QueryCommand({
+        TableName: tableName,
+        IndexName: 'prescriptionItemsByDocumentId',
+        KeyConditionExpression: '#documentId = :documentId',
+        ExpressionAttributeNames: { '#documentId': 'documentId' },
+        ExpressionAttributeValues: { ':documentId': documentId },
+        ExclusiveStartKey: cursor,
+      }),
+    );
+    for (const item of saida.Items ?? []) {
+      if (typeof item.id === 'string') {
+        itens.push({ id: item.id, reviewStatus: item.reviewStatus as string | null, owner: item.owner as string | null });
+      }
+    }
+    cursor = saida.LastEvaluatedKey;
+  } while (cursor);
+  return itens;
 }
 
 /** Apaga as linhas de codigo local que a leitura nova substituiu. Chamado

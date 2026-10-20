@@ -39,6 +39,7 @@ const SEMANA = { de: '2026-10-15', ate: '2026-10-21' };
 
 beforeEach(() => {
   process.env.MEDICINE_DOSE_LOG_TABLE_NAME = 't-dose';
+  process.env.PRESCRIPTION_ITEM_TABLE_NAME = 't-presc';
   mockSend.mockReset().mockResolvedValue({ Items: [] });
 });
 
@@ -100,7 +101,41 @@ describe('lerDoDonoPorIndice (E3, D3.2)', () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
-  it('a lista fechada tem um indice so: acrescentar outro e decisao', () => {
-    expect(Object.keys(INDICES_DO_DONO)).toEqual(['DOSES_POR_REMEDIO']);
+  it('a lista fechada tem dois indices: acrescentar outro e decisao (E3, E4)', () => {
+    expect(Object.keys(INDICES_DO_DONO)).toEqual(['DOSES_POR_REMEDIO', 'ITENS_POR_RECEITA']);
+  });
+
+  it('indice sem ordenacao: Query so com a chave e o dono do token (E4)', async () => {
+    await lerDoDonoPorIndice('ITENS_POR_RECEITA', 'doc-1', undefined, IDENTIDADE);
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    const [comando] = mockSend.mock.calls[0];
+    expect(comando).toBeInstanceOf(MockQueryCommand);
+    expect((comando as { input: unknown }).input).toEqual({
+      TableName: 't-presc',
+      IndexName: 'prescriptionItemsByDocumentId',
+      KeyConditionExpression: '#chave = :chave',
+      FilterExpression: '#owner = :owner',
+      ExpressionAttributeNames: { '#owner': 'owner', '#chave': 'documentId' },
+      ExpressionAttributeValues: { ':owner': 's-1::u-1', ':chave': 'doc-1' },
+      ExclusiveStartKey: undefined,
+    });
+  });
+
+  it('indice sem ordenacao tambem descarta linha de outro dono (E4)', async () => {
+    mockSend.mockResolvedValue({ Items: [{ id: 'meu', owner: 's-1::u-1' }, { id: 'alheio', owner: 'outro::outro' }] });
+    const linhas = await lerDoDonoPorIndice('ITENS_POR_RECEITA', 'doc-1', undefined, IDENTIDADE);
+    expect(linhas.map((l) => l.id)).toEqual(['meu']);
+  });
+
+  it('intervalo onde o indice nao tem ordenacao, ou falta onde tem: nao vira consulta (E4)', async () => {
+    await expect(lerDoDonoPorIndice('ITENS_POR_RECEITA', 'doc-1', SEMANA, IDENTIDADE)).rejects.toThrow(/ordenacao/);
+    await expect(lerDoDonoPorIndice('DOSES_POR_REMEDIO', 'med-1', undefined, IDENTIDADE)).rejects.toThrow(/ordenacao/);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('os nomes dos indices sao os que o Amplify gerou (amplify_outputs.json)', () => {
+    const outputs = JSON.stringify(require('../../../../amplify_outputs.json'));
+    for (const { indice } of Object.values(INDICES_DO_DONO)) expect(outputs).toContain(indice);
   });
 });

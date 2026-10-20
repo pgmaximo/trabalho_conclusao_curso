@@ -19,7 +19,7 @@ import { z } from 'zod';
 
 import type { ChatIdentity } from '../auth';
 import { dataEmSaoPaulo } from '../formatoPtBr';
-import type { DegradedBlock } from '../types';
+import type { DegradedBlock, ContextoDoTurno } from '../types';
 import {
   AVISO_DA_BASE,
   MAX_CANDIDATOS,
@@ -58,9 +58,9 @@ export const interacoesTool: ChatTool = {
     'Confere se os medicamentos em uso que o usuário cadastrou, e os nomes que ele citar nesta conversa (em candidatos, até 5 nomes, só o nome, sem dose), aparecem juntos na lista curta de interações conhecidas do aplicativo. Devolve só os alertas dessa lista e os nomes que ela não reconhece. NÃO diz se pode tomar junto, NÃO garante que uma combinação é segura, NÃO sugere parar, trocar nem ajustar remédio, e NÃO conhece remédio fora da lista do aplicativo.',
   inputSchema: ENTRADA,
   readOnly: true,
-  async run(input: unknown, identity: ChatIdentity): Promise<SaidaDasInteracoes> {
+  async run(input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno): Promise<SaidaDasInteracoes> {
     const { candidatos = [] } = input as z.infer<typeof ENTRADA>;
-    const linhas = await lerDoDono(process.env.MEDICINE_TABLE_NAME, identity);
+    const linhas = await lerDoDono(process.env.MEDICINE_TABLE_NAME, identity, contexto?.leituras);
     return montarSaidaDasInteracoes(linhas, candidatos, dataEmSaoPaulo(new Date()));
   },
   renderDegraded(output: unknown): DegradedBlock | null {

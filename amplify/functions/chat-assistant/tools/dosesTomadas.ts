@@ -64,7 +64,7 @@ export const dosesTomadasTool: ChatTool = {
     const agora = agoraNoFuso(new Date(), contexto?.local?.uf);
     const periodo = periodoDe(agora, dias);
 
-    const escolha = escolherRemedios(await lerDoDono(process.env.MEDICINE_TABLE_NAME, identity), periodo, medicamento);
+    const escolha = escolherRemedios(await lerDoDono(process.env.MEDICINE_TABLE_NAME, identity, contexto?.leituras), periodo, medicamento);
     // Em paralelo: as consultas sao independentes, e o teto de remedios limita quantas.
     const marcacoes = await Promise.all(
       escolha.escolhidos.map((r) => lerDoDonoPorIndice('DOSES_POR_REMEDIO', String(r.id), periodo, identity)),

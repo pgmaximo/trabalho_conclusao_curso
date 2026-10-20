@@ -167,14 +167,19 @@ function pelaPrevisao(a: DoseParaOModelo, b: DoseParaOModelo): number {
   return a.previstaPara.localeCompare(b.previstaPara);
 }
 
+/** As doses aplicadas, da mais recente para a mais antiga, com o desempate
+ *  pelo numero da dose. Exportada para o panorama do E10 dizer a mesma "ultima
+ *  vacina" que a carteira e `consultar_vacinas`. */
+export function dosesAplicadasPorRecencia(linhas: LinhaDoBanco[]): LinhaDoBanco[] {
+  return linhas.filter(aplicada).sort(maisRecente);
+}
+
 /** A saida inteira. O reforco e calculado sobre TODAS as linhas, antes do teto:
  *  a ultima dose de uma vacina antiga pode ter ficado fora da lista. */
 export function montarSaida(linhas: LinhaDoBanco[]): SaidaDasVacinas {
   // A mesma ordem do reforco (com o desempate por numero de dose): quem fica
   // dentro do teto nao pode mudar de uma pergunta para a outra.
-  const aplicadas = linhas
-    .filter(aplicada)
-    .sort(maisRecente)
+  const aplicadas = dosesAplicadasPorRecencia(linhas)
     .slice(0, MAX_DOSES_POR_LISTA)
     .map(paraOModelo);
   const recomendadasNaoAplicadas = linhas

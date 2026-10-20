@@ -19,7 +19,7 @@ import { SYSTEM_PROMPT, buildUserMessage } from './chatPrompt';
 import { chatAnswerSchema, extrairResposta, type ChatAnswer } from './chatSchema';
 import { CHAT_TOOLS, findTool, runTool } from './tools';
 import type { ChatIdentity } from './auth';
-import type { AnexoLido, LocalDoUsuario } from './types';
+import type { AnexoLido, ContextoDoTurno, LocalDoUsuario } from './types';
 
 const client = new BedrockRuntimeClient({ maxAttempts: 3, retryMode: 'adaptive' });
 
@@ -245,6 +245,9 @@ function textoDosBlocos(blocos: Record<string, any>[] | undefined): string {
 }
 
 export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome> {
+  // Um registro de leituras por turno, dividido pelas ferramentas dele (risco 3
+  // do E4): duas que leem a mesma tabela leem uma vez so.
+  const contextoDoTurno: ContextoDoTurno = { local: input.local ?? null, leituras: new Map(), series: new Map() };
   // A janela guarda as mensagens MAIS RECENTES: cortar pelo comeco entregaria
   // ao modelo o inicio de uma conversa longa e esconderia o que acabou de ser
   // dito.
@@ -306,9 +309,7 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
       const resultados = [];
       for (const chamada of chamadas) {
         toolsUsadas.push(chamada.name);
-        const saida = await runTool(chamada.name, chamada.input, input.identity, {
-          local: input.local ?? null,
-        });
+        const saida = await runTool(chamada.name, chamada.input, input.identity, contextoDoTurno);
         // Guardado ESTRUTURADO para o modo degradado (C5b), alem de
         // serializado para o modelo.
         const valoresCadastrados = findTool(chamada.name)?.valoresCadastrados?.(saida);

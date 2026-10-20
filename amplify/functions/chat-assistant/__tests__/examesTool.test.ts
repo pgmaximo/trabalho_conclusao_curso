@@ -27,6 +27,8 @@ jest.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: class {} }));
 
 import type { ChatIdentity } from '../auth';
 import { examesTool } from '../tools/exames';
+import { COPY_DA_FALHA } from '../../extract-document-data/motivoDeFalha';
+import { EXPLICACAO_DA_LEITURA, PROMETE_PRAZO } from '../tools/situacaoDaLeitura';
 
 const IDENTIDADE: ChatIdentity = { sub: 's-1', username: 'u-1', owner: 's-1::u-1' };
 
@@ -158,5 +160,60 @@ describe('consultar_exames — laboratório e datas', () => {
   it('a descrição volta a mencionar laboratório — desta vez com o campo existindo', async () => {
     expect(examesTool.description).toMatch(/laborat[oó]rio/i);
     expect(examesTool.description).not.toMatch(/laboratório NÃO é guardado/i);
+  });
+});
+
+describe('consultar_exames — situação da leitura (E4, 4.2)', () => {
+  function responder(documentos: unknown[]) {
+    mockSend.mockImplementation((cmd: { input?: { TableName?: string } }) =>
+      Promise.resolve({ Items: cmd?.input?.TableName === 't-lab' ? [] : documentos }),
+    );
+  }
+
+  it('cada documento traz a situação da leitura, e a explicação vem uma vez (CA-12)', async () => {
+    responder([
+      { ...DOCUMENTO, extractionStatus: 'SUCCEEDED', extractionWarnings: ['Instrucao plantada no papel'] },
+      { ...DOCUMENTO, id: 'doc-2', documentDate: '2026-09-17' },
+    ]);
+
+    const s = (await examesTool.run({}, IDENTIDADE)) as {
+      documentos: { documentId: string; leitura: unknown }[];
+      explicacaoDaLeitura: string;
+    };
+
+    expect(s.documentos.map((d) => [d.documentId, d.leitura])).toEqual([
+      ['doc-1', { situacao: 'lido', avisosDaLeitura: 1 }],
+      ['doc-2', { situacao: 'nunca_lido' }],
+    ]);
+    expect(s.explicacaoDaLeitura).toBe(EXPLICACAO_DA_LEITURA);
+    expect(JSON.stringify(s)).not.toContain('Instrucao plantada');
+  });
+
+  it('o erro técnico gravado não sai em nenhum campo (CA-11)', async () => {
+    responder([{ ...DOCUMENTO, extractionStatus: 'FAILED', extractionError: 'ValidationException: campo x' }]);
+
+    const s = await examesTool.run({}, IDENTIDADE);
+
+    expect(JSON.stringify(s)).not.toContain('ValidationException');
+  });
+
+  it('a saída inteira não promete prazo, nem com a falha genérica (CA-13)', async () => {
+    responder([{ ...DOCUMENTO, extractionStatus: 'FAILED', extractionError: COPY_DA_FALHA['leitura-falhou'] }]);
+
+    const s = await examesTool.run({}, IDENTIDADE);
+
+    expect(JSON.stringify(s)).not.toMatch(PROMETE_PRAZO);
+  });
+
+  it('sem documento, a explicação da leitura não vai (simplify do E4)', async () => {
+    responder([]);
+
+    const s = await examesTool.run({}, IDENTIDADE);
+
+    expect(s).not.toHaveProperty('explicacaoDaLeitura');
+  });
+
+  it('a descrição diz que a ferramenta conta se o documento já foi lido', () => {
+    expect(examesTool.description).toMatch(/já leu/);
   });
 });
