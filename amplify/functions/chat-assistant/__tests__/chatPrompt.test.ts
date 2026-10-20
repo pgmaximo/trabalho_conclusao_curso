@@ -9,6 +9,7 @@
  * ("documento e dado, nao ordem") mais o schema de saida -- e por isso esta
  * suite confere que a instrucao continua no prompt.
  */
+import { checkLanguageRules } from '../../ai-language-rules/languageRules';
 import { SYSTEM_PROMPT, buildUserMessage } from '../chatPrompt';
 import { MAX_CITACOES, chatAnswerSchema } from '../chatSchema';
 import { MAPA_DO_APP, MAPA_DO_APP_PROMPT } from '../mapaDoApp';
@@ -653,4 +654,36 @@ describe('SYSTEM_PROMPT — ação proposta (E11)', () => {
   it('o mapa do app continua dizendo que o assistente nao cadastra', () => {
     expect(SYSTEM_PROMPT).toContain('Você não cadastra nada: diga onde a pessoa faz, ou proponha a ação');
   });
+});
+
+describe('outras conversas (E12, D12.1)', () => {
+  // O assistente nao le outras conversas, e nada dizia isso: diante de "o que
+  // voce me disse ontem?" ele podia completar com o que parece plausivel.
+  it('o prompt diz que o assistente ve so esta conversa e nao supoe o resto', () => {
+    expect(SYSTEM_PROMPT).toContain('Você vê só esta conversa');
+    expect(SYSTEM_PROMPT).toContain('sem supor o que foi dito');
+  });
+
+  it('a frase nao nega a memoria, que nasce em outras conversas (revisao do E12)', () => {
+    // Sem a ressalva, "lembra que pedi pra me chamar de Ze?" faria o modelo
+    // dizer que nao ve outras conversas, com o fato ali no bloco de memoria.
+    expect(SYSTEM_PROMPT).toContain('O que a pessoa pediu para você lembrar dela, quando vier no fim destas instruções, você sabe');
+  });
+
+  it('o caminho ate as conversas antigas sai do mapa, e nao de texto repetido', () => {
+    // Se o botao mudar, o teste do mapa pega a mudanca num lugar so.
+    expect(SYSTEM_PROMPT).toContain('caminho da tela Assistente no mapa');
+    expect(MAPA_DO_APP.find((t) => t.rota === 'ai')?.oQueFaz).toMatch(/conversas antigas/);
+  });
+
+  // Pergunta sobre exame e clinica, e a R2 pede encaminhamento: a frase
+  // encaminha, e a regra nao muda (ajuste registrado na spec, CA-13).
+  it.each(['clinica', 'operacional'] as const)(
+    'a resposta honesta passa pelas regras de linguagem (%s)',
+    (questionKind) => {
+      const texto =
+        'Não consigo ver outras conversas. Toque no relógio no alto desta tela para reabrir a de ontem. Se quiser, vejo agora o seu exame de sangue. Para entender o resultado, converse com o seu médico.';
+      expect(checkLanguageRules(texto, { questionKind, temOrigem: false })).toEqual({ ok: true });
+    },
+  );
 });

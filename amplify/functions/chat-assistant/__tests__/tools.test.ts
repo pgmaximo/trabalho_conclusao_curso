@@ -103,6 +103,33 @@ describe('o registro das tools', () => {
     }
   });
 
+  /**
+   * Os arquivos `.ts` da funcao inteira, fora os testes (eles mencionam o que
+   * proibem). Um so lugar para as duas travas abaixo nao divergirem.
+   *
+   * O caminho sai de `__dirname`, e nao do diretorio de trabalho do Jest: um
+   * caminho relativo que aponte para nada faz `readdirSync` lancar, o que e
+   * ruidoso hoje e fragil amanha.
+   */
+  function arquivosDaFuncao(): string[] {
+    const { readdirSync } = require('node:fs') as typeof import('node:fs');
+    const { join } = require('node:path') as typeof import('node:path');
+    const arquivos: string[] = [];
+    const varrer = (dir: string) => {
+      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+        if (entrada.name === '__tests__') continue;
+        const caminho = join(dir, entrada.name);
+        if (entrada.isDirectory()) varrer(caminho);
+        else if (entrada.name.endsWith('.ts')) arquivos.push(caminho);
+      }
+    };
+    varrer(join(__dirname, '..'));
+    // Se a varredura nao achar nada, a trava passaria por vazio -- que e
+    // exatamente o modo de falha silenciosa que ela existe para evitar.
+    expect(arquivos.length).toBeGreaterThan(10);
+    return arquivos;
+  }
+
   it('nenhum arquivo da FUNCAO importa um comando de escrita do DynamoDB', () => {
     // A garantia do `readOnly` e uma declaracao; esta e sobre o codigo. Uma
     // tool que importasse PutCommand teria como escrever mesmo se declarasse
@@ -113,32 +140,24 @@ describe('o registro das tools', () => {
     // prometia que varria "os arquivos dela" -- promessa verdadeira por acaso,
     // porque nenhum arquivo da raiz importava escrita. A EPIC da memoria
     // acrescenta um diretorio novo aqui dentro, e "por acaso" deixou de bastar.
-    //
-    // O caminho sai de `__dirname`, e nao do diretorio de trabalho do Jest: um
-    // caminho relativo que aponte para nada faz `readdirSync` lancar, o que e
-    // ruidoso hoje e fragil amanha.
-    const { readFileSync, readdirSync } = require('node:fs') as typeof import('node:fs');
-    const { join } = require('node:path') as typeof import('node:path');
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const ESCRITA = /PutCommand|UpdateCommand|DeleteCommand|BatchWriteCommand|TransactWriteCommand/;
-
-    const arquivos: string[] = [];
-    const varrer = (dir: string) => {
-      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
-        // Os proprios testes ficam de fora: eles mencionam os comandos de
-        // escrita justamente para proibi-los.
-        if (entrada.name === '__tests__') continue;
-        const caminho = join(dir, entrada.name);
-        if (entrada.isDirectory()) varrer(caminho);
-        else if (entrada.name.endsWith('.ts')) arquivos.push(caminho);
-      }
-    };
-    varrer(join(__dirname, '..'));
-
-    // Se a varredura nao achar nada, ela passaria por vazio -- que e
-    // exatamente o modo de falha silenciosa que este teste existe para evitar.
-    expect(arquivos.length).toBeGreaterThan(10);
-    for (const arquivo of arquivos) {
+    for (const arquivo of arquivosDaFuncao()) {
       expect(readFileSync(arquivo, 'utf8')).not.toMatch(ESCRITA);
+    }
+  });
+
+  it('nenhum arquivo da funcao le a conversa guardada (E12, D12.1)', () => {
+    // A D12.1 decidiu que o assistente NAO le outras conversas: reler a fala
+    // antiga do modelo seria interpretacao persistida tratada como registro
+    // (D33, D34). Esta trava pega a primeira linha que puxe essas tabelas para
+    // dentro da funcao, ou que as conceda a ela no `backend.ts`.
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    const { join } = require('node:path') as typeof import('node:path');
+    const CONVERSA_GUARDADA = /ChatMessage|ChatConversation/;
+    const arquivos = [join(__dirname, '..', '..', '..', 'backend.ts'), ...arquivosDaFuncao()];
+    for (const arquivo of arquivos) {
+      expect(readFileSync(arquivo, 'utf8')).not.toMatch(CONVERSA_GUARDADA);
     }
   });
 

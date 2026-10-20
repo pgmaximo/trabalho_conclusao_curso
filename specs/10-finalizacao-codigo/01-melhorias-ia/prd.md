@@ -63,7 +63,7 @@ Aumentar a utilidade do assistente no dia a dia do usuário, fazendo-o responder
 | E9 | Interações medicamentosas | M | Alto | Não |
 | E10 | Visão geral e comparação de domínios | G | Alto | Não (concluído em 2026-10-19) |
 | E11 | Ações com confirmação do usuário (D11.1 a D11.4 = A, em 2026-10-20) | G | Alto | Não |
-| E12 | Histórico de conversas (já existe; estudar a lacuna restante) | P | Baixo | A verificar |
+| E12 | Histórico de conversas (D12.1 e D12.2 = A, em 2026-10-20; 12.2 descartado, 12.3 novo; concluído em 2026-10-20) | P | Baixo | Não |
 
 Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2, E9, E1 (definida pelo produto em 2026-10-17), depois E5, E3, E4, E10, E6, E11, E12 (posições sugeridas por mim, ainda a confirmar). Detalhes, dependências e status em [`README.md`](./README.md).
 
@@ -362,9 +362,15 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 - **História:** Como time, queremos saber o que a persistência atual **não** cobre, para decidir se o épico vale a pena.
 - **Especificação:** ler `chatHistoryService.ts`, `HistoryDrawer.tsx`, `ChatBotScreen.tsx` e a spec da conversa, e listar o que o usuário não consegue fazer hoje (ex.: buscar numa conversa antiga; o assistente consultar o que foi dito em outra conversa). Entrega: nota curta em `specs/10-finalizacao-codigo/01-melhorias-ia/estudos/`. **Critério:** decisão registrada de seguir, adiar ou descartar 12.2. Se não houver lacuna, o épico é encerrado como "já atendido".
 
-### 12.2 Retomar conversa anterior (condicional)
+**Feito em 2026-10-20:** [`estudos/E12-historico-de-conversas.md`](./estudos/E12-historico-de-conversas.md). Achou que apagar, reabrir e listar liam uma página só (apagar uma conversa longa deixava mensagens no banco, contra a D33) e que o prompt não dizia que o assistente vê só a conversa aberta.
+
+### 12.2 Retomar conversa anterior — **descartado (D12.1 = A, 2026-10-20)**
 - **História:** Como usuário, quero perguntar "o que você me disse ontem sobre meu exame?", para não repetir a conversa.
-- **Especificação:** definida após 12.1. Ressalva de privacidade: histórico de conversa pode conter dado sensível, e deve respeitar a mesma proteção por dono e a opção de apagar do usuário. Não confundir com a **memória** (fatos que o usuário aprovou).
+- **Decisão:** o assistente não lê outras conversas: reler a fala antiga do modelo seria interpretação persistida tratada como registro (D33, D34). No lugar, o prompt diz que ele vê só a conversa aberta (ressalvada a memória) e aponta o caminho do mapa até as conversas antigas.
+
+### 12.3 Leituras do histórico até a última página (D12.2 = A, 2026-10-20)
+- **História:** Como usuário, quero que "excluir" apague a conversa inteira, e que reabrir e a gaveta mostrem tudo.
+- **Especificação:** `apagarConversa`, `lerMensagens` e `listarConversas` usam `todasAsPaginas`; a exclusão lê tudo, apaga em série, para na primeira falha e só apaga a conversa por último; a gaveta mostra a falha. Detalhe em `E12-historico-de-conversas/spec.md`.
 
 ---
 
@@ -378,7 +384,7 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 | R4 | Dado ampliado empurra a IA para além do informativo (adesão, interação, cruzamento). | RT5, E3.2, E9.2, E10.2, e casos adversos na suíte de linguagem. |
 | R5 | Dataset duplicado entre `src/` e `amplify/` diverge. | E9.1. |
 | R6 | Ação proposta pela IA vira escrita sem consentimento. | E11: função segue `readOnly`; gravação só no cliente, após toque do usuário. |
-| R7 | O `Scan` filtrado por dono para no teto de 10 páginas da tabela inteira, e as linhas do dono que estão depois não são vistas (achado do E10). | E10 (D10.4): o panorama e a comparação avisam (`leituraIncompleta`). Dívida: um índice por dono (GSI `owner`) e `Query` em todas as ferramentas, que é mudança de schema e pede decisão. Gatilho: alguma tabela acima de alguns MB. |
+| R7 | O `Scan` filtrado por dono para no teto de 10 páginas da tabela inteira, e as linhas do dono que estão depois não são vistas (achado do E10). No app, a gaveta de conversas (E12) lê a tabela inteira a cada turno salvo pela mesma falta de índice. | E10 (D10.4): o panorama e a comparação avisam (`leituraIncompleta`). Dívida: um índice por dono (GSI `owner`) e `Query` em todas as ferramentas, que é mudança de schema e pede decisão. Gatilho: alguma tabela acima de alguns MB. |
 | R8 | A guarda de causa (E10, D10.3) é léxica e pega perto de metade das frases de causa nunca vistas. | D10.6: "uma frase, um domínio" nos turnos que cruzam domínios. Nas sondas cegas 3 e 4, aplicadas nesses turnos, barrou 7 de 10 e 7 de 8 frases de causa e 0 de 8 e 1 de 8 honestas (medido antes do último ajuste). Fora desses turnos fica só o léxico; o resíduo é a paráfrase de um domínio só, sem conector conhecido. |
 
 ## 7. Decisões
@@ -410,7 +416,7 @@ Esforço: P (pequeno), M (médio), G (grande). **Ordem de entrega:** E7, E8, E2,
 - **Interações:** dataset e serviço são TypeScript puro em `src/`; o app já importa de `amplify/functions/*`, o contrário não existe (ver E9).
 
 **Pendentes (fazer ao chegar no épico):**
-- Qual lacuna real resta no histórico de conversas, já que ele é persistido (E12.1).
+- ~~Qual lacuna real resta no histórico de conversas, já que ele é persistido (E12.1)~~: levantada no estudo do E12 e fechada pelo 12.3 (2026-10-20).
 - ~~Valores reais dos enums de status de extração de documento (E4.2)~~: verificados no E4 (`extractionEnums.ts`). A lista de rotas do mapa do app (E1.2) foi feita no E1.
 - ~~Itens de receita de leituras antigas (achado do E4)~~: corrigido no fechamento do E4 (D4.3): a releitura apaga os itens superados, e o chat esconde os que já estavam no banco.
 - Tamanho real da resposta da API da USPSTF e latência medida (E7). Continua pendente depois da entrega: depende do sandbox, roteiro em `E7-recomendacoes-prevencao/tasks.md`.

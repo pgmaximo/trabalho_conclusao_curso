@@ -26,8 +26,8 @@ specs/10-finalizacao-codigo/
 
 | Parte | Tema | Estado |
 |---|---|---|
-| 01 | Melhorias do assistente de IA (mais acesso aos dados e funções do app) | Em andamento: PRD escrito, decisões sendo tomadas |
-| 02 | Melhorias de UI e usabilidade do aplicativo | Só começa **depois** que todos os épicos da Parte 1 terminarem |
+| 01 | Melhorias do assistente de IA (mais acesso aos dados e funções do app) | Código concluído em 2026-10-20 (os 12 épicos); conferência no sandbox e no aparelho pendente, por épico |
+| 02 | Melhorias de UI e usabilidade do aplicativo | Pode começar: todos os épicos da Parte 1 terminaram no código |
 
 ## Como iniciar um épico
 
