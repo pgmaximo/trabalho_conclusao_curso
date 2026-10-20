@@ -6,9 +6,10 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Dimensions,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   Text,
   TextInput,
@@ -79,6 +80,26 @@ export function ChatBotScreen({ conversaInicial }: { conversaInicial?: string | 
   const [isAttachPressed, setIsAttachPressed] = useState(false);
   const [isAttaching, setIsAttaching] = useState(false);
   const [anexoErro, setAnexoErro] = useState<string | null>(null);
+
+  // TEMP: diagnostico do teclado no Android -- remover
+  useEffect(() => {
+    const subs = [
+      Keyboard.addListener('keyboardDidShow', (e) =>
+        console.log(
+          '[teclado] show',
+          JSON.stringify(e.endCoordinates),
+          'window',
+          JSON.stringify(Dimensions.get('window')),
+          'screen',
+          JSON.stringify(Dimensions.get('screen')),
+        ),
+      ),
+      Keyboard.addListener('keyboardDidHide', (e) =>
+        console.log('[teclado] hide', JSON.stringify(e.endCoordinates)),
+      ),
+    ];
+    return () => subs.forEach((sub) => sub.remove());
+  }, []);
 
   // ATTENTION: rola para a ultima mensagem sempre que o historico cresce ou a IA "digita"
   useEffect(() => {
@@ -152,9 +173,16 @@ export function ChatBotScreen({ conversaInicial }: { conversaInicial?: string | 
       edges={['top', 'left', 'right']}
     >
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      {/* No Android o app roda edge-to-edge (padrao do Expo), e a janela nao
+          encolhe mais sozinha quando o teclado sobe: sem `behavior` ali, o
+          teclado cobria o campo de mensagem e a pessoa digitava sem ver.
+          'padding' e o valor que os mantenedores do RN indicam para
+          edge-to-edge (react-native-community/discussions-and-proposals#827). */}
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
+        // TEMP: diagnostico do teclado no Android -- remover
+        onLayout={(e) => console.log('[teclado] kav', JSON.stringify(e.nativeEvent.layout))}
       >
         <View className="px-6 pt-6">
           <ScreenHeader
@@ -232,7 +260,11 @@ export function ChatBotScreen({ conversaInicial }: { conversaInicial?: string | 
           }
         />
 
-        <View className="border-t border-app-border bg-app-surface px-4 py-3 dark:border-app-dark-border dark:bg-app-dark-surface">
+        <View
+          className="border-t border-app-border bg-app-surface px-4 py-3 dark:border-app-dark-border dark:bg-app-dark-surface"
+          // TEMP: diagnostico do teclado no Android -- remover
+          onLayout={(e) => console.log('[teclado] barra', JSON.stringify(e.nativeEvent.layout))}
+        >
           {anexo ? (
             <ChatAttachmentRow
               fileName={anexo.fileName}
