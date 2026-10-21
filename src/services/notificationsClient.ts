@@ -144,6 +144,14 @@ export async function cancelScheduledNotificationAsync(identifier: string): Prom
   await notifications.cancelScheduledNotificationAsync(identifier);
 }
 
+export async function getAllScheduledNotificationsAsync(): Promise<NotificationsType.NotificationRequest[]> {
+  const notifications = getNotifications();
+  if (!notifications) {
+    return [];
+  }
+  return notifications.getAllScheduledNotificationsAsync();
+}
+
 export async function getExpoPushTokenAsync(
   options?: NotificationsType.ExpoPushTokenOptions,
 ): Promise<NotificationsType.ExpoPushToken> {

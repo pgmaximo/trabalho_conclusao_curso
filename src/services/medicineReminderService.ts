@@ -143,6 +143,41 @@ async function cancelMedicineReminders(notificationIds: string[]): Promise<void>
   await Promise.all(notificationIds.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
 }
 
+// Fila que serializa toda leitura-modificacao-escrita do mapa. Sem ela, os
+// syncs paralelos (Promise.all em useMedicinesData, montado no dashboard E em
+// Medicamentos) liam o mesmo mapa, cada um salvava por cima do outro, e os ids
+// perdidos viravam lembretes diarios orfaos — duplicados no mesmo horario.
+let reminderQueue: Promise<unknown> = Promise.resolve();
+
+function withReminderLock<T>(task: () => Promise<T>): Promise<T> {
+  const run = reminderQueue.then(task, task);
+  reminderQueue = run.catch(() => undefined);
+  return run;
+}
+
+/**
+ * Ids agendados no aparelho com este medicineId (ou de qualquer medicamento,
+ * sem argumento). Cobre os orfaos que o mapa ja perdeu — inclusive os criados
+ * por builds antigos —, que de outra forma nunca seriam cancelados.
+ */
+async function findScheduledMedicineReminderIds(medicineId?: string): Promise<string[]> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  return scheduled
+    .filter((request) => {
+      const scheduledMedicineId = request.content.data?.medicineId;
+      return medicineId === undefined ? typeof scheduledMedicineId === 'string' : scheduledMedicineId === medicineId;
+    })
+    .map((request) => request.identifier);
+}
+
+async function cancelAllRemindersFor(map: MedicineReminderMap, medicineId: string): Promise<void> {
+  const staleIds = new Set([...(map[medicineId] ?? []), ...(await findScheduledMedicineReminderIds(medicineId))]);
+  if (staleIds.size > 0) {
+    await cancelMedicineReminders([...staleIds]);
+  }
+  delete map[medicineId];
+}
+
 export async function loadMedicineReminderMap(): Promise<MedicineReminderMap> {
   try {
     const raw = await AsyncStorage.getItem(MEDICINE_REMINDER_MAP_KEY);
@@ -192,14 +227,13 @@ function isStartDateInTheFuture(startDate: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(startDate) && startDate > today;
 }
 
-export async function syncMedicineReminders(medicine: MedicineRecord): Promise<void> {
-  const map = await loadMedicineReminderMap();
-  const existingIds = map[medicine.id] ?? [];
+export function syncMedicineReminders(medicine: MedicineRecord): Promise<void> {
+  return withReminderLock(() => syncMedicineRemindersUnlocked(medicine));
+}
 
-  if (existingIds.length > 0) {
-    await cancelMedicineReminders(existingIds);
-    delete map[medicine.id];
-  }
+async function syncMedicineRemindersUnlocked(medicine: MedicineRecord): Promise<void> {
+  const map = await loadMedicineReminderMap();
+  await cancelAllRemindersFor(map, medicine.id);
 
   // Curso de tratamento ja encerrado (endDate no passado): trata como inativo,
   // nao agenda nada novo. Nao implementa janela parcial/agendamento futuro —
@@ -225,21 +259,20 @@ export async function syncMedicineReminders(medicine: MedicineRecord): Promise<v
 }
 
 /** Cancela e remove os lembretes de um medicamento excluido. */
-export async function removeMedicineReminders(medicineId: string): Promise<void> {
-  const map = await loadMedicineReminderMap();
-  const existingIds = map[medicineId] ?? [];
-
-  if (existingIds.length > 0) {
-    await cancelMedicineReminders(existingIds);
-  }
-
-  delete map[medicineId];
-  await saveMedicineReminderMap(map);
+export function removeMedicineReminders(medicineId: string): Promise<void> {
+  return withReminderLock(async () => {
+    const map = await loadMedicineReminderMap();
+    await cancelAllRemindersFor(map, medicineId);
+    await saveMedicineReminderMap(map);
+  });
 }
 
 /** Limpa lembretes locais da conta anterior no logout. */
-export async function removeAllMedicineReminders(): Promise<void> {
-  const map = await loadMedicineReminderMap();
-  await cancelMedicineReminders(Object.values(map).flat());
-  await saveMedicineReminderMap({});
+export function removeAllMedicineReminders(): Promise<void> {
+  return withReminderLock(async () => {
+    const map = await loadMedicineReminderMap();
+    const staleIds = new Set([...Object.values(map).flat(), ...(await findScheduledMedicineReminderIds())]);
+    await cancelMedicineReminders([...staleIds]);
+    await saveMedicineReminderMap({});
+  });
 }

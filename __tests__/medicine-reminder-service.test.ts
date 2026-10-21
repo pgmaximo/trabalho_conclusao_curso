@@ -1,6 +1,7 @@
 jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn(() => Promise.resolve('notification-id')),
   cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  getAllScheduledNotificationsAsync: jest.fn(() => Promise.resolve([])),
   SchedulableTriggerInputTypes: {
     DAILY: 'daily',
     WEEKLY: 'weekly',
@@ -12,12 +13,14 @@ jest.mock('@/services/reminderService', () => ({
   ensureNotificationPermission: jest.fn(() => Promise.resolve(true)),
 }));
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { ensureNotificationPermission } from '@/services/reminderService';
 import type { MedicineRecord } from '@/services/medicineService';
 import {
   buildMedicineReminderPlans,
   parseTimeToHourMinute,
+  removeAllMedicineReminders,
   syncMedicineReminders,
 } from '@/services/medicineReminderService';
 
@@ -167,5 +170,65 @@ describe('syncMedicineReminders', () => {
   it('does not schedule a local reminder before a future treatment start date', async () => {
     await syncMedicineReminders(baseMedicine({ startDate: '2099-01-01' }));
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('reminders scheduled on the device (no duplicates)', () => {
+  type FakeRequest = { identifier: string; content: { data?: Record<string, unknown> } };
+  let scheduled: Map<string, FakeRequest>;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+    (ensureNotificationPermission as jest.Mock).mockResolvedValue(true);
+
+    scheduled = new Map();
+    let nextId = 0;
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockImplementation(async (request) => {
+      const identifier = `notification-${++nextId}`;
+      scheduled.set(identifier, { identifier, content: request.content });
+      return identifier;
+    });
+    (Notifications.cancelScheduledNotificationAsync as jest.Mock).mockImplementation(async (identifier: string) => {
+      scheduled.delete(identifier);
+    });
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockImplementation(async () => [
+      ...scheduled.values(),
+    ]);
+  });
+
+  function scheduledFor(medicineId: string): FakeRequest[] {
+    return [...scheduled.values()].filter((request) => request.content.data?.medicineId === medicineId);
+  }
+
+  it('keeps one reminder per dose when the dashboard and Medicamentos sync at the same time', async () => {
+    const medicines = [baseMedicine({ id: 'med-1' }), baseMedicine({ id: 'med-2' })];
+
+    await Promise.all([
+      ...medicines.map((medicine) => syncMedicineReminders(medicine)),
+      ...medicines.map((medicine) => syncMedicineReminders(medicine)),
+    ]);
+    await Promise.all(medicines.map((medicine) => syncMedicineReminders(medicine)));
+
+    expect(scheduledFor('med-1')).toHaveLength(1);
+    expect(scheduledFor('med-2')).toHaveLength(1);
+  });
+
+  it('cancels orphan reminders the stored map no longer knows about', async () => {
+    scheduled.set('orphan', { identifier: 'orphan', content: { data: { medicineId: 'med-1' } } });
+
+    await syncMedicineReminders(baseMedicine({ id: 'med-1' }));
+
+    expect(scheduled.has('orphan')).toBe(false);
+    expect(scheduledFor('med-1')).toHaveLength(1);
+  });
+
+  it('removes orphan medicine reminders on logout, leaving other reminders alone', async () => {
+    scheduled.set('orphan', { identifier: 'orphan', content: { data: { medicineId: 'med-1' } } });
+    scheduled.set('vaccine', { identifier: 'vaccine', content: { data: { vaccineDoseId: 'dose-1' } } });
+
+    await removeAllMedicineReminders();
+
+    expect([...scheduled.keys()]).toEqual(['vaccine']);
   });
 });
