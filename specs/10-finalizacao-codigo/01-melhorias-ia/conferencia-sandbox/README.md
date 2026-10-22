@@ -11,7 +11,7 @@ conferencia-sandbox/
 ## Como foi conferido
 
 - **Suíte local:** `npm run validate` passou na primeira rodada (231 suítes, 3998 testes) e a cada correção até a DS5 (último: 4075 testes). A partir de 2026-10-21, a pedido do usuário, o `validate` completo **não é rodado**: a verificação é `npx jest` dos arquivos tocados e `npm run typecheck:backend` quando muda o backend.
-- **Sandbox:** deploy com `npx ampx sandbox --once --outputs-out-dir <pasta de dados>`, sem tocar no `amplify_outputs.json` do projeto (que aponta para a main).
+- **Sandbox:** deploy com `npx ampx sandbox --once --outputs-out-dir <pasta de dados>`, sem tocar no `amplify_outputs.json` do projeto (que aponta para o sandbox compartilhado de desenvolvimento, `amplify-tcc-artur-sandbox-16e78b8e8b`; a produção é o app Amplify `d1wsv2b9ntb67b`, ver `docs/aws-amplify.md`).
 - **Contas de teste** no pool do sandbox: `sdd-teste-a@example.test` (E1 a E8, E10 a E12) e `sdd-teste-b@example.test` (E9). As senhas ficam no `test-users.json` da pasta de dados, **fora do git**.
 - **Dados semeados** (`roteiro/seed.mjs`): perfil, 4 remédios (Losartana a cada 8 h, Metformina com estoque baixo, Omeprazol seg/qua/sex com anotação, Vitamina D sem unidade), doses marcadas, consultas (inclusive com "Dra. Ana"), vacinas (gripe com lote, Hepatite B 2/3, dT), exame de sangue com colesterol, receitas lidas, exame em leitura e laudo descritivo; na conta B, Marevan e Losartana em uso e Metformina encerrada. Importação do relógio pela pipeline real com 74 dias sintéticos (`gen-wearable.mjs` + `wearable.mjs`) e cache de postos de Campinas e Belém (`sites.mjs`).
 - **Perguntas:** as dos roteiros de cada `tasks.md` (E1 a E12), feitas pelo **mesmo handler do Lambda rodando local** (`roteiro/run.sh`), contra as tabelas, o S3 e o Bedrock do sandbox, com o rastro das ferramentas chamadas, do tamanho das saídas e do trace do guardrail. A rede desta máquina bloqueia `bedrock-runtime`; o roteiro usa o endpoint FIPS (`AWS_USE_FIPS_ENDPOINT=true`). As leituras sensíveis a IAM foram conferidas no Lambda implantado e com `aws iam simulate-principal-policy`.
@@ -33,7 +33,7 @@ conferencia-sandbox/
 | A10 | Mais dois falsos positivos da R3: "você **tem em uso**: Marevan 5mg" sem âncora de registro (E9 H11); a conjunção "**e** baixo risco" lida como "é baixo" (E7 #1) | ✅ corrigido | DS10 |
 | A11 | Três respostas certas ainda reprovadas (rodada completa de 2026-10-22): "o **estoque está baixo**" lido como interpretação de resultado e "Vitamina D 1 gota — todos os dias" sem âncora de registro (E2 #7, R3); resposta sobre dados do relógio fora do período reprovada por falta de encaminhamento (E6 #2, R2); "Preparei o formulário com o que você disse:" (R5) e, na 2ª geração, "coloque o horário das 8h" (R3), com o cartão perdido junto (E11 #2) | ✅ E2 #7 e E11 #2 aprovados no sandbox (DS13, commit `6803866`); ✅ E6 #2 aprovado no sandbox (commit `eb00624`), mas por "ainda não está disponível", que a DS13.2 já reconhece: a costura da C1 não foi exercitada no sandbox, só nos testes | DS13, DS14 |
 | A12 | Achados da remedição de E6, E7 e E9 (2026-10-22, depois da DS14): (1) R3 em "no seu perfil consta que você **tem 54 anos e sexo feminino**" (E7 #2): a exceção da idade (DS9) cai com "e" depois, de propósito, por "você tem 54 anos e diabetes"; (2) o encaminhamento é costurado em toda resposta clínica sem um, inclusive na que só diz que o dado não existe (E6 #2 saiu com "Para avaliar o que isso significa para você, procure um profissional de saúde."); (3) latências de 25 a 148 s e TIMEOUT no roteiro local (E7 #4, 150 s): o CloudWatch mostra que a lentidão é do Bedrock (`InvocationLatency` de 3 s para até 80 s de média), não da rede local | ✅ DS15.1 confirmada no sandbox (E7 #2 aprovado, commit `02345fd`); ✅ DS15.3 funcionando (5 chamadas cortadas aos 40 s, 4 com o aviso de sobrecarga); ✅ DS15.2 confirmada no sandbox (E6 #2 aprovado sem o encaminhamento costurado, 11:37) | DS15 |
-| A13 | Achados da remedição de E6 e E7 com o código da DS15 (2026-10-22, 11:37–11:48): (1) R3 em "Você tem **60 recomendações** adaptadas…" (E7 #2): "recomendações" não está no inventário do "você tem"; (2) o guardrail do chat bloqueou a saída do E7 #5 ("o que o app mostra na parte de prevenção?") pelo filtro de conteúdo **SEXUAL** (confiança MÉDIA): a lista da USPSTF traz rastreamento de clamídia, gonorreia, sífilis e HIV em "mulheres sexualmente ativas", o mesmo tipo de falso positivo que a D20 viu na sorologia da extração; (3) a lentidão segue o **formato da chamada do chat**, e não o momento: no CloudWatch, as chamadas mínimas das 11:33 levaram 1,8 s de média, e as do chat das 11:38 às 11:43 levaram 16,6 e 20,4 s (máximo 81 s) | ✅ corrigido no código (DS16.1 contagem de recomendações; DS16.2 SEXUAL só na entrada; DS16.3 cache de prompt, e o experimento mostrou que o formato da chamada não explica o episódio lento); falta deploy e medição | DS16 |
+| A13 | Achados da remedição de E6 e E7 com o código da DS15 (2026-10-22, 11:37–11:48): (1) R3 em "Você tem **60 recomendações** adaptadas…" (E7 #2): "recomendações" não está no inventário do "você tem"; (2) o guardrail do chat bloqueou a saída do E7 #5 ("o que o app mostra na parte de prevenção?") pelo filtro de conteúdo **SEXUAL** (confiança MÉDIA): a lista da USPSTF traz rastreamento de clamídia, gonorreia, sífilis e HIV em "mulheres sexualmente ativas", o mesmo tipo de falso positivo que a D20 viu na sorologia da extração; (3) a lentidão segue o **formato da chamada do chat**, e não o momento: no CloudWatch, as chamadas mínimas das 11:33 levaram 1,8 s de média, e as do chat das 11:38 às 11:43 levaram 16,6 e 20,4 s (máximo 81 s) | ✅ corrigido no código (DS16.1 contagem de recomendações; DS16.2 SEXUAL só na entrada; DS16.3 cache de prompt, e o experimento mostrou que o formato da chamada não explica o episódio lento); implantado no sandbox (guardrail do chat na versão 3, 2026-10-22 13:15), **sem conferência** | DS16 |
 | — | Chat no Claude Opus 4.6 (pedido do usuário, 2026-10-22): rodada completa com 64 de 70 aprovadas (Sonnet 4.6: 67), latência mediana de 10,8 s (Sonnet: 9,2 s), 3 ThrottlingException por causa da cota de 5 req/min do Opus 4.6 (Sonnet: 10) | ❌ recusado; o chat voltou ao Sonnet 4.6 | DS17 |
 
 ## Última medição por épico
@@ -55,21 +55,17 @@ Rodada completa de **2026-10-22** (commit `addebdb`, os três modelos no **Sonne
 | E11 | 5/5 (1 na 2ª geração) | #2 aprovado com o cartão `Vitamina D · 08:00` (a Lambda já converte "8h"); "Nada foi salvo" sai uma vez só; "sexta de manhã" chega como `quando: "sexta"` |
 | E12 | 3/3 | |
 
-## Pendências
+## Limitações conhecidas
 
-Estado em 2026-10-22, depois da rodada completa no Sonnet 4.6.
+A conferência no sandbox foi encerrada em 2026-10-22, no fechamento da SDD 10 (`../../PROMPT-FECHAMENTO.md`): nada mais foi medido. As pendências que ficaram abertas viraram as limitações abaixo.
 
-1. **A13, próximo passo:** o deploy da DS16 (commit `beffe91`) foi disparado em 2026-10-22, por volta das 13:10 (UTC−3), e a sessão foi encerrada antes de ele terminar. Conferir se terminou: no Lambda do chat (`pedro-sandbox-chatassistant`), `BEDROCK_GUARDRAIL_VERSION` deve ter passado de `2` para uma versão nova, por causa da mudança do filtro SEXUAL. Se ainda estiver em `2`, refazer o deploy. Depois, medir o E7 (`run.sh … E7`; #2 e #5 são os casos da DS16) e conferir o cache no CloudWatch (`CacheReadInputTokenCount` e `CacheWriteInputTokenCount` do `us.anthropic.claude-sonnet-4-6` na janela da medição).
-2. **Perfil `global.` (DS15.3):** medido com chamadas mínimas em 2026-10-22: 1,31 s contra 1,84 s do `us.` (média do Bedrock), mais estável, mas fora de um episódio lento e sem o formato da chamada do chat. Falta medir a chamada real nos dois perfis durante um episódio lento (exige trocar o perfil num sandbox) e decidir sobre a inferência fora dos EUA.
-3. **Acesso aos modelos novos (do usuário):** pedir a liberação do Opus 5.5 e do Sonnet 5.5 no Bedrock. Quando sair, basta trocar `CHAT_BASE_MODEL_ID` e `BEDROCK_BASE_MODEL_ID` no `backend.ts` (DS12), fazer o deploy e medir de novo, com a latência do chat.
-4. **Conferir o wearable e a extração reais** depois da DS12: o wearable trocou a tool forçada pela saída estruturada, e nenhuma importação real passou por ele ainda.
-5. **Conferências que só o aparelho faz:**
-   - tocar em "Abrir formulário" (E11);
-   - GPS na tela de Vacinação (E8);
-   - marcar dose pela tela (E3).
-6. **E6 com dados reais do relógio:** até aqui, só dados sintéticos.
-
-A cota do Bedrock fica em 10 chamadas por minuto, como limite conhecido (A6). O `npm run validate` completo não está sendo rodado por enquanto, por decisão do usuário, para agilizar; a verificação é por arquivos tocados e `typecheck:backend`.
+1. **DS16 sem medição:** corrigida no código e implantada no sandbox, mas o E7 não foi medido de novo depois dela, nem o efeito do cache de prompt.
+2. **Latência do Bedrock:** episódios de 16 a 80 s por chamada do chat; o corte de 40 s (DS15.3) troca a espera por um aviso de sobrecarga. O perfil `global.` não foi medido num episódio lento.
+3. **Modelos 5.x sem acesso:** a conta só invoca o Sonnet 4.6 e o Opus 4.6; chat, wearable e extração rodam no Sonnet 4.6 (DS12, DS17).
+4. **Wearable e extração reais não conferidos** depois da troca para a saída estruturada (DS12).
+5. **Conferências só do aparelho** feitas apenas nos testes: "Abrir formulário" (E11), GPS na Vacinação (E8) e marcar dose pela tela (E3).
+6. **E6 só com dados sintéticos** do relógio.
+7. **Cota do Bedrock em 10 chamadas por minuto** (Sonnet 4.6): com duas pessoas ao mesmo tempo, o chat pode responder com o aviso de sobrecarga (A6).
 
 ## Como repetir
 

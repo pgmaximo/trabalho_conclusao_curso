@@ -8,14 +8,15 @@ Esta pasta reúne tudo o que falta para **fechar o código** do SuaSaúde. Ela v
 specs/10-finalizacao-codigo/
 ├── README.md                  ← este arquivo: o que é a fase e como ela está organizada
 ├── PROMPT-PADRAO.md           ← o prompt que se manda ao agente com @ para executar um épico (SDD completo)
-├── 01-melhorias-ia/           ← PARTE 1 (código concluído; conferência no sandbox pendente): mais poder ao assistente de IA
+├── PROMPT-FECHAMENTO.md       ← o prompt do fechamento da fase e do merge na main
+├── 01-melhorias-ia/           ← PARTE 1 (encerrada): mais poder ao assistente de IA
 │   ├── README.md              ← índice, ordem de entrega, dependências e status de cada épico
 │   ├── prd.md                 ← o PRD: 12 épicos, cada um com tarefas, história de usuário e especificação
 │   ├── decisoes/              ← decisões do produto, uma por épico (E1 a E12), com o índice em README.md
 │   ├── estudos/               ← estudos que antecederam o código (E10.2, riscos do E10, E11, E12)
 │   └── E*-<nome>/             ← uma pasta por épico (os 12), com spec.md, plan.md e tasks.md;
 │                                 o fim de cada tasks.md traz o roteiro da conferência no sandbox
-└── 02-ui-usabilidade/         ← PARTE 2 (pode começar; falta o PRD): melhorias de UI e usabilidade
+└── 02-ui-usabilidade/         ← PARTE 2 (trabalho futuro; sem PRD): melhorias de UI e usabilidade
     └── README.md
 ```
 
@@ -23,8 +24,8 @@ specs/10-finalizacao-codigo/
 
 | Parte | Tema | Estado |
 |---|---|---|
-| 01 | Melhorias do assistente de IA (mais acesso aos dados e funções do app) | Código concluído em 2026-10-20 (os 12 épicos); conferência no sandbox e no aparelho pendente, por épico |
-| 02 | Melhorias de UI e usabilidade do aplicativo | Pode começar: todos os épicos da Parte 1 terminaram no código |
+| 01 | Melhorias do assistente de IA (mais acesso aos dados e funções do app) | Encerrada em 2026-10-22: os 12 épicos no código e conferidos no sandbox (67 de 70 na rodada completa); limitações em `01-melhorias-ia/conferencia-sandbox/README.md` |
+| 02 | Melhorias de UI e usabilidade do aplicativo | Trabalho futuro: não começou e não tem PRD |
 
 ## Como iniciar um épico
 
