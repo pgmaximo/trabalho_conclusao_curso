@@ -115,18 +115,19 @@ analyzeHealthImportLambda.configureAsyncInvoke({ retryAttempts: 0 });
 backend.storage.resources.bucket.grantReadWrite(analyzeHealthImportLambda, 'health-imports/*');
 backend.analyzeHealthImport.addEnvironment('HEALTH_BUCKET_NAME', backend.storage.resources.bucket.bucketName);
 
-// Modelo padrao: Claude Sonnet 5.5 (pedido do usuario, 2026-10-22; era o
-// Sonnet 4.6). Ele liga thinking sempre e recusa `toolChoice` forcado e
-// `temperature` (400), entao wearable e extracao pedem o JSON pela saida
-// estruturada (`output_config`), com esforco explicito -- ver os
-// bedrockClient.ts de cada uma. O chat usa outro modelo (CHAT_BASE_MODEL_ID).
+// Modelo padrao: o alvo e o Claude Sonnet 5.5 (DS12, 2026-10-22), mas a conta
+// ainda nao tem acesso a ele (AccessDeniedException no deploy), e a constante
+// fica no Sonnet 4.6 ate a liberacao. O codigo ja serve aos dois: sem
+// `toolChoice` forcado e sem `temperature`, que o 5.5 recusa (400), e com a
+// saida estruturada (`output_config`) e o esforco explicito -- ver os
+// bedrockClient.ts de cada funcao. O chat tem constante propria (CHAT_BASE_MODEL_ID).
 // BEDROCK_BASE_MODEL_ID e o id "nu" do modelo (usado so para montar a ARN de
 // foundation-model abaixo); BEDROCK_INFERENCE_PROFILE_ID (com o prefixo
 // "us.") e o valor que de fato precisa ir em `modelId` no ConverseCommand —
 // este modelo NAO aceita invocacao on-demand pelo id base ("Invocation of
 // model ID ... with on-demand throughput isn't supported"), confirmado
 // invocando a Lambda de producao diretamente (2026-09-15).
-const BEDROCK_BASE_MODEL_ID = 'anthropic.claude-sonnet-5-5';
+const BEDROCK_BASE_MODEL_ID = 'anthropic.claude-sonnet-4-6';
 const BEDROCK_INFERENCE_PROFILE_ID = `us.${BEDROCK_BASE_MODEL_ID}`;
 const bedrockRegion = Stack.of(analyzeHealthImportLambda).region;
 const bedrockAccount = Stack.of(analyzeHealthImportLambda).account;
@@ -692,10 +693,10 @@ const chatAssistantGuardrailVersion = new bedrock.CfnGuardrailVersion(
   },
 );
 
-// O chat usa o Claude Opus 5.5 (pedido do usuario, 2026-10-22); wearable e
-// extracao, o modelo padrao. O chat nao forca tool, nao manda temperature e
-// tem o esforco explicito (conversationLoop.ts).
-const CHAT_BASE_MODEL_ID = 'anthropic.claude-opus-5-5';
+// O modelo do chat. O alvo e o Claude Opus 5.5 (DS12, 2026-10-22); ate a conta
+// ter acesso a ele, fica no Sonnet 4.6. O chat nao forca tool, nao manda
+// temperature e tem o esforco explicito (conversationLoop.ts), e serve aos dois.
+const CHAT_BASE_MODEL_ID = 'anthropic.claude-sonnet-4-6';
 const CHAT_INFERENCE_PROFILE_ID = `us.${CHAT_BASE_MODEL_ID}`;
 
 backend.chatAssistant.addEnvironment('BEDROCK_MODEL_ID', CHAT_INFERENCE_PROFILE_ID);

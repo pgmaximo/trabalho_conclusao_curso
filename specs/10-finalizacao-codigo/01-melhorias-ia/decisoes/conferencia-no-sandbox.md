@@ -254,3 +254,15 @@ Prova: os testes abaixo estavam vermelhos antes da mudança.
 - a cota de cada um;
 - se o Bedrock aceita `effort` e o `output_config` do wearable com o schema convertido;
 - a latência do chat com thinking.
+
+**Deploy no sandbox (2026-10-22, commit `fc7ca24`): a conta não tem acesso aos modelos novos.** O deploy passou e as funções apontam para os perfis novos, mas toda chamada volta `AccessDeniedException: anthropic.claude-opus-5-5 is not available for this account`. As 6 perguntas da E1 saíram INDISPONIVEL em cerca de 1 s cada. Os perfis de inferência aparecem como `ACTIVE` na listagem, mas invocar é outra permissão.
+
+Com uma chamada mínima pelo endpoint FIPS, o resultado por modelo foi:
+
+| Modelo | Resultado |
+|---|---|
+| `us.anthropic.claude-sonnet-4-6` | responde |
+| Opus 5.5, Sonnet 5.5, Opus 5, Opus 4.8, Opus 4.7, Sonnet 5, Haiku 5.5 | `AccessDeniedException` |
+| `us.anthropic.claude-opus-4-6` | `ValidationException` |
+
+O sandbox fica com as três funções de IA fora do ar até o acesso ser liberado ou os ids voltarem ao Sonnet 4.6. O código desta leva também serve no Sonnet 4.6: sem `temperature`, com `effort` (que o 4.6 aceita) e com saída estruturada, a mesma que a extração já usava nele. Voltar é trocar só as duas constantes do `backend.ts`.

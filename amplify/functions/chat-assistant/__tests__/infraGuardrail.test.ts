@@ -88,18 +88,19 @@ describe('guardrail proprio do chat (DS1 = B, DS2 = A)', () => {
     );
   });
 
-  // O chat passa ao Claude Opus 5.5 e o modelo padrao (wearable e extracao) ao
-  // Claude Sonnet 5.5 (pedidos do usuario, 2026-10-22).
-  it('o chat usa o Claude Opus 5.5, com o perfil de inferencia e as duas ARNs dele', () => {
-    expect(backend).toMatch(/const CHAT_BASE_MODEL_ID = 'anthropic\.claude-opus-5-5';/);
+  // O alvo e o Claude Opus 5.5 no chat e o Sonnet 5.5 como padrao (DS12), mas
+  // a conta ainda nao tem acesso a eles: as duas constantes ficam no Sonnet 4.6
+  // ate a liberacao, e o chat mantem a constante PROPRIA para a troca ser uma linha.
+  it('o chat tem o modelo proprio, com o perfil de inferencia e as duas ARNs dele', () => {
+    expect(backend).toMatch(/const CHAT_BASE_MODEL_ID = 'anthropic\.claude-sonnet-4-6';/);
     expect(backend).toMatch(/chatAssistant\.addEnvironment\('BEDROCK_MODEL_ID', CHAT_INFERENCE_PROFILE_ID\)/);
     expect(backend).toMatch(
       /chatAssistantLambda\.addToRolePolicy\(\s*new iam\.PolicyStatement\(\{\s*actions: \['bedrock:InvokeModel'\],\s*resources: \[\s*`[^`]*inference-profile\/\$\{CHAT_INFERENCE_PROFILE_ID\}`,\s*`[^`]*foundation-model\/\$\{CHAT_BASE_MODEL_ID\}`/,
     );
   });
 
-  it('wearable e extracao usam o modelo padrao, o Claude Sonnet 5.5', () => {
-    expect(backend).toMatch(/const BEDROCK_BASE_MODEL_ID = 'anthropic\.claude-sonnet-5-5';/);
+  it('wearable e extracao usam o modelo padrao, por ora o Sonnet 4.6', () => {
+    expect(backend).toMatch(/const BEDROCK_BASE_MODEL_ID = 'anthropic\.claude-sonnet-4-6';/);
     expect(backend).toMatch(/analyzeHealthImport\.addEnvironment\('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID\)/);
     expect(backend).toMatch(/extractDocumentData\.addEnvironment\('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID\)/);
   });
