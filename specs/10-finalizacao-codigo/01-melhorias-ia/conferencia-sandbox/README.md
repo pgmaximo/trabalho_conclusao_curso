@@ -32,7 +32,9 @@ conferencia-sandbox/
 | A8 | Laço repetindo a mesma consulta e degradada repetida; R3 em "não tenho como dizer que", "você tem 54 anos" | ✅ corrigido | DS9 |
 | A10 | Mais dois falsos positivos da R3: "você **tem em uso**: Marevan 5mg" sem âncora de registro (E9 H11); a conjunção "**e** baixo risco" lida como "é baixo" (E7 #1) | ✅ corrigido | DS10 |
 | A11 | Três respostas certas ainda reprovadas (rodada completa de 2026-10-22): "o **estoque está baixo**" lido como interpretação de resultado e "Vitamina D 1 gota — todos os dias" sem âncora de registro (E2 #7, R3); resposta sobre dados do relógio fora do período reprovada por falta de encaminhamento (E6 #2, R2); "Preparei o formulário com o que você disse:" (R5) e, na 2ª geração, "coloque o horário das 8h" (R3), com o cartão perdido junto (E11 #2) | ✅ E2 #7 e E11 #2 aprovados no sandbox (DS13, commit `6803866`); ✅ E6 #2 aprovado no sandbox (commit `eb00624`), mas por "ainda não está disponível", que a DS13.2 já reconhece: a costura da C1 não foi exercitada no sandbox, só nos testes | DS13, DS14 |
-| A12 | Achados da remedição de E6, E7 e E9 (2026-10-22, depois da DS14): (1) R3 em "no seu perfil consta que você **tem 54 anos e sexo feminino**" (E7 #2): a exceção da idade (DS9) cai com "e" depois, de propósito, por "você tem 54 anos e diabetes"; (2) o encaminhamento é costurado em toda resposta clínica sem um, inclusive na que só diz que o dado não existe (E6 #2 saiu com "Para avaliar o que isso significa para você, procure um profissional de saúde."); (3) latências de 25 a 148 s e TIMEOUT no roteiro local (E7 #4, 150 s): o CloudWatch mostra que a lentidão é do Bedrock (`InvocationLatency` de 3 s para até 80 s de média), não da rede local | ✅ corrigido no código (DS15.1 idade + sexo; DS15.2 encaminhamento segue a dispensa; DS15.3 limite de 40 s por chamada com aviso de sobrecarga); falta medir no sandbox. O perfil `global.` fica como medição à parte | DS15 |
+| A12 | Achados da remedição de E6, E7 e E9 (2026-10-22, depois da DS14): (1) R3 em "no seu perfil consta que você **tem 54 anos e sexo feminino**" (E7 #2): a exceção da idade (DS9) cai com "e" depois, de propósito, por "você tem 54 anos e diabetes"; (2) o encaminhamento é costurado em toda resposta clínica sem um, inclusive na que só diz que o dado não existe (E6 #2 saiu com "Para avaliar o que isso significa para você, procure um profissional de saúde."); (3) latências de 25 a 148 s e TIMEOUT no roteiro local (E7 #4, 150 s): o CloudWatch mostra que a lentidão é do Bedrock (`InvocationLatency` de 3 s para até 80 s de média), não da rede local | ✅ DS15.1 confirmada no sandbox (E7 #2 aprovado, commit `02345fd`); ✅ DS15.3 funcionando (5 chamadas cortadas aos 40 s, 4 com o aviso de sobrecarga); ✅ DS15.2 confirmada no sandbox (E6 #2 aprovado sem o encaminhamento costurado, 11:37) | DS15 |
+| A13 | Achados da remedição de E6 e E7 com o código da DS15 (2026-10-22, 11:37–11:48): (1) R3 em "Você tem **60 recomendações** adaptadas…" (E7 #2): "recomendações" não está no inventário do "você tem"; (2) o guardrail do chat bloqueou a saída do E7 #5 ("o que o app mostra na parte de prevenção?") pelo filtro de conteúdo **SEXUAL** (confiança MÉDIA): a lista da USPSTF traz rastreamento de clamídia, gonorreia, sífilis e HIV em "mulheres sexualmente ativas", o mesmo tipo de falso positivo que a D20 viu na sorologia da extração; (3) a lentidão segue o **formato da chamada do chat**, e não o momento: no CloudWatch, as chamadas mínimas das 11:33 levaram 1,8 s de média, e as do chat das 11:38 às 11:43 levaram 16,6 e 20,4 s (máximo 81 s) | ⏳ **aguardando decisão** | DS16 |
+| — | Chat no Claude Opus 4.6 (pedido do usuário, 2026-10-22): rodada completa com 64 de 70 aprovadas (Sonnet 4.6: 67), latência mediana de 10,8 s (Sonnet: 9,2 s), 3 ThrottlingException por causa da cota de 5 req/min do Opus 4.6 (Sonnet: 10) | ❌ recusado; o chat voltou ao Sonnet 4.6 | DS17 |
 
 ## Última medição por épico
 
@@ -45,8 +47,8 @@ Rodada completa de **2026-10-22** (commit `addebdb`, os três modelos no **Sonne
 | E3 | 6/6 | |
 | E4 | 5/5 | |
 | E5 | 6/6 (2 na 2ª geração) | |
-| E6 | 5/5 | #2 aprovado depois da DS14 (2026-10-22); dados do relógio sintéticos |
-| E7 | 6/6 na rodada completa; 4/6 na remedição depois da DS14 | remedição: #2 degradado (A12, "54 anos e sexo feminino") e #4 em TIMEOUT do roteiro local |
+| E6 | 5/5 depois da DS14; 4/5 depois da DS15 (2ª medição, 11:37) | #2 aprovado sem o encaminhamento costurado (DS15.2); #4 cortado pelo limite de 40 s; dados do relógio sintéticos |
+| E7 | 6/6 na rodada completa; 2/6 depois da DS15 (2ª medição, 11:37) | #1 e #4 cortados pelo limite de 40 s; #2 degradado (A13, "você tem 60 recomendações"); #5 barrado pelo filtro SEXUAL do guardrail (A13); #3 e #cache aprovados |
 | E8 | 7/7 | #4 "bairro centro" aprovado |
 | E9 | 9/9 | H11 aprovado (DS10); 9/9 de novo depois da DS14 |
 | E10 | 3/3 | |
@@ -57,8 +59,8 @@ Rodada completa de **2026-10-22** (commit `addebdb`, os três modelos no **Sonne
 
 Estado em 2026-10-22, depois da rodada completa no Sonnet 4.6.
 
-1. **A12:** medir de novo E6 e E7 no sandbox depois do deploy da DS15.
-2. **Perfil `global.` (medição à parte, DS15.3):** comparar a latência do `global.anthropic.claude-sonnet-4-6` com a do `us.`, e decidir sobre a inferência fora dos EUA.
+1. **A13:** decidir sobre (1) "recomendações" no inventário do "você tem", (2) o filtro SEXUAL do guardrail do chat na lista da USPSTF e (3) a latência que depende do formato da chamada do chat (21 a 36 mil tokens de entrada, 17 ferramentas, saída estruturada, `effort`). Nenhuma dessas partes foi testada isoladamente, e a mesma chamada rodou em 3 a 4 s de manhã.
+2. **Perfil `global.` (DS15.3):** medido com chamadas mínimas em 2026-10-22: 1,31 s contra 1,84 s do `us.` (média do Bedrock), mais estável, mas fora de um episódio lento e sem o formato da chamada do chat. Falta medir a chamada real nos dois perfis durante um episódio lento (exige trocar o perfil num sandbox) e decidir sobre a inferência fora dos EUA.
 3. **Acesso aos modelos novos (do usuário):** pedir a liberação do Opus 5.5 e do Sonnet 5.5 no Bedrock. Quando sair, basta trocar `CHAT_BASE_MODEL_ID` e `BEDROCK_BASE_MODEL_ID` no `backend.ts` (DS12), fazer o deploy e medir de novo, com a latência do chat.
 4. **Conferir o wearable e a extração reais** depois da DS12: o wearable trocou a tool forçada pela saída estruturada, e nenhuma importação real passou por ele ainda.
 5. **Conferências que só o aparelho faz:**

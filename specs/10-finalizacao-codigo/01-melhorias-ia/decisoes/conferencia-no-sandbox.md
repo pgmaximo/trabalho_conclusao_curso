@@ -510,3 +510,121 @@ Prova: testes vermelhos antes e verdes depois.
 
 `npx jest amplify/functions/chat-assistant amplify/functions/ai-language-rules`: 2543 testes. `npm run typecheck:backend` passou.
 
+### DS15.3, medição à parte: perfil `global.` contra `us.` (2026-10-22, 11:32–11:36)
+
+**Como foi medido.** O backend não mudou. Foram 16 chamadas mínimas pelo Converse (endpoint FIPS, `maxTokens` 200, uma pergunta de uma frase), alternando `us.anthropic.claude-sonnet-4-6` e `global.anthropic.claude-sonnet-4-6`, com 7 s de pausa por causa da cota. Para cada chamada, o tempo total visto desta máquina e o `latencyMs` que o próprio Bedrock devolve. Saída de 46 a 63 tokens em todas.
+
+| Perfil | `latencyMs` média | mediana | máximo | Tempo total médio (com a rede) |
+|---|---|---|---|---|
+| `us.` | 1,84 s | 1,76 s | 2,78 s | 3,77 s |
+| `global.` | 1,31 s | 1,29 s | 1,47 s | 3,21 s |
+
+O CloudWatch confirma, na janela das 11:31: `us.` com 1,84 s de média (8 chamadas) e `global.` com 1,31 s (8 chamadas).
+
+**O que dá para concluir, e o que não dá.**
+- Nesta janela, o `global.` foi cerca de 30% mais rápido no Bedrock e muito mais estável (máximo de 1,5 s contra 2,8 s).
+- **Esta medição não reproduz o episódio lento.** O `us.` estava em 32,8 s de média às 11:26, nas chamadas do chat, e em 1,8 s às 11:31, nas chamadas mínimas. Ou o episódio passou entre as duas janelas, ou a lentidão depende do formato da chamada do chat (cerca de 21 mil tokens de entrada, as 17 ferramentas, saída estruturada e `effort`), que a chamada mínima não tem. A mesma chamada do chat rodou em 3 a 4 s de média de manhã (08:47–09:02), com o mesmo código, o que pesa a favor da primeira explicação, sem descartar a segunda.
+- Para decidir pelo `global.`, a medição que falta é a chamada do chat de verdade nos dois perfis, durante um episódio lento. Isso exige trocar o perfil num sandbox, e é uma mudança de backend.
+
+**A questão da região continua aberta e não depende da latência.** Com o `global.`, a inferência pode rodar fora dos EUA, com dado de saúde da pessoa no prompt.
+
+## DS16 — Recomendações no inventário, filtro SEXUAL na prevenção e latência pelo formato da chamada (achado A13)
+
+Remedição de E6 e E7 com o código da DS15 (2026-10-22, 11:37–11:48). Três achados independentes.
+
+### DS16.1 — "Você tem 60 recomendações adaptadas" (E7 #2)
+
+A R3 reprovou como diagnóstico, porque "recomendações" não está no inventário do "você tem" (`COISAS_DO_APLICATIVO`). Reproduzido: "Você tem 60 recomendações adaptadas para o seu grupo." e "Você tem 12 recomendações listadas." reprovam. "No aplicativo há 60 recomendações para o seu grupo." passa. "Você tem recomendação de fazer mamografia." e "Você tem indicação de fazer colonoscopia." também reprovam, **e precisam continuar reprovando**: são indicação individual.
+
+- **A. Só a contagem.** "você tem N recomendações" (algarismo ou número por extenso) entra no inventário. Sem número, continua julgado.
+  - Benefício: separa a contagem da lista ("60 recomendações") da indicação ("recomendação de fazer").
+  - Malefício: "você tem 2 recomendações de exame" também passa, mas como contagem do que a fonte lista para o grupo, que é o que a resposta diz.
+- **B. "recomendações" em qualquer forma no inventário.**
+  - Malefício: "você tem recomendação de fazer mamografia" passaria, e isso é indicação.
+- **C. Só o prompt** ("diga 'a lista do aplicativo tem 60 recomendações'").
+  - Malefício: não é determinístico.
+
+**Recomendação: A.**
+
+**Continua reprovado (contra-testes):**
+- "Você tem recomendação de fazer mamografia."
+- "Você tem indicação de fazer colonoscopia."
+- "Você tem 54 anos e diabetes."
+
+### DS16.2 — O filtro SEXUAL do guardrail na lista da USPSTF (E7 #5)
+
+Pergunta: "o que o app mostra na parte de prevenção?". O guardrail do chat bloqueou a **saída** pelo filtro de conteúdo `SEXUAL` (confiança MÉDIA, força MEDIUM). A resposta listava as recomendações do grupo da pessoa, que incluem rastreamento de clamídia, gonorreia, sífilis e HIV em "mulheres sexualmente ativas", texto da própria USPSTF. A pessoa recebeu "Não consigo responder a essa mensagem". A extração tirou esse filtro pelo mesmo motivo (D20: sorologia dispara SEXUAL).
+
+Hoje o guardrail do chat tem `SEXUAL` em MEDIUM na entrada e na saída (`backend.ts`, `configuracaoDoGuardrailDoChat`).
+
+- **A. Desligar o `SEXUAL` só na saída** (`outputStrength: 'NONE'`, entrada continua MEDIUM). A saída do chat sai dos dados da própria pessoa e das fontes do app, e passa pelas regras R1 a R5. A pergunta da pessoa continua filtrada.
+  - Benefício: resolve o caso e mantém o filtro onde ele protege (o que a pessoa manda).
+  - Malefício: um texto sexual gerado pelo modelo deixa de ser barrado pelo guardrail. O modelo é instruído e as fontes são clínicas, mas a camada deixa de existir na saída.
+- **B. Baixar para LOW nas duas pontas.**
+  - Benefício: mantém a camada.
+  - Malefício: não há garantia de que LOW deixe passar esse texto; precisa medir, e pode só diminuir a frequência.
+- **C. Tirar o `SEXUAL` do chat inteiro,** como a extração (D20).
+  - Malefício: a pergunta da pessoa também deixa de ser filtrada.
+- **D. Manter.** Toda resposta que liste as recomendações de IST do grupo pode ser bloqueada.
+
+**Recomendação: A**, com o teste de infraestrutura fixando que a entrada continua filtrada. Como a configuração do guardrail mudou, a impressão digital da versão (DS1) publica a versão nova sozinha.
+
+### DS16.3 — A latência segue o formato da chamada do chat
+
+**O que se sabe.** Com o mesmo perfil (`us.anthropic.claude-sonnet-4-6`) e no mesmo intervalo de minutos, as chamadas mínimas das 11:33 levaram 1,8 s de média no Bedrock, e as do chat das 11:38 às 11:43 levaram 16,6 e 20,4 s (máximo de 81 s). Nenhum throttling ou erro.
+
+A chamada do chat leva:
+- uma parte **fixa** de cerca de 10,5 mil tokens de entrada (prompt de sistema, contexto do dia e as 17 ferramentas), medida nos turnos sem ferramenta (E1 #4, E1 #5, E11 #4);
+- as saídas das ferramentas, que levam a entrada a 21–36 mil tokens (E7 #2: 36.433);
+- saída estruturada (`output_config`) e `effort`.
+
+A parte fixa é **reenviada em cada ida ao modelo**, de 2 a 4 por turno, e o código não usa cache de prompt (`cachePoint`). De manhã, a mesma chamada rodou em 3 a 4 s, então o formato sozinho não explica tudo. Nenhuma parte foi testada isoladamente.
+
+- **A. Experimento de isolamento antes de mudar código.** Repetir uma pergunta fixa do chat (por exemplo, a E7 #2) em quatro variações, alternadas e no mesmo intervalo: completa; sem `output_config`; sem as ferramentas (só o histórico como texto); entrada reduzida a 10 mil tokens. Umas 20 chamadas, dentro da cota.
+  - Benefício: diz qual parte pesa antes de mexer.
+  - Malefício: se o episódio lento passar no meio, o experimento não conclui nada, como aconteceu com a medição do `global.`.
+- **B. Cache de prompt na parte fixa.** Um `cachePoint` depois do prompt de sistema e das ferramentas, que o Bedrock aceita para o Sonnet 4.6. A partir da segunda ida ao modelo no mesmo turno, e entre turnos próximos, os 10,5 mil tokens fixos são lidos do cache.
+  - Benefício: menos processamento de entrada em toda chamada e custo menor da parte cacheada, mesmo sem saber a causa do episódio.
+  - Malefício: não ataca as saídas das ferramentas, que são a maior parte nos turnos lentos. O contexto do dia precisa ficar depois do ponto de cache, senão o invalida todo dia (ver `contextoDeHoje.ts`).
+- **C. Perfil `global.` com a chamada real,** num sandbox, durante um episódio lento. Exige a decisão sobre região (DS15.3).
+- **D. Nada no código.** O limite de 40 s (DS15.3) já transforma a espera em aviso.
+
+**Recomendação: A e depois B.** O experimento é barato, e o cache vale a pena de qualquer jeito. Mas se o peso estiver nas saídas das ferramentas, o próximo passo é encurtá-las, e não o cache.
+
+**Decisão:** _(a preencher pelo usuário)_
+
+## DS17 — O chat no Claude Opus 4.6: medido e recusado (2026-10-22)
+
+**Pedido do usuário.** Trocar só o modelo do chat para o Claude Opus 4.6, já que a conta não tem acesso ao Opus 5.5 nem ao Sonnet 5.5 (DS12). A extração e o wearable ficam no Sonnet 4.6. A regra combinada: se o Opus 4.6 fosse pior em aprovação ou latência, voltar ao Sonnet 4.6 e registrar a medição.
+
+**Conferência antes da troca.**
+- `get-foundation-model-availability`: AVAILABLE/AUTHORIZED.
+- Os perfis `us.` e `global.anthropic.claude-opus-4-6-v1` existem.
+- Uma chamada real no formato do chat (`effort: low`, saída estruturada, `maxTokens` 16.000, sem `temperature`) voltou `end_turn` em 3,0 s.
+- O código da DS12 serve ao Opus 4.6 sem mudança. O teto de 16.000 sobra, porque sem thinking a resposta do chat fica em centenas de tokens, mas não quebra nada.
+
+**A troca.** `CHAT_BASE_MODEL_ID = 'anthropic.claude-opus-4-6-v1'`, com o teste de infraestrutura vermelho antes. As duas ARNs da permissão derivam da constante (`inference-profile/us.anthropic.claude-opus-4-6-v1` e `foundation-model/anthropic.claude-opus-4-6-v1`). `npx jest` dos arquivos tocados (62) e `npm run typecheck:backend` passaram. Deploy no sandbox às 12:13.
+
+**Rodada completa E1 a E12** (70 casos, 10 s de pausa, 15:13–15:42 UTC), comparada com a do Sonnet 4.6 da manhã:
+
+| | Sonnet 4.6 | Opus 4.6 |
+|---|---|---|
+| Aprovadas | **67** | 64 |
+| … delas na 2ª geração | 4 | 4 |
+| Degradadas | 1 | 0 |
+| Indisponíveis | 2 | 6 |
+| Latência por pergunta: mediana | **9,2 s** | 10,8 s |
+| p90 | **15,5 s** | 18,1 s |
+| máximo | **31,6 s** | 44,0 s |
+| Turnos acima de 90 s | 0 | 0 |
+| ThrottlingException | 0 | **3** |
+| Cota da conta (req/min, cross-region) | **10** (`L-00FF3314`) | 5 (`L-11DFF789`) |
+
+**As 6 indisponíveis do Opus 4.6:**
+- 3 ThrottlingException (E5 #5, E8 #2, E8 #norte). A cota do Opus 4.6 é a metade da do Sonnet, e com 2 a 4 chamadas por turno o ritmo da rodada já a estoura, com uma pessoa só.
+- 1 corte pelo limite de 40 s (E1 #2).
+- 1 bloqueio do filtro SEXUAL do guardrail (E7 #1, confiança ALTA). É o achado A13 (DS16.2), que não depende do modelo.
+- 1 reprovação da R3 (E9 #6, "posso tomar warfarina? já tomo o Marevan"); a segunda geração chamou ferramenta.
+
+**Resultado: o Opus 4.6 ficou pior em aprovação e em latência, e o chat voltou ao Sonnet 4.6.** Os dois arquivos voltaram ao estado do commit `02345fd`, e o sandbox foi implantado de novo com o Sonnet 4.6. **A comparação não é de igual para igual, e o viés favorece o Opus.** A rodada do Sonnet 4.6 foi de manhã, com o código de `addebdb`, antes da DS13 à DS15. As 3 falhas de regra dela (E2 #7, E6 #2 e E11 #2) foram corrigidas depois. A do Opus 4.6 rodou com o código de `02345fd`, com essas correções, e teve 1 falha de regra (E9 #6) e 1 do guardrail. Mesmo com o código mais novo, o Opus aprovou menos, e a maior parte da diferença vem da cota: as 3 perguntas recusadas por throttling nem chegaram ao modelo, então não se sabe se passariam. Uma rodada do Sonnet 4.6 com o código atual daria a comparação justa. Com 5 chamadas por minuto, porém, ele não serve ao chat nesta conta sem aumento de cota, e o aumento não foi liberado para o Sonnet (A6).
+
