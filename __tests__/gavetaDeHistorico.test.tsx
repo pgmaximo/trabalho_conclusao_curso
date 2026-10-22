@@ -142,6 +142,114 @@ describe('apagar uma conversa', () => {
     expect(screen.queryByText(/não pode ser desfeita/i)).toBeNull();
   });
 
+  describe('quando excluir falha (E12)', () => {
+    // A tela dizia nada: o painel voltava ao normal e a pessoa podia achar que
+    // a conversa tinha sumido. O texto e fixo porque o que ela precisa saber e
+    // que a conversa continua la e que pode tentar de novo.
+    const AVISO = 'Não foi possível excluir esta conversa. Tente novamente.';
+
+    async function confirmarComFalha(onDelete: jest.Mock, indice = 0) {
+      fireEvent.press(screen.getAllByLabelText(/excluir conversa/i)[indice]);
+      fireEvent.press(screen.getByText('Excluir'));
+      await waitFor(() => expect(onDelete).toHaveBeenCalled());
+    }
+
+    it('a gaveta diz e mantem a confirmacao aberta', async () => {
+      const onDelete = jest.fn().mockRejectedValue(new Error('x'));
+      renderGaveta({ onDelete });
+      await confirmarComFalha(onDelete);
+      expect(await screen.findByText(AVISO)).toBeTruthy();
+      expect(screen.getByText(/não pode ser desfeita/i)).toBeTruthy();
+      // O botao volta a ficar ativo: tentar de novo e o caminho.
+      expect(screen.getByText('Excluir')).toBeTruthy();
+    });
+
+    it('tentar de novo com sucesso tira o aviso', async () => {
+      const onDelete = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('x'))
+        .mockResolvedValueOnce(undefined);
+      renderGaveta({ onDelete });
+      await confirmarComFalha(onDelete);
+      await screen.findByText(AVISO);
+      fireEvent.press(screen.getByText('Excluir'));
+      await waitFor(() => expect(onDelete).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.queryByText(AVISO)).toBeNull());
+    });
+
+    it('cancelar tira o aviso', async () => {
+      const onDelete = jest.fn().mockRejectedValue(new Error('x'));
+      renderGaveta({ onDelete });
+      await confirmarComFalha(onDelete);
+      await screen.findByText(AVISO);
+      fireEvent.press(screen.getByText('Cancelar'));
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+
+    it('abrir a confirmacao de OUTRA conversa nao leva o aviso junto', async () => {
+      // O aviso embaixo da conversa errada diria que foi ela que falhou.
+      const onDelete = jest.fn().mockRejectedValue(new Error('x'));
+      renderGaveta({ onDelete });
+      await confirmarComFalha(onDelete);
+      await screen.findByText(AVISO);
+      fireEvent.press(screen.getAllByLabelText(/excluir conversa/i)[1]);
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+
+    it('enquanto apaga, as lixeiras ficam travadas (revisao do E12)', async () => {
+      // Sem a trava, a pessoa abria a confirmacao de outra conversa no meio da
+      // exclusao, e o resultado da primeira caia na segunda: o aviso de falha
+      // embaixo da conversa errada, ou o painel dela fechado sozinho.
+      let falhar: (e: Error) => void = () => {};
+      const onDelete = jest.fn(
+        () => new Promise<void>((_ok, rejeitar) => (falhar = rejeitar)),
+      );
+      renderGaveta({ onDelete });
+      fireEvent.press(screen.getAllByLabelText(/excluir conversa/i)[0]);
+      fireEvent.press(screen.getByText('Excluir'));
+      await waitFor(() => expect(onDelete).toHaveBeenCalled());
+
+      const lixeiraDaOutra = screen.getAllByLabelText(/excluir conversa/i)[1];
+      expect(lixeiraDaOutra.props.accessibilityState).toMatchObject({ disabled: true });
+      fireEvent.press(lixeiraDaOutra);
+      falhar(new Error('x'));
+
+      // O aviso aparece na conversa que falhou, e so uma confirmacao esta aberta.
+      expect(await screen.findByText(AVISO)).toBeTruthy();
+      expect(screen.getAllByText(/não pode ser desfeita/i)).toHaveLength(1);
+      expect(screen.getAllByLabelText(/excluir conversa/i)[1].props.accessibilityState).toMatchObject({
+        disabled: false,
+      });
+    });
+
+    it('fechar e reabrir a gaveta nao traz de volta o aviso velho', async () => {
+      // A gaveta so fica invisivel, sem desmontar: o estado sobreviveria.
+      const onDelete = jest.fn().mockRejectedValue(new Error('x'));
+      const props = {
+        groups: [{ group: 'Hoje', items: [HOJE, ONTEM] }],
+        onClose: jest.fn(),
+        onNewChat: jest.fn(),
+        onDelete,
+      };
+      const { rerender } = render(<HistoryDrawer {...props} visible />);
+      await confirmarComFalha(onDelete);
+      await screen.findByText(AVISO);
+
+      rerender(<HistoryDrawer {...props} visible={false} />);
+      rerender(<HistoryDrawer {...props} visible />);
+
+      expect(screen.queryByText(AVISO)).toBeNull();
+      expect(screen.queryByText(/não pode ser desfeita/i)).toBeNull();
+    });
+
+    it('com sucesso, nenhum aviso de erro aparece', async () => {
+      const onDelete = jest.fn().mockResolvedValue(undefined);
+      renderGaveta({ onDelete });
+      await confirmarComFalha(onDelete);
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+  });
+
   it('a confirmacao pede sobre UMA conversa, e nao sobre todas', () => {
     // Um painel que aparecesse em cima da lista inteira deixaria a pessoa sem
     // saber qual conversa esta prestes a sumir.

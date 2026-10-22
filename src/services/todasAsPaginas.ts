@@ -19,15 +19,20 @@ type Pagina<T> = {
   errors?: { message?: string | null }[] | null;
 };
 
+/**
+ * `mensagemDeFalha` deixa quem chama dizer o que a pessoa pediu ("excluir esta
+ * conversa"), em vez da leitura genérica; o detalhe técnico vai igual.
+ */
 export async function todasAsPaginas<T>(
   buscar: (nextToken: string | null) => Promise<Pagina<T>>,
+  mensagemDeFalha = 'Não foi possível ler a lista inteira.',
 ): Promise<T[]> {
   const itens: T[] = [];
   let cursor: string | null = null;
   do {
     const pagina: Pagina<T> = await buscar(cursor);
     if (pagina.errors?.length) {
-      throw backendError(pagina.errors, 'Não foi possível ler a lista inteira.');
+      throw backendError(pagina.errors, mensagemDeFalha);
     }
     itens.push(...(pagina.data ?? []));
     cursor = pagina.nextToken ?? null;

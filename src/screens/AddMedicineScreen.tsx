@@ -15,6 +15,7 @@ import { useColorScheme } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
+import { AvisoDeCamposPreenchidos } from '@/components/AvisoDeCamposPreenchidos';
 import { Button } from '@/components/Button';
 import { DetailHeader } from '@/components/DetailHeader';
 import { DrugInteractionSheet } from '@/components/DrugInteractionSheet';
@@ -30,11 +31,31 @@ import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import { createMedicine, listMedicinesForUser } from '@/services/medicineService';
 import { syncMedicineReminders } from '@/services/medicineReminderService';
 import { findInteractionsForCandidate, type DrugInteractionMatch } from '@/services/drugInteractionService';
+import type { CamposDeLembrete } from '../../amplify/functions/acoes-propostas-shared/camposDaAcao';
 
-export function AddMedicineScreen() {
+type AddMedicineScreenProps = {
+  /**
+   * Nome e horarios que o cartao da acao proposta (E11) ou um link trouxeram,
+   * ja conferidos pela rota. Nunca a dose (D11.3 = A): o tipo nao tem o campo.
+   * Ausente, a tela abre vazia, como sempre abriu.
+   */
+  inicial?: CamposDeLembrete;
+};
+
+function formularioInicial(inicial: CamposDeLembrete | undefined): MedicineFormState {
+  if (!inicial) return EMPTY_MEDICINE_FORM;
+  return {
+    ...EMPTY_MEDICINE_FORM,
+    name: inicial.name ?? '',
+    times: inicial.times?.length ? [...inicial.times] : EMPTY_MEDICINE_FORM.times,
+  };
+}
+
+export function AddMedicineScreen({ inicial }: AddMedicineScreenProps = {}) {
   const { colorScheme } = useColorScheme();
+  const veioPreenchido = inicial !== undefined && Object.keys(inicial).length > 0;
 
-  const [form, setForm] = useState<MedicineFormState>(EMPTY_MEDICINE_FORM);
+  const [form, setForm] = useState<MedicineFormState>(() => formularioInicial(inicial));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [interactionMatches, setInteractionMatches] = useState<DrugInteractionMatch[]>([]);
@@ -109,6 +130,8 @@ export function AddMedicineScreen() {
           showsVerticalScrollIndicator={false}
         >
           <DetailHeader onBack={() => router.back()} title="Adicionar medicamento" />
+
+          {veioPreenchido ? <AvisoDeCamposPreenchidos /> : null}
 
           {submitError ? <InlineError message={submitError} /> : null}
 

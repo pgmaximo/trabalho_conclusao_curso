@@ -12,7 +12,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
-import { EXTRACTION_STATUS } from '../../data/schemas/extractionEnums';
+import { EXTRACTION_STATUS, passouDaJanelaDeTravamento } from '../../data/schemas/extractionEnums';
 import { buildUpdateExpression } from '../health-import-shared/updateExpressionBuilder';
 
 const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient());
@@ -36,19 +36,17 @@ type MedicalDocumentRow = {
 type HandlerResult = { documentId: string; status: string };
 
 /**
- * Um documento ja em PROCESSING ha muito tempo esta travado, nao rodando: a
- * Lambda tem teto de 10 minutos, entao qualquer coisa alem disso e resto de
- * uma execucao que morreu sem marcar FAILED. Sem esta janela, um travamento
- * deixaria o documento impossivel de reprocessar para sempre.
+ * Um documento ja em PROCESSING alem da janela de travamento esta travado, nao
+ * rodando (a regra mora em extractionEnums.ts, compartilhada com o chat).
+ * Sem ela, um travamento deixaria o documento impossivel de reprocessar para
+ * sempre.
  */
-const JANELA_DE_TRAVAMENTO_MS = 11 * 60 * 1000;
-
 function jaEstaRodando(row: MedicalDocumentRow): boolean {
   if (row.extractionStatus !== PROCESSING) return false;
   if (!row.extractionStartedAt) return true;
   const inicio = Date.parse(row.extractionStartedAt);
   if (Number.isNaN(inicio)) return true;
-  return Date.now() - inicio < JANELA_DE_TRAVAMENTO_MS;
+  return !passouDaJanelaDeTravamento(inicio, Date.now());
 }
 
 export async function handler(event: AppSyncEvent): Promise<HandlerResult> {

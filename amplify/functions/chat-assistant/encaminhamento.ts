@@ -68,10 +68,12 @@ export type Costura = {
  */
 export function costurar(texto: string): Costura {
   if (temEncaminhamento(texto)) return { texto, costurado: false };
+  return { texto: acrescentarAoFim(texto, TEXTO_DE_ENCAMINHAMENTO), costurado: true };
+}
 
+/** Uma frase fixa no fim do texto, separada por um espaco. Um lugar so para as
+ *  duas costuras do aplicativo -- esta e a da comparacao (E10). */
+export function acrescentarAoFim(texto: string, frase: string): string {
   const base = texto.trimEnd();
-  return {
-    texto: base === '' ? TEXTO_DE_ENCAMINHAMENTO : `${base} ${TEXTO_DE_ENCAMINHAMENTO}`,
-    costurado: true,
-  };
+  return base === '' ? frase : `${base} ${frase}`;
 }

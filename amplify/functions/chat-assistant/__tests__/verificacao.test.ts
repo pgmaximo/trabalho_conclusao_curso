@@ -29,8 +29,11 @@ jest.mock('../degradedAnswer', () => ({
   buildDegradedAnswer: (...a: unknown[]) => mockBuildDegradedAnswer(...a),
 }));
 
+import { montarContextoDeHoje } from '../contextoDeHoje';
+import { TEXTO_DA_AUSENCIA } from '../ausenciaFixa';
+import { TEXTO_DA_COMPARACAO } from '../comparacaoFixa';
 import { TEXTO_DE_ENCAMINHAMENTO } from '../encaminhamento';
-import { INDISPONIVEL, responderComVerificacao } from '../verificacao';
+import { INDISPONIVEL, responder, responderComVerificacao } from '../verificacao';
 
 const IDENTIDADE = { sub: 's-1', username: 'u-1', owner: 's-1::u-1' };
 
@@ -580,6 +583,209 @@ describe('classificacao clinica (U2)', () => {
     expect(regrasRegistradas()).toContain('R2');
   });
 
+  it('recomendacao de prevencao e clinica: sai com o encaminhamento do aplicativo (E7)', async () => {
+    // O texto nao tem unidade de exame, entao so o texto a classificaria como
+    // operacional -- e uma resposta sobre mamografia sairia sem encaminhar a
+    // ninguem. E a ferramenta usada que a torna clinica.
+    const PREVENCAO =
+      'A USPSTF recomenda, de forma geral, mamografia a cada dois anos para mulheres de 40 a 74 anos (nota B, 2024).';
+    mockRunConversationTurn.mockResolvedValue(turno(PREVENCAO, ['consultar_prevencao']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${PREVENCAO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('indicacao individual de exame NAO e salva pela costura do encaminhamento (E7, D7.3)', async () => {
+    // A costura vale para a R2 sozinha. Com a R3 junto, o caminho e A -> E -> C
+    // -- e "voce deve fazer mamografia" com um rodape continuaria sendo uma
+    // indicacao.
+    const INDICACAO = 'Você deve fazer mamografia a cada dois anos.';
+    mockRunConversationTurn.mockResolvedValue(turno(INDICACAO, ['consultar_prevencao']));
+    mockRegenerateAnswer.mockResolvedValue(turno(INDICACAO, ['consultar_prevencao']));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(r.texto).not.toContain(INDICACAO);
+    expect(mockRegenerateAnswer).toHaveBeenCalled();
+    expect(regrasRegistradas()).toContain('R3');
+  });
+
+  it('campanha de vacinacao e clinica: sai com o encaminhamento do aplicativo (E8)', async () => {
+    // A pergunta real por tras de "tem campanha?" e "devo me vacinar?"; quem
+    // decide e o profissional ou a unidade.
+    const CAMPANHA = 'A Campanha Nacional de Vacinação contra a Influenza vai até 30/05/2026.';
+    mockRunConversationTurn.mockResolvedValue(turno(CAMPANHA, ['consultar_campanhas']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${CAMPANHA} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('interacao medicamentosa e clinica: sai com o encaminhamento do aplicativo (E9)', async () => {
+    // A pergunta por tras e "posso tomar?", e o texto do alerta nao tem unidade
+    // de exame: sem a ferramenta na lista, sairia sem encaminhar a ninguem.
+    const ALERTA =
+      'A lista do aplicativo traz um alerta grave para warfarina com AAS: risco muito elevado de hemorragia.';
+    mockRunConversationTurn.mockResolvedValue(turno(ALERTA, ['consultar_interacoes']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${ALERTA} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('comparacao lado a lado e clinica: sai com o encaminhamento do aplicativo (E10)', async () => {
+    // Exame ao lado do sono e convite a ler um pelo outro; sem a ferramenta na
+    // lista, um texto sem unidade de exame sairia sem encaminhar a ninguem.
+    const BLOCOS = 'O exame de colesterol é de março. O sono de março aparece logo abaixo.';
+    mockRunConversationTurn.mockResolvedValue(turno(BLOCOS, ['consultar_comparacao']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${BLOCOS} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  it('o wearable dia a dia e clinico: sai com o encaminhamento do aplicativo (E6)', async () => {
+    // "Dormi 4 horas, e apneia?" e pergunta clinica, e a resposta sobre o sono
+    // de uma noite nao tem unidade de exame que a classifique pelo texto.
+    const SONO = 'Na quinta-feira, 08/10/2026, o relógio registrou 6 h 40 min de sono.';
+    mockRunConversationTurn.mockResolvedValue(turno(SONO, ['consultar_wearable_dias']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(`${SONO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+  });
+
+  describe('uma frase, um dominio, nos turnos que cruzam (E10, D10.6)', () => {
+    const JUNTA = 'O exame de colesterol de março aparece ao lado do sono de março, que teve média de 6 h por dia.';
+    const SEPARA = 'O exame de colesterol é de março. Em março, o sono teve média de 6 h por dia.';
+
+    it.each([[['consultar_comparacao']], [['consultar_wearable', 'consultar_analito']], [['consultar_resultados', 'consultar_wearable']], [['consultar_wearable_dias', 'consultar_analito']]])(
+      'com %j, a frase que junta dois dominios e reescrita',
+      async (tools) => {
+        mockRunConversationTurn.mockResolvedValue(turno(JUNTA, tools));
+        mockRegenerateAnswer.mockResolvedValue(turno(SEPARA, tools));
+        const r = await responderComVerificacao(ENTRADA);
+        expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+        const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
+        expect(motivo).toMatch(/sua própria frase/);
+      },
+    );
+
+    // Desde a revisao do E6, o remedio e um dominio: dois dominios de
+    // ferramenta no mesmo turno cruzam ("meu sono mudou depois da losartana?").
+    const JUNTA_REMEDIO = 'A losartana está cadastrada desde março, e o sono de março teve média de 6 h por dia.';
+    const SEPARA_REMEDIO = 'A losartana está cadastrada desde março. Em março, o sono teve média de 6 h por dia.';
+
+    it.each([
+      [['consultar_wearable_dias', 'consultar_medicamentos']],
+      [['consultar_wearable', 'consultar_doses_tomadas']],
+      [['consultar_resultados', 'consultar_medicamentos']],
+      [['consultar_analito', 'consultar_receitas']],
+    ])('com %j (remedio e outro dominio), a frase que junta dois dominios e reescrita', async (tools) => {
+      mockRunConversationTurn.mockResolvedValue(turno(JUNTA_REMEDIO, tools));
+      mockRegenerateAnswer.mockResolvedValue(turno(SEPARA_REMEDIO, tools));
+      const r = await responderComVerificacao(ENTRADA);
+      expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+      const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
+      expect(motivo).toMatch(/sua própria frase/);
+    });
+
+    it.each([
+      [['consultar_panorama']],
+      [['consultar_wearable']],
+      [['consultar_wearable_dias']],
+      [['consultar_analito']],
+      [['consultar_medicamentos', 'consultar_doses_tomadas', 'consultar_receitas']],
+      // a interacao fica fora: o alerta curado do E9 junta remedio e efeito na mesma frase
+      [['consultar_interacoes', 'consultar_analito']],
+    ])(
+      'com %j, a regra nao vale',
+      async (tools) => {
+        mockRunConversationTurn.mockResolvedValue(turno('Você tem 2 remédios em uso e 1 exame guardado.', tools));
+        const r = await responderComVerificacao(ENTRADA);
+        expect(r.status).toBe('APROVADA');
+      },
+    );
+  });
+
+  describe('a frase fixa da comparacao (E10, D10.1 = B)', () => {
+    const SAIDA_COM_PAR = {
+      disponivel: true,
+      analito: 'Colesterol total',
+      pares: [{ exame: { id: 'l-9', valor: 210, unidade: 'mg/dL', dataDaColeta: '2026-03-12', documentoId: 'doc-9' } }],
+    };
+    const comPar = (texto: string) => {
+      const t = turno(texto, ['consultar_comparacao']);
+      t.transcript.toolOutputs = [{ name: 'consultar_comparacao', output: SAIDA_COM_PAR }];
+      return t;
+    };
+    const BLOCOS = 'O exame de colesterol é de março. O sono de março aparece logo abaixo.';
+
+    it('entra antes do encaminhamento, na resposta aprovada', async () => {
+      mockRunConversationTurn.mockResolvedValue(comPar(BLOCOS));
+      const r = await responderComVerificacao(ENTRADA);
+      expect(r.status).toBe('APROVADA');
+      expect(r.texto).toBe(`${BLOCOS} ${TEXTO_DA_COMPARACAO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+    });
+
+    it('entra tambem na aprovada na segunda', async () => {
+      mockRunConversationTurn.mockResolvedValue(comPar('Seu sono curto pode ter causado o colesterol alto.'));
+      mockRegenerateAnswer.mockResolvedValue(comPar(BLOCOS));
+      const r = await responderComVerificacao(ENTRADA);
+      expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+      expect(r.texto).toBe(`${BLOCOS} ${TEXTO_DA_COMPARACAO} ${TEXTO_DE_ENCAMINHAMENTO}`);
+      const [, , motivo] = mockRegenerateAnswer.mock.calls[0];
+      expect(motivo).toMatch(/origem no outro/);
+    });
+  });
+
+  it('garantia de combinacao segura NAO e salva pela costura do encaminhamento (E9, D9.4)', async () => {
+    const GARANTIA = 'Pode tomar os dois juntos sem problema.';
+    mockRunConversationTurn.mockResolvedValue(turno(GARANTIA, ['consultar_interacoes']));
+    mockRegenerateAnswer.mockResolvedValue(turno(GARANTIA, ['consultar_interacoes']));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(r.texto).not.toContain(GARANTIA);
+    expect(regrasRegistradas()).toContain('R3');
+  });
+
+  it('indicacao individual de vacina NAO e salva pela costura do encaminhamento (E8, D8.4)', async () => {
+    const INDICACAO = 'Você deve tomar a vacina da gripe.';
+    mockRunConversationTurn.mockResolvedValue(turno(INDICACAO, ['consultar_campanhas']));
+    mockRegenerateAnswer.mockResolvedValue(turno(INDICACAO, ['consultar_campanhas']));
+    mockBuildDegradedAnswer.mockReturnValue(null);
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).not.toBe('APROVADA');
+    expect(r.texto).not.toContain(INDICACAO);
+    expect(mockRegenerateAnswer).toHaveBeenCalled();
+    expect(regrasRegistradas()).toContain('R3');
+  });
+
+  it('lista de unidades e operacional: sai sem rodape (E8)', async () => {
+    // Endereco nao e dado de saude; "procure um profissional" embaixo de uma
+    // lista de UBS seria ruido.
+    const POSTOS = 'A UBS Centro fica na Rua A, 10, no bairro Centro.';
+    mockRunConversationTurn.mockResolvedValue(turno(POSTOS, ['consultar_postos']));
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(POSTOS);
+  });
+
   it('dado de saude SEM unidade continua clinico -- a armadilha do perfil', async () => {
     // Condicao cronica e alergia sao dado de saude e nao tem unidade de
     // medida. So o texto nao bastaria: o classificador tem DUAS entradas.
@@ -736,6 +942,71 @@ describe('R5 no turno', () => {
 
     expect(r.status).toBe('APROVADA');
   });
+
+  // DS14 = C1 (E6 #2): a ausencia dita com outras palavras, provada pela data
+  // limite que a ferramenta devolveu, ganha a frase fixa e passa.
+  describe('a ausencia costurada (DS14 = C1)', () => {
+    function turnoForaDoPeriodo(texto: string) {
+      return {
+        ok: true,
+        answer: { texto, citacoes: [], toolsUsadas: ['consultar_wearable_dias'] },
+        transcript: {
+          messages: [],
+          toolOutputs: [
+            { name: 'consultar_wearable_dias', output: { disponivel: false, dadosDesde: '2026-08-01', dadosAte: '2026-10-12' } },
+          ],
+        },
+        inputTokens: 10,
+        outputTokens: 5,
+        modelId: 'm',
+      };
+    }
+
+    it('aprova a resposta que repete a data limite, com a frase da ausencia no fim', async () => {
+      mockRunConversationTurn.mockResolvedValue(
+        turnoForaDoPeriodo('Os dados do relógio vão só até 12/10/2026, e a última quinta (15/10) fica fora desse período.'),
+      );
+
+      const r = await responderComVerificacao(ENTRADA);
+
+      expect(r.status).toBe('APROVADA');
+      expect(r.texto).toContain(TEXTO_DA_AUSENCIA);
+    });
+
+    it('sem a data limite, a resposta que ignora a ausencia continua reprovada', async () => {
+      mockRunConversationTurn.mockResolvedValue(turnoForaDoPeriodo('Seu acompanhamento está em dia.'));
+      mockRegenerateAnswer.mockResolvedValue(turnoForaDoPeriodo('Seu acompanhamento está em dia.'));
+      mockBuildDegradedAnswer.mockReturnValue(null);
+
+      const r = await responderComVerificacao(ENTRADA);
+
+      expect(r.status).not.toBe('APROVADA');
+      expect(r.texto).not.toContain(TEXTO_DA_AUSENCIA);
+    });
+
+    // DS15.2 = A: a costura do encaminhamento segue a dispensa da R2. "O que
+    // isso significa" nao cabe numa resposta sem dado (E6 #2).
+    it('a resposta que so diz que nao ha o dado sai sem o encaminhamento costurado', async () => {
+      mockRunConversationTurn.mockResolvedValue(
+        turnoForaDoPeriodo('Os dados do relógio vão até 12/10/2026, então a última quinta (15/10) ainda não está disponível.'),
+      );
+
+      const r = await responderComVerificacao(ENTRADA);
+
+      expect(r.status).toBe('APROVADA');
+      expect(r.texto).not.toContain(TEXTO_DE_ENCAMINHAMENTO);
+    });
+
+    it('com juizo de saude em outra oracao, o encaminhamento volta', async () => {
+      mockRunConversationTurn.mockResolvedValue(
+        turnoForaDoPeriodo('Os dados do relógio vão até 12/10/2026, mas seu sono costuma ser ruim nas quintas.'),
+      );
+
+      const r = await responderComVerificacao(ENTRADA);
+
+      expect(r.texto).toContain(TEXTO_DE_ENCAMINHAMENTO);
+    });
+  });
 });
 
 /**
@@ -887,5 +1158,154 @@ describe('o encaminhamento costurado (A2 e C3)', () => {
 
     expect(r.status).toBe('APROVADA');
     expect(r.texto).not.toContain(TEXTO_DE_ENCAMINHAMENTO);
+  });
+});
+
+describe('a cidade do pedido chega ao laco (E8)', () => {
+  it('responder repassa o local validado ao turno', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno('Pronto.', ['consultar_consultas']));
+    const local = { uf: 'SP', codigoMunicipio: '355030' };
+
+    await responder({ message: 'oi', history: [], local }, { identity: IDENTIDADE });
+
+    expect(mockRunConversationTurn.mock.calls[0][0].local).toEqual(local);
+  });
+
+  it('sem local no pedido, o turno leva local nulo', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno('Pronto.', ['consultar_consultas']));
+
+    await responder({ message: 'oi', history: [] }, { identity: IDENTIDADE });
+
+    expect(mockRunConversationTurn.mock.calls[0][0].local).toBeNull();
+  });
+});
+
+/**
+ * A data do turno (E1, D1.1). O relogio e lido UMA vez, em `responder`, e a
+ * segunda geracao (D31) recebe a mesma entrada -- com o mesmo bloco de data.
+ * Ler o relogio de novo na regeneracao poderia trocar o dia entre as duas,
+ * perto da meia-noite.
+ */
+describe('a data do turno chega ao laco (E1)', () => {
+  const AGORA = new Date('2026-10-18T01:30:00Z');
+
+  beforeEach(() => {
+    jest.useFakeTimers({
+      now: AGORA,
+      doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask', 'setTimeout', 'setInterval'],
+    });
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it('responder le o relogio e entrega a data na entrada do turno', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno('Pronto.', ['consultar_consultas']));
+
+    await responder({ message: 'oi', history: [] }, { identity: IDENTIDADE });
+
+    expect(mockRunConversationTurn.mock.calls[0][0].contextoDeHoje).toBe(
+      montarContextoDeHoje(AGORA),
+    );
+  });
+
+  it('a segunda geracao recebe a mesma entrada, com a mesma data', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(COM_POSOLOGIA));
+    mockRegenerateAnswer.mockResolvedValue(
+      turno('Não indico quantidade. Leve seus exames ao seu médico.'),
+    );
+
+    await responder({ message: 'oi', history: [] }, { identity: IDENTIDADE });
+
+    const [entradaDaSegunda] = mockRegenerateAnswer.mock.calls[0];
+    expect(entradaDaSegunda).toBe(mockRunConversationTurn.mock.calls[0][0]);
+    expect(entradaDaSegunda.contextoDeHoje).toBe(montarContextoDeHoje(AGORA));
+  });
+});
+
+/**
+ * O valor cadastrado (E2, D2.4). A lista de valores que a R3 deixa passar sai
+ * do que `consultar_medicamentos` devolveu NO TURNO -- nunca do modelo. Sem a
+ * ferramenta, nenhum valor tem excecao.
+ */
+describe('o valor cadastrado (E2)', () => {
+  const METFORMINA = {
+    nome: 'Metformina',
+    doseRegistrada: '500 mg',
+    forma: 'comprimido',
+    frequencia: 'todos os dias',
+    diasDaSemana: null,
+    intervaloHoras: null,
+    horarios: ['08:00'],
+    inicio: '2026-01-01',
+    termino: null,
+    ativo: true,
+    unidade: 'comprimidos',
+    estoqueAtual: 5,
+    estoqueInicial: 30,
+    limiteDeEstoqueBaixo: 10,
+    estoqueBaixo: true,
+    observacoes: null,
+    observacoesCortadas: false,
+  };
+  // A saida vem SEM valor nenhum de proposito: quem diz o que e cadastrado e
+  // o campo `valoresCadastrados` do transcript.
+  const SAIDA_DE_MEDICAMENTOS = { disponivel: true, emUso: [{ ...METFORMINA, estoqueAtual: null, doseRegistrada: null }], encerrados: [], omitidos: 0 };
+  const ESTOQUE = 'Você tem 5 comprimidos registrados da metformina.';
+
+  // Os valores chegam pelo gancho da tool, gravado no transcript pelo laco
+  // (revisao do E2): a verificacao nao le a saida nem conhece o nome da tool.
+  function turnoDeMedicamentos(texto: string) {
+    const t = turno(texto, ['consultar_medicamentos']);
+    const toolOutputs = [
+      { name: 'consultar_medicamentos', output: SAIDA_DE_MEDICAMENTOS, valoresCadastrados: ['5|comprimido', '500|mg'] },
+    ];
+    return { ...t, transcript: { ...t.transcript, toolOutputs } };
+  }
+
+  it('o estoque cadastrado passa na primeira', async () => {
+    mockRunConversationTurn.mockResolvedValue(turnoDeMedicamentos(ESTOQUE));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).toBe('APROVADA');
+    expect(r.texto).toBe(ESTOQUE);
+    expect(mockRegenerateAnswer).not.toHaveBeenCalled();
+  });
+
+  it('o mesmo texto sem a ferramenta no turno e reprovado', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(ESTOQUE, []));
+    mockRegenerateAnswer.mockResolvedValue(turno(ESTOQUE, []));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(mockRegenerateAnswer).toHaveBeenCalledTimes(1);
+    expect(r.status).not.toMatch(/APROVADA/);
+  });
+
+  it('a nova geracao recebe a lista da primeira (o laco nao e refeito)', async () => {
+    mockRunConversationTurn.mockResolvedValue(turnoDeMedicamentos('Tome 5 comprimidos.'));
+    mockRegenerateAnswer.mockResolvedValue(turno(ESTOQUE, ['consultar_medicamentos']));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).toBe('APROVADA_NA_SEGUNDA');
+    expect(r.texto).toBe(ESTOQUE);
+  });
+
+  it('frase que prescreve e reprovada mesmo com o valor cadastrado', async () => {
+    mockRunConversationTurn.mockResolvedValue(turnoDeMedicamentos('Tome 5 comprimidos.'));
+    mockRegenerateAnswer.mockResolvedValue(turnoDeMedicamentos('Você pode tomar 500 mg.'));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(r.status).not.toMatch(/APROVADA/);
+  });
+});
+
+describe('sobrecarga do modelo (A6)', () => {
+  it('a frase da sobrecarga chega a pessoa, sem dado por baixo', async () => {
+    mockRunConversationTurn.mockResolvedValue({
+      ok: false,
+      sobrecarga: true,
+      message: 'Muita gente está usando o assistente agora. Tente de novo em um minuto.',
+      transcript: { messages: [], toolOutputs: [] },
+    });
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('INDISPONIVEL');
+    expect(r.texto).toBe('Muita gente está usando o assistente agora. Tente de novo em um minuto.');
+    expect(mockRegenerateAnswer).not.toHaveBeenCalled();
   });
 });

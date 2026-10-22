@@ -135,6 +135,43 @@ describe('buildDegradedAnswer', () => {
     expect(r1).toEqual([]);
   });
 
+  it('o estoque baixo entra sem numero (E2)', () => {
+    // "estoque baixo" responde "esta acabando?" sem numero: "5 comprimidos"
+    // numa linha fixa seria reprovado pela R3, e o modo degradado nao tem a
+    // lista de valores cadastrados da D2.4 -- ele passa POR CONSTRUCAO.
+    const r = buildDegradedAnswer([
+      {
+        name: 'consultar_medicamentos',
+        output: {
+          disponivel: true,
+          emUso: [
+            { nome: 'Metformina', doseRegistrada: '50 mg', horarios: ['08:00'], ativo: true, estoqueAtual: 5, estoqueBaixo: true },
+          ],
+        },
+      },
+    ]);
+    expect(r!.texto).toContain('estoque baixo');
+    expect(r!.texto).not.toMatch(/5/);
+    expect(r!.texto).not.toContain('50 mg');
+    expect(checkLanguageRules(r!.texto, { questionKind: 'clinica', temOrigem: true })).toEqual({ ok: true });
+  });
+
+  it('os remedios que ficaram fora do teto sao contados (H11, revisao do E2)', () => {
+    const r = buildDegradedAnswer([
+      {
+        name: 'consultar_medicamentos',
+        output: {
+          disponivel: true,
+          emUso: [{ nome: 'Metformina', horarios: ['08:00'], ativo: true, estoqueBaixo: false }],
+          omitidos: 5,
+        },
+      },
+    ]);
+    expect(r!.texto).toMatch(/mais 5 medicamentos/);
+    expect(r!.texto).toMatch(/tela de Medicamentos/);
+    expect(checkLanguageRules(r!.texto, { questionKind: 'clinica', temOrigem: true })).toEqual({ ok: true });
+  });
+
   it('a dose cadastrada NAO entra no texto de modelo fixo', () => {
     // A tool pode devolver a posologia ao modelo -- e o dado da pessoa. Mas
     // uma linha de texto com "500 mg" e exatamente o que a R3 reprova, e o
@@ -198,6 +235,30 @@ describe('buildDegradedAnswer', () => {
     ])!;
     expect(r.texto).toContain('jejum');
   });
+
+  it('campanhas e postos entram no modo degradado e passam nas regras (E8)', () => {
+    const r = buildDegradedAnswer([
+      {
+        name: 'consultar_campanhas',
+        output: {
+          disponivel: true,
+          campanhas: [
+            { nome: 'Campanha Nacional de Vacinação contra a Influenza', inicio: '2026-03-28', fim: '2026-05-30' },
+          ],
+        },
+      },
+      {
+        name: 'consultar_postos',
+        output: {
+          disponivel: true,
+          unidades: [{ nome: 'UBS Centro', bairro: 'Centro', endereco: 'Rua A, 10' }],
+        },
+      },
+    ])!;
+    expect(r.texto).toContain('de 28/03/2026 a 30/05/2026');
+    expect(r.texto).toContain('UBS Centro · Centro · Rua A, 10');
+    expect(checkLanguageRules(r.texto, { questionKind: 'clinica', temOrigem: true })).toEqual({ ok: true });
+  });
 });
 
 describe('formatarDecimal na funcao', () => {
@@ -220,5 +281,16 @@ describe('formatarDecimal na funcao', () => {
 
   it('nao corta zeros a esquerda da virgula', () => {
     expect(formatarDecimal(100)).toBe('100');
+  });
+});
+
+// A8 da conferencia no sandbox (DS9): a mesma ferramenta, chamada cinco vezes,
+// deixava a degradada com o mesmo bloco cinco vezes seguidas.
+describe('bloco repetido na degradada (A8)', () => {
+  it('a mesma saida da mesma ferramenta aparece uma vez', () => {
+    const r = buildDegradedAnswer([saidaDeAnalito, saidaDeAnalito, saidaDeAnalito]);
+    const r1 = buildDegradedAnswer([saidaDeAnalito]);
+
+    expect(r?.texto).toBe(r1?.texto);
   });
 });

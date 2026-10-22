@@ -19,6 +19,7 @@
  */
 import {
   checkLanguageRules,
+  dispensaEncaminhamento,
   temMedidaDeExame,
   type QuestionKind,
 } from '../ai-language-rules/languageRules';
@@ -29,12 +30,20 @@ import {
   type TurnInput,
   type TurnTranscript,
 } from './conversationLoop';
+import { montarContextoDeHoje } from './contextoDeHoje';
+import { costurarAusencia } from './ausenciaFixa';
+import { costurarComparacao } from './comparacaoFixa';
 import { costurar } from './encaminhamento';
 import { enriquecerCitacoes, indexarLinhasCitaveis } from './citacoes';
 import { buildDegradedAnswer } from './degradedAnswer';
 import { validarProposta } from './memoria/propostaValida';
 import { lerMemoria, montarSystemPrompt } from './memoria/leitura';
-import type { AnswerCitation, ChatAnswer, MemoryProposal } from './chatSchema';
+import type { AcaoProposta } from '../acoes-propostas-shared/camposDaAcao';
+import { validarAcao } from './acoes/acaoValida';
+import { costurarAcao, TEXTO_DA_ACAO } from './acoes/fraseDaAcao';
+import { HISTORY_WINDOW } from './janelaDoHistorico';
+import type { AcaoBruta, AnswerCitation, ChatAnswer, MemoryProposal } from './chatSchema';
+import { dataEmSaoPaulo } from './formatoPtBr';
 import { limparFormatacao } from './textoLimpo';
 import type {
   ChatContext,
@@ -71,8 +80,38 @@ import type {
  *
  * `consultar_resultados` NAO entra aqui de proposito: ela devolve medida, e
  * medida e pega pelo texto, que e o eixo certo.
+ *
+ * `consultar_prevencao` ENTRA (E7): recomendacao de rastreamento e decisao de
+ * cuidado sem unidade nenhuma no texto -- "mamografia a cada dois anos" sairia
+ * como operacional, sem encaminhar a pessoa a quem decide se ela faz o exame.
+ *
+ * `consultar_campanhas` ENTRA (E8) pelo mesmo motivo: a pergunta por tras de
+ * "tem campanha?" e "devo me vacinar?", e quem decide e o profissional ou a
+ * unidade. `consultar_postos` NAO entra: e endereco, e um rodape de
+ * encaminhamento embaixo de uma lista de UBS seria ruido.
+ *
+ * `consultar_interacoes` ENTRA (E9): a pergunta por tras e "posso tomar?", e o
+ * texto de um alerta ("risco de sangramento") nao tem unidade nenhuma. Quem diz
+ * se a combinacao serve para a pessoa e quem prescreve ou o farmaceutico.
+ *
+ * `consultar_comparacao` ENTRA (E10): exame ao lado do sono e convite a ler um
+ * pelo outro, e o texto dos blocos pode nao ter unidade de exame nenhuma.
+ * `consultar_panorama` NAO entra: e contagem e data, metadado como o de
+ * `consultar_exames` (U3); se a resposta trouxer medida, o texto a pega.
+ *
+ * `consultar_wearable_dias` ENTRA (E6), como o wearable: o sono de uma noite
+ * convida a "isso e apneia?", e "6 h 40 min" nao e unidade de exame.
  */
-const TOOLS_CLINICAS = new Set(['consultar_analito', 'consultar_perfil', 'consultar_wearable']);
+const TOOLS_CLINICAS = new Set([
+  'consultar_analito',
+  'consultar_perfil',
+  'consultar_wearable',
+  'consultar_prevencao',
+  'consultar_campanhas',
+  'consultar_interacoes',
+  'consultar_comparacao',
+  'consultar_wearable_dias',
+]);
 
 export type RespostaVerificada = {
   status: RuleCheckStatus;
@@ -90,6 +129,9 @@ export type RespostaVerificada = {
    * um texto que foi descartado por quebrar as regras.
    */
   memoriaProposta?: MemoryProposal;
+  /** A acao proposta (E11), conferida e resolvida. So em resposta aprovada,
+   *  pelo mesmo motivo da memoria. */
+  acaoProposta?: AcaoProposta;
 };
 
 /**
@@ -119,6 +161,38 @@ const MOTIVO_DA_FORMA: Record<'formato' | 'max_tokens', string> = {
   max_tokens:
     'A resposta ficou longa demais e foi cortada. Escreva uma resposta mais curta: mostre menos valores e pergunte se a pessoa quer ver os outros.',
 };
+
+/**
+ * O dominio de saude de cada ferramenta que traz dado da pessoa (E10, D10.6;
+ * o remedio entrou na revisao do E6: "meu sono mudou depois da losartana?"
+ * junta relogio e remedio, e o veredito de eficacia e o risco maior).
+ *
+ * Fora de proposito: `consultar_interacoes`, cujo alerta curado do E9 junta
+ * remedio e efeito na mesma frase e seria reescrito; o panorama, cuja
+ * contagem de assuntos nao compara nada; e as ferramentas sem dado de saude.
+ */
+const DOMINIO_DA_TOOL: Record<string, 'exame' | 'relogio' | 'remedio'> = {
+  consultar_analito: 'exame',
+  consultar_resultados: 'exame',
+  consultar_wearable: 'relogio',
+  consultar_wearable_dias: 'relogio',
+  consultar_medicamentos: 'remedio',
+  consultar_doses_tomadas: 'remedio',
+  consultar_receitas: 'remedio',
+};
+
+/**
+ * O turno cruzou dominios de saude? A comparacao sempre cruza; fora dela,
+ * cruza o turno com ferramentas de dois dominios. Nesses turnos vale "uma
+ * frase, um dominio" (`ai-language-rules`): o lexico de causa pega perto de
+ * metade das frases nunca vistas, e separar os dados por frase tira a causa
+ * da frase.
+ */
+function cruzaDominios(toolsUsadas: string[]): boolean {
+  if (toolsUsadas.includes('consultar_comparacao')) return true;
+  const dominios = new Set(toolsUsadas.map((t) => DOMINIO_DA_TOOL[t]).filter(Boolean));
+  return dominios.size >= 2;
+}
 
 /**
  * O eixo e O QUE A RESPOSTA DIZ, e so em segundo lugar o que foi consultado.
@@ -161,6 +235,39 @@ function propostaAceitavel(
   if (memoriaAtiva === false) return undefined;
 
   return validarProposta(memoria).ok ? memoria : undefined;
+}
+
+/**
+ * A acao proposta (E11), pelo mesmo caminho separado da memoria: reprovar a
+ * acao nunca reprova a resposta, e a recusa e silenciosa.
+ *
+ * "Fala da pessoa" e a mensagem do turno e as mensagens `role: 'user'` do
+ * historico -- nunca o anexo, as respostas do assistente ou o que as
+ * ferramentas devolveram (ver `acoes/acaoValida.ts`). Sem o dia do turno, nada
+ * sai: resolver "sexta" sem saber que dia e hoje seria chutar a data.
+ */
+/**
+ * A frase do formulario e do APLICATIVO (`fraseDaAcao.ts`). Quando o cartao
+ * sai, o modelo que a copiou nao a inventou -- `costurarAcao` nao a repete --,
+ * e ela nao conta para a checagem do formulario prometido (A5). Sem cartao, ela
+ * e tao falsa quanto qualquer outra e fica no texto verificado.
+ */
+function textoParaVerificar(texto: string, comCartao: boolean): string {
+  return comCartao ? texto.replace(TEXTO_DA_ACAO, '').trim() || texto : texto;
+}
+
+function acaoAceitavel(acao: AcaoBruta | undefined, entrada: TurnInput): AcaoProposta | undefined {
+  if (!acao || !entrada.hoje) return undefined;
+  // So a janela que o modelo viu (revisao do E11): um campo "confirmado" por
+  // uma fala que ele nunca leu foi inventado e casou por acaso.
+  const falasDaPessoa = [
+    entrada.message,
+    ...entrada.history
+      .slice(-HISTORY_WINDOW)
+      .filter((m) => m.role === 'user')
+      .map((m) => m.content),
+  ];
+  return validarAcao(acao, { falasDaPessoa, falaDoTurno: entrada.message, hoje: entrada.hoje });
 }
 
 /**
@@ -246,6 +353,20 @@ function limparGeracao<T extends { ok: boolean }>(resultado: T): T {
   const r = resultado as T & { ok: true; answer?: { texto?: string } };
   if (!r.ok || typeof r.answer?.texto !== 'string') return resultado;
   return { ...r, answer: { ...r.answer, texto: limparFormatacao(r.answer.texto) } } as T;
+}
+
+/**
+ * Os valores de remedio que as tools devolveram no turno (E2, D2.4), para a
+ * R3 deixar passar "o seu cadastro diz 500 mg". Cada tool os declara pelo
+ * proprio gancho, e o laco os grava no transcript; aqui so se juntam.
+ *
+ * Mesma razao de `temOrigemDeclarada` e `nenhumDadoVeio`: so quem chama viu o
+ * que as tools devolveram. Sem tool que declare valor no turno, a lista vem
+ * vazia e nenhum valor tem excecao -- inclusive o que o modelo escrevesse de
+ * cabeca.
+ */
+function valoresCadastradosDoTurno(toolOutputs: TurnTranscript['toolOutputs']): string[] {
+  return toolOutputs.flatMap((t) => t.valoresCadastrados ?? []);
 }
 
 /**
@@ -336,13 +457,20 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
   // mora aqui, e nao em quem chama -- quem chama nao tem como saber.
   let indice = new Map<string, Citation>();
 
-  const aprovada = (answer: ChatAnswer, status: RuleCheckStatus): RespostaVerificada => ({
-    status,
-    texto: answer.texto,
-    citacoes: answer.citacoes,
-    indice,
-    memoriaProposta: propostaAceitavel(answer.memoria, entrada.memoriaAtiva),
-  });
+  const aprovada = (answer: ChatAnswer, status: RuleCheckStatus): RespostaVerificada => {
+    // Uma proposta por resposta, contando as duas (E11): a acao foi PEDIDA, a
+    // memoria nao. Dois cartoes juntos pediriam duas decisoes de uma vez.
+    const acaoProposta = acaoAceitavel(answer.acao, entrada);
+    return {
+      status,
+      // A frase do formulario so entra quando o cartao sai (ver `fraseDaAcao.ts`).
+      texto: acaoProposta ? costurarAcao(answer.texto) : answer.texto,
+      citacoes: answer.citacoes,
+      indice,
+      acaoProposta,
+      memoriaProposta: acaoProposta ? undefined : propostaAceitavel(answer.memoria, entrada.memoriaAtiva),
+    };
+  };
 
   // E -> C: o que fazer quando nao ha resposta exibivel. Tenta o dado sem
   // prosa; nao havendo dado, o silencio honesto.
@@ -369,12 +497,19 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     answer: ChatAnswer,
     status: RuleCheckStatus,
     tipo: QuestionKind,
+    toolOutputs: TurnTranscript['toolOutputs'],
   ): RespostaVerificada => {
-    if (tipo !== 'clinica') return aprovada(answer, status);
+    // A frase da comparacao (E10) vem ANTES do encaminhamento e nao depende da
+    // classificacao: a ressalva de que a comparacao nao mostra causa e do
+    // aplicativo, como o encaminhamento, e vale sempre que houve par.
+    const comRessalva = { ...answer, texto: costurarComparacao(answer.texto, toolOutputs) };
+    // A resposta que so diz que o dado nao existe tambem nao ganha o
+    // encaminhamento (DS15.2): o mesmo criterio que a dispensa da R2.
+    if (tipo !== 'clinica' || dispensaEncaminhamento(comRessalva.texto)) return aprovada(comRessalva, status);
 
-    const costura = costurar(answer.texto);
+    const costura = costurar(comRessalva.texto);
     registrarEncaminhamento(costura.costurado);
-    return aprovada({ ...answer, texto: costura.texto }, status);
+    return aprovada({ ...comRessalva, texto: costura.texto }, status);
   };
 
   /**
@@ -392,17 +527,32 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
 
     registrarCusto('segunda', segunda.inputTokens, segunda.outputTokens);
 
-    const tipoDaSegunda = classificar(segunda.answer.texto, segunda.answer.toolsUsadas);
-    const recheck = checkLanguageRules(segunda.answer.texto, {
+    // A ausencia costurada ANTES das regras (DS14 = C1), como na primeira.
+    const respostaDaSegunda = {
+      ...segunda.answer,
+      texto: costurarAusencia(segunda.answer.texto, transcript.toolOutputs, semDados),
+    };
+
+    const tipoDaSegunda = classificar(respostaDaSegunda.texto, respostaDaSegunda.toolsUsadas);
+    const cartaoDaSegunda = acaoAceitavel(respostaDaSegunda.acao, entrada) !== undefined;
+    const recheck = checkLanguageRules(textoParaVerificar(respostaDaSegunda.texto, cartaoDaSegunda), {
       questionKind: tipoDaSegunda,
-      temOrigem: temOrigemDeclarada(segunda.answer, entrada),
+      temOrigem: temOrigemDeclarada(respostaDaSegunda, entrada),
       // A segunda geracao NAO refaz o laco de ferramentas (D31), entao o que
-      // elas devolveram continua sendo o da primeira.
+      // elas devolveram continua sendo o da primeira -- e os valores
+      // cadastrados tambem.
       semDados,
+      valoresCadastrados: valoresCadastradosDoTurno(transcript.toolOutputs),
+      cruzaDominios: cruzaDominios(respostaDaSegunda.toolsUsadas),
+      // A passiva de cadastro so e barrada quando o cartao vai sair (E11). A
+      // acao crua nao serve: o modelo as vezes manda uma vazia sem ninguem
+      // pedir, e o dado das doses ("foi marcado") era reprovado (A4).
+      comAcaoProposta: cartaoDaSegunda,
+      vetarFormulario: true,
     });
-    const citacoesOkNaSegunda = citacoesConferem(segunda.answer, indice);
+    const citacoesOkNaSegunda = citacoesConferem(respostaDaSegunda, indice);
     if (citacoesOkNaSegunda && (recheck.ok || somenteR2(recheck))) {
-      return entregar(segunda.answer, 'APROVADA_NA_SEGUNDA', tipoDaSegunda);
+      return entregar(respostaDaSegunda, 'APROVADA_NA_SEGUNDA', tipoDaSegunda, transcript.toolOutputs);
     }
 
     registrarReprovacao(
@@ -425,6 +575,11 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     if ('bloqueadoPeloFiltro' in primeira && primeira.bloqueadoPeloFiltro) {
       return { status: 'INDISPONIVEL', texto: primeira.message, citacoes: [], indice };
     }
+    // A sobrecarga tambem tem frase propria (A6): "tente em um minuto" e o que
+    // a pessoa precisa saber, e nao um apanhado do dado.
+    if ('sobrecarga' in primeira && primeira.sobrecarga) {
+      return { status: 'INDISPONIVEL', texto: primeira.message, citacoes: [], indice };
+    }
     // Resposta sem FORMA -- vazia, ou cortada pelo teto de saida (Bloco 10).
     // Uma vez em quatro, nas rodadas da avaliacao, o modelo devolveu texto
     // vazio depois de usar uma ferramenta. A forma ruim tem direito a mesma
@@ -443,19 +598,33 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
 
   const semDados = nenhumDadoVeio(primeira.transcript.toolOutputs);
 
-  const tipo = classificar(primeira.answer.texto, primeira.answer.toolsUsadas);
-  const check = checkLanguageRules(primeira.answer.texto, {
+  // A frase da ausencia entra ANTES das regras (DS14 = C1): a R5 a reconhece,
+  // e ela so e costurada quando o texto repete a data limite da ferramenta.
+  const resposta = {
+    ...primeira.answer,
+    texto: costurarAusencia(primeira.answer.texto, primeira.transcript.toolOutputs, semDados),
+  };
+
+  const tipo = classificar(resposta.texto, resposta.toolsUsadas);
+  const cartao = acaoAceitavel(resposta.acao, entrada) !== undefined;
+  const check = checkLanguageRules(textoParaVerificar(resposta.texto, cartao), {
     questionKind: tipo,
-    temOrigem: temOrigemDeclarada(primeira.answer, entrada),
+    temOrigem: temOrigemDeclarada(resposta, entrada),
     semDados,
+    valoresCadastrados: valoresCadastradosDoTurno(primeira.transcript.toolOutputs),
+    cruzaDominios: cruzaDominios(resposta.toolsUsadas),
+    // So a acao que vai sair liga a passiva (E11; ver a segunda geracao, A4).
+    comAcaoProposta: cartao,
+    // O texto do modelo nunca diz que o formulario esta pronto (A5).
+    vetarFormulario: true,
   });
-  const citacoesOk = citacoesConferem(primeira.answer, indice);
+  const citacoesOk = citacoesConferem(resposta, indice);
 
   // A costura entra AQUI, e nao depois da segunda geracao: gastar uma geracao
   // inteira para pedir ao modelo uma frase que o aplicativo sabe escrever era
   // o desperdicio que a A2 conserta. Medido: 2 de 2 reprovacoes em producao.
   if (citacoesOk && (check.ok || somenteR2(check))) {
-    return entregar(primeira.answer, 'APROVADA', tipo);
+    return entregar(resposta, 'APROVADA', tipo, primeira.transcript.toolOutputs);
   }
 
   // A: UMA nova geracao. Nao e remendo -- e pedir ao modelo que escreva de
@@ -496,13 +665,22 @@ export async function responder(
   // Com a memoria desligada (art. 18, IX), nem sequer lemos: revogar o
   // consentimento interrompe o tratamento, e "tratamento" inclui a leitura.
   const fatos = request.memoriaAtiva === false ? [] : await lerMemoria(context.identity);
+  const agora = new Date();
 
   const entrada: TurnInput = {
     message: request.message,
     systemPrompt: montarSystemPrompt(fatos),
+    // O relogio e lido AQUI, uma vez por turno (E1): a segunda geracao recebe
+    // esta mesma entrada, e perto da meia-noite reler o relogio poderia trocar
+    // o dia entre as duas.
+    contextoDeHoje: montarContextoDeHoje(agora),
+    // O mesmo instante, para o "hoje" da acao (E11) nunca discordar do dia que
+    // o modelo leu no bloco de data.
+    hoje: dataEmSaoPaulo(agora),
     history: request.history,
     anexo: request.anexo,
     memoriaAtiva: request.memoriaAtiva,
+    local: request.local ?? null,
     identity: context.identity,
     modelId: process.env.BEDROCK_MODEL_ID ?? '',
     guardrailId: process.env.BEDROCK_GUARDRAIL_ID ?? '',
@@ -519,5 +697,6 @@ export async function responder(
     citations: enriquecerCitacoes(resposta.citacoes, resposta.indice),
     ruleCheckStatus: resposta.status,
     memoriaProposta: resposta.memoriaProposta,
+    acaoProposta: resposta.acaoProposta,
   };
 }

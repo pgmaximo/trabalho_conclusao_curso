@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { defineBackend } from '@aws-amplify/backend';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
@@ -143,11 +144,12 @@ analyzeHealthImportLambda.configureAsyncInvoke({ retryAttempts: 0 });
 backend.storage.resources.bucket.grantReadWrite(analyzeHealthImportLambda, 'health-imports/*');
 backend.analyzeHealthImport.addEnvironment('HEALTH_BUCKET_NAME', backend.storage.resources.bucket.bucketName);
 
-// Modelo escolhido em vez de Opus 5: toolChoice forcado (usado para obrigar a
-// saida em JSON) e incompativel com extended thinking nos modelos Anthropic
-// (erro 400), e o Opus 5 liga thinking por padrao. O Sonnet 4.6 nao liga, e a
-// tarefa (sumarizar estatisticas ja pre-computadas) nao exige raciocinio
-// profundo — ver plan.md secao 4.
+// Modelo padrao: o alvo e o Claude Sonnet 5.5 (DS12, 2026-10-22), mas a conta
+// ainda nao tem acesso a ele (AccessDeniedException no deploy), e a constante
+// fica no Sonnet 4.6 ate a liberacao. O codigo ja serve aos dois: sem
+// `toolChoice` forcado e sem `temperature`, que o 5.5 recusa (400), e com a
+// saida estruturada (`output_config`) e o esforco explicito -- ver os
+// bedrockClient.ts de cada funcao. O chat tem constante propria (CHAT_BASE_MODEL_ID).
 // BEDROCK_BASE_MODEL_ID e o id "nu" do modelo (usado so para montar a ARN de
 // foundation-model abaixo); BEDROCK_INFERENCE_PROFILE_ID (com o prefixo
 // "us.") e o valor que de fato precisa ir em `modelId` no ConverseCommand —
@@ -175,8 +177,8 @@ const guardrailStack = backend.createStack('health-insights-guardrail');
 // ambiente (BEDROCK_GUARDRAIL_ID), nunca de um valor escrito no codigo.
 const sufixoUnicoDaStack = Fn.select(0, Fn.split('-', Fn.select(2, Fn.split('/', Aws.STACK_ID))));
 
-const healthInsightsGuardrail = new bedrock.CfnGuardrail(guardrailStack, 'HealthInsightsGuardrail', {
-  name: `health-insights-${sufixoUnicoDaStack}`,
+// Tudo menos o nome, que entra na impressao digital da versao (ver a do chat).
+const configuracaoDoGuardrailDoWearable = {
   description:
     'Guardrail das IAs que GERAM texto de orientacao (analise de wearables e assistente conversacional): bloqueia diagnostico definitivo e prescricao, filtra ataques de prompt e anonimiza PII.',
   blockedInputMessaging:
@@ -245,14 +247,23 @@ const healthInsightsGuardrail = new bedrock.CfnGuardrail(guardrailStack, 'Health
       },
     ],
   },
+};
+
+const healthInsightsGuardrail = new bedrock.CfnGuardrail(guardrailStack, 'HealthInsightsGuardrail', {
+  name: `health-insights-${sufixoUnicoDaStack}`,
+  ...configuracaoDoGuardrailDoWearable,
 });
 
 // Versao numerada e fixa (nunca DRAFT) — DRAFT e mutavel e pode mudar de
 // comportamento sem aviso; a Lambda referencia sempre esta versao especifica.
+// A impressao digital na descricao publica versao nova a cada mudanca (DS1).
 const healthInsightsGuardrailVersion = new bedrock.CfnGuardrailVersion(
   guardrailStack,
   'HealthInsightsGuardrailVersion',
-  { guardrailIdentifier: healthInsightsGuardrail.attrGuardrailId },
+  {
+    guardrailIdentifier: healthInsightsGuardrail.attrGuardrailId,
+    description: `configuracao ${impressaoDaConfiguracao(configuracaoDoGuardrailDoWearable)}`,
+  },
 );
 
 backend.analyzeHealthImport.addEnvironment('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID);
@@ -327,6 +338,15 @@ backend.extractDocumentData.addEnvironment(
   'MEDICAL_DOCUMENT_TABLE_NAME',
   medicalDocumentTable.tableName,
 );
+// O mesmo para os itens de receita (risco 1 do E4): a releitura lista os itens
+// que a leitura anterior gravou, pelo indice por documento, para apagar os que
+// a nova nao gravou.
+extractDocumentDataLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['dynamodb:Query'],
+    resources: [`${prescriptionItemTable.tableArn}/index/*`],
+  }),
+);
 backend.extractDocumentData.addEnvironment('LAB_RESULT_TABLE_NAME', labResultTable.tableName);
 backend.extractDocumentData.addEnvironment(
   'PRESCRIPTION_ITEM_TABLE_NAME',
@@ -378,76 +398,77 @@ const extractionGuardrailStack = backend.createStack('document-extraction-guardr
 //
 // O sufixo sai dos primeiros 8 caracteres do identificador desta stack, que e
 // diferente por sandbox e por ambiente. Limite do servico: 50 caracteres.
-const sufixoDaStack = sufixoUnicoDaStack;
-
-const documentExtractionGuardrail = new bedrock.CfnGuardrail(
-  extractionGuardrailStack,
-  'DocumentExtractionGuardrail',
-  {
-    name: `document-extraction-${sufixoDaStack}`,
-    // Teto de 200 caracteres, e o CloudFormation nao diz qual campo passou --
-    // ele devolve "Validation failed with 1 error(s)" e nenhum evento de
-    // recurso. A razao completa da configuracao esta na D20.
-    description:
-      'Extracao de documentos medicos: anonimiza dados do paciente e filtra ataque de prompt. NAO bloqueia topico de medicamento nem de diagnostico -- sao o conteudo legitimo do papel (D20).',
-    blockedInputMessaging:
-      'Nao foi possivel processar este documento por questoes de seguranca de conteudo.',
-    blockedOutputsMessaging:
-      'A leitura deste documento foi bloqueada por questoes de seguranca de conteudo.',
-    contentPolicyConfig: {
-      filtersConfig: [
-        // Um filtro so, e de proposito. PROMPT_ATTACK cobre o unico vetor real
-        // desta pipeline -- instrucao plantada em texto que passamos ao modelo
-        // -- e so se aplica ao INPUT; outputStrength e obrigatorio no schema do
-        // CFN mesmo assim, por isso NONE.
-        //
-        // HATE, INSULTS, SEXUAL, VIOLENCE e MISCONDUCT ficam FORA. Nao e
-        // descuido: a saida e numero, unidade e codigo LOINC, validados por
-        // schema estrito, e filtro de conteudo sobre transcricao de exame e
-        // maquina de falso positivo -- um painel de sorologia bastaria para
-        // disparar SEXUAL, e a pessoa ficaria sem ler o proprio laudo.
-        //
-        // Declara-los com NONE nas duas pontas, que seria a forma de
-        // documentar a escolha no codigo, o CloudFormation RECUSA: entrada de
-        // filtro que nao filtra nada reprova a validacao do template
-        // ("Validation failed with 1 error(s)", sem dizer qual). O comentario
-        // faz esse trabalho.
-        { type: 'PROMPT_ATTACK', inputStrength: 'HIGH', outputStrength: 'NONE' },
-      ],
-    },
-    // O laudo traz nome e CPF do paciente, e nada disso tem por que atravessar
-    // para o texto do modelo. Barato e real.
-    sensitiveInformationPolicyConfig: {
-      piiEntitiesConfig: [
-        { type: 'NAME', action: 'ANONYMIZE' },
-        { type: 'EMAIL', action: 'ANONYMIZE' },
-        { type: 'PHONE', action: 'ANONYMIZE' },
-      ],
-      regexesConfig: [
-        {
-          name: 'cpf',
-          description: 'CPF brasileiro (com ou sem pontuacao)',
-          // Barra DUPLA: em TypeScript '\b' e o caractere de backspace (0x08),
-          // e ele chega ao template do CloudFormation como caractere invalido
-          // -- "Template contains invalid characters", sem dizer qual. A
-          // regex precisa da barra literal.
-          pattern: '\\b\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}\\b',
-          action: 'ANONYMIZE',
-        },
-      ],
-    },
+const configuracaoDoGuardrailDaExtracao = {
+  // Teto de 200 caracteres, e o CloudFormation nao diz qual campo passou --
+  // ele devolve "Validation failed with 1 error(s)" e nenhum evento de
+  // recurso. A razao completa da configuracao esta na D20.
+  description:
+    'Extracao de documentos medicos: anonimiza dados do paciente e filtra ataque de prompt. NAO bloqueia topico de medicamento nem de diagnostico -- sao o conteudo legitimo do papel (D20).',
+  blockedInputMessaging:
+    'Nao foi possivel processar este documento por questoes de seguranca de conteudo.',
+  blockedOutputsMessaging:
+    'A leitura deste documento foi bloqueada por questoes de seguranca de conteudo.',
+  contentPolicyConfig: {
+    filtersConfig: [
+      // Um filtro so, e de proposito. PROMPT_ATTACK cobre o unico vetor real
+      // desta pipeline -- instrucao plantada em texto que passamos ao modelo
+      // -- e so se aplica ao INPUT; outputStrength e obrigatorio no schema do
+      // CFN mesmo assim, por isso NONE.
+      //
+      // HATE, INSULTS, SEXUAL, VIOLENCE e MISCONDUCT ficam FORA. Nao e
+      // descuido: a saida e numero, unidade e codigo LOINC, validados por
+      // schema estrito, e filtro de conteudo sobre transcricao de exame e
+      // maquina de falso positivo -- um painel de sorologia bastaria para
+      // disparar SEXUAL, e a pessoa ficaria sem ler o proprio laudo.
+      //
+      // Declara-los com NONE nas duas pontas, que seria a forma de
+      // documentar a escolha no codigo, o CloudFormation RECUSA: entrada de
+      // filtro que nao filtra nada reprova a validacao do template
+      // ("Validation failed with 1 error(s)", sem dizer qual). O comentario
+      // faz esse trabalho.
+      { type: 'PROMPT_ATTACK', inputStrength: 'HIGH', outputStrength: 'NONE' },
+    ],
   },
-);
+  // O laudo traz nome e CPF do paciente, e nada disso tem por que atravessar
+  // para o texto do modelo. Barato e real.
+  sensitiveInformationPolicyConfig: {
+    piiEntitiesConfig: [
+      { type: 'NAME', action: 'ANONYMIZE' },
+      { type: 'EMAIL', action: 'ANONYMIZE' },
+      { type: 'PHONE', action: 'ANONYMIZE' },
+    ],
+    regexesConfig: [
+      {
+        name: 'cpf',
+        description: 'CPF brasileiro (com ou sem pontuacao)',
+        // Barra DUPLA: em TypeScript '\b' e o caractere de backspace (0x08),
+        // e ele chega ao template do CloudFormation como caractere invalido
+        // -- "Template contains invalid characters", sem dizer qual. A
+        // regex precisa da barra literal.
+        pattern: '\\b\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}\\b',
+        action: 'ANONYMIZE',
+      },
+    ],
+  },
+};
+
+const documentExtractionGuardrail = new bedrock.CfnGuardrail(extractionGuardrailStack, 'DocumentExtractionGuardrail', {
+  name: `document-extraction-${sufixoUnicoDaStack}`,
+  ...configuracaoDoGuardrailDaExtracao,
+});
 
 const documentExtractionGuardrailVersion = new bedrock.CfnGuardrailVersion(
   extractionGuardrailStack,
   'DocumentExtractionGuardrailVersion',
-  { guardrailIdentifier: documentExtractionGuardrail.attrGuardrailId },
+  {
+    guardrailIdentifier: documentExtractionGuardrail.attrGuardrailId,
+    description: `configuracao ${impressaoDaConfiguracao(configuracaoDoGuardrailDaExtracao)}`,
+  },
 );
 
-// Modelo decidido pela medicao da tarefa 1 (D19), nao herdado por inercia:
-// Opus 4.6 e Sonnet 4.6 tiveram comportamento identico nos quatro cenarios, e
-// sem diferenca medida o desempate e custo. As duas ARNs sao obrigatorias pelo
+// O modelo padrao. Na medicao da tarefa 1 (D19), Opus 4.6 e Sonnet 4.6
+// tiveram comportamento identico nos quatro cenarios, e o desempate foi custo;
+// o Sonnet 5.5 veio por pedido do usuario (2026-10-22). As duas ARNs sao obrigatorias pelo
 // mesmo motivo registrado acima para a analyze-health-import.
 backend.extractDocumentData.addEnvironment('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID);
 backend.extractDocumentData.addEnvironment(
@@ -569,6 +590,13 @@ const vaccineDoseTable = backend.data.resources.tables['VaccineDose'];
 // se manda o sinalizador de memoria ativa na requisicao. Uma tabela a menos ao
 // alcance da funcao e uma superficie a menos.
 const assistantMemoryFactTable = backend.data.resources.tables['AssistantMemoryFact'];
+// O historico de doses marcadas (E3). So leitura, como as outras; o chat o
+// consulta pelo indice `medicineId` + `scheduledDate` (D3.2), e a permissao do
+// indice vem abaixo, separada.
+const medicineDoseLogTable = backend.data.resources.tables['MedicineDoseLog'];
+// `prescriptionItemTable` (declarada com a extracao, acima) entra so para
+// LEITURA (E4): quem grava os itens e a extract-document-data. O chat os
+// consulta pelo indice `documentId`, e a permissao do indice vem abaixo.
 
 for (const tabela of [
   userProfileTable,
@@ -579,6 +607,13 @@ for (const tabela of [
   vaccineDoseTable,
   healthImportTable,
   assistantMemoryFactTable,
+  medicineDoseLogTable,
+  prescriptionItemTable,
+  // A UNICA tabela sem dono que o chat le (E8, D8.3): o cache publico de
+  // unidades de saude, pela porta `lerPublicoPorChave`, nunca por `lerDoDono`.
+  // So leitura: quem preenche o cache continua sendo a Lambda da tela (D8.2).
+  // O cache de campanhas nao entra -- a lista sai do calendario em codigo (P1).
+  siteCacheTable,
 ]) {
   tabela.grantReadData(chatAssistantLambda);
 }
@@ -594,22 +629,115 @@ backend.chatAssistant.addEnvironment(
   'ASSISTANT_MEMORY_TABLE_NAME',
   assistantMemoryFactTable.tableName,
 );
+backend.chatAssistant.addEnvironment('SITE_CACHE_TABLE_NAME', siteCacheTable.tableName);
+backend.chatAssistant.addEnvironment('MEDICINE_DOSE_LOG_TABLE_NAME', medicineDoseLogTable.tableName);
+backend.chatAssistant.addEnvironment('PRESCRIPTION_ITEM_TABLE_NAME', prescriptionItemTable.tableName);
+// A consulta de `lerDoDonoPorIndice` (E3) e autorizada pela ARN do INDICE, que o
+// grant da tabela do Amplify nao cobre -- o mesmo achado do `labResultTable`
+// (Bloco 11). So `Query`, so nos indices desta tabela: nada de escrita.
+chatAssistantLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['dynamodb:Query'],
+    resources: [`${medicineDoseLogTable.tableArn}/index/*`],
+  }),
+);
+// O mesmo para os itens de receita (E4): so `Query`, so nos indices da tabela.
+chatAssistantLambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['dynamodb:Query'],
+    resources: [`${prescriptionItemTable.tableArn}/index/*`],
+  }),
+);
 
-// O chat REUSA o guardrail da analise de wearables, e nao ganha um proprio.
-// A D20 mandou a extracao ter o seu porque la os dois topicos bloqueados sao o
-// CONTEUDO LEGITIMO do papel -- uma receita transcrita E uma prescricao de
-// medicamento. Aqui a razao se inverte: o chat e exatamente "uma IA que da
-// conselho", que e a IA para a qual aquele guardrail foi desenhado. Bloquear
-// diagnostico definitivo e indicacao de dose na SAIDA e o comportamento
-// desejado, e coincide com o que a R3 das regras de linguagem ja exige.
-backend.chatAssistant.addEnvironment('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID);
+// O chat tinha reusado o guardrail da analise de wearables, e a conferencia no
+// sandbox (2026-10-20) mostrou o custo: o topico de prescricao barrava a
+// PERGUNTA da pessoa sobre os remedios dela ("a losartana e de quantas em
+// quantas horas"), e o filtro de nome anonimizava "Dra. Ana" e "Losartana" --
+// anonimizar tambem volta `guardrail_intervened`, e o laco trata isso como
+// bloqueio. Guardrail proprio, como a extracao ganhou na D20 (DS1 = B e
+// DS2 = A, decisoes/conferencia-no-sandbox.md):
+// - SEM topicos. So na saida (DS1 = A) eles ainda barraram 7 respostas
+//   legitimas ("a Losartana esta cadastrada a cada 8 horas", e ate a recusa
+//   de dobrar a dose). Diagnostico e dose continuam proibidos pela R3, que e
+//   deterministica e conhece o valor cadastrado (D2.4) -- o topico nao;
+// - sem NAME: no chat, nome e dado da propria pessoa (o profissional da
+//   consulta, o remedio cadastrado). Email, telefone e CPF continuam.
+const chatGuardrailStack = backend.createStack('chat-assistant-guardrail');
+
+// Tudo menos o nome: o nome carrega um token do CloudFormation, que nao tem
+// valor no synth e nao entra na impressao digital abaixo.
+const configuracaoDoGuardrailDoChat = {
+  // Teto de 200 caracteres (ver o da extracao).
+  description:
+    'Assistente conversacional: filtra conteudo e ataque de prompt e anonimiza email, telefone e CPF. Sem topicos: dose e diagnostico sao da R3 (DS1, DS2).',
+  blockedInputMessaging:
+    'Nao foi possivel processar esta solicitacao por questoes de seguranca de conteudo.',
+  blockedOutputsMessaging:
+    'A resposta gerada foi bloqueada por questoes de seguranca de conteudo. Tente novamente ou consulte um profissional de saude.',
+  contentPolicyConfig: {
+    filtersConfig: [
+      { type: 'HATE', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      { type: 'INSULTS', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      // So na entrada (DS16.2): a lista da USPSTF ("rastreamento de IST em
+      // mulheres sexualmente ativas") disparava o filtro na saida (E7 #5).
+      { type: 'SEXUAL', inputStrength: 'MEDIUM', outputStrength: 'NONE' },
+      { type: 'VIOLENCE', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      { type: 'MISCONDUCT', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      { type: 'PROMPT_ATTACK', inputStrength: 'HIGH', outputStrength: 'NONE' },
+    ],
+  },
+  sensitiveInformationPolicyConfig: {
+    piiEntitiesConfig: [
+      { type: 'EMAIL', action: 'ANONYMIZE' },
+      { type: 'PHONE', action: 'ANONYMIZE' },
+    ],
+    regexesConfig: [
+      {
+        name: 'cpf',
+        description: 'CPF brasileiro (com ou sem pontuacao)',
+        pattern: '\\b\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}\\b',
+        action: 'ANONYMIZE',
+      },
+    ],
+  },
+};
+
+const chatAssistantGuardrail = new bedrock.CfnGuardrail(chatGuardrailStack, 'ChatAssistantGuardrail', {
+  name: `chat-assistant-${sufixoUnicoDaStack}`,
+  ...configuracaoDoGuardrailDoChat,
+});
+
+// A CfnGuardrailVersion so publica versao nova quando as propriedades DELA
+// mudam: mudar so a configuracao acima atualizava o DRAFT, e o chat seguia na
+// versao 1 (medido no deploy da DS1 = B, com os topicos ainda barrando). A
+// impressao digital da configuracao na descricao faz cada mudanca virar versao.
+function impressaoDaConfiguracao(configuracao: object): string {
+  return createHash('sha256').update(JSON.stringify(configuracao)).digest('hex').slice(0, 12);
+}
+
+const chatAssistantGuardrailVersion = new bedrock.CfnGuardrailVersion(
+  chatGuardrailStack,
+  'ChatAssistantGuardrailVersion',
+  {
+    guardrailIdentifier: chatAssistantGuardrail.attrGuardrailId,
+    description: `configuracao ${impressaoDaConfiguracao(configuracaoDoGuardrailDoChat)}`,
+  },
+);
+
+// O modelo do chat. O alvo e o Claude Opus 5.5 (DS12, 2026-10-22); ate a conta
+// ter acesso a ele, fica no Sonnet 4.6. O chat nao forca tool, nao manda
+// temperature e tem o esforco explicito (conversationLoop.ts), e serve aos dois.
+const CHAT_BASE_MODEL_ID = 'anthropic.claude-sonnet-4-6';
+const CHAT_INFERENCE_PROFILE_ID = `us.${CHAT_BASE_MODEL_ID}`;
+
+backend.chatAssistant.addEnvironment('BEDROCK_MODEL_ID', CHAT_INFERENCE_PROFILE_ID);
 backend.chatAssistant.addEnvironment(
   'BEDROCK_GUARDRAIL_ID',
-  healthInsightsGuardrail.attrGuardrailId,
+  chatAssistantGuardrail.attrGuardrailId,
 );
 backend.chatAssistant.addEnvironment(
   'BEDROCK_GUARDRAIL_VERSION',
-  healthInsightsGuardrailVersion.attrVersion,
+  chatAssistantGuardrailVersion.attrVersion,
 );
 
 // As duas ARNs pelo mesmo motivo registrado nas demais funcoes: com prefixo
@@ -619,8 +747,8 @@ chatAssistantLambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['bedrock:InvokeModel'],
     resources: [
-      `arn:aws:bedrock:${bedrockRegion}:${bedrockAccount}:inference-profile/${BEDROCK_INFERENCE_PROFILE_ID}`,
-      `arn:aws:bedrock:*::foundation-model/${BEDROCK_BASE_MODEL_ID}`,
+      `arn:aws:bedrock:${bedrockRegion}:${bedrockAccount}:inference-profile/${CHAT_INFERENCE_PROFILE_ID}`,
+      `arn:aws:bedrock:*::foundation-model/${CHAT_BASE_MODEL_ID}`,
     ],
   }),
 );
@@ -628,7 +756,7 @@ chatAssistantLambda.addToRolePolicy(
 chatAssistantLambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['bedrock:ApplyGuardrail'],
-    resources: [healthInsightsGuardrail.attrGuardrailArn],
+    resources: [chatAssistantGuardrail.attrGuardrailArn],
   }),
 );
 
@@ -637,6 +765,12 @@ chatAssistantLambda.addToRolePolicy(
 // conceder leitura do historico aqui daria ao chat um caminho para o arquivo
 // que ele nao precisa ter.
 backend.storage.resources.bucket.grantRead(chatAssistantLambda, 'chat-attachments/*');
+// A serie diaria do wearable (E6): so o `result.json` que a analise grava para
+// cada importacao. Os arquivos brutos que a pessoa exportou (CSV, ZIP) ficam
+// fora: o chat nao precisa deles. O papel alcanca a pasta de todo mundo; a
+// posse e conferida na porta, pelo `importId` da linha do dono (D6.1,
+// `lerSerieDaImportacao` em `tools/ownerScopedRead.ts`).
+backend.storage.resources.bucket.grantRead(chatAssistantLambda, 'health-imports/*/result.json');
 backend.chatAssistant.addEnvironment(
   'HEALTH_BUCKET_NAME',
   backend.storage.resources.bucket.bucketName,

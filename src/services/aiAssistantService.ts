@@ -24,10 +24,15 @@
 import { fetchAuthSession } from 'aws-amplify/auth';
 
 import { chatAssistantUrl } from './chatAssistantEndpoint';
+import { loadCachedLocation } from './locationService';
 import {
   tipoValido,
   type MemoryKind,
 } from '../../amplify/functions/chat-assistant/memoria/regras';
+import {
+  lerAcaoProposta,
+  type AcaoProposta,
+} from '../../amplify/functions/acoes-propostas-shared/camposDaAcao';
 
 export interface ChatMessage {
   id: string;
@@ -64,6 +69,9 @@ export interface AssistantReply {
   ruleCheckStatus: RuleCheckStatus;
   /** Ausente na esmagadora maioria dos turnos. */
   memoriaProposta?: MemoryProposal;
+  /** A acao proposta (E11). Nada foi gravado: o cartao abre o formulario, e
+   *  quem salva e a pessoa. */
+  acaoProposta?: AcaoProposta;
 }
 
 export interface AiAssistantService {
@@ -108,6 +116,33 @@ function lerProposta(bruto: unknown): MemoryProposal | undefined {
   return { texto: candidata.texto, tipo: candidata.tipo };
 }
 
+/**
+ * A cidade que o aparelho ja guarda para a tela de Vacinacao (E8, D8.1 = A),
+ * para o chat saber de que municipio listar as unidades de saude. So UF e
+ * codigo IBGE: a coordenada e o nome da cidade ficam no aparelho -- o chat nao
+ * calcula distancia, e a posicao e dado mais sensivel do que a cidade.
+ *
+ * Nunca lanca: sem localizacao, ou com falha ao le-la, a pergunta vai sem a
+ * cidade, e a funcao responde que nao sabe onde a pessoa esta.
+ */
+async function lerCidade(): Promise<{ uf?: string; codigoMunicipio?: string } | null> {
+  try {
+    const local = await loadCachedLocation();
+    // Campo vazio vira `undefined`, que o `JSON.stringify` omite; a funcao
+    // trata `local` sem campo valido como "sem cidade". `String(...)` porque a
+    // API do Ministerio pode ter devolvido o codigo como numero, e o aparelho
+    // guarda o que veio; a funcao so aceita texto.
+    return local
+      ? {
+          uf: local.uf || undefined,
+          codigoMunicipio: local.codigoMunicipio ? String(local.codigoMunicipio) : undefined,
+        }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function sendMessageWithSources(
   message: string,
   history: ChatMessage[],
@@ -126,7 +161,9 @@ export async function sendMessageWithSources(
   // funcionar: o endereco so existe depois do deploy.
   if (!url) throw new Error(SEM_ENDERECO);
 
-  const sessao = await fetchAuthSession();
+  // As duas leituras sao independentes, e `lerCidade` nunca lanca: em paralelo,
+  // a pergunta nao paga a soma das duas.
+  const [sessao, local] = await Promise.all([fetchAuthSession(), lerCidade()]);
   const token = sessao.tokens?.idToken?.toString();
   if (!token) throw new Error(SESSAO_EXPIRADA);
 
@@ -145,6 +182,7 @@ export async function sendMessageWithSources(
         history: history.map((m) => ({ role: m.role, content: m.content })),
         ...(attachmentKey ? { attachmentKey } : {}),
         ...(memoriaAtiva === undefined ? {} : { memoriaAtiva }),
+        ...(local ? { local } : {}),
       }),
       signal: controle.signal,
     });
@@ -156,6 +194,7 @@ export async function sendMessageWithSources(
       citations?: unknown;
       ruleCheckStatus?: RuleCheckStatus;
       memoriaProposta?: unknown;
+      acaoProposta?: unknown;
     };
 
     return {
@@ -163,6 +202,9 @@ export async function sendMessageWithSources(
       citations: lerCitacoes(corpo.citations),
       ruleCheckStatus: corpo.ruleCheckStatus ?? 'INDISPONIVEL',
       memoriaProposta: lerProposta(corpo.memoriaProposta),
+      // A funcao ja conferiu e resolveu a acao (E11); aqui a conferencia e de
+      // FORMA, com o mesmo modulo das rotas, pelo mesmo motivo de `lerProposta`.
+      acaoProposta: lerAcaoProposta(corpo.acaoProposta),
     };
   } catch (erro) {
     // As mensagens que JA sao honestas passam intactas; o resto vira a

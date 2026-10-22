@@ -2,11 +2,10 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { fetchUbsPorMunicipio } from './cnesClient';
 import { haversineDistanceKm } from './distance';
+import { VALIDADE_DO_CACHE_DE_POSTOS_S } from './validadeDoCache';
 
 const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient());
 
-// UBS mudam pouco — TTL mais longo que o cache de campanhas (12h).
-const CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 const MAX_RESULTS = 15;
 
 type Args = {
@@ -55,7 +54,7 @@ async function writeCache(
   await ddbClient.send(
     new PutCommand({
       TableName: tableName,
-      Item: { codigoMunicipio, payload, expiresAt: Math.floor(Date.now() / 1000) + CACHE_TTL_SECONDS },
+      Item: { codigoMunicipio, payload, expiresAt: Math.floor(Date.now() / 1000) + VALIDADE_DO_CACHE_DE_POSTOS_S },
     }),
   );
 }

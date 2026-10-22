@@ -10,8 +10,9 @@
 import { z } from 'zod';
 
 import type { ChatIdentity } from '../auth';
-import type { DegradedBlock } from '../types';
+import type { DegradedBlock, ContextoDoTurno } from '../types';
 import { lerDoDono, maisRecentePrimeiro, texto } from './ownerScopedRead';
+import { EXPLICACAO_DA_LEITURA, leituraDoDocumento, type LeituraDoDocumento } from './situacaoDaLeitura';
 import type { ChatTool } from './tipos';
 
 /** Quantos documentos vao para o modelo. O resto fica de fora, e a saida diz
@@ -41,23 +42,30 @@ type DocumentoParaOModelo = {
   coletadoEntre: { primeira: string; ultima: string } | null;
   /** Como esta escrito no papel. Nulo quando o laudo nao deixou claro. */
   laboratorio: string | null;
+  /** Se o aplicativo ja leu o documento (E4): responde "meu exame ja foi
+   *  lido?" e "por que nao aparece valor?" sem o modelo adivinhar. */
+  leitura: LeituraDoDocumento;
 };
+
+/** O texto de quem nao guardou documento, um so para esta ferramenta e o
+ *  panorama (E10). */
+export const SEM_DOCUMENTOS = 'O usuário ainda não guardou nenhum documento médico no aplicativo.';
 
 export const examesTool: ChatTool = {
   name: 'consultar_exames',
   description:
-    'Lista os documentos médicos que o usuário guardou no aplicativo: nome, tipo, data de registro, laboratório que emitiu o laudo e a faixa de datas em que ele foi coletado. Use para saber QUE exames existem. NÃO traz os valores dos resultados (use consultar_analito para isso), NÃO grava e NÃO interpreta.',
+    'Lista os documentos médicos que o usuário guardou no aplicativo: nome, tipo, data de registro, laboratório que emitiu o laudo, a faixa de datas em que ele foi coletado e se o aplicativo já leu cada um. Use para saber QUE exames existem e se já foram lidos. NÃO traz os valores dos resultados (use consultar_analito para isso), NÃO grava e NÃO interpreta.',
   inputSchema: z.object({}).strict(),
   readOnly: true,
-  async run(_input: unknown, identity: ChatIdentity) {
-    const linhas = await lerDoDono(process.env.MEDICAL_DOCUMENT_TABLE_NAME, identity);
+  async run(_input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno) {
+    const linhas = await lerDoDono(process.env.MEDICAL_DOCUMENT_TABLE_NAME, identity, contexto?.leituras);
     const ordenados = maisRecentePrimeiro(linhas, 'documentDate');
 
     // As datas de COLETA vem das linhas de resultado, e nao do documento: o
     // documento so conhece a data do formulario. Sem isto, o assistente dizia
     // que o exame era de setembro de 2026 e, dois turnos depois, que o valor
     // era de outubro de 2025 -- as duas certas, e juntas mentindo (U16).
-    const resultados = await lerDoDono(process.env.LAB_RESULT_TABLE_NAME, identity);
+    const resultados = await lerDoDono(process.env.LAB_RESULT_TABLE_NAME, identity, contexto?.leituras);
     const coletasPorDocumento = new Map<string, string[]>();
     for (const r of resultados) {
       const data = texto(r.collectedAt);
@@ -66,6 +74,7 @@ export const examesTool: ChatTool = {
       coletasPorDocumento.set(doc, [...(coletasPorDocumento.get(doc) ?? []), data]);
     }
 
+    const agora = new Date();
     const documentos: DocumentoParaOModelo[] = ordenados.slice(0, MAX_DOCUMENTOS).map((d) => {
       const id = String(d.id ?? '');
       const datas = (coletasPorDocumento.get(id) ?? []).sort();
@@ -77,6 +86,7 @@ export const examesTool: ChatTool = {
         coletadoEntre:
           datas.length > 0 ? { primeira: datas[0], ultima: datas[datas.length - 1] } : null,
         laboratorio: texto(d.laboratorio),
+        leitura: leituraDoDocumento(d, agora),
       };
     });
 
@@ -89,8 +99,10 @@ export const examesTool: ChatTool = {
       // entre as duas datas, e repetir isso em cada linha so gastaria prompt.
       explicacaoDaData:
         'coletadoEntre vem do laudo e diz quando o exame foi COLETADO. dataDoDocumento é a data de REGISTRO, digitada no formulário, e pode não ser a do exame. Ao falar de quando, prefira coletadoEntre; use dataDoDocumento só quando coletadoEntre for nulo, e aí diga que é a data de registro.',
+      // Sem documento, a explicacao das situacoes so gastaria contexto.
+      ...(documentos.length > 0 ? { explicacaoDaLeitura: EXPLICACAO_DA_LEITURA } : {}),
       ...(documentos.length === 0
-        ? { explicacao: 'O usuário ainda não guardou nenhum documento médico no aplicativo.' }
+        ? { explicacao: SEM_DOCUMENTOS }
         : {}),
     };
   },

@@ -7,7 +7,7 @@
 import type { z } from 'zod';
 
 import type { ChatIdentity } from '../auth';
-import type { DegradedBlock } from '../types';
+import type { ContextoDoTurno, DegradedBlock } from '../types';
 
 export type ChatTool = {
   name: string;
@@ -24,8 +24,19 @@ export type ChatTool = {
    * A identidade vem do TOKEN e e passada aqui. A tool NUNCA le dono de
    * `input` -- e por isso que a identidade e o segundo parametro, separado, em
    * vez de um campo dentro da entrada.
+   *
+   * O `contexto` (E8) e o terceiro canal, e o motivo de ser um parametro
+   * proprio e o mesmo: cada coisa diz de onde veio. `input` e o que o MODELO
+   * escreveu; `identity`, o que o TOKEN diz; `contexto`, o que o APLICATIVO
+   * mandou no pedido (hoje, a cidade). A cidade nao pode vir do modelo -- ele a
+   * inventaria --, e nao cabe na identidade, que so pode significar o token.
+   * Ferramenta que nao precisa dele simplesmente nao o declara.
+   *
+   * Opcional no tipo porque os testes chamam `run` direto, sem passar pelo
+   * despachante; quem le o contexto trata a ausencia como "sem cidade". O
+   * despachante (`runTool`) o envia sempre.
    */
-  run: (input: unknown, identity: ChatIdentity) => Promise<unknown>;
+  run: (input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno) => Promise<unknown>;
   /**
    * Renderiza a propria saida em texto de modelo fixo, para o MODO DEGRADADO
    * (D31, tarefa C5b). Devolve null quando nao ha o que mostrar.
@@ -36,4 +47,12 @@ export type ChatTool = {
    * e divergiria em silencio.
    */
   renderDegraded?: (output: unknown) => DegradedBlock | null;
+  /**
+   * Os valores de remedio que a propria saida traz, como chaves da R3 (E2,
+   * D2.4), para a verificacao deixar passar "o seu cadastro diz 500 mg". Mora
+   * na tool pelo mesmo motivo do `renderDegraded`: quem conhece a forma da
+   * saida e quem a produz, e a verificacao nao precisa saber o nome de
+   * nenhuma tool. Ausente = a tool nao abre excecao nenhuma.
+   */
+  valoresCadastrados?: (output: unknown) => string[];
 };

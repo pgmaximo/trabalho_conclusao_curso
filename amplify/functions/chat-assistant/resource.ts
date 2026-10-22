@@ -1,4 +1,4 @@
-import { defineFunction } from '@aws-amplify/backend';
+import { defineFunction, secret } from '@aws-amplify/backend';
 
 export const chatAssistant = defineFunction({
   name: 'chat-assistant',
@@ -10,6 +10,13 @@ export const chatAssistant = defineFunction({
   // teto proprio, menor, para a tela nunca esperar para sempre.
   timeoutSeconds: 120,
   memoryMB: 1024,
+  environment: {
+    // `consultar_prevencao` (E7, D7.1 = A) baixa o dataset publico da USPSTF
+    // com a MESMA chave que a Lambda da tela de Prevencao ja usa -- um segredo
+    // so, nao um novo. E o unico acrescimo de superficie do E7, e nenhuma
+    // outra ferramenta o le. A chave nunca vai a log nem a saida de ferramenta.
+    USPSTF_API_KEY: secret('USPSTF_API_KEY'),
+  },
   // Mesma justificativa das demais funcoes deste repo: precisa de
   // grantReadData sobre varias tabelas da stack "data".
   resourceGroupName: 'data',

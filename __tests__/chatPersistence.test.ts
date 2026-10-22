@@ -33,6 +33,7 @@ jest.mock('aws-amplify/data', () => ({
 import {
   apagarConversa,
   criarConversa,
+  lerMensagens,
   listarConversas,
   salvarTurno,
   tituloDaPergunta,
@@ -202,6 +203,63 @@ describe('apagar significa sumir (D33)', () => {
     await apagarConversa('c-1');
     expect(mockModels.ChatConversation.update).not.toHaveBeenCalled();
   });
+
+  it('apaga as mensagens de TODAS as paginas, e so depois a conversa (E12)', async () => {
+    // Antes lia uma pagina so: numa conversa longa, o resto ficava no banco
+    // depois de a tela dizer que tinha sumido. A pagina vazia no meio e o que o
+    // filtro de dono do Amplify produz, e nao pode encerrar a leitura.
+    const listar = mockModels.ChatMessage.listChatMessageByConversationId;
+    listar
+      .mockResolvedValueOnce({ data: [{ id: 'm-1' }, { id: 'm-2' }], nextToken: 't-2' })
+      .mockResolvedValueOnce({ data: [], nextToken: 't-3' })
+      .mockResolvedValueOnce({ data: [{ id: 'm-3' }], nextToken: null });
+
+    await apagarConversa('c-1');
+
+    expect(listar.mock.calls[1][1]).toEqual({ nextToken: 't-2', limit: 1000 });
+    expect(listar.mock.calls[2][1]).toEqual({ nextToken: 't-3', limit: 1000 });
+    expect(mockModels.ChatMessage.delete.mock.calls.map(([e]) => e.id)).toEqual(['m-1', 'm-2', 'm-3']);
+    expect(mockModels.ChatConversation.delete).toHaveBeenCalledTimes(1);
+    const ultimaMensagem = Math.max(...mockModels.ChatMessage.delete.mock.invocationCallOrder);
+    expect(mockModels.ChatConversation.delete.mock.invocationCallOrder[0]).toBeGreaterThan(ultimaMensagem);
+  });
+
+  it('falha ao ler uma pagina NAO apaga nada', async () => {
+    // Ler tudo antes de apagar a primeira: se a leitura cai, a conversa fica
+    // inteira, e nao pela metade.
+    mockModels.ChatMessage.listChatMessageByConversationId
+      .mockResolvedValueOnce({ data: [{ id: 'm-1' }], nextToken: 't-2' })
+      .mockResolvedValueOnce({ data: null, errors: [{ message: 'x' }] });
+
+    // A mensagem e a da exclusao, como a spec pede (revisao do E12), e nao a
+    // da leitura generica.
+    await expect(apagarConversa('c-1')).rejects.toThrow('Não foi possível excluir esta conversa.');
+    expect(mockModels.ChatMessage.delete).not.toHaveBeenCalled();
+    expect(mockModels.ChatConversation.delete).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['errors', () => mockModels.ChatMessage.delete.mockResolvedValueOnce({ data: null, errors: [{ message: 'x' }] })],
+    ['excecao', () => mockModels.ChatMessage.delete.mockRejectedValueOnce(new Error('rede'))],
+  ])('falha ao apagar uma mensagem (%s) para ali e mantem a conversa', async (_nome, falhar) => {
+    // A conversa so sai por ultimo: com ela ainda na gaveta, excluir de novo
+    // termina o servico. Apagada antes, o resto ficaria orfao.
+    mockModels.ChatMessage.listChatMessageByConversationId.mockResolvedValue({
+      data: [{ id: 'm-1' }, { id: 'm-2' }, { id: 'm-3' }],
+      errors: undefined,
+    });
+    mockModels.ChatMessage.delete.mockResolvedValueOnce({ data: {}, errors: undefined });
+    falhar();
+
+    await expect(apagarConversa('c-1')).rejects.toThrow();
+    expect(mockModels.ChatMessage.delete).toHaveBeenCalledTimes(2);
+    expect(mockModels.ChatConversation.delete).not.toHaveBeenCalled();
+  });
+
+  it('falha ao apagar a conversa lanca', async () => {
+    mockModels.ChatConversation.delete.mockResolvedValue({ data: null, errors: [{ message: 'x' }] });
+    await expect(apagarConversa('c-1')).rejects.toThrow('Não foi possível excluir esta conversa.');
+  });
 });
 
 describe('listar as conversas', () => {
@@ -223,5 +281,74 @@ describe('listar as conversas', () => {
       errors: undefined,
     });
     expect(await listarConversas()).toHaveLength(1);
+  });
+
+  it('a gaveta mostra conversas da segunda pagina, mesmo com a primeira vazia (E12)', async () => {
+    // A tabela nao tem indice por dono: o filtro vem depois do limite da
+    // pagina, e a primeira pode chegar sem nenhuma conversa da pessoa.
+    mockModels.ChatConversation.list
+      .mockResolvedValueOnce({ data: [], nextToken: 't-2' })
+      .mockResolvedValueOnce({
+        data: [
+          { id: 'a', title: 'antiga', lastMessageAt: '2026-01-01T10:00:00Z' },
+          { id: 'b', title: 'nova', lastMessageAt: '2026-09-01T10:00:00Z' },
+        ],
+        nextToken: null,
+      });
+
+    const conversas = await listarConversas();
+
+    expect(conversas.map((c) => c.id)).toEqual(['b', 'a']);
+    // Pagina de 1000 em vez da padrao: a lista varre a tabela inteira, e cada
+    // pagina a menos e uma chamada a menos a cada turno salvo.
+    expect(mockModels.ChatConversation.list.mock.calls[1][0]).toEqual({ nextToken: 't-2', limit: 1000 });
+  });
+
+  it('listar com erro em uma pagina lanca, em vez de mostrar uma lista pela metade', async () => {
+    mockModels.ChatConversation.list
+      .mockResolvedValueOnce({ data: [{ id: 'a', title: 'x' }], nextToken: 't-2' })
+      .mockResolvedValueOnce({ data: null, errors: [{ message: 'x' }] });
+    await expect(listarConversas()).rejects.toThrow();
+  });
+});
+
+describe('reabrir uma conversa (E12)', () => {
+  it('traz as mensagens de todas as paginas, em ordem, com as citacoes', async () => {
+    mockModels.ChatMessage.listChatMessageByConversationId
+      .mockResolvedValueOnce({
+        data: [
+          { id: 'm-3', role: 'USER', content: 'e agora?', createdAt: '2026-10-01T10:02:00Z' },
+          { id: 'm-1', role: 'USER', content: 'oi', createdAt: '2026-10-01T10:00:00Z' },
+        ],
+        nextToken: 't-2',
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'm-2',
+            role: 'ASSISTANT',
+            content: 'olá',
+            createdAt: '2026-10-01T10:01:00Z',
+            citations: JSON.stringify([CITACAO]),
+          },
+        ],
+        nextToken: null,
+      });
+
+    const mensagens = await lerMensagens('c-1');
+
+    expect(mensagens.map((m) => m.id)).toEqual(['m-1', 'm-2', 'm-3']);
+    expect(mensagens[1].citations).toEqual([CITACAO]);
+    expect(mockModels.ChatMessage.listChatMessageByConversationId.mock.calls[1][1]).toEqual({
+      nextToken: 't-2',
+      limit: 1000,
+    });
+  });
+
+  it('erro em uma pagina lanca: conversa pela metade nao e mostrada como inteira', async () => {
+    mockModels.ChatMessage.listChatMessageByConversationId
+      .mockResolvedValueOnce({ data: [{ id: 'm-1', role: 'USER', content: 'oi' }], nextToken: 't-2' })
+      .mockResolvedValueOnce({ data: null, errors: [{ message: 'x' }] });
+    await expect(lerMensagens('c-1')).rejects.toThrow();
   });
 });

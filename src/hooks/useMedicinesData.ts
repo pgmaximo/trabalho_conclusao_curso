@@ -19,23 +19,13 @@ import type { MedicineDose, MedicineInventoryItem, MedicineStockStatus } from '@
 import {
   getLocalIsoDate,
   getMedicineDoseTimesForDate,
+  horariosMarcadosNoCampoAntigo as parseTakenToday,
   isDoseLate,
   isMedicineScheduledOnDate,
 } from '@/utils/medicineSchedule';
 import { syncMedicineReminders } from '@/services/medicineReminderService';
 import { findInteractions } from '@/services/drugInteractionService';
 import { medicineUnitLabel } from '@/utils/medicineUnit';
-
-function parseTakenToday(takenToday: string | null | undefined, today: string): Set<string> {
-  if (!takenToday) return new Set();
-  try {
-    const parsed = JSON.parse(takenToday) as { date?: string; times?: string[] };
-    if (parsed.date !== today) return new Set();
-    return new Set(parsed.times ?? []);
-  } catch {
-    return new Set();
-  }
-}
 
 function deriveDosesForToday(
   medicines: MedicineRecord[],

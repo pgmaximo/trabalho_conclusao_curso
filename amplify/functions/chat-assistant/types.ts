@@ -4,9 +4,11 @@
  * funcao e o aplicativo. Fica num arquivo proprio para que o handler nao
  * precise importar o laco so para conhecer o formato da resposta.
  */
+import type { AcaoProposta } from '../acoes-propostas-shared/camposDaAcao';
 import type { AnswerCitation, MemoryProposal } from './chatSchema';
 import type { ChatIdentity } from './auth';
 import type { FormatoDeImagem } from '../extract-document-data/formatoDoArquivo';
+import type { LeiturasDoTurno, SeriesDoTurno } from './tools/ownerScopedRead';
 
 /**
  * Qual dos quatro caminhos da D31 aconteceu. E o dado que calibra a secao 7 da
@@ -57,6 +59,36 @@ export type ChatTurnResult = {
    * leitura -- o consentimento do art. 11, I virando caminho de codigo.
    */
   memoriaProposta?: MemoryProposal;
+  /**
+   * A acao proposta (E11), ja conferida contra a fala da pessoa e com data e
+   * hora resolvidas. Como a memoria, NAO grava nada: o app mostra um cartao que
+   * abre o formulario preenchido, e quem salva e a pessoa.
+   */
+  acaoProposta?: AcaoProposta;
+};
+
+/**
+ * A cidade do usuario, como o aplicativo a guarda para a tela de Vacinacao
+ * (E8, D8.1 = A). Vem do CLIENTE e so serve de chave de leitura de dado
+ * publico -- nunca de dono, nunca de filtro sobre dado pessoal.
+ */
+export type LocalDoUsuario = { uf: string | null; codigoMunicipio: string | null };
+
+/**
+ * O que o turno sabe alem da identidade e da entrada do modelo, e que chega as
+ * ferramentas como parametro proprio (ver `tools/tipos.ts`).
+ */
+export type ContextoDoTurno = {
+  local: LocalDoUsuario | null;
+  /** O registro de leituras deste turno (risco 3 do E4). Opcional: os testes
+   *  chamam as ferramentas sem ele, e ai cada uma le por conta propria. */
+  leituras?: LeiturasDoTurno;
+  /** As series diarias do wearable ja lidas neste turno (E6), pelo mesmo
+   *  motivo e com a mesma vida de `leituras`. */
+  series?: SeriesDoTurno;
+  /** A mensagem da pessoa neste turno (A7): os nomes de remedio da lista do
+   *  aplicativo ditos nela entram nas interacoes mesmo que o modelo os esqueca. */
+  falaDaPessoa?: string;
 };
 
 export type ChatTurnRequest = {
@@ -74,6 +106,9 @@ export type ChatTurnRequest = {
   /** Se a pessoa deixou a memoria ligada. Ausente significa ligada -- ver
    *  `TurnInput.memoriaAtiva`. */
   memoriaAtiva?: boolean;
+  /** UF e codigo do municipio, ja validados por `lerLocal`. Ausente ou nulo
+   *  significa que o aplicativo nao sabe a cidade (E8). */
+  local?: LocalDoUsuario | null;
 };
 
 export type ChatContext = {

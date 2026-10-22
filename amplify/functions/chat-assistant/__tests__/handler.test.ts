@@ -90,6 +90,49 @@ describe('handler -- quem entra', () => {
   });
 });
 
+describe('handler -- local do pedido (E8)', () => {
+  const comLocal = (local: unknown, extras: Record<string, unknown> = {}) =>
+    evento({ body: JSON.stringify({ message: 'onde me vacino?', history: [], local, ...extras }) });
+
+  it('local valido chega ao laco', async () => {
+    await handler(comLocal({ uf: 'SP', codigoMunicipio: '355030' }));
+    expect(mockResponder.mock.calls[0][0].local).toEqual({ uf: 'SP', codigoMunicipio: '355030' });
+  });
+
+  it('local invalido vira ausente, e a pergunta segue', async () => {
+    const resposta = await handler(comLocal({ uf: 'zz', codigoMunicipio: 'abc' }));
+    expect(resposta.statusCode).toBe(200);
+    expect(mockResponder.mock.calls[0][0].local).toBeNull();
+  });
+
+  it('sem local, o pedido leva local nulo', async () => {
+    await handler(evento());
+    expect(mockResponder.mock.calls[0][0].local).toBeNull();
+  });
+
+  it('a cidade nunca vai a log, nem quando o turno falha (LGPD)', async () => {
+    const espioes = (['error', 'info', 'warn', 'log'] as const).map((m) =>
+      jest.spyOn(console, m).mockImplementation(() => {}),
+    );
+    mockResponder.mockRejectedValue(new Error('falha qualquer'));
+    try {
+      await handler(comLocal({ uf: 'SP', codigoMunicipio: '355030' }));
+      const registrado = JSON.stringify(espioes.map((e) => e.mock.calls));
+      expect(espioes[0]).toHaveBeenCalled();
+      expect(registrado).not.toMatch(/355030|"SP"/);
+    } finally {
+      espioes.forEach((e) => e.mockRestore());
+    }
+  });
+
+  it('o local nao abre caminho para um dono vindo do corpo', async () => {
+    await handler(comLocal({ uf: 'SP', codigoMunicipio: '355030', owner: 'vitima::vitima' }, { owner: 'vitima::vitima' }));
+    const [pedido, contexto] = mockResponder.mock.calls[0];
+    expect(contexto.identity).toEqual(IDENTIDADE);
+    expect(JSON.stringify(pedido)).not.toContain('vitima');
+  });
+});
+
 describe('handler -- limite de chamadas por dono', () => {
   it('recusa com 429 depois do teto, e diz quando tentar de novo', async () => {
     for (let i = 0; i < MAX_POR_JANELA; i += 1) await handler(evento());

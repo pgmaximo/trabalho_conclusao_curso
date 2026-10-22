@@ -37,6 +37,7 @@ import { ProfileScreen } from '@/screens/ProfileScreen';
 import { RegisterScreen } from '@/screens/RegisterScreen';
 import { TermsScreen } from '@/screens/TermsScreen';
 import { VaccinationScreen } from '@/screens/VaccinationScreen';
+import { ActionProposalCard } from '@/components/ActionProposalCard';
 import { AvisoDeSucesso } from '@/components/AvisoDeSucesso';
 import { BottomTabBar } from '@/components/BottomTabBar';
 import { MarkDoseAppliedSheet } from '@/components/MarkDoseAppliedSheet';
@@ -854,6 +855,31 @@ const PREVIEWS: Record<string, () => React.ReactElement> = {
   ),
   'add-vaccine': () => <AddVaccineScreen />,
   'add-appointment': () => <AddAppointmentScreen />,
+  // E11: o formulario aberto pelo cartao da acao proposta, ja preenchido.
+  'add-appointment-preenchido': () => (
+    <AddAppointmentScreen
+      inicial={{ appointmentName: 'retorno', professionalName: 'dra ana', scheduledDate: '2026-10-30', scheduledTime: '14:00' }}
+    />
+  ),
+  'add-medicine-preenchido': () => <AddMedicineScreen inicial={{ name: 'vitamina d', times: ['08:00'] }} />,
+  // E11: o cartao sozinho, sem a conversa em volta (a conversa depende da funcao).
+  'action-proposal-card': () => (
+    <SafeAreaView style={{ flex: 1, padding: 24 }}>
+      <ActionProposalCard
+        acao={{
+          tipo: 'ABRIR_NOVO_AGENDAMENTO',
+          campos: { appointmentName: 'retorno', professionalName: 'dra ana', scheduledDate: '2026-10-30', scheduledTime: '14:00' },
+        }}
+        onAbrir={noop}
+        onRecusar={noop}
+      />
+      <ActionProposalCard
+        acao={{ tipo: 'ABRIR_NOVO_LEMBRETE', campos: { name: 'vitamina d', times: ['08:00'] } }}
+        onAbrir={noop}
+        onRecusar={noop}
+      />
+    </SafeAreaView>
+  ),
   'agenda-saved-notice': () => <AgendaComAvisoDeSalvo />,
   'import-health-data': () => <ImportHealthDataScreen />,
   register: () => (

@@ -13,6 +13,11 @@ jest.mock('@/services/chatAssistantEndpoint', () => ({
   chatAssistantUrl: () => mockChatUrl(),
 }));
 
+const mockLoadCachedLocation = jest.fn();
+jest.mock('@/services/locationService', () => ({
+  loadCachedLocation: () => mockLoadCachedLocation(),
+}));
+
 import {
   sendMessage,
   sendMessageWithSources,
@@ -37,6 +42,7 @@ beforeEach(() => {
     tokens: { idToken: { toString: () => 'token-do-cognito' } },
   });
   mockChatUrl.mockReset().mockReturnValue('https://exemplo.lambda-url/');
+  mockLoadCachedLocation.mockReset().mockResolvedValue(null);
   respondeCom({ answer: 'Uma resposta.', citations: [], ruleCheckStatus: 'APROVADA' });
 });
 
@@ -147,6 +153,74 @@ describe('as origens, que sao ACRESCIMO e nao troca', () => {
   });
 });
 
+describe('a cidade do usuario (E8, D8.1 = A)', () => {
+  const corpo = () => JSON.parse(String(ultimaChamada().body));
+
+  it('manda UF e codigo do municipio quando o aparelho os tem', async () => {
+    mockLoadCachedLocation.mockResolvedValue({
+      uf: 'SP',
+      municipioNome: 'São Paulo',
+      codigoMunicipio: '355030',
+      latitude: -23.5,
+      longitude: -46.6,
+    });
+    await sendMessage('onde me vacino?', []);
+    expect(corpo().local).toEqual({ uf: 'SP', codigoMunicipio: '355030' });
+  });
+
+  it('NUNCA manda coordenada nem nome da cidade', async () => {
+    // A D8.1 decidiu cidade, nao posicao: a coordenada do aparelho e dado
+    // mais sensivel e o chat nao calcula distancia.
+    mockLoadCachedLocation.mockResolvedValue({
+      uf: 'SP',
+      municipioNome: 'São Paulo',
+      codigoMunicipio: '355030',
+      latitude: -23.5,
+      longitude: -46.6,
+    });
+    await sendMessage('onde me vacino?', []);
+    expect(String(ultimaChamada().body)).not.toMatch(/latitude|longitude|-23\.5|São Paulo|municipioNome/);
+  });
+
+  it('sem codigo resolvido, manda so a UF', async () => {
+    mockLoadCachedLocation.mockResolvedValue({
+      uf: 'SP',
+      municipioNome: null,
+      codigoMunicipio: null,
+      latitude: 0,
+      longitude: 0,
+    });
+    await sendMessage('tem campanha?', []);
+    expect(corpo().local).toEqual({ uf: 'SP' });
+  });
+
+  it('codigo guardado como numero vai como texto -- senao a funcao o descarta (revisao do E8)', async () => {
+    // A API do Ministerio pode devolver o codigo como numero JSON, e o
+    // AsyncStorage guarda o que veio; a funcao so aceita texto de 6-7 digitos.
+    mockLoadCachedLocation.mockResolvedValue({
+      uf: 'SP',
+      municipioNome: null,
+      codigoMunicipio: 355030,
+      latitude: 0,
+      longitude: 0,
+    });
+    await sendMessage('onde me vacino?', []);
+    expect(corpo().local).toEqual({ uf: 'SP', codigoMunicipio: '355030' });
+  });
+
+  it('sem localizacao, o corpo nao leva local', async () => {
+    await sendMessage('oi', []);
+    expect(corpo()).not.toHaveProperty('local');
+  });
+
+  it('falha ao ler a localizacao nao impede a pergunta', async () => {
+    mockLoadCachedLocation.mockRejectedValue(new Error('AsyncStorage indisponivel'));
+    const resposta = await sendMessage('oi', []);
+    expect(resposta).toBe('Uma resposta.');
+    expect(corpo()).not.toHaveProperty('local');
+  });
+});
+
 describe('a proposta de memoria (M5, lado do aplicativo)', () => {
   it('manda o estado da memoria quando ele e informado', async () => {
     // Art. 18, IX -- com a memoria desligada, a funcao nem le os fatos.
@@ -202,6 +276,47 @@ describe('a proposta de memoria (M5, lado do aplicativo)', () => {
   it('resposta sem proposta continua sendo o caminho normal', async () => {
     const r = await sendMessageWithSources('oi', []);
     expect(r.memoriaProposta).toBeUndefined();
+    expect(r.text).toBe('Uma resposta.');
+  });
+});
+
+/**
+ * A acao proposta (E11), lado do aplicativo. A funcao ja conferiu e resolveu;
+ * aqui a conferencia e de FORMA, com o mesmo modulo compartilhado, para um
+ * cartao nunca pedir que a pessoa abra um formulario com lixo.
+ */
+describe('a acao proposta (E11, lado do aplicativo)', () => {
+  const ACAO = {
+    tipo: 'ABRIR_NOVO_AGENDAMENTO',
+    campos: { appointmentName: 'retorno', scheduledDate: '2026-10-30', scheduledTime: '14:00' },
+  };
+
+  it('devolve a acao quando ela vem com forma valida', async () => {
+    respondeCom({ answer: 'Preparei o formulário.', citations: [], ruleCheckStatus: 'APROVADA', acaoProposta: ACAO });
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.acaoProposta).toEqual(ACAO);
+  });
+
+  it('descarta acao com tipo fora da lista', async () => {
+    respondeCom({ answer: 'Certo.', citations: [], ruleCheckStatus: 'APROVADA', acaoProposta: { ...ACAO, tipo: 'APAGAR' } });
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.acaoProposta).toBeUndefined();
+  });
+
+  it('descarta acao sem nenhum campo valido', async () => {
+    respondeCom({
+      answer: 'Certo.',
+      citations: [],
+      ruleCheckStatus: 'APROVADA',
+      acaoProposta: { tipo: 'ABRIR_NOVO_AGENDAMENTO', campos: { scheduledDate: '2026-13-40' } },
+    });
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.acaoProposta).toBeUndefined();
+  });
+
+  it('resposta sem acao continua igual', async () => {
+    const r = await sendMessageWithSources('oi', []);
+    expect(r.acaoProposta).toBeUndefined();
     expect(r.text).toBe('Uma resposta.');
   });
 });

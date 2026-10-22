@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import { AvisoDeCamposPreenchidos } from '@/components/AvisoDeCamposPreenchidos';
 import { Button } from '@/components/Button';
 import { DateInput } from '@/components/DateInput';
 import { DetailHeader } from '@/components/DetailHeader';
@@ -23,6 +24,7 @@ import { FONTS, SIZES, useThemeColors, type ThemeColors } from '@/constants/them
 import { avisarSucesso } from '@/hooks/avisoDeSucesso';
 import { createAppointment, type AppointmentType } from '@/services/appointmentService';
 import { maskTimeInput } from '@/utils/timeMask';
+import type { CamposDeAgendamento } from '../../amplify/functions/acoes-propostas-shared/camposDaAcao';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -35,22 +37,31 @@ const APPOINTMENT_TYPE_OPTIONS: { value: AppointmentType; label: string; icon: I
   { value: 'CIRURGIA', label: 'Cirurgia', icon: 'cut-outline' },
 ];
 
-export function AddAppointmentScreen() {
+type AddAppointmentScreenProps = {
+  /**
+   * Os campos que o cartao da acao proposta (E11) ou um link trouxeram, ja
+   * conferidos pela rota. Ausente, a tela abre vazia, como sempre abriu.
+   */
+  inicial?: CamposDeAgendamento;
+};
+
+export function AddAppointmentScreen({ inicial }: AddAppointmentScreenProps = {}) {
   const colors = useThemeColors();
   const { colorScheme } = useColorScheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const veioPreenchido = inicial !== undefined && Object.keys(inicial).length > 0;
 
   // DECISION (specs/00-fundacao/correcoes-menores/spec.md, D3): "Consulta" já
   // vem marcado. Antes nenhum tipo vinha marcado e, como o tipo não é
   // obrigatório, quem não tocava num dos três tinha o compromisso salvo como
   // consulta sem ver isso na tela: um exame marcado assim aparecia na Agenda
   // com o selo e a cor de consulta. O que aparece marcado é o que será salvo.
-  const [appointmentType, setAppointmentType] = useState<AppointmentType>('CONSULTA');
-  const [appointmentName, setAppointmentName] = useState('');
-  const [professionalName, setProfessionalName] = useState('');
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('');
-  const [address, setAddress] = useState('');
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>(inicial?.appointmentType ?? 'CONSULTA');
+  const [appointmentName, setAppointmentName] = useState(inicial?.appointmentName ?? '');
+  const [professionalName, setProfessionalName] = useState(inicial?.professionalName ?? '');
+  const [scheduledDate, setScheduledDate] = useState(inicial?.scheduledDate ?? '');
+  const [scheduledTime, setScheduledTime] = useState(inicial?.scheduledTime ?? '');
+  const [address, setAddress] = useState(inicial?.address ?? '');
   const [observations, setObservations] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -98,6 +109,8 @@ export function AddAppointmentScreen() {
           {/* "Novo compromisso", e não "Novo agendamento": é a palavra da
               Agenda e do Início para a mesma coisa (consistencia-e-textos, D2). */}
           <DetailHeader onBack={() => router.back()} title="Novo compromisso" />
+
+          {veioPreenchido ? <AvisoDeCamposPreenchidos /> : null}
 
           <View>
             <Text style={styles.sectionTitle}>Tipo</Text>

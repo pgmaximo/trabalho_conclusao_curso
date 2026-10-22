@@ -164,6 +164,20 @@ describe('a verificação de linguagem também se aplica', () => {
   });
 });
 
+describe('causa entre dados de saúde não vira fato (revisão do E6)', () => {
+  // A guarda de causa (E10) vale também aqui, e de propósito: a memória volta ao
+  // prompt em todo turno, e um fato que liga dois dados repetiria a ligação.
+  // O remédio já é registro, e não memória (proibição 4), com ou sem causa.
+  it('recusa o fato que liga dois dados de saúde', () => {
+    recusa('Faço caminhada porque o colesterol está alto');
+    recusa('Toma losartana, que controla a pressão');
+  });
+
+  it('aceita a rotina dita sem ligar a dado de saúde', () => {
+    aceita('Faço caminhada três vezes por semana', 'ROTINA');
+  });
+});
+
 describe('o próprio arquivo de padrões', () => {
   it('não escreve o termo vetado', () => {
     // A raiz continua montada a partir de partes em UM lugar só, em
@@ -182,5 +196,14 @@ describe('o próprio arquivo de padrões', () => {
     const r = validarProposta({ texto: 'Tenho diabetes tipo 2', tipo: 'ROTINA' });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.motivo).not.toContain('diabetes');
+  });
+});
+
+// A4 da conferencia no sandbox: a saida estruturada propos guardar "string"
+// como o nome da pessoa, junto de uma resposta "string". O cartao pediria a
+// ela que confirmasse um marcador.
+describe('proposta sem conteúdo (A4)', () => {
+  it.each(['string', '...'])('recusa o marcador %j', (texto) => {
+    expect(validarProposta({ texto, tipo: 'COMO_ME_CHAMAR' }).ok).toBe(false);
   });
 });

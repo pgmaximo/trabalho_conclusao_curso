@@ -21,8 +21,11 @@
  * - a citacao INVENTADA -- id que nenhuma tool devolveu -- em `verificacao.ts`,
  *   que e o unico lugar que sabe o que as tools entregaram (C5).
  */
+import type { DocumentType } from '@smithy/types';
 import { z } from 'zod';
 
+import { TIPOS_DE_ACAO, TIPOS_DE_COMPROMISSO } from '../acoes-propostas-shared/camposDaAcao';
+import { toStructuredOutputSchema } from '../extract-document-data/extractionSchema';
 import { MAX_CARACTERES_FATO, MEMORY_KINDS } from './memoria/regras';
 
 export const citationSchema = z
@@ -54,6 +57,34 @@ export const citationSchema = z
  */
 export const MAX_CITACOES = 20;
 
+/**
+ * A acao proposta (E11), como o MODELO a manda: textos e expressoes copiados
+ * da fala da pessoa, ainda sem conferencia. Quem confere e resolve e
+ * `acoes/acaoValida.ts`; quem confere a forma final e
+ * `acoes-propostas-shared/camposDaAcao.ts`.
+ *
+ * SEM `max` NOS CAMPOS, DE PROPOSITO. Um teto aqui reprova o PARSE da resposta
+ * inteira, e a falha de parse vai para o caminho degradado: um nome longo
+ * demais na proposta derrubaria uma resposta boa (o mesmo motivo de nao haver
+ * `refine` da R4 acima). O teto e aplicado depois, e o que passa dele so faz o
+ * CAMPO sumir.
+ */
+export const acaoSchema = z
+  .object({
+    tipo: z.enum(TIPOS_DE_ACAO),
+    nome: z.string().optional(),
+    profissional: z.string().optional(),
+    endereco: z.string().optional(),
+    tipoDeCompromisso: z.enum(TIPOS_DE_COMPROMISSO).optional(),
+    /** A expressao de data que a pessoa usou ("sexta", "dia 30"), nao a data. */
+    quando: z.string().optional(),
+    /** A expressao de hora ("14h", "2 da tarde"). */
+    hora: z.string().optional(),
+    /** Lembrete: uma expressao de hora por horario. */
+    horarios: z.array(z.string()).optional(),
+  })
+  .strict();
+
 export const memoryProposalSchema = z
   .object({
     texto: z.string().min(1).max(MAX_CARACTERES_FATO),
@@ -76,11 +107,22 @@ export const chatAnswerSchema = z
      * numero porque nao ha onde escrever a origem dele.
      */
     memoria: memoryProposalSchema.optional(),
+    /**
+     * A acao proposta (E11). Ausente na maioria dos turnos; nunca grava.
+     *
+     * O `.catch(undefined)` faz a acao INVALIDA (tipo fora da lista, campo
+     * desconhecido) virar ausente em vez de reprovar o parse da resposta
+     * inteira. Antes, a recusa dependia de o Bedrock impor o formato; agora e
+     * do codigo, e proposta ruim nunca derruba resposta boa (revisao do E11).
+     * O esquema que vai ao Bedrock nao muda: `toJSONSchema` le o de dentro.
+     */
+    acao: acaoSchema.optional().catch(undefined),
   })
   .strict();
 
 export type AnswerCitation = z.infer<typeof citationSchema>;
 export type MemoryProposal = z.infer<typeof memoryProposalSchema>;
+export type AcaoBruta = z.infer<typeof acaoSchema>;
 export type ChatAnswer = z.infer<typeof chatAnswerSchema> & { toolsUsadas: string[] };
 
 /**
@@ -104,8 +146,76 @@ export function extrairResposta(texto: string): unknown {
     .trim();
 
   try {
-    return JSON.parse(limpo);
+    return doFio(JSON.parse(limpo));
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A ORDEM NO FIO (A5 da conferencia no sandbox, 2026-10-20). A saida
+ * estruturada escreve as chaves em ordem ALFABETICA, e nao na do schema --
+ * medido com a saida bruta. "acao" vinha antes de "texto", e o modelo tinha
+ * de decidir a acao antes de escrever a resposta: pulava o campo e prometia o
+ * formulario no texto. Dentro da acao, "tipo" vinha quase por ultimo, e depois
+ * dele "hora", "nome" e "quando" ja tinham passado. O prefixo numerico faz a
+ * ordem alfabetica ser a que o envelope quer; so o schema mandado ao modelo e
+ * a resposta dele usam esses nomes, e `extrairResposta` os traduz de volta.
+ */
+const ENVELOPE_NO_FIO: Record<string, string> = {
+  citacoes: '1_citacoes',
+  texto: '2_texto',
+  memoria: '3_memoria',
+  acao: '4_acao',
+};
+const ACAO_NO_FIO: Record<string, string> = {
+  tipo: '1_tipo',
+  nome: '2_nome',
+  profissional: '3_profissional',
+  endereco: '4_endereco',
+  tipoDeCompromisso: '5_tipoDeCompromisso',
+  quando: '6_quando',
+  hora: '7_hora',
+  horarios: '8_horarios',
+};
+
+type NoDoSchema = { properties: Record<string, unknown>; required?: string[] };
+
+function renomear(no: NoDoSchema, nomes: Record<string, string>): NoDoSchema {
+  return {
+    ...no,
+    properties: Object.fromEntries(Object.entries(no.properties).map(([k, v]) => [nomes[k] ?? k, v])),
+    ...(no.required && { required: no.required.map((k) => nomes[k] ?? k) }),
+  };
+}
+
+/** O JSON Schema do `output_config`: o do envelope, com os nomes do fio. */
+export function schemaDaResposta(): DocumentType {
+  const base = toStructuredOutputSchema(chatAnswerSchema) as unknown as NoDoSchema;
+  const acao = base.properties.acao as NoDoSchema;
+  return renomear(
+    { ...base, properties: { ...base.properties, acao: renomear(acao, ACAO_NO_FIO) } },
+    ENVELOPE_NO_FIO,
+  ) as unknown as DocumentType;
+}
+
+const inverter = (nomes: Record<string, string>) =>
+  Object.fromEntries(Object.entries(nomes).map(([k, v]) => [v, k]));
+const DO_FIO = inverter(ENVELOPE_NO_FIO);
+const ACAO_DO_FIO = inverter(ACAO_NO_FIO);
+
+function traduzir(objeto: Record<string, unknown>, nomes: Record<string, string>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(objeto).map(([k, v]) => [nomes[k] ?? k, v]));
+}
+
+/** A resposta com os nomes do fio volta com os do envelope. Sem saida
+ *  estruturada, o modelo escreve os nomes do prompt, e eles passam intactos. */
+function doFio(bruto: unknown): unknown {
+  if (bruto === null || typeof bruto !== 'object' || Array.isArray(bruto)) return bruto;
+  const envelope = traduzir(bruto as Record<string, unknown>, DO_FIO);
+  const acao = envelope.acao;
+  if (acao !== null && typeof acao === 'object' && !Array.isArray(acao)) {
+    envelope.acao = traduzir(acao as Record<string, unknown>, ACAO_DO_FIO);
+  }
+  return envelope;
 }

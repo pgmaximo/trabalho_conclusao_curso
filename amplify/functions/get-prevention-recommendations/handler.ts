@@ -1,8 +1,8 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { fetchUspstfDataset } from './uspstfClient';
-import { filterRecommendations, resolveGeneral, resolveGradeText } from './uspstfFilter';
-import type { ProfileForFiltering } from './uspstfFilter';
+import { fetchUspstfDataset } from '../uspstf-shared/uspstfClient';
+import { filterRecommendations, resolveGeneral, resolveGradeText } from '../uspstf-shared/uspstfFilter';
+import type { ProfileForFiltering } from '../uspstf-shared/uspstfFilter';
 import { translateToPortuguese } from './translateClient';
 
 const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient());

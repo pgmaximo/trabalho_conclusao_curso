@@ -21,6 +21,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useColorScheme } from 'nativewind';
 import * as DocumentPicker from 'expo-document-picker';
 
+import { ActionProposalCard } from '@/components/ActionProposalCard';
 import { AiDisclaimerBanner } from '@/components/AiDisclaimerBanner';
 import { ChatAttachmentRow } from '@/components/ChatAttachmentRow';
 import { HistoryDrawer } from '@/components/HistoryDrawer';
@@ -73,6 +74,9 @@ export function ChatBotScreen({ conversaInicial }: { conversaInicial?: string | 
     confirmarMemoria,
     recusarMemoria,
     abrirMemoria,
+    propostaDeAcao,
+    abrirAcao,
+    recusarAcao,
   } = useChatBot(conversaInicial);
 
   const hasUserMessage = messages.some((message) => message.role === 'user');
@@ -222,6 +226,17 @@ export function ChatBotScreen({ conversaInicial }: { conversaInicial?: string | 
                   um pedido do APLICATIVO, e nao fala do assistente. Confundir
                   os dois faria a pessoa achar que o modelo esta falando quando
                   ele esta pedindo consentimento (D34). */}
+              {/* A acao proposta (E11) fica no mesmo lugar, pelo mesmo motivo.
+                  A funcao manda no maximo uma das duas por resposta. */}
+              {propostaDeAcao && !isTyping ? (
+                <ActionProposalCard
+                  key={JSON.stringify(propostaDeAcao.acao)}
+                  acao={propostaDeAcao.acao}
+                  onAbrir={abrirAcao}
+                  onRecusar={recusarAcao}
+                />
+              ) : null}
+
               {propostaDeMemoria && !isTyping ? (
                 <MemoryProposalCard
                   key={propostaDeMemoria.proposta.texto}

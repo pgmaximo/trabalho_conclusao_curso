@@ -16,10 +16,11 @@ import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-r
 import { toStructuredOutputSchema } from '../extract-document-data/extractionSchema';
 
 import { SYSTEM_PROMPT, buildUserMessage } from './chatPrompt';
-import { chatAnswerSchema, extrairResposta, type ChatAnswer } from './chatSchema';
-import { CHAT_TOOLS, runTool } from './tools';
+import { chatAnswerSchema, extrairResposta, schemaDaResposta, type ChatAnswer } from './chatSchema';
+import { HISTORY_WINDOW } from './janelaDoHistorico';
+import { CHAT_TOOLS, findTool, runTool } from './tools';
 import type { ChatIdentity } from './auth';
-import type { AnexoLido } from './types';
+import type { AnexoLido, ContextoDoTurno, LocalDoUsuario } from './types';
 
 const client = new BedrockRuntimeClient({ maxAttempts: 3, retryMode: 'adaptive' });
 
@@ -31,8 +32,9 @@ const client = new BedrockRuntimeClient({ maxAttempts: 3, retryMode: 'adaptive' 
  */
 export const MAX_TOOL_ITERATIONS = 6;
 
-/** Mandar a conversa inteira cresce sem limite e paga por isso a cada turno. */
-export const HISTORY_WINDOW = 12;
+// O teto do historico mora em `janelaDoHistorico.ts` desde o E11, porque a
+// validacao da acao proposta precisa do mesmo numero.
+export { HISTORY_WINDOW };
 
 /**
  * SEMPRE explicito. Em branco reserva a cota maxima do modelo e e a causa
@@ -43,14 +45,17 @@ export const HISTORY_WINDOW = 12;
  * "quais sao os valores do meu exame?" cortada no meio do JSON das citacoes:
  * cada citacao carrega um id de 64 caracteres, e 20 delas mais o texto de 20
  * linhas passam de 2000. 4000 cabe o maximo de citacoes com folga.
+ *
+ * 16000 com o Claude Opus 5.5: o thinking, que nao se desliga nesse modelo,
+ * divide este teto com a resposta.
  */
-export const MAX_OUTPUT_TOKENS = 4000;
+export const MAX_OUTPUT_TOKENS = 16000;
 
-const TEMPERATURE = 0.3;
-
-/** Menos variacao na segunda tentativa. E uma alavanca A MEDIR (tarefa C10),
- *  nao uma certeza -- o estudo da D31 a registra como tal. */
-const TEMPERATURE_RETRY = 0.1;
+/** Esforco explicito: o padrao do Claude Opus 5.5 e `medium`, e o turno (2 a 4
+ *  idas ao modelo) tem de caber nos 90 s que o aplicativo espera. Sem
+ *  `temperature`: o Opus 5.5 a recusa (400), e a segunda geracao difere da
+ *  primeira pela correcao que recebe. */
+const ESFORCO = 'low';
 
 export type TurnInput = {
   message: string;
@@ -79,6 +84,25 @@ export type TurnInput = {
    * depende da identidade e de tabela, e este arquivo e sobre o laco.
    */
   systemPrompt?: string;
+  /**
+   * A cidade do pedido (E8). Ela vai as FERRAMENTAS, como contexto do turno, e
+   * nunca ao modelo: o modelo so ve o que a ferramenta montou com ela.
+   */
+  local?: LocalDoUsuario | null;
+  /**
+   * A data e a hora do turno, ja em texto, num SEGUNDO bloco de `system` (E1,
+   * D1.1; o porque esta em `contextoDeHoje.ts`). Fica DEPOIS porque muda a
+   * cada turno, e o bloco 0 so muda com a memoria da pessoa: um ponto de
+   * prompt caching futuro iria entre os dois. Ausente, `system` sai byte a
+   * byte como antes.
+   */
+  contextoDeHoje?: string;
+  /**
+   * O dia do turno em AAAA-MM-DD, no fuso do app, lido no MESMO instante de
+   * `contextoDeHoje` (E11). Nao vai ao modelo: e o "hoje" com que o codigo
+   * resolve "sexta" e "dia 30" na acao proposta. Ausente, nenhuma acao sai.
+   */
+  hoje?: string;
 };
 
 /**
@@ -92,7 +116,9 @@ export type TurnInput = {
  */
 export type TurnTranscript = {
   messages: unknown[];
-  toolOutputs: { name: string; output: unknown }[];
+  /** `valoresCadastrados` vem do gancho da tool (E2, D2.4), calculado AQUI,
+   *  onde a tool esta a mao: a verificacao so le, sem conhecer nenhuma tool. */
+  toolOutputs: { name: string; output: unknown; valoresCadastrados?: string[] }[];
 };
 
 export type TurnOutcome =
@@ -116,12 +142,18 @@ export type TurnOutcome =
        *  Sem essa marca, quem chama trocaria a mensagem honesta do filtro pela
        *  copy generica -- e a pessoa nao saberia que houve um bloqueio. */
       bloqueadoPeloFiltro?: true;
+      /** O modelo recusou por excesso de chamadas (A6): a cota da conta, e nao
+       *  a pergunta. Quem chama mostra a frase dela, sem dado por baixo. */
+      sobrecarga?: true;
     };
 
 const BLOQUEADO_PELO_FILTRO =
   'Não consigo responder a essa mensagem. Se for sobre um sintoma ou um resultado, vale levar a pergunta a um profissional de saúde.';
 const NAO_REUNI_TUDO = 'Não consegui reunir tudo o que essa pergunta pede.';
 const NAO_MONTEI = 'Não consegui montar uma resposta agora.';
+const JA_CONSULTADA =
+  'Esta ferramenta já foi consultada neste turno com a mesma entrada, e o resultado está acima. Não chame de novo: responda agora com o que já tem.';
+const SOBRECARGA = 'Muita gente está usando o assistente agora. Tente de novo em um minuto.';
 
 /**
  * O rastro de uma geracao que nao virou resposta. Existe por um achado do Bloco
@@ -160,6 +192,14 @@ function registrarRespostaInvalida(
   }
 }
 
+/**
+ * O ponto de cache de prompt (DS16.3 = B). As ferramentas e o prompt de
+ * sistema (~10,5 mil tokens) sao reenviados em cada ida ao modelo, de 2 a 4
+ * por turno; com o ponto no fim de cada um, o Bedrock le essa parte do cache.
+ * O contexto do dia fica DEPOIS do ponto: a data invalidaria o cache todo dia.
+ */
+const PONTO_DE_CACHE = { cachePoint: { type: 'default' } } as const;
+
 /** O esquema de entrada de cada tool, no formato que o Converse espera. Sai do
  *  MESMO objeto zod que valida a chamada, entao os dois nunca divergem. */
 function especificacaoDasTools() {
@@ -173,7 +213,7 @@ function especificacaoDasTools() {
         // deixa o objeto zod intacto como validador.
         inputSchema: { json: toStructuredOutputSchema(t.inputSchema) },
       },
-    })),
+    })).concat(PONTO_DE_CACHE as never),
     // SEM `toolChoice` forcado: aqui o modelo PRECISA poder responder sem
     // chamar tool nenhuma ("bom dia"), diferente da extracao, em que a saida
     // estruturada e o produto.
@@ -197,13 +237,41 @@ type RespostaDoModelo = {
   output?: { message?: { role?: string; content?: Record<string, any>[] } };
 };
 
-function chamar(input: TurnInput, messages: unknown[], temperature: number) {
+/**
+ * O limite de UMA chamada ao modelo (DS15.3). O Bedrock chegou a 80 s de media
+ * por chamada, sem erro nem throttling (CloudWatch, 2026-10-22), e a chamada
+ * presa esperava ate o teto da Lambda, depois de o aplicativo ja ter desistido
+ * aos 90 s com a mensagem generica. Passado o limite, o turno vira o aviso de
+ * sobrecarga, como a ThrottlingException.
+ *
+ * shortcut: limite por chamada, nao por turno -- um turno de 3 chamadas lentas
+ * ainda passa dos 90 s; trocar por um prazo do turno se isso aparecer medido.
+ */
+export const TEMPO_MAXIMO_DA_CHAMADA_MS = 40_000;
+
+function chamar(input: TurnInput, messages: unknown[]): Promise<RespostaDoModelo> {
+  const controle = new AbortController();
+  let relogio: ReturnType<typeof setTimeout> | undefined;
+  const limite = new Promise<never>((_, rejeitar) => {
+    relogio = setTimeout(() => {
+      controle.abort();
+      rejeitar(Object.assign(new Error('Chamada ao modelo passou do limite de tempo.'), { name: 'TempoEsgotado' }));
+    }, TEMPO_MAXIMO_DA_CHAMADA_MS);
+  });
+  return Promise.race([enviar(input, messages, controle.signal), limite]).finally(() => clearTimeout(relogio));
+}
+
+function enviar(input: TurnInput, messages: unknown[], abortSignal: AbortSignal) {
   return client.send(
     new ConverseCommand({
       modelId: input.modelId,
-      system: [{ text: input.systemPrompt ?? SYSTEM_PROMPT }],
+      system: [
+        { text: input.systemPrompt ?? SYSTEM_PROMPT },
+        PONTO_DE_CACHE,
+        ...(input.contextoDeHoje ? [{ text: input.contextoDeHoje }] : []),
+      ],
       messages: messages as never,
-      inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS, temperature },
+      inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS },
       toolConfig: especificacaoDasTools() as never,
       // Saida estruturada imposta pelo servidor, mesmo mecanismo que a
       // extracao mediu (D19). O parser de `chatSchema.ts` continua tolerante
@@ -211,11 +279,13 @@ function chamar(input: TurnInput, messages: unknown[], temperature: number) {
       // ferramentas -- combinacao que so uma chamada real confirma.
       additionalModelRequestFields: {
         output_config: {
-          format: { type: 'json_schema', schema: toStructuredOutputSchema(chatAnswerSchema) },
+          effort: ESFORCO,
+          format: { type: 'json_schema', schema: schemaDaResposta() },
         },
       },
       guardrailConfig: guardrail(input),
     }),
+    { abortSignal },
   ) as Promise<RespostaDoModelo>;
 }
 
@@ -227,6 +297,14 @@ function textoDosBlocos(blocos: Record<string, any>[] | undefined): string {
 }
 
 export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome> {
+  // Um registro de leituras por turno, dividido pelas ferramentas dele (risco 3
+  // do E4): duas que leem a mesma tabela leem uma vez so.
+  const contextoDoTurno: ContextoDoTurno = {
+    local: input.local ?? null,
+    leituras: new Map(),
+    series: new Map(),
+    falaDaPessoa: input.message,
+  };
   // A janela guarda as mensagens MAIS RECENTES: cortar pelo comeco entregaria
   // ao modelo o inicio de uma conversa longa e esconderia o que acabou de ser
   // dito.
@@ -238,13 +316,14 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
   ];
 
   const toolsUsadas: string[] = [];
+  const consultadas = new Set<string>();
   const transcript: TurnTranscript = { messages, toolOutputs: [] };
   let inputTokens = 0;
   let outputTokens = 0;
 
   try {
     for (let iteracao = 0; iteracao < MAX_TOOL_ITERATIONS; iteracao += 1) {
-      const resposta = await chamar(input, messages, TEMPERATURE);
+      const resposta = await chamar(input, messages);
 
       // O consumo e SOMADO, e nao substituido: medir so a ultima ida
       // subestimaria justamente o turno com laco, que e o turno caro.
@@ -287,11 +366,28 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
 
       const resultados = [];
       for (const chamada of chamadas) {
+        // A mesma consulta, com a mesma entrada, no mesmo turno nao roda de
+        // novo (A8, DS9): "mas e seguro, ne?" fazia o modelo repeti-la ate o
+        // teto de iteracoes. O aviso responde a chamada, e o transcript nao
+        // ganha uma copia -- a degradada mostraria o mesmo bloco de novo.
+        const chave = `${chamada.name}|${JSON.stringify(chamada.input ?? {})}`;
+        if (consultadas.has(chave)) {
+          resultados.push({
+            toolResult: { toolUseId: chamada.toolUseId, content: [{ json: { jaConsultado: true, aviso: JA_CONSULTADA } }] },
+          });
+          continue;
+        }
+        consultadas.add(chave);
         toolsUsadas.push(chamada.name);
-        const saida = await runTool(chamada.name, chamada.input, input.identity);
+        const saida = await runTool(chamada.name, chamada.input, input.identity, contextoDoTurno);
         // Guardado ESTRUTURADO para o modo degradado (C5b), alem de
         // serializado para o modelo.
-        transcript.toolOutputs.push({ name: chamada.name, output: saida });
+        const valoresCadastrados = findTool(chamada.name)?.valoresCadastrados?.(saida);
+        transcript.toolOutputs.push({
+          name: chamada.name,
+          output: saida,
+          ...(valoresCadastrados ? { valoresCadastrados } : {}),
+        });
         resultados.push({
           toolResult: { toolUseId: chamada.toolUseId, content: [{ json: saida }] },
         });
@@ -302,6 +398,14 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
     // O detalhe tecnico fica no log. Devolver "ThrottlingException" ao chamador
     // nao ajuda ninguem e vaza como a infraestrutura funciona.
     console.error('Falha na chamada ao modelo:', erro);
+    // A cota da conta e de 10 chamadas por minuto (A6, DS7): com duas pessoas
+    // ao mesmo tempo ela estoura, e a pessoa precisa saber que e espera, nao
+    // a pergunta. So o nome do erro decide; ele nao vai para o texto.
+    // A chamada que passou do limite de tempo (DS15.3) tambem e espera.
+    const nome = (erro as { name?: string } | null)?.name;
+    if (nome === 'ThrottlingException' || nome === 'TempoEsgotado') {
+      return { ok: false, transcript, message: SOBRECARGA, sobrecarga: true };
+    }
     return { ok: false, transcript, message: NAO_MONTEI };
   }
 
@@ -349,7 +453,7 @@ export async function regenerateAnswer(
   ];
 
   try {
-    const resposta = await chamar(input, messages, TEMPERATURE_RETRY);
+    const resposta = await chamar(input, messages);
 
     if (resposta.stopReason === 'guardrail_intervened') {
       return { ok: false, transcript, message: BLOQUEADO_PELO_FILTRO, bloqueadoPeloFiltro: true };

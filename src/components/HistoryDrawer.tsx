@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { DeleteConfirmPanel } from '@/components/DeleteConfirmPanel';
+import { InlineError } from '@/components/InlineError';
 import { useThemeColors } from '@/constants/theme';
 import type { HistoryGroup } from '@/hooks/useChatBot';
 
@@ -36,6 +37,9 @@ type HistoryDrawerProps = {
 const AVISO_DE_RETENCAO =
   'Suas conversas ficam guardadas aqui até você excluir. Você pode excluir qualquer uma quando quiser.';
 
+/** Mesmo padrao das outras exclusoes do app (ex.: Dados do smartwatch). */
+const FALHA_AO_EXCLUIR = 'Não foi possível excluir esta conversa. Tente novamente.';
+
 export function HistoryDrawer({
   visible,
   groups,
@@ -48,14 +52,34 @@ export function HistoryDrawer({
   // Qual conversa esta com a confirmacao aberta. Uma de cada vez, e por id:
   // um painel sobre a lista inteira deixaria a pessoa sem saber qual conversa
   // esta prestes a sumir.
-  const [aConfirmar, setAConfirmar] = useState<string | null>(null);
+  //
+  // `falhou` mora JUNTO do id (E12): abrir a confirmacao de outra conversa
+  // troca o objeto inteiro, e o aviso de falha nunca aparece embaixo da
+  // conversa errada. Antes a gaveta nao dizia nada quando a exclusao falhava.
+  const [confirmacao, setConfirmacao] = useState<{ id: string; falhou: boolean } | null>(null);
   const [apagando, setApagando] = useState(false);
+
+  // Fechar a gaveta fecha a confirmacao e o aviso. O Modal so fica invisivel,
+  // sem desmontar, e a pessoa reencontraria minutos depois um aviso de uma
+  // tentativa que nao fez de novo (revisao do E12). Ajustado durante a
+  // renderizacao, e nao num efeito: e o padrao do React para estado que segue
+  // uma prop, sem a renderizacao a mais que o efeito causaria.
+  const [visivelAntes, setVisivelAntes] = useState(visible);
+  if (visible !== visivelAntes) {
+    setVisivelAntes(visible);
+    if (!visible) setConfirmacao(null);
+  }
 
   async function confirmarExclusao(id: string) {
     setApagando(true);
+    setConfirmacao({ id, falhou: false });
     try {
       await onDelete?.(id);
-      setAConfirmar(null);
+      setConfirmacao(null);
+    } catch {
+      // O painel fica aberto: a conversa continua la, e tentar de novo e o
+      // caminho. O motivo tecnico nao ajuda a pessoa e nao vai para a tela.
+      setConfirmacao({ id, falhou: true });
     } finally {
       setApagando(false);
     }
@@ -146,22 +170,30 @@ export function HistoryDrawer({
                           <Pressable
                             accessibilityLabel={`Excluir conversa ${item.title}`}
                             accessibilityRole="button"
+                            // Travada enquanto uma exclusao corre: o resultado
+                            // dela cairia na confirmacao aberta depois, que e
+                            // de outra conversa (revisao do E12).
+                            disabled={apagando}
+                            accessibilityState={{ disabled: apagando }}
                             className="size-10 items-center justify-center rounded-xl"
                             style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}
-                            onPress={() => setAConfirmar(item.id)}
+                            onPress={() => setConfirmacao({ id: item.id, falhou: false })}
                           >
                             <Ionicons name="trash-outline" size={18} color={colors.iconMuted} />
                           </Pressable>
                         ) : null}
                       </View>
 
-                      {aConfirmar === item.id ? (
-                        <DeleteConfirmPanel
-                          isDeleting={apagando}
-                          message="Excluir esta conversa? Ela some de vez, e essa ação não pode ser desfeita."
-                          onCancel={() => setAConfirmar(null)}
-                          onConfirm={() => void confirmarExclusao(item.id)}
-                        />
+                      {confirmacao?.id === item.id ? (
+                        <>
+                          {confirmacao.falhou ? <InlineError message={FALHA_AO_EXCLUIR} /> : null}
+                          <DeleteConfirmPanel
+                            isDeleting={apagando}
+                            message="Excluir esta conversa? Ela some de vez, e essa ação não pode ser desfeita."
+                            onCancel={() => setConfirmacao(null)}
+                            onConfirm={() => void confirmarExclusao(item.id)}
+                          />
+                        </>
                       ) : null}
                     </View>
                   ))}

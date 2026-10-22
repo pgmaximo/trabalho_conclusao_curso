@@ -41,6 +41,129 @@ export function formatarDecimal(valor: number | null | undefined): string {
   return limpo.replace('.', ',');
 }
 
+/**
+ * Inteiro com ponto de milhar ("7.430"), sem depender do locale do runtime,
+ * pelo mesmo motivo de `formatarDecimal` (E10: media de passos do wearable).
+ */
+export function formatarInteiro(valor: number): string {
+  return String(Math.round(valor)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+/**
+ * O fuso do aplicativo (E1, D1.2 = A), num lugar so: o dia das campanhas, o
+ * corte das consultas e o bloco de data do turno precisam do MESMO fuso, ou o
+ * modelo receberia um "hoje" que discorda das futuras e passadas da
+ * ferramenta. A funcao roda em UTC, e entre 21h e meia-noite de Brasilia o UTC
+ * ja e o dia seguinte. Se vier o fuso do aparelho (D1.2 = B), e aqui que entra.
+ *
+ * `en-US` com `weekday: 'short'` da o dia como codigo estavel ("Sun"...);
+ * pedir `pt-BR` faria o texto depender do ICU do runtime da Lambda.
+ */
+export const FUSO_DO_APP = 'America/Sao_Paulo';
+
+/**
+ * As UFs com fuso proprio (E3, D3.5). So `consultar_doses_tomadas` as usa: ali,
+ * o erro de fuso vira "sem marcação" para um horario que, para a pessoa, ainda
+ * nao chegou. O resto do chat segue a D1.2. O oeste do Amazonas (UTC-5) fica
+ * com o fuso de Manaus: a UF nao separa.
+ */
+const FUSO_DA_UF: Record<string, string> = {
+  AC: 'America/Rio_Branco',
+  AM: 'America/Manaus',
+  RR: 'America/Boa_Vista',
+  RO: 'America/Porto_Velho',
+  MT: 'America/Cuiaba',
+  MS: 'America/Campo_Grande',
+};
+
+/** O fuso da UF, ou o do aplicativo quando ela nao tem fuso proprio ou falta. */
+export function fusoDaUf(uf: string | null | undefined): string {
+  return uf && Object.hasOwn(FUSO_DA_UF, uf) ? FUSO_DA_UF[uf] : FUSO_DO_APP;
+}
+
+/** Um formatador por fuso, montado uma vez: montar `Intl.DateTimeFormat` custa,
+ *  e a verificacao de data roda em todo turno. No maximo sete entradas. */
+const FORMATADORES = new Map<string, Intl.DateTimeFormat>();
+
+function formatadorDe(fuso: string): Intl.DateTimeFormat {
+  let f = FORMATADORES.get(fuso);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', {
+      timeZone: fuso,
+      weekday: 'short',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
+    FORMATADORES.set(fuso, f);
+  }
+  return f;
+}
+
+/**
+ * O instante quebrado em partes, sempre com dois digitos, num fuso (o do app,
+ * se nenhum vier). Pelas partes, e nao pelo `format`, porque o separador entre
+ * data e hora varia entre versoes do ICU. `hourCycle: 'h23'` garante
+ * meia-noite como "00", e nunca "24". `diaDaSemana` vai de "Sun" a "Sat".
+ */
+export function partesNoFuso(instante: Date, fuso: string = FUSO_DO_APP) {
+  const p = Object.fromEntries(formatadorDe(fuso).formatToParts(instante).map((x) => [x.type, x.value]));
+  return {
+    diaDaSemana: p.weekday,
+    ano: p.year,
+    mes: p.month,
+    dia: p.day,
+    hora: p.hour,
+    minuto: p.minute,
+  };
+}
+
+/** As partes no fuso do aplicativo (E1, D1.2). */
+export function partesEmSaoPaulo(instante: Date) {
+  return partesNoFuso(instante, FUSO_DO_APP);
+}
+
+/**
+ * Minuscula, sem acento, e pontuacao virando espaco: a forma de comparar texto
+ * que a pessoa digitou com o que esta no banco. Mora aqui (este arquivo nao
+ * importa nada) para os analitos e as doses tomadas usarem a MESMA.
+ *
+ * Pontuacao vira espaco (Bloco 10): o sinonimo oficial do LDL e
+ * "Colesterol.LDL", e quem pergunta escreve "colesterol LDL". Sem isto, o
+ * termo casava com "colesterol" -- o total -- e a pessoa ouvia sobre o exame
+ * errado.
+ */
+export function semAcento(texto_: string): string {
+  return texto_
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * O instante, em "AAAA-MM-DDTHH:mm" no fuso de Sao Paulo (E1). E o formato em
+ * que a Agenda grava `scheduledAt` -- hora LOCAL, sem fuso -- e por isso o
+ * unico com que esse texto pode ser comparado.
+ */
+export function momentoEmSaoPaulo(instante: Date): string {
+  const { ano, mes, dia, hora, minuto } = partesEmSaoPaulo(instante);
+  return `${ano}-${mes}-${dia}T${hora}:${minuto}`;
+}
+
+/**
+ * O dia, em AAAA-MM-DD, no fuso de Sao Paulo (E8): no ultimo dia de uma
+ * campanha, o dia do UTC trocaria "ativa" por "encerrada".
+ */
+export function dataEmSaoPaulo(instante: Date): string {
+  const { ano, mes, dia } = partesEmSaoPaulo(instante);
+  return `${ano}-${mes}-${dia}`;
+}
+
 /** AAAA-MM-DD -> DD/MM/AAAA. Data que nao esta nesse formato volta como veio:
  *  inventar uma data seria pior do que mostrar a que o banco tem. */
 export function formatarData(iso: string | null): string {
