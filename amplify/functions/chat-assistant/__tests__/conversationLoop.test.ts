@@ -136,6 +136,29 @@ describe('os tres limites', () => {
   // Claude Opus 5.5: thinking sempre ligado e `temperature` recusada (400). O
   // thinking divide o teto de saida com a resposta, e o esforco e explicito
   // porque o padrao do modelo e `medium` e o app espera so 90 s.
+  // DS16.3 = B: a parte fixa (ferramentas e prompt de sistema, ~10,5 mil
+  // tokens) e reenviada em cada ida ao modelo; o cache a le em vez de
+  // reprocessar. O contexto do dia fica DEPOIS do ponto de cache, senao a data
+  // o invalidaria todo dia.
+  describe('o cache de prompt na parte fixa (DS16.3)', () => {
+    it('ponto de cache no fim das ferramentas', async () => {
+      mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
+      await runConversationTurn(ENTRADA);
+      const tools = ultimaChamada().toolConfig.tools;
+      expect(tools.at(-1)).toEqual({ cachePoint: { type: 'default' } });
+      expect(tools.filter((t: object) => 'toolSpec' in t)).toHaveLength(tools.length - 1);
+    });
+
+    it('ponto de cache depois do prompt de sistema e antes do contexto do dia', async () => {
+      mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
+      await runConversationTurn({ ...ENTRADA, contextoDeHoje: 'Hoje é quinta-feira, 22/10/2026.' });
+      const sistema = ultimaChamada().system;
+      expect(sistema[0]).toHaveProperty('text');
+      expect(sistema[1]).toEqual({ cachePoint: { type: 'default' } });
+      expect(sistema[2]).toEqual({ text: 'Hoje é quinta-feira, 22/10/2026.' });
+    });
+  });
+
   describe('a chamada ao Claude Opus 5.5', () => {
     it('nao manda temperature na primeira nem na segunda geracao', async () => {
       mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
@@ -224,7 +247,8 @@ describe('o prompt e a mensagem', () => {
     // "bom dia" e uma pergunta legitima e nao exige consulta nenhuma.
     mockSend.mockResolvedValue(respondeTexto('Bom dia.'));
     await runConversationTurn(ENTRADA);
-    expect(ultimaChamada().toolConfig.tools).toHaveLength(2);
+    // As 2 tools do mock e o ponto de cache no fim (DS16.3).
+    expect(ultimaChamada().toolConfig.tools.filter((t: object) => 'toolSpec' in t)).toHaveLength(2);
     expect(ultimaChamada().toolConfig.toolChoice).toBeUndefined();
   });
 });
@@ -508,21 +532,24 @@ describe('os valores cadastrados de cada tool (E2, D2.4)', () => {
  * e nao texto de fora; e sem ela o pedido sai byte a byte como antes (regra 5).
  */
 describe('a data do turno', () => {
+  const PONTO = { cachePoint: { type: 'default' } };
   const CONTEXTO =
     'Data e hora deste turno, informadas pelo aplicativo: hoje é sábado, 17/10/2026, e agora são 22h30 no horário de Brasília.';
 
-  it('com contextoDeHoje, system leva dois blocos: o prompt e depois a data', async () => {
+  // O ponto de cache entre o prompt e a data (DS16.3): a data fica fora do cache.
+  it('com contextoDeHoje, system leva o prompt, o ponto de cache e depois a data', async () => {
     mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
     await runConversationTurn({ ...ENTRADA, contextoDeHoje: CONTEXTO });
-    expect(ultimaChamada().system).toHaveLength(2);
+    expect(ultimaChamada().system).toHaveLength(3);
     expect(ultimaChamada().system[0].text).toContain(LANGUAGE_RULES_PROMPT);
-    expect(ultimaChamada().system[1]).toEqual({ text: CONTEXTO });
+    expect(ultimaChamada().system[1]).toEqual(PONTO);
+    expect(ultimaChamada().system[2]).toEqual({ text: CONTEXTO });
   });
 
-  it('sem contextoDeHoje, system continua com um bloco so', async () => {
+  it('sem contextoDeHoje, system leva so o prompt e o ponto de cache', async () => {
     mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
     await runConversationTurn(ENTRADA);
-    expect(ultimaChamada().system).toEqual([{ text: SYSTEM_PROMPT }]);
+    expect(ultimaChamada().system).toEqual([{ text: SYSTEM_PROMPT }, PONTO]);
   });
 
   it('a data nao vai em messages nem no guardContent', async () => {
@@ -536,7 +563,7 @@ describe('a data do turno', () => {
     const entrada = { ...ENTRADA, contextoDeHoje: CONTEXTO };
     const primeira = await runConversationTurn(entrada);
     await regenerateAnswer(entrada, primeira.transcript, 'Motivo de teste.');
-    expect(ultimaChamada().system).toEqual([{ text: SYSTEM_PROMPT }, { text: CONTEXTO }]);
+    expect(ultimaChamada().system).toEqual([{ text: SYSTEM_PROMPT }, PONTO, { text: CONTEXTO }]);
   });
 });
 

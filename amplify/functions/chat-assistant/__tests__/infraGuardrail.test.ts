@@ -66,6 +66,13 @@ describe('guardrail proprio do chat (DS1 = B, DS2 = A)', () => {
     expect(guardrailDoChat).toMatch(/type: 'PROMPT_ATTACK', inputStrength: 'HIGH'/);
   });
 
+  // DS16.2 = A (A13, E7 #5): a lista da USPSTF (rastreamento de IST em
+  // "mulheres sexualmente ativas") disparava o SEXUAL na saida. A pergunta da
+  // pessoa continua filtrada.
+  it('o filtro SEXUAL vale so na entrada', () => {
+    expect(guardrailDoChat).toMatch(/type: 'SEXUAL', inputStrength: 'MEDIUM', outputStrength: 'NONE'/);
+  });
+
   // Achado do deploy da DS1 = B: a CfnGuardrailVersion so publica versao nova
   // quando as propriedades DELA mudam. Mexer na configuracao so atualizava o
   // DRAFT, e o chat seguia lendo a versao 1, ainda com os topicos.

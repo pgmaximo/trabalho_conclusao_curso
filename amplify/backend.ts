@@ -649,7 +649,9 @@ const configuracaoDoGuardrailDoChat = {
     filtersConfig: [
       { type: 'HATE', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
       { type: 'INSULTS', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
-      { type: 'SEXUAL', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      // So na entrada (DS16.2): a lista da USPSTF ("rastreamento de IST em
+      // mulheres sexualmente ativas") disparava o filtro na saida (E7 #5).
+      { type: 'SEXUAL', inputStrength: 'MEDIUM', outputStrength: 'NONE' },
       { type: 'VIOLENCE', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
       { type: 'MISCONDUCT', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
       { type: 'PROMPT_ATTACK', inputStrength: 'HIGH', outputStrength: 'NONE' },

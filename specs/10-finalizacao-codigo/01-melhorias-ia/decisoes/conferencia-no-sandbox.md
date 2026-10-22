@@ -591,7 +591,42 @@ A parte fixa é **reenviada em cada ida ao modelo**, de 2 a 4 por turno, e o có
 
 **Recomendação: A e depois B.** O experimento é barato, e o cache vale a pena de qualquer jeito. Mas se o peso estiver nas saídas das ferramentas, o próximo passo é encurtá-las, e não o cache.
 
-**Decisão:** _(a preencher pelo usuário)_
+**Decisão (2026-10-22):** DS16.1 = A (só a contagem); DS16.2 = A (SEXUAL desligado só na saída); DS16.3 = A e depois B (experimento de isolamento, depois cache de prompt).
+
+**Implementação.**
+- **DS16.1** (`languageRules.ts`): o inventário do "você tem" aceita "N recomendações", com algarismo ou número por extenso até doze. Sem número, continua julgado.
+- **DS16.2** (`backend.ts`): o filtro SEXUAL do guardrail do chat fica com `outputStrength: 'NONE'` e `inputStrength: 'MEDIUM'`. A impressão digital da configuração (DS1) publica a versão nova no próximo deploy.
+- **DS16.3 B** (`conversationLoop.ts`): um ponto de cache (`cachePoint`) no fim das ferramentas e outro logo depois do prompt de sistema, antes do contexto do dia.
+
+Prova: testes vermelhos antes e verdes depois.
+- `languageRules.test.ts`: 3 contagens de recomendações; os 2 de indicação são guarda.
+- `infraGuardrail.test.ts`: o SEXUAL só na entrada.
+- `conversationLoop.test.ts`: os 2 pontos de cache. Os 4 testes que fixavam o formato antigo de `system` e das ferramentas passaram a fixar o novo: o prompt, o ponto de cache e a data, nessa ordem.
+
+**DS16.3 A — o experimento** (`roteiro/latencia.mts`, 2026-10-22, 16:02–16:07 UTC). Mesma primeira chamada do chat para "preciso fazer mamografia?", em 6 variantes alternadas, 3 voltas, 7 s de pausa, Sonnet 4.6 pelo `us.`. Valores de `latencyMs` do Bedrock:
+
+| Variante | Entrada | Saída | Volta 1 | Volta 2 | Volta 3 |
+|---|---|---|---|---|---|
+| completa | 10.514 | 40 | 2,4 s | 1,9 s | 4,0 s |
+| sem saída estruturada | 9.685 | 40 | 8,6 s | 1,6 s | 4,0 s |
+| sem ferramentas | 6.666 | 40–73 | **30,7 s** | 4,4 s | 3,1 s |
+| sem guardrail | 10.514 | 40 | 1,8 s | 2,2 s | 2,0 s |
+| entrada grande (+15 mil tokens) | 45.016 | 85–97 | 4,6 s | 5,9 s | 5,0 s |
+| mínima | 13 | 330–399 | 9,6 s | 6,2 s | 6,0 s |
+
+O que o experimento mostra:
+- **Não houve episódio lento**: a chamada completa ficou entre 1,9 e 4,0 s.
+- **Nenhuma parte domina.** Tirar a saída estruturada, as ferramentas ou o guardrail não muda a latência de forma consistente. O guardrail custa uns décimos de segundo.
+- **A entrada de 45 mil tokens acrescenta cerca de 2 a 3 s.**
+- **O que mais pesa é a saída.** A variante mínima é a mais lenta porque escreve 330 a 400 tokens.
+- **Os picos caem em qualquer variante** (30,7 s sem as ferramentas, 8,6 s sem a saída estruturada). Isso enfraquece a hipótese, registrada no A13, de que o episódio lento depende do formato da chamada do chat. A diferença das 11:33 provavelmente era o tamanho da saída e o acaso, não a entrada.
+- Conclusão: o episódio das 09:17–11:48 foi do serviço. O limite de 40 s (DS15.3) segue sendo a defesa.
+
+**O cache na chamada real** (variante `com_cache`, 3 chamadas seguidas):
+- a primeira gravou 10.140 tokens no cache (`cacheWriteInputTokens`);
+- as duas seguintes leram os 10.140 do cache (`cacheReadInputTokens`), com 374 tokens de entrada sem cache;
+- o Bedrock aceitou os pontos de cache junto com o guardrail e a saída estruturada;
+- a latência ficou em 2,1–2,3 s, igual à da completa em condição normal. O ganho do cache é de processamento e de custo: os tokens lidos do cache custam cerca de 10% do preço da entrada. Na latência, o ganho só deve aparecer, se aparecer, em fila de prefill.
 
 ## DS17 — O chat no Claude Opus 4.6: medido e recusado (2026-10-22)
 

@@ -797,6 +797,19 @@ describe('R3 sem falso positivo nas frases da conferencia (A9)', () => {
     ])('continua reprovando %j', (texto) => expect(r3(texto)).toBe(true));
 
     // A12 (DS15.1 = A): o sexo do perfil depois da idade (E7 #2).
+    // A13 (DS16.1 = A): a contagem da lista da USPSTF e inventario; a
+    // recomendacao sem numero e indicacao individual (E7 #2).
+    it.each([
+      'Você tem 60 recomendações adaptadas para o seu grupo.',
+      'Você tem 12 recomendações listadas.',
+      'Ao todo você tem doze recomendações para o seu grupo.',
+    ])('a contagem de recomendacoes passa: %j', (texto) => expect(r3(texto)).toBe(false));
+
+    it.each(['Você tem recomendação de fazer mamografia.', 'Você tem indicação de fazer colonoscopia.'])(
+      'a recomendacao sem contagem continua reprovada: %j',
+      (texto) => expect(r3(texto)).toBe(true),
+    );
+
     it.each([
       'No seu perfil consta que você tem 54 anos e sexo feminino.',
       'Como você tem 54 anos e é do sexo feminino, a mamografia está no seu grupo.',

@@ -904,6 +904,9 @@ const PADROES_R3: PadraoR3[] = [
         // objeto -- "diabetes", "um quadro de tireoidite" -- continua reprovado,
         // e ha caso de teste para cada um.
         `(?!\\s+(?:(?:${ADVERBIOS_DO_INVENTARIO})\\s+)?(?:(?:${CONTAGEM_DO_INVENTARIO})\\s+)?(?:um|uma|uns|umas|o|a|os|as)?\\s*(?:${COISAS_DO_APLICATIVO})\\b` +
+        // A contagem da lista da USPSTF: "voce tem 60 recomendacoes" (E7 #2,
+        // DS16.1). So com numero: "voce tem recomendacao de fazer" e indicacao.
+        `|\\s+(?:${CONTAGEM_DO_INVENTARIO}|onze|doze)\\s+recomenda[cç][oõ]es${FIM_R3}` +
         // "os laudos que voce tem guardados" -- o objeto veio ANTES do verbo.
         `|\\s+(?:${PARTICIPIOS_DO_INVENTARIO})${FIM_R3}` +
         // "os remedios que voce tem em uso" -- o cadastro (E9 H11, DS10.1).

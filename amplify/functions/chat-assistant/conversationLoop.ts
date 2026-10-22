@@ -192,6 +192,14 @@ function registrarRespostaInvalida(
   }
 }
 
+/**
+ * O ponto de cache de prompt (DS16.3 = B). As ferramentas e o prompt de
+ * sistema (~10,5 mil tokens) sao reenviados em cada ida ao modelo, de 2 a 4
+ * por turno; com o ponto no fim de cada um, o Bedrock le essa parte do cache.
+ * O contexto do dia fica DEPOIS do ponto: a data invalidaria o cache todo dia.
+ */
+const PONTO_DE_CACHE = { cachePoint: { type: 'default' } } as const;
+
 /** O esquema de entrada de cada tool, no formato que o Converse espera. Sai do
  *  MESMO objeto zod que valida a chamada, entao os dois nunca divergem. */
 function especificacaoDasTools() {
@@ -205,7 +213,7 @@ function especificacaoDasTools() {
         // deixa o objeto zod intacto como validador.
         inputSchema: { json: toStructuredOutputSchema(t.inputSchema) },
       },
-    })),
+    })).concat(PONTO_DE_CACHE as never),
     // SEM `toolChoice` forcado: aqui o modelo PRECISA poder responder sem
     // chamar tool nenhuma ("bom dia"), diferente da extracao, em que a saida
     // estruturada e o produto.
@@ -259,6 +267,7 @@ function enviar(input: TurnInput, messages: unknown[], abortSignal: AbortSignal)
       modelId: input.modelId,
       system: [
         { text: input.systemPrompt ?? SYSTEM_PROMPT },
+        PONTO_DE_CACHE,
         ...(input.contextoDeHoje ? [{ text: input.contextoDeHoje }] : []),
       ],
       messages: messages as never,
