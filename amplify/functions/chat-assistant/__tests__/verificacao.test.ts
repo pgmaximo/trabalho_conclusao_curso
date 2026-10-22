@@ -30,6 +30,7 @@ jest.mock('../degradedAnswer', () => ({
 }));
 
 import { montarContextoDeHoje } from '../contextoDeHoje';
+import { TEXTO_DA_AUSENCIA } from '../ausenciaFixa';
 import { TEXTO_DA_COMPARACAO } from '../comparacaoFixa';
 import { TEXTO_DE_ENCAMINHAMENTO } from '../encaminhamento';
 import { INDISPONIVEL, responder, responderComVerificacao } from '../verificacao';
@@ -940,6 +941,48 @@ describe('R5 no turno', () => {
     const r = await responderComVerificacao(ENTRADA);
 
     expect(r.status).toBe('APROVADA');
+  });
+
+  // DS14 = C1 (E6 #2): a ausencia dita com outras palavras, provada pela data
+  // limite que a ferramenta devolveu, ganha a frase fixa e passa.
+  describe('a ausencia costurada (DS14 = C1)', () => {
+    function turnoForaDoPeriodo(texto: string) {
+      return {
+        ok: true,
+        answer: { texto, citacoes: [], toolsUsadas: ['consultar_wearable_dias'] },
+        transcript: {
+          messages: [],
+          toolOutputs: [
+            { name: 'consultar_wearable_dias', output: { disponivel: false, dadosDesde: '2026-08-01', dadosAte: '2026-10-12' } },
+          ],
+        },
+        inputTokens: 10,
+        outputTokens: 5,
+        modelId: 'm',
+      };
+    }
+
+    it('aprova a resposta que repete a data limite, com a frase da ausencia no fim', async () => {
+      mockRunConversationTurn.mockResolvedValue(
+        turnoForaDoPeriodo('Os dados do relógio vão só até 12/10/2026, e a última quinta (15/10) fica fora desse período.'),
+      );
+
+      const r = await responderComVerificacao(ENTRADA);
+
+      expect(r.status).toBe('APROVADA');
+      expect(r.texto).toContain(TEXTO_DA_AUSENCIA);
+    });
+
+    it('sem a data limite, a resposta que ignora a ausencia continua reprovada', async () => {
+      mockRunConversationTurn.mockResolvedValue(turnoForaDoPeriodo('Seu acompanhamento está em dia.'));
+      mockRegenerateAnswer.mockResolvedValue(turnoForaDoPeriodo('Seu acompanhamento está em dia.'));
+      mockBuildDegradedAnswer.mockReturnValue(null);
+
+      const r = await responderComVerificacao(ENTRADA);
+
+      expect(r.status).not.toBe('APROVADA');
+      expect(r.texto).not.toContain(TEXTO_DA_AUSENCIA);
+    });
   });
 });
 

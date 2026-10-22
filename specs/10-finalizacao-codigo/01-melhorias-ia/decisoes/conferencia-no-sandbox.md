@@ -361,3 +361,66 @@ Prova: `languageRules.test.ts` ("9. o estoque baixo", "10. o cabecalho de regist
 - O fixture da lista ganhou `8|hora`, que o cadastro real da Losartana devolve.
 
 `npx jest amplify/functions/ai-language-rules amplify/functions/chat-assistant`: 2525 testes.
+
+## DS14 — A ausência dita com outras palavras (E6 #2, resto do A11)
+
+**O que a remedição mostrou** (2026-10-22, depois da DS13). O E6 #2 ("como foi meu sono na última quinta?") continuou indisponível. O modelo respondeu certo nas duas gerações, mas trocou a frase: "a última quinta (15/10) **fica fora desse período**" e "**fica depois desse período**". Nenhuma das duas está no padrão de ausência que a DS13.2 ampliou. Por isso caem a **R5** (a ferramenta não trouxe dado, e a resposta não diz isso) e a **R2** (a dispensa da DS13.2 depende do mesmo padrão).
+
+Reproduzido com `semDados` ligado: a frase do modelo dá R2 e R5. A mesma frase com "Não há registro no aplicativo para o que foi pedido." passa nas duas.
+
+O código **já sabe** que não há dado: `consultar_wearable_dias` devolve `disponivel: false`, com o período coberto (`dadosAte`), e é isso que liga o `semDados` (`nenhumDadoVeio`, em `verificacao.ts`). O que falha é só reconhecer a ausência no texto do modelo, e cada correção por léxico (DS13.2) corre atrás da próxima paráfrase.
+
+- **A. Ampliar o léxico de novo.** "fica fora/depois desse período", "vão (só) até", "não chega a", "não alcança".
+  - Benefício: uma linha, sem mudar a arquitetura.
+  - Malefício: é a terceira correção do mesmo tipo, e a próxima paráfrase cai de novo. O léxico também fica amplo demais para a R5 nos outros casos ("vão até" aparece em frase que tem dado).
+- **B. A data limite da ferramenta como prova.** Quando a ferramenta devolveu ausência com período (`dadosAte`), a R5 e a dispensa da R2 aceitam a resposta que repete essa data ("vão até 12/10/2026"). A verificação passa as datas a `checkLanguageRules`, como já faz com `valoresCadastrados`.
+  - Benefício: determinística e presa ao que a ferramenta disse, sem léxico.
+  - Malefício: só cobre as ferramentas que devolvem período (hoje, as do relógio); muda o contrato das regras com mais um campo de contexto; a resposta que explica a ausência sem a data continua caindo.
+- **C. Costurar a ausência.** Quando a ferramenta não trouxe dado e a resposta não reconhece isso pelo padrão atual, o código acrescenta ao fim uma frase fixa: "Não há registro no aplicativo para o que foi pedido." É o mesmo desenho das duas costuras que o app já tem, o encaminhamento (Bloco 9) e a comparação (E10): só no fim, nunca duas vezes, com o mesmo reconhecedor da regra. Com a frase, a R5 passa, e a dispensa da DS13.2 tira a R2.
+  - Benefício: determinística, vale para todas as ferramentas e encerra a perseguição do léxico.
+  - Malefício: a frase do aplicativo repete o que o modelo já disse com outras palavras ("fica fora desse período… Não há registro no aplicativo para o que foi pedido."). E é mais uma frase fixa no fim de respostas.
+- **D. Só o prompt** ("quando não houver dado, diga 'não há dados'").
+  - Malefício: não é determinístico; o modelo já parafraseou duas vezes.
+
+**Recomendação: C.** Ela fecha a classe inteira (ausência dita com qualquer palavra) com um mecanismo que o código já usa duas vezes e já provou, e não abre a R5 para frases com dado, como A abriria. B é mais elegante, mas cobre só o relógio e ainda deixa cair a resposta sem a data.
+
+**Continua reprovado (contra-testes da opção C):**
+- Com dado vindo da ferramenta (`semDados` desligado), nada é costurado.
+- A resposta que já diz "não há" não ganha a frase de novo.
+- Com medida no texto, a R2 continua exigindo o encaminhamento (a dispensa da DS13.2 exige texto sem medida).
+
+**Furo achado ao conferir esta decisão: a DS13.2 deixa passar o juízo depois da ausência.** "Não há dados, mas seu sono está ruim." passa em todas as regras (conferido com `semDados` ligado). O "ruim" não está no julgamento de valor da R3, e antes da DS13.2 era a R2 que pegava essa frase, por falta de encaminhamento. A dispensa olha "sem medida + diz que não há", e esta frase tem as duas coisas. Duas formas de fechar, independentes da escolha acima:
+- **F1. A dispensa vale só para a oração da ausência**, como a explicação de falta de dado do E10 (D10.6): outra oração com juízo ("mas seu sono está ruim") volta a exigir o encaminhamento.
+- **F2. "ruim", "bom/boa", "ótimo", "péssimo" entram no julgamento de valor da R3**, com o mesmo verbo de estado obrigatório.
+  - Malefício: o léxico cresce, e "o sinal está bom" (operacional) passa a reprovar.
+
+Recomendação para o furo: **F1**, porque devolve à R2 exatamente o que a DS13.2 tirou dela e nada mais.
+
+**Decisão (2026-10-22):** DS14 = C (costurar a ausência) e o furo = F1 (a dispensa da R2 só na oração da ausência).
+
+**Implementação do F1 (2026-10-22).** A dispensa da R2 da DS13.2 passa a exigir que **toda oração que fala de saúde** (os domínios de `TERMOS_DE_SAUDE`, os mesmos da guarda de causa do E10) seja uma oração de ausência (`soAusencia`, em `languageRules.ts`). Prova: `languageRules.test.ts`, "R2 dispensada na ausencia sem medida": "Não há dados, mas seu sono está ruim." e "Não há dados da última quinta. Seu sono costuma ser ruim nas quintas." estavam vermelhos antes, e os três casos de ausência da DS13.2 seguiram verdes. `npx jest amplify/functions/ai-language-rules`: 1224 testes.
+
+Limite conhecido do F1: uma oração de juízo **sem termo de saúde** ("Está tudo certo com você.") continua dispensada da R2 quando o resto da resposta é ausência. Era assim também na DS13.2.
+
+**A opção C parou antes do código: ela abre a R5.** Ao escrever os testes, apareceu o caso que a R5 existe para barrar. Com a ferramenta sem dado, "Seu acompanhamento está em dia." ganharia "Não há registro no aplicativo para o que foi pedido." e passaria em todas as regras. Conferido: a frase costurada passa como clínica e como operacional, e o teste existente "reprova a resposta que nao reconhece a ausencia de dado" (`verificacao.test.ts`) ficaria vermelho. Costurar a ausência tira da R5 justamente o que ela verifica, que é a resposta ter visto que não há dado. Para seguir, a C precisa de uma condição que prove isso pelo texto do modelo:
+- **C1. Costurar só quando o texto repete a data limite que a ferramenta devolveu** (`dadosAte`, "vão até 12/10/2026"). Junta a B e a C: a data prova que o modelo viu o limite, e a frase do aplicativo diz a ausência com as palavras da regra. Só vale para as ferramentas que devolvem período (hoje, as do relógio).
+- **C2. Costurar só quando o texto não tem termo de saúde nem medida.** É mais largo, mas "Seu acompanhamento está em dia." passaria do mesmo jeito ("acompanhamento" não é termo de saúde).
+- **B pura**, sem costura: a data limite vale como reconhecimento na R5 e na dispensa da R2.
+
+Recomendação: **C1**, que fecha o E6 #2 sem abrir a R5. C2 não fecha o caso acima.
+
+**Decisão (2026-10-22): DS14 = C1.** O aplicativo costura a frase da ausência só quando a ferramenta não trouxe dado e o texto do modelo repete a data limite que ela devolveu.
+
+**Implementação.**
+- `chat-assistant/ausenciaFixa.ts` acrescenta ao fim "Não há registro no aplicativo para o que foi pedido.". Três condições, todas necessárias:
+  - nenhuma ferramenta trouxe dado (`semDados`);
+  - o texto ainda não diz a ausência pelo reconhecedor da R5 (`reconheceAusencia`, agora público em `languageRules.ts`);
+  - o texto repete o `dadosAte` de uma ferramenta sem dado (DD/MM/AAAA ou DD/MM).
+- A costura entra **antes** das regras, nas duas gerações (`verificacao.ts`). Assim, a R5 e a dispensa da R2 (F1) veem a frase.
+
+Prova:
+- `__tests__/ausenciaFixa.test.ts` (novo, 6 casos; os 2 que costuram estavam vermelhos contra um módulo que não costurava);
+- `verificacao.test.ts`, "a ausencia costurada (DS14 = C1)": o E6 #2 aprovado com a frase estava vermelho antes; "Seu acompanhamento está em dia." sem a data continua reprovado, e o teste antigo da R5 também segue verde.
+
+Limite conhecido: uma resposta que cita a data limite **e** afirma algo sem termo de saúde ("os dados vão até 12/10/2026, e seu acompanhamento está em dia") ganha a frase e passa. A data prova que o modelo viu o limite, não que ele não afirmou mais nada.
+

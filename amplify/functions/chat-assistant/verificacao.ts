@@ -30,6 +30,7 @@ import {
   type TurnTranscript,
 } from './conversationLoop';
 import { montarContextoDeHoje } from './contextoDeHoje';
+import { costurarAusencia } from './ausenciaFixa';
 import { costurarComparacao } from './comparacaoFixa';
 import { costurar } from './encaminhamento';
 import { enriquecerCitacoes, indexarLinhasCitaveis } from './citacoes';
@@ -523,26 +524,32 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
 
     registrarCusto('segunda', segunda.inputTokens, segunda.outputTokens);
 
-    const tipoDaSegunda = classificar(segunda.answer.texto, segunda.answer.toolsUsadas);
-    const cartaoDaSegunda = acaoAceitavel(segunda.answer.acao, entrada) !== undefined;
-    const recheck = checkLanguageRules(textoParaVerificar(segunda.answer.texto, cartaoDaSegunda), {
+    // A ausencia costurada ANTES das regras (DS14 = C1), como na primeira.
+    const respostaDaSegunda = {
+      ...segunda.answer,
+      texto: costurarAusencia(segunda.answer.texto, transcript.toolOutputs, semDados),
+    };
+
+    const tipoDaSegunda = classificar(respostaDaSegunda.texto, respostaDaSegunda.toolsUsadas);
+    const cartaoDaSegunda = acaoAceitavel(respostaDaSegunda.acao, entrada) !== undefined;
+    const recheck = checkLanguageRules(textoParaVerificar(respostaDaSegunda.texto, cartaoDaSegunda), {
       questionKind: tipoDaSegunda,
-      temOrigem: temOrigemDeclarada(segunda.answer, entrada),
+      temOrigem: temOrigemDeclarada(respostaDaSegunda, entrada),
       // A segunda geracao NAO refaz o laco de ferramentas (D31), entao o que
       // elas devolveram continua sendo o da primeira -- e os valores
       // cadastrados tambem.
       semDados,
       valoresCadastrados: valoresCadastradosDoTurno(transcript.toolOutputs),
-      cruzaDominios: cruzaDominios(segunda.answer.toolsUsadas),
+      cruzaDominios: cruzaDominios(respostaDaSegunda.toolsUsadas),
       // A passiva de cadastro so e barrada quando o cartao vai sair (E11). A
       // acao crua nao serve: o modelo as vezes manda uma vazia sem ninguem
       // pedir, e o dado das doses ("foi marcado") era reprovado (A4).
       comAcaoProposta: cartaoDaSegunda,
       vetarFormulario: true,
     });
-    const citacoesOkNaSegunda = citacoesConferem(segunda.answer, indice);
+    const citacoesOkNaSegunda = citacoesConferem(respostaDaSegunda, indice);
     if (citacoesOkNaSegunda && (recheck.ok || somenteR2(recheck))) {
-      return entregar(segunda.answer, 'APROVADA_NA_SEGUNDA', tipoDaSegunda, transcript.toolOutputs);
+      return entregar(respostaDaSegunda, 'APROVADA_NA_SEGUNDA', tipoDaSegunda, transcript.toolOutputs);
     }
 
     registrarReprovacao(
@@ -588,26 +595,33 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
 
   const semDados = nenhumDadoVeio(primeira.transcript.toolOutputs);
 
-  const tipo = classificar(primeira.answer.texto, primeira.answer.toolsUsadas);
-  const cartao = acaoAceitavel(primeira.answer.acao, entrada) !== undefined;
-  const check = checkLanguageRules(textoParaVerificar(primeira.answer.texto, cartao), {
+  // A frase da ausencia entra ANTES das regras (DS14 = C1): a R5 a reconhece,
+  // e ela so e costurada quando o texto repete a data limite da ferramenta.
+  const resposta = {
+    ...primeira.answer,
+    texto: costurarAusencia(primeira.answer.texto, primeira.transcript.toolOutputs, semDados),
+  };
+
+  const tipo = classificar(resposta.texto, resposta.toolsUsadas);
+  const cartao = acaoAceitavel(resposta.acao, entrada) !== undefined;
+  const check = checkLanguageRules(textoParaVerificar(resposta.texto, cartao), {
     questionKind: tipo,
-    temOrigem: temOrigemDeclarada(primeira.answer, entrada),
+    temOrigem: temOrigemDeclarada(resposta, entrada),
     semDados,
     valoresCadastrados: valoresCadastradosDoTurno(primeira.transcript.toolOutputs),
-    cruzaDominios: cruzaDominios(primeira.answer.toolsUsadas),
+    cruzaDominios: cruzaDominios(resposta.toolsUsadas),
     // So a acao que vai sair liga a passiva (E11; ver a segunda geracao, A4).
     comAcaoProposta: cartao,
     // O texto do modelo nunca diz que o formulario esta pronto (A5).
     vetarFormulario: true,
   });
-  const citacoesOk = citacoesConferem(primeira.answer, indice);
+  const citacoesOk = citacoesConferem(resposta, indice);
 
   // A costura entra AQUI, e nao depois da segunda geracao: gastar uma geracao
   // inteira para pedir ao modelo uma frase que o aplicativo sabe escrever era
   // o desperdicio que a A2 conserta. Medido: 2 de 2 reprovacoes em producao.
   if (citacoesOk && (check.ok || somenteR2(check))) {
-    return entregar(primeira.answer, 'APROVADA', tipo, primeira.transcript.toolOutputs);
+    return entregar(resposta, 'APROVADA', tipo, primeira.transcript.toolOutputs);
   }
 
   // A: UMA nova geracao. Nao e remendo -- e pedir ao modelo que escreva de

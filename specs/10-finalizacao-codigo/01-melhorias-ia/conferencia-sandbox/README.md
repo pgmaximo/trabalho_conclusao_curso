@@ -31,32 +31,32 @@ conferencia-sandbox/
 | A7 | Interação não conferida quando o modelo esquece um nome citado | ✅ corrigido | DS8 |
 | A8 | Laço repetindo a mesma consulta e degradada repetida; R3 em "não tenho como dizer que", "você tem 54 anos" | ✅ corrigido | DS9 |
 | A10 | Mais dois falsos positivos da R3: "você **tem em uso**: Marevan 5mg" sem âncora de registro (E9 H11); a conjunção "**e** baixo risco" lida como "é baixo" (E7 #1) | ✅ corrigido | DS10 |
-| A11 | Três respostas certas ainda reprovadas (rodada completa de 2026-10-22): "o **estoque está baixo**" lido como interpretação de resultado e "Vitamina D 1 gota — todos os dias" sem âncora de registro (E2 #7, R3); resposta sobre dados do relógio fora do período reprovada por falta de encaminhamento (E6 #2, R2); "Preparei o formulário com o que você disse:" (R5) e, na 2ª geração, "coloque o horário das 8h" (R3), com o cartão perdido junto (E11 #2) | ✅ corrigido no código (E2 #7, E6 #2); E11 #2 sem mudança, por decisão (DS13.3 = C); falta medir no sandbox | DS13 |
+| A11 | Três respostas certas ainda reprovadas (rodada completa de 2026-10-22): "o **estoque está baixo**" lido como interpretação de resultado e "Vitamina D 1 gota — todos os dias" sem âncora de registro (E2 #7, R3); resposta sobre dados do relógio fora do período reprovada por falta de encaminhamento (E6 #2, R2); "Preparei o formulário com o que você disse:" (R5) e, na 2ª geração, "coloque o horário das 8h" (R3), com o cartão perdido junto (E11 #2) | ✅ E2 #7 e E11 #2 aprovados no sandbox (DS13, commit `6803866`); ✅ E6 #2 corrigido no código (DS14 = C1, a ausência costurada quando o texto repete a data limite; F1 fecha o furo da DS13.2); falta medir no sandbox | DS13, DS14 |
 
 ## Última medição por épico
 
-Rodada completa de **2026-10-22** (commit `addebdb`, os três modelos no **Sonnet 4.6**: a conta não tem acesso ao Opus 5.5 nem ao Sonnet 5.5, ver DS12). Os 70 casos de E1 a E12 rodaram em sequência, com 10 s de pausa entre perguntas e nenhum estouro de cota. Resultado: **67 aprovadas** (4 delas na 2ª geração), 1 degradada e 2 indisponíveis.
+Rodada completa de **2026-10-22** (commit `addebdb`, os três modelos no **Sonnet 4.6**: a conta não tem acesso ao Opus 5.5 nem ao Sonnet 5.5, ver DS12). Os 70 casos de E1 a E12 rodaram em sequência, com 10 s de pausa entre perguntas e nenhum estouro de cota. Resultado: **67 aprovadas** (4 delas na 2ª geração), 1 degradada e 2 indisponíveis. Depois da DS13, E2, E6 e E11 foram medidos de novo: **18 de 19**, com só o E6 #2 de fora. Nessa remedição as latências subiram (de 5 a 102 s, contra 4 a 31 s na rodada completa), sem mudança de modelo nem de laço; a causa provável é a rede local e o endpoint FIPS, ainda não confirmada.
 
 | Épico | Resultado | Observação |
 |---|---|---|
 | E1 | 6/6 | E1 #2 aprovado (DS5) |
-| E2 | 8/9 | #7 degradada (A11) |
+| E2 | 9/9 (2 na 2ª geração) | #7 aprovado depois da DS13 (2026-10-22) |
 | E3 | 6/6 | |
 | E4 | 5/5 | |
 | E5 | 6/6 (2 na 2ª geração) | |
-| E6 | 4/5 | #2 indisponível (A11); dados do relógio sintéticos |
+| E6 | 4/5 (1 na 2ª geração) | #2 ainda indisponível (A11): "fica fora desse período" não é reconhecido como ausência; dados do relógio sintéticos |
 | E7 | 6/6 (1 na 2ª geração) | #1 e #2 aprovados (DS6, DS10) |
 | E8 | 7/7 | #4 "bairro centro" aprovado |
 | E9 | 9/9 | H11 aprovado (DS10) |
 | E10 | 3/3 | |
-| E11 | 4/5 | cartão nos pedidos com dado; "Nada foi salvo" sai uma vez só; "sexta de manhã" chega como `quando: "sexta"` (a data é resolvida no código, sem hora). #2 indisponível (A11) |
+| E11 | 5/5 (1 na 2ª geração) | #2 aprovado com o cartão `Vitamina D · 08:00` (a Lambda já converte "8h"); "Nada foi salvo" sai uma vez só; "sexta de manhã" chega como `quando: "sexta"` |
 | E12 | 3/3 | |
 
 ## Pendências
 
 Estado em 2026-10-22, depois da rodada completa no Sonnet 4.6.
 
-1. **A11:** medir de novo E2 #7, E6 #2 e E11 #2 no sandbox depois do deploy da DS13.
+1. **A11, E6 #2:** medir de novo no sandbox depois do deploy da DS14.
 2. **Acesso aos modelos novos (do usuário):** pedir a liberação do Opus 5.5 e do Sonnet 5.5 no Bedrock. Quando sair, basta trocar `CHAT_BASE_MODEL_ID` e `BEDROCK_BASE_MODEL_ID` no `backend.ts` (DS12), fazer o deploy e medir de novo, com a latência do chat.
 3. **Conferir o wearable e a extração reais** depois da DS12: o wearable trocou a tool forçada pela saída estruturada, e nenhuma importação real passou por ele ainda.
 4. **Conferências que só o aparelho faz:**

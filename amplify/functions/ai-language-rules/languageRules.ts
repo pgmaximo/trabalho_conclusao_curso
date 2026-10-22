@@ -1571,12 +1571,26 @@ export function temEncaminhamento(texto: string): boolean {
   return PADRAO_ENCAMINHAMENTO.test(texto);
 }
 
+/**
+ * A resposta so diz que o dado nao existe? Ha uma oracao de ausencia, e toda
+ * oracao que fala de saude e de ausencia. A dispensa vale so ali (F1 da DS14):
+ * "Nao ha dados, mas seu sono esta ruim" tem a ausencia numa oracao e o juizo
+ * na outra, e a outra volta a exigir o encaminhamento.
+ */
+function soAusencia(texto: string): boolean {
+  const oracoes = frasesDe(texto).flatMap(oracoesDe);
+  return (
+    oracoes.some((o) => PADRAO_AUSENCIA.test(o)) &&
+    oracoes.every((o) => PADRAO_AUSENCIA.test(o) || !DOMINIOS_DE_SAUDE.some((d) => d.test(o)))
+  );
+}
+
 const verificarR2: Verificador = (texto, { questionKind }) => {
   if (questionKind !== 'clinica') return [];
   if (temEncaminhamento(texto)) return [];
   // A resposta que so diz que o dado nao existe, sem medida nenhuma, nao tem o
   // que encaminhar (E6 #2, DS13.2): o aviso fixo da tela cobre o resto.
-  if (!temMedidaDeExame(texto) && PADRAO_AUSENCIA.test(texto)) return [];
+  if (!temMedidaDeExame(texto) && soAusencia(texto)) return [];
 
   return [
     {
@@ -1777,6 +1791,13 @@ const PADRAO_AUSENCIA = new RegExp(
  * A resposta VAZIA continua sendo R5 tambem, e e tratada antes de qualquer
  * verificador, em `checkLanguageRules`.
  */
+/** A resposta diz que nao ha o dado, com as palavras que a R5 reconhece?
+ *  PUBLICO pela razao de `temEncaminhamento`: a costura da ausencia
+ *  (`chat-assistant/ausenciaFixa.ts`, DS14) usa o MESMO reconhecedor. */
+export function reconheceAusencia(texto: string): boolean {
+  return PADRAO_AUSENCIA.test(texto);
+}
+
 const verificarR5: Verificador = (texto, { semDados }) => {
   if (semDados !== true) return [];
   if (PADRAO_AUSENCIA.test(texto)) return [];

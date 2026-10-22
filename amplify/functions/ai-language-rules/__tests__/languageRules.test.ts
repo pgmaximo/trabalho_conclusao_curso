@@ -911,5 +911,9 @@ describe('R2 dispensada na ausencia sem medida (A11)', () => {
     'Seu sono na quinta foi de 5 h, abaixo do habitual.',
     'Sua glicose foi 110 mg/dL e não há outro exame para comparar.',
     'Seu sono foi bom na quinta.',
+    // F1 (DS14): a dispensa vale so na oracao da ausencia; o juizo em outra
+    // oracao volta a exigir o encaminhamento.
+    'Não há dados, mas seu sono está ruim.',
+    'Não há dados da última quinta. Seu sono costuma ser ruim nas quintas.',
   ])('continua exigindo encaminhamento em %j', (texto) => expect(r2(texto)).toBe(true));
 });
