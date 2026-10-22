@@ -86,6 +86,9 @@ export type ContextoDoTurno = {
   /** As series diarias do wearable ja lidas neste turno (E6), pelo mesmo
    *  motivo e com a mesma vida de `leituras`. */
   series?: SeriesDoTurno;
+  /** A mensagem da pessoa neste turno (A7): os nomes de remedio da lista do
+   *  aplicativo ditos nela entram nas interacoes mesmo que o modelo os esqueca. */
+  falaDaPessoa?: string;
 };
 
 export type ChatTurnRequest = {

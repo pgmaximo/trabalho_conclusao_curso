@@ -565,6 +565,11 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     if ('bloqueadoPeloFiltro' in primeira && primeira.bloqueadoPeloFiltro) {
       return { status: 'INDISPONIVEL', texto: primeira.message, citacoes: [], indice };
     }
+    // A sobrecarga tambem tem frase propria (A6): "tente em um minuto" e o que
+    // a pessoa precisa saber, e nao um apanhado do dado.
+    if ('sobrecarga' in primeira && primeira.sobrecarga) {
+      return { status: 'INDISPONIVEL', texto: primeira.message, citacoes: [], indice };
+    }
     // Resposta sem FORMA -- vazia, ou cortada pelo teto de saida (Bloco 10).
     // Uma vez em quatro, nas rodadas da avaliacao, o modelo devolveu texto
     // vazio depois de usar uma ferramenta. A forma ruim tem direito a mesma

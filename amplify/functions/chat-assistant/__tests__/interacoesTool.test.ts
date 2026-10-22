@@ -214,6 +214,32 @@ describe('consultar_interacoes', () => {
     expect(mockSend.mock.calls[0][0].input.TableName).toBe('t-med');
   });
 
+  // A7 da conferencia no sandbox (DS8): o modelo mandou so "claritromicina",
+  // e a sinvastatina, citada na mesma frase e nao cadastrada, ficou de fora:
+  // a resposta disse que a lista nao trazia alerta. Os nomes da lista do
+  // aplicativo que aparecem na FALA da pessoa entram como candidatos.
+  it('nome da lista dito na fala da pessoa entra, mesmo que o modelo o esqueca', async () => {
+    mockSend.mockResolvedValue({ Items: [remedio('Losartana')] });
+
+    const saida = (await interacoesTool.run({ candidatos: ['claritromicina'] }, IDENTIDADE, {
+      local: null,
+      falaDaPessoa: 'a medica passou claritromicina, tem problema com a sinvastatina?',
+    })) as SaidaDasInteracoes;
+
+    expect(saida.alertas.map((a) => a.medicamentos.map((m) => m.nome.toLowerCase()).sort())).toContainEqual([
+      'claritromicina',
+      'sinvastatina',
+    ]);
+  });
+
+  it('palavra que so contem um nome nao conta: "aasmatica" nao e AAS', async () => {
+    mockSend.mockResolvedValue({ Items: [remedio('Warfarina')] });
+
+    const saida = (await interacoesTool.run({}, IDENTIDADE, { local: null, falaDaPessoa: 'sou aasmatica, isso importa?' })) as SaidaDasInteracoes;
+
+    expect(saida.alertas).toHaveLength(0);
+  });
+
   it('lista de candidatos vazia e entrada valida', async () => {
     mockSend.mockResolvedValue({ Items: [] });
     expect(await runTool('consultar_interacoes', { candidatos: [] }, IDENTIDADE)).not.toHaveProperty('erro');

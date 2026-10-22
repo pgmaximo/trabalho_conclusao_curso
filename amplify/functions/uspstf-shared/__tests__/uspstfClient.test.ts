@@ -98,3 +98,28 @@ describe('fetchUspstfDataset', () => {
     expect((mockFetch.mock.calls[0][1] as RequestInit).signal).toBeDefined();
   });
 });
+
+/**
+ * A3 da conferencia no sandbox (DS6): com a chave invalida, a API responde 200
+ * com um dataset de UMA "recomendacao" nota A cujo titulo e o aviso de que a
+ * chave e exigida -- e a tela de Prevencao e o chat a mostravam como
+ * recomendacao. O sinal confiavel e o campo `apiKeyWarning`, que so vem nesse
+ * caso (conferido com a chave valida: 142 recomendacoes, sem o campo).
+ */
+describe('chave recusada pela API (A3)', () => {
+  it('corpo com apiKeyWarning lanca, sem a chave na mensagem', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...DATASET_MINIMO,
+        apiKeyWarning: 'Starting 2021-03-01, USPSTF recommendations data requires an API key.',
+        specificRecommendations: [{ id: 1, title: '! Starting 2021-03-01, ... requires an API key', grade: 'A', gradeVer: 1, text: '!' }],
+      }),
+    });
+
+    const erro = await fetchUspstfDataset('chave-errada').catch((e: Error) => e);
+
+    expect(erro).toBeInstanceOf(Error);
+    expect((erro as Error).message).not.toContain('chave-errada');
+  });
+});

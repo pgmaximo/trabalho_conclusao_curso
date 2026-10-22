@@ -69,6 +69,12 @@ export async function fetchUspstfDataset(
   if (!corpo || !Array.isArray(corpo.specificRecommendations)) {
     throw new Error('A API do USPSTF devolveu uma resposta inesperada.');
   }
+  // Chave recusada (A3 da conferencia no sandbox): a API responde 200 com uma
+  // "recomendacao" nota A que e o aviso de que a chave e exigida. So nesse caso
+  // o campo vem; a tela e o chat a mostravam como recomendacao.
+  if ((corpo as { apiKeyWarning?: unknown }).apiKeyWarning) {
+    throw new Error('A API do USPSTF recusou a chave configurada.');
+  }
 
   return corpo as UspstfDataset;
 }

@@ -1226,3 +1226,20 @@ describe('o valor cadastrado (E2)', () => {
     expect(r.status).not.toMatch(/APROVADA/);
   });
 });
+
+describe('sobrecarga do modelo (A6)', () => {
+  it('a frase da sobrecarga chega a pessoa, sem dado por baixo', async () => {
+    mockRunConversationTurn.mockResolvedValue({
+      ok: false,
+      sobrecarga: true,
+      message: 'Muita gente está usando o assistente agora. Tente de novo em um minuto.',
+      transcript: { messages: [], toolOutputs: [] },
+    });
+
+    const r = await responderComVerificacao(ENTRADA);
+
+    expect(r.status).toBe('INDISPONIVEL');
+    expect(r.texto).toBe('Muita gente está usando o assistente agora. Tente de novo em um minuto.');
+    expect(mockRegenerateAnswer).not.toHaveBeenCalled();
+  });
+});

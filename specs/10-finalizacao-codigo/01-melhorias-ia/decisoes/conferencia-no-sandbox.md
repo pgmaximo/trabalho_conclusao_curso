@@ -107,3 +107,150 @@ Prova: `ai-language-rules/__tests__/languageRules.test.ts` ("R3 sem falso positi
 **Medição** (E2 e E5, 15 perguntas, depois do deploy): 15 aprovadas, 13 na 1ª geração e 2 na 2ª, nenhuma degradada. E2#6 e E2#7 aprovadas de primeira com a recusa certa.
 
 Prova: `languageRules.test.ts` (9 novos: os 3 de frase que passa vermelhos antes; contra-testes verdes antes e depois). `npm run validate`: 4075 testes.
+
+## DS6 — A chave da USPSTF recusada vira "recomendação" (achado A3)
+
+**O que a conferência mostrou.** O segredo `USPSTF_API_KEY` do sandbox estava errado (44 caracteres; o da main e o do Artur têm 22). Com a chave recusada, a API responde **200** com um dataset de uma só "recomendação", nota A, cujo título é o aviso "Starting 2021-03-01, USPSTF recommendations data requires an API key". O cliente aceitava, e a tela de Prevenção e o chat a mostravam como recomendação. O sinal confiável é o campo `apiKeyWarning`, que só vem nesse caso: conferido com a chave válida (142 recomendações, 2,98 MB, sem o campo).
+
+**Decidido (2026-10-21):** o valor da main foi copiado para o segredo do sandbox (SSM, sem exibir; hashes conferidos), e `uspstfClient.ts` passa a lançar quando a resposta traz `apiKeyWarning`, sem a chave na mensagem. A tela mostra o erro que já mostrava para falha da fonte, e o chat diz que a fonte está indisponível.
+
+Prova: `uspstf-shared/__tests__/uspstfClient.test.ts` ("chave recusada pela API", vermelho antes). Medido: E7#1 voltou com "72 recomendações para o seu grupo".
+
+## DS7 — Throttling do Bedrock (achado A6)
+
+**O que a conferência mostrou.** A cota da conta é de **10 chamadas por minuto** ao Sonnet 4.6 (`L-00FF3314`, cross-region; ajustável; um pedido anterior de 10.000 foi fechado sem aumento). Cada turno do chat usa de 2 a 4 chamadas, então a conta inteira atende uns 3 a 5 turnos por minuto, e com duas pessoas ao mesmo tempo o Bedrock devolve `ThrottlingException`. A pessoa lia "Não consegui montar uma resposta agora", como se a pergunta fosse o problema.
+
+**Decidido (2026-10-21):** o usuário pede o aumento da cota no Service Quotas. No código, a `ThrottlingException` na primeira geração vira "Muita gente está usando o assistente agora. Tente de novo em um minuto.", status INDISPONIVEL, sem dado por baixo; o nome do erro não vai para o texto. Outras falhas continuam com a mensagem de sempre.
+
+Prova: `conversationLoop.test.ts` e `verificacao.test.ts` ("sobrecarga do modelo", vermelhos antes; o de outra falha é guarda).
+
+## DS8 — O nome que o modelo esquece de conferir (achado A7)
+
+**O que a conferência mostrou.** Em "a médica passou claritromicina, tem problema com a sinvastatina?", o modelo mandou só `candidatos: ["claritromicina"]`. A sinvastatina, citada e não cadastrada, ficou de fora, e a resposta disse que a lista não trazia alerta — o par existe, grave (rabdomiólise).
+
+**Decidido (2026-10-21):** a mensagem da pessoa entra no contexto do turno (`falaDaPessoa`), e `consultar_interacoes` junta aos candidatos do modelo os nomes da lista do aplicativo (canônicos e apelidos) ditos nela, como palavra inteira. Lista fechada: nome fora dela não entra por aqui, e "aasmática" não é AAS.
+
+Prova: `interacoesTool.test.ts` (vermelho antes; o de "aasmática" é guarda) e `conversationLoop.test.ts` (a fala chega às ferramentas). Medido: E9#5 com o alerta grave de rabdomiólise.
+
+## DS9 — O laço que repete a mesma consulta (achado A8)
+
+**O que a conferência mostrou.** "Mas é seguro tomar junto, né?" fez o modelo chamar `consultar_interacoes` com a mesma entrada até o teto de iterações, e a degradada repetiu o mesmo bloco cinco vezes. Depois da primeira correção, a repetição já não rodava a ferramenta, mas a E9 H10 e a E7 #2 ainda caíam na reserva: o modelo ignorava o aviso duas ou três vezes, e a resposta certa era reprovada pela R3 em duas frases — "**Não tenho como dizer** que é seguro" (a recusa com "que" não absolvia) e "Como **você tem 54 anos**, esse grupo inclui sua faixa etária" (a idade lida como diagnóstico).
+
+**Decidido (2026-10-21):**
+- A mesma ferramenta, com a mesma entrada, no mesmo turno não roda de novo: a chamada recebe "já foi consultada… Não chame de novo: responda agora com o que já tem", e o transcript não ganha cópia.
+- A degradada não repete bloco idêntico.
+- R3: "não tenho como" entra nas recusas; a recusa colada a "dizer/afirmar/garantir que" absolve a garantia que vem logo depois; "você tem N anos" entra no inventário, e não com "e" logo depois.
+
+**Continua reprovado (contra-testes):** "É seguro tomar junto.", "Você pode tomar junto, é seguro.", "Você tem 54 anos e diabetes.", "Você tem diabetes há 5 anos."
+
+Prova: `conversationLoop.test.ts` (a repetição; o teste antigo do registro de leituras passou a usar duas ferramentas diferentes, porque chamava a mesma com a mesma entrada), `degradedAnswer.test.ts` e `languageRules.test.ts` ("não tenho como e a idade", vermelhos antes; contra-testes verdes antes e depois).
+
+**Verificação desta etapa:** testes dos arquivos tocados e `npm run typecheck:backend`. O `npm run validate` completo **não foi rodado** (pedido do usuário em 2026-10-21, até nova ordem).
+
+**Medição depois do deploy (E7 e E9, 2026-10-21):** E9 com 8 de 9 aprovadas; E9 H10 ("mas é seguro tomar junto?") aprovada com "Não consigo dizer se é seguro… alerta grave… quem pode orientar é o médico"; E9 #5 com o alerta grave de rabdomiólise. E7 com 4 de 6 aprovadas; E7 #2 estourou o teto de 150 s do roteiro local (rede da máquina, não o chat). O modelo ainda repete a consulta (E9 H10 chamou quatro vezes), mas a ferramenta roda uma só.
+
+## DS10 — Mais dois falsos positivos da R3 (achado A10)
+
+**O que a conferência mostrou.** Duas respostas certas caíram na reserva (E9 H11 e E7 #1). Os textos brutos da medição de 2026-10-21 foram reverificados com `checkLanguageRules`, agora passando `valoresCadastrados` (Marevan com `dosage: '5 mg'` gera a chave `5|mg`, como no turno real). São duas causas, e a primeira não é a que estava anotada.
+
+1. **"em uso" não é registro (E9 H11).** As duas frases reprovadas foram "os remédios que você **tem em uso**: Marevan 5mg e Losartana" e "os dois remédios que você **tem em uso** cadastrados".
+   - A dose no nome **não** é o problema. "Marevan 5mg e Losartana estão cadastrados" passa, porque "5mg" casa com a chave `5|mg` do campo da dose. O que faltava era a **âncora de registro** da D2.4: na frase, só "em uso" dizia que aquilo era cadastro, e "em uso" não é âncora. Sem âncora, "5mg" é dose indicada.
+   - "Você **tem em uso**" cai no padrão de diagnóstico ("você tem…"). O inventário aceita "você tem 3 medicamentos" e "que você tem cadastrados", mas não "em uso" logo depois do verbo.
+2. **O "e" sem acento é lido como "é" (E7 #1).** O trecho reprovado foi "com risco aumentado **e baixo** risco de efeitos adversos". O padrão de interpretação de resultado exige verbo de estado antes do adjetivo, e `VERBO_DE_ESTADO` aceita `[eé]`: a conjunção "e" vira o verbo "é", e "e baixo" vira "é baixo". "Benefício substancial **e alta** certeza", que é o texto da nota A da USPSTF, cai do mesmo jeito. A palavra "risco" não tem nada a ver com isso.
+
+### DS10.1 — "em uso" como cadastro
+
+- **A. "em uso" passa a valer como inventário e como âncora.** Depois de "você tem", "em uso" é inventário do aplicativo, como o particípio "cadastrados". Na frase do valor, "em uso" passa a ser âncora de registro da D2.4. Uma frase com prescrição continua barrada pela `PRESCRICAO_NA_FRASE`: "mantenha os 5 mg em uso" e "os 5 mg em uso podem subir" seguem reprovadas.
+  - Benefício: é estreita, do mesmo tipo das correções da DS5, e resolve as duas frases da H11.
+  - Malefício: o diagnóstico perde mais uma forma ("você tem em uso…"). Mas nenhuma doença cabe depois de "em uso", e os contra-testes ficam ao lado.
+- **B. A + valores do nome.** `valoresCadastradosDosMedicamentos` passa a ler também a dose escrita no nome ("Marevan 5mg"), além do campo da dose.
+  - Benefício: cobre o caso em que o nome traz uma dose e o campo da dose traz outra ("Marevan 5mg" cadastrado com "1 comprimido").
+  - Malefício: esse caso não apareceu, e ele abre mais um valor por remédio para a exceção. O nome é texto livre da pessoa.
+- **C. Só o prompt** ("diga cadastrados, e não em uso").
+  - Malefício: não é determinístico, e a forma natural da frase continua reprovada.
+
+**Recomendação: A.** É o que a medição mostrou. B espera um caso real.
+
+**Continua reprovado (contra-testes):**
+- "Você tem diabetes."
+- "Você tem pressão alta."
+- "Mantenha os 5 mg em uso."
+- "Os 5 mg em uso podem subir para 10 mg."
+- "Tome 5mg dos remédios em uso."
+
+### DS10.2 — O "e" sem acento
+
+- **A. Só "é" com acento é verbo de estado.**
+  - Benefício: é a mudança mais simples, e o modelo escreve com acento em todas as respostas medidas.
+  - Malefício: "Seu colesterol e alto." (sem acento) deixa de ser reprovado.
+- **B. Lista de substantivos depois do adjetivo.** Adjetivo seguido de "risco", "certeza", "chance" ou "probabilidade" não é veredito.
+  - Malefício: "Seu resultado é alto risco", com acento, passa a valer. Além disso, a lista fecha só os casos vistos, e o próximo atributivo cai de novo.
+- **C. O "e" sem acento só é verbo quando o adjetivo fecha a oração.** O adjetivo precisa vir seguido de pontuação, do fim do texto ou de conector. "e baixo risco de…" e "e alta certeza" passam. "Seu colesterol e alto." continua reprovado. O "é" com acento não muda.
+  - Benefício: cobre qualquer adjetivo atributivo depois da conjunção, sem lista, e mantém tudo o que A tiraria.
+  - Malefício: "seu colesterol e alto demais", sem acento e com palavra depois, passa.
+
+**Recomendação: C.** Ela corrige a causa (a conjunção) sem afrouxar o verbo acentuado.
+
+**Continua reprovado (contra-testes):**
+- "Seu colesterol é alto."
+- "Seu colesterol e alto."
+- "O resultado está um pouco elevado."
+- "O exame é alto risco."
+- "Seu exame veio alterado, e baixo."
+
+**Decisão (2026-10-22):** DS10.1 = A e DS10.2 = C. A exceção de B espera um caso real, e a lista de palavras de B (DS10.2) foi recusada.
+
+**Implementação.** `languageRules.ts`:
+- **DS10.1:** "em uso" entra no inventário do "você tem", na `ANCORA_DE_REGISTRO` e na `NEUTRO_NA_FRASE`. "Uso" casava com o radical de "usar" na lista de prescrição, e sem isso a âncora sozinha não bastava.
+- **DS10.2:** o padrão de interpretação de resultado não aceita o "e" sem acento quando o adjetivo é seguido de palavra que não seja conector.
+
+Prova: `languageRules.test.ts` ("7. em uso" e "8. a conjuncao e"). Os 6 casos que precisam passar estavam vermelhos antes, e os 12 contra-testes ficaram verdes antes e depois. `npx jest amplify/functions/ai-language-rules amplify/functions/chat-assistant`: 2498 testes.
+
+## DS11 — A versão dos guardrails do wearable e da extração
+
+**Corrigido (2026-10-22),** pedido do usuário. É o defeito que a DS1 achou no chat e deixou latente nos outros dois. As configurações dos guardrails `HealthInsightsGuardrail` e `DocumentExtractionGuardrail` viram objetos (`configuracaoDoGuardrailDoWearable`, `configuracaoDoGuardrailDaExtracao`). A versão de cada um leva na descrição a impressão digital da configuração, como a do chat. O conteúdo dos dois guardrails não mudou, mas o primeiro deploy publica uma versão nova de cada um.
+
+Prova: `infraGuardrail.test.ts` ("a versao … muda junto com a configuracao", 2 casos vermelhos antes) e `npm run typecheck:backend`.
+
+## A cota do Bedrock (A6, DS7)
+
+O aumento da `L-00FF3314` **não foi liberado**. A cota fica em **10 chamadas por minuto**, como limite conhecido do projeto. Com 2 a 4 chamadas por turno, isso dá de 3 a 5 turnos por minuto na conta inteira. Acima disso, a pessoa recebe o aviso da DS7.
+
+A `L-00FF3314` é a cota do Sonnet 4.6. Com a troca de modelos da DS12, cada modelo novo tem a sua cota no Service Quotas, e o valor dela ainda não foi conferido.
+
+## DS12 — Troca de modelos: Claude Opus 5.5 no chat e Claude Sonnet 5.5 como padrão
+
+**Decidido pelo usuário (2026-10-22).** O assistente de chat passa ao **Claude Opus 5.5** (`us.anthropic.claude-opus-5-5`). A análise do wearable e a extração de documentos usavam o Sonnet 4.6 e passam ao modelo padrão, o **Claude Sonnet 5.5** (`us.anthropic.claude-sonnet-5-5`).
+
+Os dois modelos novos têm três diferenças que quebram as chamadas atuais:
+- o thinking fica sempre ligado;
+- `toolChoice` forçado (`any`/`tool`) dá erro 400;
+- `temperature` fora do padrão dá erro 400.
+
+O que mudou em cada função:
+
+- **Chat** (`conversationLoop.ts`):
+  - sai `temperature` nas duas gerações (0,3 e 0,1); a segunda geração continua diferente da primeira pela correção que recebe;
+  - esforço explícito `low`, porque o padrão do Opus 5.5 é `medium` e o turno (2 a 4 idas ao modelo) precisa caber nos 90 s que o aplicativo espera;
+  - o teto de saída sobe de 4.000 para 16.000 tokens, porque o thinking divide esse teto com a resposta;
+  - o chat não forçava tool, e a mensagem do modelo já voltava inteira ao laço, com o bloco de raciocínio. Há um teste de guarda para isso.
+- **Wearable** (`analyze-health-import/bedrockClient.ts`):
+  - a tool forçada `registrar_analise` dá lugar à saída estruturada (`output_config`), o mesmo mecanismo que a extração mediu na D19, com o schema saindo do mesmo zod;
+  - a resposta passa a vir num bloco de texto, e texto que não é JSON vira falha de formato, que vai para o reparo;
+  - esforço `low`, sem `temperature`, teto de 24.000 tokens.
+- **Extração** (`extract-document-data/bedrockClient.ts`): já usava a saída estruturada. Sai `temperature` (era 0), o esforço fica explícito em `medium` (o padrão do Sonnet 5.5 é `high`) e o teto de saída vai a 32.000 tokens.
+- **`backend.ts`**: `CHAT_BASE_MODEL_ID` e o perfil de inferência do chat, com as duas ARNs (perfil e modelo) na permissão do chat. `BEDROCK_BASE_MODEL_ID` passa a `anthropic.claude-sonnet-5-5`.
+
+Prova: os testes abaixo estavam vermelhos antes da mudança.
+- `conversationLoop.test.ts` ("a chamada ao Claude Opus 5.5", 3 vermelhos; o do raciocínio é guarda);
+- `analyze-health-import/__tests__/bedrockClient.test.ts` (novo, 3 vermelhos);
+- `extract-document-data/__tests__/bedrockClient.test.ts` (1 vermelho; o do raciocínio é guarda);
+- `infraGuardrail.test.ts` (2 vermelhos).
+
+`npx jest amplify`: 3147 testes. `npm run typecheck:backend` passou.
+
+**O que só o sandbox mostra:**
+- se a conta tem acesso liberado aos dois modelos;
+- a cota de cada um;
+- se o Bedrock aceita `effort` e o `output_config` do wearable com o schema convertido;
+- a latência do chat com thinking.

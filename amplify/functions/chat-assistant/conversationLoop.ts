@@ -45,14 +45,17 @@ export { HISTORY_WINDOW };
  * "quais sao os valores do meu exame?" cortada no meio do JSON das citacoes:
  * cada citacao carrega um id de 64 caracteres, e 20 delas mais o texto de 20
  * linhas passam de 2000. 4000 cabe o maximo de citacoes com folga.
+ *
+ * 16000 com o Claude Opus 5.5: o thinking, que nao se desliga nesse modelo,
+ * divide este teto com a resposta.
  */
-export const MAX_OUTPUT_TOKENS = 4000;
+export const MAX_OUTPUT_TOKENS = 16000;
 
-const TEMPERATURE = 0.3;
-
-/** Menos variacao na segunda tentativa. E uma alavanca A MEDIR (tarefa C10),
- *  nao uma certeza -- o estudo da D31 a registra como tal. */
-const TEMPERATURE_RETRY = 0.1;
+/** Esforco explicito: o padrao do Claude Opus 5.5 e `medium`, e o turno (2 a 4
+ *  idas ao modelo) tem de caber nos 90 s que o aplicativo espera. Sem
+ *  `temperature`: o Opus 5.5 a recusa (400), e a segunda geracao difere da
+ *  primeira pela correcao que recebe. */
+const ESFORCO = 'low';
 
 export type TurnInput = {
   message: string;
@@ -139,12 +142,18 @@ export type TurnOutcome =
        *  Sem essa marca, quem chama trocaria a mensagem honesta do filtro pela
        *  copy generica -- e a pessoa nao saberia que houve um bloqueio. */
       bloqueadoPeloFiltro?: true;
+      /** O modelo recusou por excesso de chamadas (A6): a cota da conta, e nao
+       *  a pergunta. Quem chama mostra a frase dela, sem dado por baixo. */
+      sobrecarga?: true;
     };
 
 const BLOQUEADO_PELO_FILTRO =
   'Não consigo responder a essa mensagem. Se for sobre um sintoma ou um resultado, vale levar a pergunta a um profissional de saúde.';
 const NAO_REUNI_TUDO = 'Não consegui reunir tudo o que essa pergunta pede.';
 const NAO_MONTEI = 'Não consegui montar uma resposta agora.';
+const JA_CONSULTADA =
+  'Esta ferramenta já foi consultada neste turno com a mesma entrada, e o resultado está acima. Não chame de novo: responda agora com o que já tem.';
+const SOBRECARGA = 'Muita gente está usando o assistente agora. Tente de novo em um minuto.';
 
 /**
  * O rastro de uma geracao que nao virou resposta. Existe por um achado do Bloco
@@ -220,7 +229,7 @@ type RespostaDoModelo = {
   output?: { message?: { role?: string; content?: Record<string, any>[] } };
 };
 
-function chamar(input: TurnInput, messages: unknown[], temperature: number) {
+function chamar(input: TurnInput, messages: unknown[]) {
   return client.send(
     new ConverseCommand({
       modelId: input.modelId,
@@ -229,7 +238,7 @@ function chamar(input: TurnInput, messages: unknown[], temperature: number) {
         ...(input.contextoDeHoje ? [{ text: input.contextoDeHoje }] : []),
       ],
       messages: messages as never,
-      inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS, temperature },
+      inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS },
       toolConfig: especificacaoDasTools() as never,
       // Saida estruturada imposta pelo servidor, mesmo mecanismo que a
       // extracao mediu (D19). O parser de `chatSchema.ts` continua tolerante
@@ -237,6 +246,7 @@ function chamar(input: TurnInput, messages: unknown[], temperature: number) {
       // ferramentas -- combinacao que so uma chamada real confirma.
       additionalModelRequestFields: {
         output_config: {
+          effort: ESFORCO,
           format: { type: 'json_schema', schema: schemaDaResposta() },
         },
       },
@@ -255,7 +265,12 @@ function textoDosBlocos(blocos: Record<string, any>[] | undefined): string {
 export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome> {
   // Um registro de leituras por turno, dividido pelas ferramentas dele (risco 3
   // do E4): duas que leem a mesma tabela leem uma vez so.
-  const contextoDoTurno: ContextoDoTurno = { local: input.local ?? null, leituras: new Map(), series: new Map() };
+  const contextoDoTurno: ContextoDoTurno = {
+    local: input.local ?? null,
+    leituras: new Map(),
+    series: new Map(),
+    falaDaPessoa: input.message,
+  };
   // A janela guarda as mensagens MAIS RECENTES: cortar pelo comeco entregaria
   // ao modelo o inicio de uma conversa longa e esconderia o que acabou de ser
   // dito.
@@ -267,13 +282,14 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
   ];
 
   const toolsUsadas: string[] = [];
+  const consultadas = new Set<string>();
   const transcript: TurnTranscript = { messages, toolOutputs: [] };
   let inputTokens = 0;
   let outputTokens = 0;
 
   try {
     for (let iteracao = 0; iteracao < MAX_TOOL_ITERATIONS; iteracao += 1) {
-      const resposta = await chamar(input, messages, TEMPERATURE);
+      const resposta = await chamar(input, messages);
 
       // O consumo e SOMADO, e nao substituido: medir so a ultima ida
       // subestimaria justamente o turno com laco, que e o turno caro.
@@ -316,6 +332,18 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
 
       const resultados = [];
       for (const chamada of chamadas) {
+        // A mesma consulta, com a mesma entrada, no mesmo turno nao roda de
+        // novo (A8, DS9): "mas e seguro, ne?" fazia o modelo repeti-la ate o
+        // teto de iteracoes. O aviso responde a chamada, e o transcript nao
+        // ganha uma copia -- a degradada mostraria o mesmo bloco de novo.
+        const chave = `${chamada.name}|${JSON.stringify(chamada.input ?? {})}`;
+        if (consultadas.has(chave)) {
+          resultados.push({
+            toolResult: { toolUseId: chamada.toolUseId, content: [{ json: { jaConsultado: true, aviso: JA_CONSULTADA } }] },
+          });
+          continue;
+        }
+        consultadas.add(chave);
         toolsUsadas.push(chamada.name);
         const saida = await runTool(chamada.name, chamada.input, input.identity, contextoDoTurno);
         // Guardado ESTRUTURADO para o modo degradado (C5b), alem de
@@ -336,6 +364,12 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
     // O detalhe tecnico fica no log. Devolver "ThrottlingException" ao chamador
     // nao ajuda ninguem e vaza como a infraestrutura funciona.
     console.error('Falha na chamada ao modelo:', erro);
+    // A cota da conta e de 10 chamadas por minuto (A6, DS7): com duas pessoas
+    // ao mesmo tempo ela estoura, e a pessoa precisa saber que e espera, nao
+    // a pergunta. So o nome do erro decide; ele nao vai para o texto.
+    if ((erro as { name?: string } | null)?.name === 'ThrottlingException') {
+      return { ok: false, transcript, message: SOBRECARGA, sobrecarga: true };
+    }
     return { ok: false, transcript, message: NAO_MONTEI };
   }
 
@@ -383,7 +417,7 @@ export async function regenerateAnswer(
   ];
 
   try {
-    const resposta = await chamar(input, messages, TEMPERATURE_RETRY);
+    const resposta = await chamar(input, messages);
 
     if (resposta.stopReason === 'guardrail_intervened') {
       return { ok: false, transcript, message: BLOQUEADO_PELO_FILTRO, bloqueadoPeloFiltro: true };

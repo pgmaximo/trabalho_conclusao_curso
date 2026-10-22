@@ -47,7 +47,11 @@ export function buildDegradedAnswer(
     // rende texto util, e o montador ignora quem nao sabe se mostrar.
     if (!tool?.renderDegraded) continue;
     const bloco = tool.renderDegraded(output);
-    if (bloco && bloco.linhas.length > 0) blocos.push(bloco);
+    // O mesmo bloco duas vezes nao diz nada a mais (A8): uma ferramenta chamada
+    // de novo com a mesma entrada devolve a mesma saida.
+    if (bloco && bloco.linhas.length > 0 && !blocos.some((b) => JSON.stringify(b) === JSON.stringify(bloco))) {
+      blocos.push(bloco);
+    }
   }
 
   // Sem nada para mostrar, quem chamou segue para a etapa C. Devolver um texto

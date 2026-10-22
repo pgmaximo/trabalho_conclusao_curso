@@ -303,7 +303,9 @@ const JULGAMENTO_DE_VALOR =
  * A RECUSA de julgar nao e julgamento. "Nao posso dizer se esta alterado" e a
  * resposta certa, e reprova-la ensinaria o modelo a nao dizer nem isso.
  */
-const RECUSA_DE_JULGAR = /n[aã]o\s+(posso|cabe|consigo|sei|consegue|[eé]\s+poss[ií]vel|d[aá]\s+para)/i;
+// "nao tenho como" entrou com a E9 H10 da conferencia no sandbox (DS9): "Nao
+// tenho como dizer que e seguro" era reprovado como garantia de seguranca.
+const RECUSA_DE_JULGAR = /n[aã]o\s+(posso|cabe|consigo|sei|consegue|tenho\s+como|[eé]\s+poss[ií]vel|d[aá]\s+para)/i;
 
 /**
  * O que se FAZ como exame de prevencao (E7, D7.3). Lista fechada de proposito:
@@ -500,7 +502,10 @@ const FECHO_DA_PERMISSAO =
 const DEVOLVE_A_DECISAO = new RegExp(
   `(?:${RECUSA_DE_JULGAR.source}|saber|sei|sabe|confirm\\w*|verific\\w*|pergunt\\w*|consult\\w*|decid\\w*|avali\\w*|dir[aá]|diz\\w*)` +
     `(?:\\s+\\S+){0,4}?\\s+se\\s+(?:(?!(?:e|mas|ent[aã]o)\\s)[^\\s,:;]+\\s+){0,3}$` +
-    `|n[aã]o\\s+(?:quer\\s+dizer|significa|garante)(?:\\s+necessariamente)?\\s+que\\s+(?:\\S+\\s+){0,2}$`,
+    `|n[aã]o\\s+(?:quer\\s+dizer|significa|garante)(?:\\s+necessariamente)?\\s+que\\s+(?:\\S+\\s+){0,2}$` +
+    // A recusa com "que" logo antes da garantia (E9 H10, DS9): "nao tenho como
+    // dizer que e seguro". So colada: "nao sei de nada, e seguro" nao absolve.
+    `|(?:${RECUSA_DE_JULGAR.source})\\s+(?:dizer|afirmar|garantir)\\s+que\\s+$`,
   'i',
 );
 
@@ -900,7 +905,12 @@ const PADROES_R3: PadraoR3[] = [
         // e ha caso de teste para cada um.
         `(?!\\s+(?:(?:${ADVERBIOS_DO_INVENTARIO})\\s+)?(?:(?:${CONTAGEM_DO_INVENTARIO})\\s+)?(?:um|uma|uns|umas|o|a|os|as)?\\s*(?:${COISAS_DO_APLICATIVO})\\b` +
         // "os laudos que voce tem guardados" -- o objeto veio ANTES do verbo.
-        `|\\s+(?:${PARTICIPIOS_DO_INVENTARIO})${FIM_R3})` +
+        `|\\s+(?:${PARTICIPIOS_DO_INVENTARIO})${FIM_R3}` +
+        // "os remedios que voce tem em uso" -- o cadastro (E9 H11, DS10.1).
+        `|\\s+em\\s+uso${FIM_R3}` +
+        // A idade do perfil (E7 #2, DS9): "como voce tem 54 anos, esse grupo
+        // inclui...". Com "e" logo depois, nao: "voce tem 54 anos e diabetes".
+        `|\\s+\\d{1,3}\\s+anos${FIM_R3}(?!\\s+e\\s))` +
         '|(?:^|\\W)(e|é)\\s+(um\\s+)?(sinal\\s+claro\\s+de|caso\\s+de|quadro\\s+de)\\b',
       'i',
     ),
@@ -923,8 +933,13 @@ const PADROES_R3: PadraoR3[] = [
     //
     // O verbo de estado e obrigatorio, e e ele que separa veredito de
     // vocabulario: "esta alto" julga; "de baixo risco" nao.
+    //
+    // O "e" SEM acento so e verbo quando o adjetivo fecha a oracao: com palavra
+    // depois, e a conjuncao antes de adjetivo atributivo -- "risco aumentado e
+    // baixo risco de efeitos adversos", texto da USPSTF (E7 #1, DS10.2).
     padrao: new RegExp(
-      `${INI_R3}(${VERBO_DE_ESTADO})\\s+(um\\s+pouco\\s+)?(${JULGAMENTO_DE_VALOR})${FIM_R3}`,
+      `${INI_R3}(?!e\\s+(?:um\\s+pouco\\s+)?(?:${JULGAMENTO_DE_VALOR})\\s+(?!(?:e|mas|por[eé]m|ent[aã]o|portanto)${FIM_R3})${L_R3})` +
+        `(${VERBO_DE_ESTADO})\\s+(um\\s+pouco\\s+)?(${JULGAMENTO_DE_VALOR})${FIM_R3}`,
       'i',
     ),
     motivo:
@@ -1069,8 +1084,9 @@ function chaveNoTexto(
  * frase tem de DIZER que fala do cadastro (revisao do E2).
  */
 const ANCORA_DE_REGISTRO = new RegExp(
-  // "aplicada" e o registro da CARTEIRA ("ha 2 doses aplicadas", DS5).
-  `${INI_R3}(?:cadastr|registr|anotad|aplicad)${L_R3}*|${INI_R3}voc[eê]\\s+(?:definiu|anotou)${FIM_R3}`,
+  // "aplicada" e o registro da CARTEIRA ("ha 2 doses aplicadas", DS5); "em uso"
+  // e o do cadastro de remedios ("que voce tem em uso: Marevan 5mg", DS10.1).
+  `${INI_R3}(?:cadastr|registr|anotad|aplicad)${L_R3}*|${INI_R3}voc[eê]\\s+(?:definiu|anotou)${FIM_R3}|${INI_R3}em\\s+uso${FIM_R3}`,
   'i',
 );
 
@@ -1154,7 +1170,9 @@ function trechoEmVolta(texto: string, inicio: number, fim: number, limites: RegE
  */
 const NEUTRO_NA_FRASE = new RegExp(
   `(?<!ser\\s)${INI_R3}(?:tomad|aplicad)[oa]s?${FIM_R3}` +
-    `|${INI_R3}aplicativos?(?:\\s+(?:j[aá]\\s+)?(?:est[aá]\\s+)?(?:indica|sinaliza|mostra)${L_R3}*)?${FIM_R3}`,
+    `|${INI_R3}aplicativos?(?:\\s+(?:j[aá]\\s+)?(?:est[aá]\\s+)?(?:indica|sinaliza|mostra)${L_R3}*)?${FIM_R3}` +
+    // "em uso" e o cadastro, nao o verbo usar (DS10.1).
+    `|${INI_R3}em\\s+uso${FIM_R3}`,
   'gi',
 );
 

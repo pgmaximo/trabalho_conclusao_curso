@@ -17,6 +17,9 @@
  */
 import { z } from 'zod';
 
+import { DRUG_ALIASES } from '../../drug-interactions-shared/aliases';
+import { resolveCanonicalDrug } from '../../drug-interactions-shared/normalizeDrugName';
+
 import type { ChatIdentity } from '../auth';
 import { dataEmSaoPaulo } from '../formatoPtBr';
 import type { DegradedBlock, ContextoDoTurno } from '../types';
@@ -46,6 +49,34 @@ function linhaDosNaoVerificados(saida: Partial<SaidaDasInteracoes> | null): stri
   ];
 }
 
+/** Sem acento e em minusculas, para achar o nome na fala como ele foi dito. */
+const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/**
+ * Os nomes da lista do aplicativo (os canonicos e os apelidos) que aparecem na
+ * fala da pessoa, como palavra inteira (A7, DS8): "a medica passou
+ * claritromicina, tem problema com a sinvastatina?" -- o modelo mandou so o
+ * primeiro, e o par nao foi conferido. Lista fechada: nome fora dela nao entra
+ * por aqui, e "aasmatica" nao e AAS.
+ */
+export function nomesDaListaNaFala(fala: string | undefined): string[] {
+  if (!fala) return [];
+  const alvo = semAcento(fala);
+  return Object.entries(DRUG_ALIASES)
+    .filter(([canonico, apelidos]) =>
+      [canonico, ...apelidos].some((nome) =>
+        new RegExp(`(?<![a-z0-9])${semAcento(nome).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`).test(alvo),
+      ),
+    )
+    .map(([canonico]) => canonico);
+}
+
+/** Os do modelo primeiro; os da fala so quando ainda nao estao (pelo canonico). */
+function juntarCandidatos(doModelo: string[], daFala: string[]): string[] {
+  const jaTem = new Set(doModelo.map((n) => resolveCanonicalDrug(n) ?? semAcento(n)));
+  return [...doModelo, ...daFala.filter((n) => !jaTem.has(n))];
+}
+
 const ENTRADA = z
   .object({
     candidatos: z.array(z.string().trim().min(1).max(MAX_CARACTERES_CANDIDATO)).max(MAX_CANDIDATOS).optional(),
@@ -61,7 +92,11 @@ export const interacoesTool: ChatTool = {
   async run(input: unknown, identity: ChatIdentity, contexto?: ContextoDoTurno): Promise<SaidaDasInteracoes> {
     const { candidatos = [] } = input as z.infer<typeof ENTRADA>;
     const linhas = await lerDoDono(process.env.MEDICINE_TABLE_NAME, identity, contexto?.leituras);
-    return montarSaidaDasInteracoes(linhas, candidatos, dataEmSaoPaulo(new Date()));
+    return montarSaidaDasInteracoes(
+      linhas,
+      juntarCandidatos(candidatos, nomesDaListaNaFala(contexto?.falaDaPessoa)),
+      dataEmSaoPaulo(new Date()),
+    );
   },
   renderDegraded(output: unknown): DegradedBlock | null {
     const saida = output as Partial<SaidaDasInteracoes> | null;

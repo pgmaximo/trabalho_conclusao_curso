@@ -283,3 +283,14 @@ describe('formatarDecimal na funcao', () => {
     expect(formatarDecimal(100)).toBe('100');
   });
 });
+
+// A8 da conferencia no sandbox (DS9): a mesma ferramenta, chamada cinco vezes,
+// deixava a degradada com o mesmo bloco cinco vezes seguidas.
+describe('bloco repetido na degradada (A8)', () => {
+  it('a mesma saida da mesma ferramenta aparece uma vez', () => {
+    const r = buildDegradedAnswer([saidaDeAnalito, saidaDeAnalito, saidaDeAnalito]);
+    const r1 = buildDegradedAnswer([saidaDeAnalito]);
+
+    expect(r?.texto).toBe(r1?.texto);
+  });
+});

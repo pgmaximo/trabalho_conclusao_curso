@@ -64,7 +64,7 @@ const ENTRADA: TurnInput = {
   message: 'como está minha vitamina D comparada ao exame anterior?',
   history: [],
   identity: { sub: 's-1', username: 'u-1', owner: 's-1::u-1' },
-  modelId: 'us.anthropic.claude-sonnet-4-6',
+  modelId: 'us.anthropic.claude-opus-5-5',
   guardrailId: 'gr-1',
   guardrailVersion: '1',
 };
@@ -130,6 +130,42 @@ describe('os tres limites', () => {
     mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
     await runConversationTurn(ENTRADA);
     expect(ultimaChamada().inferenceConfig.maxTokens).toBe(MAX_OUTPUT_TOKENS);
+  });
+
+  // Claude Opus 5.5: thinking sempre ligado e `temperature` recusada (400). O
+  // thinking divide o teto de saida com a resposta, e o esforco e explicito
+  // porque o padrao do modelo e `medium` e o app espera so 90 s.
+  describe('a chamada ao Claude Opus 5.5', () => {
+    it('nao manda temperature na primeira nem na segunda geracao', async () => {
+      mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
+      const primeira = await runConversationTurn(ENTRADA);
+      expect(ultimaChamada().inferenceConfig).not.toHaveProperty('temperature');
+      if (!primeira.ok) throw new Error('a primeira geracao deveria passar');
+      await regenerateAnswer(ENTRADA, primeira.transcript, 'Motivo.');
+      expect(ultimaChamada().inferenceConfig).not.toHaveProperty('temperature');
+    });
+
+    it('manda o esforco explicito, baixo, junto da saida estruturada', async () => {
+      mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
+      await runConversationTurn(ENTRADA);
+      expect(ultimaChamada().additionalModelRequestFields.output_config.effort).toBe('low');
+      expect(ultimaChamada().additionalModelRequestFields.output_config.format.type).toBe('json_schema');
+      expect(ultimaChamada().additionalModelRequestFields).not.toHaveProperty('thinking');
+    });
+
+    it('o teto de saida cabe o thinking alem da resposta', () => {
+      expect(MAX_OUTPUT_TOKENS).toBeGreaterThanOrEqual(16000);
+    });
+
+    it('o bloco de raciocinio volta ao modelo sem mudanca na ida seguinte', async () => {
+      const raciocinio = { reasoningContent: { reasoningText: { text: '', signature: 'assinatura' } } };
+      const comTool = pedeTool('consultar_analito');
+      (comTool.output.message.content as unknown[]).unshift(raciocinio);
+      mockSend.mockResolvedValueOnce(comTool).mockResolvedValueOnce(respondeTexto('Uma resposta.'));
+      await runConversationTurn(ENTRADA);
+      const assistente = ultimaChamada().messages.filter((m: { role: string }) => m.role === 'assistant').at(-1);
+      expect(assistente.content[0]).toEqual(raciocinio);
+    });
   });
 
   it('manda so a janela de historico, nao a conversa inteira', async () => {
@@ -214,9 +250,11 @@ describe('o laco', () => {
   });
 
   it('as ferramentas de um turno dividem o registro de leituras; outro turno tem o seu (risco 3 do E4)', async () => {
+    // Duas ferramentas DIFERENTES no mesmo turno: a mesma, com a mesma entrada,
+    // nao roda de novo (A8).
     mockSend
       .mockResolvedValueOnce(pedeTool('consultar_analito'))
-      .mockResolvedValueOnce(pedeTool('consultar_analito'))
+      .mockResolvedValueOnce(pedeTool('consultar_consultas'))
       .mockResolvedValueOnce(respondeTexto('Pronto.'))
       .mockResolvedValueOnce(pedeTool('consultar_analito'))
       .mockResolvedValueOnce(respondeTexto('Pronto.'));
@@ -498,5 +536,73 @@ describe('a data do turno', () => {
     const primeira = await runConversationTurn(entrada);
     await regenerateAnswer(entrada, primeira.transcript, 'Motivo de teste.');
     expect(ultimaChamada().system).toEqual([{ text: SYSTEM_PROMPT }, { text: CONTEXTO }]);
+  });
+});
+
+/**
+ * A6 da conferencia no sandbox (DS7): a cota da conta e de 10 chamadas por
+ * minuto ao modelo, e com duas pessoas ao mesmo tempo o Bedrock devolve
+ * ThrottlingException. A pessoa lia "nao consegui montar uma resposta", como se
+ * a pergunta fosse o problema. O laco marca a sobrecarga, sem vazar o nome do
+ * erro, e quem chama mostra a frase honesta.
+ */
+describe('sobrecarga do modelo (A6)', () => {
+  const throttling = () => Object.assign(new Error('Too many requests'), { name: 'ThrottlingException' });
+
+  it('na primeira geracao, volta marcada como sobrecarga', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockSend.mockRejectedValue(throttling());
+
+    const r = await runConversationTurn(ENTRADA);
+
+    expect(r.ok).toBe(false);
+    expect(!r.ok && 'sobrecarga' in r && r.sobrecarga).toBe(true);
+    expect(!r.ok && r.message).toMatch(/tente de novo/i);
+    expect(!r.ok && r.message).not.toMatch(/Throttling/);
+  });
+
+  it('outra falha continua sendo a mensagem de sempre', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockSend.mockRejectedValue(new Error('rede'));
+
+    const r = await runConversationTurn(ENTRADA);
+
+    expect(!r.ok && 'sobrecarga' in r).toBe(false);
+  });
+});
+
+describe('a fala da pessoa chega as ferramentas (A7)', () => {
+  it('o contexto do turno leva a mensagem do turno', async () => {
+    mockSend.mockResolvedValueOnce(pedeTool('consultar_consultas')).mockResolvedValueOnce(respondeTexto('Ok.'));
+
+    await runConversationTurn(ENTRADA);
+
+    expect(mockRunTool.mock.calls[0][3]).toEqual(expect.objectContaining({ falaDaPessoa: ENTRADA.message }));
+  });
+});
+
+/**
+ * A8 da conferencia no sandbox (DS9): "mas e seguro tomar junto, ne?" fez o
+ * modelo chamar a mesma ferramenta, com a mesma entrada, ate o teto de
+ * iteracoes -- seis idas ao modelo (e a cota, A6) para nada. A repeticao no
+ * mesmo turno nao roda de novo: volta o aviso de que ja foi consultado.
+ */
+describe('a mesma consulta repetida no turno (A8)', () => {
+  it('roda uma vez; a repeticao recebe o aviso e nao entra de novo no transcript', async () => {
+    mockSend
+      .mockResolvedValueOnce(pedeTool('consultar_consultas', 'tu-1'))
+      .mockResolvedValueOnce(pedeTool('consultar_consultas', 'tu-2'))
+      .mockResolvedValueOnce(respondeTexto('Ok.'));
+
+    const r = await runConversationTurn(ENTRADA);
+
+    expect(mockRunTool).toHaveBeenCalledTimes(1);
+    const resultado = ultimaChamada().messages.at(-1).content[0].toolResult;
+    expect(resultado.toolUseId).toBe('tu-2');
+    expect(JSON.stringify(resultado.content)).toMatch(/já foi consultad/);
+    // O aviso pede a resposta agora: sem isso o modelo repetia a chamada mais
+    // duas ou tres vezes antes de responder, gastando cota (A6).
+    expect(JSON.stringify(resultado.content)).toMatch(/responda agora/i);
+    expect(r.ok && r.transcript.toolOutputs).toHaveLength(1);
   });
 });

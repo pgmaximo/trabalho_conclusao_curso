@@ -1,30 +1,4 @@
-import { z } from 'zod';
-import type { Tool } from '@aws-sdk/client-bedrock-runtime';
-import type { DocumentType } from '@smithy/types';
-import { insightsSchema } from './insightSchema';
 import type { AnalysisSummary } from './summaryBuilder';
-
-export const ANALYSIS_TOOL_NAME = 'registrar_analise';
-
-/**
- * JSON Schema da tool, derivado do MESMO schema zod usado para validar a
- * resposta (insightSchema.ts) -- uma fonte de verdade so, para a tool nunca
- * divergir da validacao (zod 4 tem z.toJSONSchema() nativo). O cast para
- * `Record<string, unknown>` e so para bater com o tipo `DocumentType`
- * (JSON generico) que o SDK do Bedrock espera em `inputSchema.json` --
- * o tipo super especifico que o zod infere para o schema nao se encaixa
- * estruturalmente no union `Tool` do SDK sem essa anotacao explicita.
- */
-export const ANALYSIS_TOOL_SPEC: Tool = {
-  toolSpec: {
-    name: ANALYSIS_TOOL_NAME,
-    description:
-      'Registra a analise estruturada dos dados de saude do usuario, com resumo, destaques, pontos de atencao, padroes, sugestoes e limitacoes.',
-    inputSchema: {
-      json: z.toJSONSchema(insightsSchema) as unknown as DocumentType,
-    },
-  },
-};
 
 export const SYSTEM_PROMPT = `Você é um assistente de apoio informativo do app SuaSaúde, especializado em interpretar dados agregados de wearables (Samsung Health / Apple Health).
 
@@ -38,7 +12,7 @@ Regras obrigatórias, sem exceção:
 - Quando o resumo indicar uma possível troca de aparelho (mudança abrupta de dispositivo) coincidindo com uma mudança de patamar numa métrica, mencione essa possibilidade em vez de tratar a mudança como uma evolução de saúde real.
 - Correlações fornecidas no bloco de dados (campo "correlations") já foram calculadas estatisticamente — sua tarefa é NARRAR e CONTEXTUALIZAR essas correlações existentes, nunca inventar novas.
 - Sempre preencha "perguntasParaOMedico" com perguntas genuinamente úteis que canalizem qualquer suspeita clínica para uma consulta real, em vez de você mesmo concluir algo clínico.
-- Chame a tool "${ANALYSIS_TOOL_NAME}" exatamente uma vez, com todos os campos preenchidos.`;
+- Responda só com o JSON da análise, com todos os campos preenchidos.`;
 
 function formatMetricLine(metric: AnalysisSummary['metrics'][number]): string {
   const parts = [

@@ -22,7 +22,7 @@ function bloco(inicio: string, fim: string): string {
 }
 
 const guardrailDoChat = bloco('const configuracaoDoGuardrailDoChat', '};');
-const guardrailDoWearable = bloco("new bedrock.CfnGuardrail(guardrailStack, 'HealthInsightsGuardrail'", '});');
+const guardrailDoWearable = bloco('const configuracaoDoGuardrailDoWearable', '\n};');
 
 describe('guardrail proprio do chat (DS1 = B, DS2 = A)', () => {
   it('existe, numa stack propria, com nome unico por ambiente', () => {
@@ -73,6 +73,35 @@ describe('guardrail proprio do chat (DS1 = B, DS2 = A)', () => {
     const versao = bloco("'ChatAssistantGuardrailVersion'", ');');
     expect(versao).toMatch(/description: `configuracao \$\{impressaoDaConfiguracao\(configuracaoDoGuardrailDoChat\)\}`/);
     expect(backend).toMatch(/new bedrock\.CfnGuardrail\(chatGuardrailStack, 'ChatAssistantGuardrail', \{\s*name: `chat-assistant-\$\{sufixoUnicoDaStack\}`,\s*\.\.\.configuracaoDoGuardrailDoChat,/);
+  });
+
+  // O mesmo defeito, latente, nos guardrails do wearable e da extracao: mudanca
+  // feita neles depois do primeiro deploy nao chegava as funcoes.
+  it.each([
+    ['HealthInsightsGuardrailVersion', 'configuracaoDoGuardrailDoWearable', 'guardrailStack', 'HealthInsightsGuardrail', 'health-insights'],
+    ['DocumentExtractionGuardrailVersion', 'configuracaoDoGuardrailDaExtracao', 'extractionGuardrailStack', 'DocumentExtractionGuardrail', 'document-extraction'],
+  ])('a versao %s muda junto com a configuracao', (versaoId, configuracao, stack, guardrailId, prefixo) => {
+    const versao = bloco(`'${versaoId}'`, ');');
+    expect(versao).toContain(`description: \`configuracao \${impressaoDaConfiguracao(${configuracao})}\``);
+    expect(backend).toMatch(
+      new RegExp(`new bedrock\\.CfnGuardrail\\(${stack}, '${guardrailId}', \\{\\s*name: \`${prefixo}-\\$\\{sufixoUnicoDaStack\\}\`,\\s*\\.\\.\\.${configuracao},`),
+    );
+  });
+
+  // O chat passa ao Claude Opus 5.5 e o modelo padrao (wearable e extracao) ao
+  // Claude Sonnet 5.5 (pedidos do usuario, 2026-10-22).
+  it('o chat usa o Claude Opus 5.5, com o perfil de inferencia e as duas ARNs dele', () => {
+    expect(backend).toMatch(/const CHAT_BASE_MODEL_ID = 'anthropic\.claude-opus-5-5';/);
+    expect(backend).toMatch(/chatAssistant\.addEnvironment\('BEDROCK_MODEL_ID', CHAT_INFERENCE_PROFILE_ID\)/);
+    expect(backend).toMatch(
+      /chatAssistantLambda\.addToRolePolicy\(\s*new iam\.PolicyStatement\(\{\s*actions: \['bedrock:InvokeModel'\],\s*resources: \[\s*`[^`]*inference-profile\/\$\{CHAT_INFERENCE_PROFILE_ID\}`,\s*`[^`]*foundation-model\/\$\{CHAT_BASE_MODEL_ID\}`/,
+    );
+  });
+
+  it('wearable e extracao usam o modelo padrao, o Claude Sonnet 5.5', () => {
+    expect(backend).toMatch(/const BEDROCK_BASE_MODEL_ID = 'anthropic\.claude-sonnet-5-5';/);
+    expect(backend).toMatch(/analyzeHealthImport\.addEnvironment\('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID\)/);
+    expect(backend).toMatch(/extractDocumentData\.addEnvironment\('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID\)/);
   });
 
   it('o guardrail do wearable nao muda', () => {

@@ -89,6 +89,31 @@ afterEach(() => info.mockRestore());
 const linhasDeLog = () => info.mock.calls.map((c) => String(c[0]));
 const reparos = () => linhasDeLog().filter((l) => l.includes('reparo-de-extracao'));
 
+// Claude Sonnet 5.5 (2026-10-22): `temperature` diferente do padrao e recusada
+// (400), e o thinking, que fica ligado, divide o teto de saida com o JSON.
+describe('requestExtraction -- a chamada ao Claude Sonnet 5.5', () => {
+  it('sem temperature, com esforco explicito e teto que cabe o thinking', async () => {
+    mockSend.mockResolvedValueOnce(resposta(EXTRACAO_VALIDA, [10, 5]));
+
+    await pedir();
+
+    const enviado = mockSend.mock.calls[0][0].input;
+    expect(enviado.inferenceConfig).not.toHaveProperty('temperature');
+    expect(enviado.inferenceConfig.maxTokens).toBeGreaterThanOrEqual(32000);
+    expect(enviado.additionalModelRequestFields.output_config.effort).toBe('medium');
+    expect(enviado.additionalModelRequestFields.output_config.format.type).toBe('json_schema');
+    expect(enviado).not.toHaveProperty('toolConfig');
+  });
+
+  it('o bloco de raciocinio antes do JSON nao atrapalha a leitura', async () => {
+    const comRaciocinio = resposta(EXTRACAO_VALIDA, [10, 5]);
+    (comRaciocinio.output.message.content as unknown[]).unshift({ reasoningContent: { reasoningText: { text: '' } } });
+    mockSend.mockResolvedValueOnce(comRaciocinio);
+
+    expect((await pedir()).ok).toBe(true);
+  });
+});
+
 describe('requestExtraction — sem reparo', () => {
   it('devolve o uso da chamada unica', async () => {
     mockSend.mockResolvedValueOnce(resposta(EXTRACAO_VALIDA, [56826, 5161]));

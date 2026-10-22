@@ -39,14 +39,17 @@ const client = new BedrockRuntimeClient({ maxAttempts: 5, retryMode: 'adaptive' 
 
 // Sempre explicito: deixar em branco reserva a cota maxima do modelo e e a
 // causa principal de ThrottlingException sem motivo aparente.
-const MAX_OUTPUT_TOKENS = 8000;
-// Transcricao, nao redacao. Variacao aqui e erro, nao estilo. Note que 0 NAO
-// garante determinismo: quatro execucoes do mesmo laudo devolveram 47, 47, 42
-// e 47 linhas (estudos-ia/01-estudos/leitura-de-documento.md). Nenhum numero
-// errado -- cobertura instavel. Por isso a contagem e exposta e reprocessar
-// e barato: a idempotencia da tarefa 6 faz a segunda passagem SOMAR o que
-// faltou em vez de duplicar o que ja existe.
-const TEMPERATURE = 0;
+// 32000 com o Claude Sonnet 5.5: o thinking, que fica ligado, divide este teto
+// com o JSON (que ja chegou a ~5 mil tokens num laudo real).
+const MAX_OUTPUT_TOKENS = 32000;
+// Transcricao, nao redacao: esforco `medium`, explicito, porque o padrao do
+// Sonnet 5.5 e `high`. Sem `temperature`: o Sonnet 5.5 recusa valor fora do
+// padrao (400). Ela nunca garantiu determinismo -- quatro execucoes do mesmo
+// laudo com 0 devolveram 47, 47, 42 e 47 linhas
+// (estudos-ia/01-estudos/leitura-de-documento.md) --, e por isso a contagem e
+// exposta e reprocessar e barato: a idempotencia da tarefa 6 faz a segunda
+// passagem SOMAR o que faltou em vez de duplicar o que ja existe.
+const ESFORCO = 'medium';
 
 /**
  * As duas fontes sao os dois blocos do Converse, e nada mais. A fonte de TEXTO
@@ -172,11 +175,12 @@ export async function requestExtraction(
         modelId: options.modelId,
         system: [{ text: systemPromptPara(documentType) }],
         messages: msgs,
-        inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS, temperature: TEMPERATURE },
+        inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS },
         // Saida estruturada imposta pelo servidor (D19). O schema sai do MESMO
         // objeto zod que valida a resposta, entao os dois nunca divergem.
         additionalModelRequestFields: {
           output_config: {
+            effort: ESFORCO,
             format: { type: 'json_schema', schema: toStructuredOutputSchema(extractionSchema) },
           },
         },

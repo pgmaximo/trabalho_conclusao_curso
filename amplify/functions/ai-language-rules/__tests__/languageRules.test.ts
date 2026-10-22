@@ -780,6 +780,22 @@ describe('R3 sem falso positivo nas frases da conferencia (A9)', () => {
     ] as Array<[string, string[]]>)('continua reprovando %j', (texto, valores) => expect(r3(texto, valores)).toBe(true));
   });
 
+  // A8 restante (DS9): as respostas certas da E9 H10 e da E7 #2 caiam na
+  // reserva por estas duas frases.
+  describe('6. "nao tenho como" e a idade', () => {
+    it.each([
+      'Não tenho como dizer que é seguro. A lista do aplicativo traz um alerta grave para essa combinação.',
+      'Rastreamento de câncer de mama: mamografia a cada dois anos para mulheres entre 40 e 74 anos. Como você tem 54 anos, esse grupo inclui sua faixa etária.',
+    ])('passa %j', (texto) => expect(r3(texto)).toBe(false));
+
+    it.each([
+      'É seguro tomar junto.',
+      'Você pode tomar junto, é seguro.',
+      'Você tem 54 anos e diabetes.',
+      'Você tem diabetes há 5 anos.',
+    ])('continua reprovando %j', (texto) => expect(r3(texto)).toBe(true));
+  });
+
   describe('5. a serie da vacina registrada', () => {
     const VALORES = ['3|dose', '2|dose', '1|dose'];
     it.each([
@@ -800,5 +816,42 @@ describe('R3 sem falso positivo nas frases da conferencia (A9)', () => {
       ['As 2 doses devem ser aplicadas até dezembro.', VALORES],
       ['Há 2 doses aplicadas — a mais recente em 02/03/2026.', []],
     ] as Array<[string, string[]]>)('continua reprovando %j', (texto, valores) => expect(r3(texto, valores)).toBe(true));
+  });
+
+  // A10 (DS10.1 = A): "em uso" e o cadastro, como "cadastrados" (E9 H11).
+  describe('7. "em uso" e inventario e ancora de registro', () => {
+    it.each([
+      'A lista do aplicativo verifica os remédios que você tem em uso: Marevan 5mg e Losartana.',
+      'A lista não traz alerta para Marevan e Losartana, que são os dois remédios que você tem em uso cadastrados.',
+      'Você tem em uso a Losartana e o Marevan.',
+    ])('passa %j', (texto) => expect(r3(texto, ['5|mg'])).toBe(false));
+
+    it.each([
+      ['Você tem diabetes.', ['5|mg']],
+      ['Você tem pressão alta.', ['5|mg']],
+      ['Mantenha os 5 mg em uso.', ['5|mg']],
+      ['Os 5 mg em uso podem subir para 10 mg.', ['5|mg']],
+      ['Tome 5mg dos remédios em uso.', ['5|mg']],
+      ['Os remédios em uso: Marevan 5mg.', []],
+    ] as Array<[string, string[]]>)('continua reprovando %j', (texto, valores) => expect(r3(texto, valores)).toBe(true));
+  });
+
+  // A10 (DS10.2 = C): a conjuncao "e" nao e o verbo "é" quando o adjetivo
+  // qualifica o que vem depois (E7 #1, texto da USPSTF).
+  describe('8. a conjuncao "e" antes de adjetivo atributivo', () => {
+    it.each([
+      'Para mulheres a partir de 35 anos com risco aumentado e baixo risco de efeitos adversos.',
+      'Nota A: benefício substancial e alta certeza.',
+      'Pessoas com risco aumentado e alto consumo de álcool.',
+    ])('passa %j', (texto) => expect(r3(texto)).toBe(false));
+
+    it.each([
+      'Seu colesterol é alto.',
+      'Seu colesterol e alto.',
+      'Seu colesterol e alto, e o médico vai avaliar.',
+      'O resultado está um pouco elevado.',
+      'O exame é alto risco.',
+      'Seu exame veio alterado, e baixo.',
+    ])('continua reprovando %j', (texto) => expect(r3(texto)).toBe(true));
   });
 });
