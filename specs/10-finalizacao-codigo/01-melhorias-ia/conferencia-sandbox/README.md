@@ -31,40 +31,39 @@ conferencia-sandbox/
 | A7 | Interação não conferida quando o modelo esquece um nome citado | ✅ corrigido | DS8 |
 | A8 | Laço repetindo a mesma consulta e degradada repetida; R3 em "não tenho como dizer que", "você tem 54 anos" | ✅ corrigido | DS9 |
 | A10 | Mais dois falsos positivos da R3: "você **tem em uso**: Marevan 5mg" sem âncora de registro (E9 H11); a conjunção "**e** baixo risco" lida como "é baixo" (E7 #1) | ✅ corrigido | DS10 |
+| A11 | Três respostas certas ainda reprovadas (rodada completa de 2026-10-22): "o **estoque está baixo**" lido como interpretação de resultado e "Vitamina D 1 gota — todos os dias" sem âncora de registro (E2 #7, R3); resposta sobre dados do relógio fora do período reprovada por falta de encaminhamento (E6 #2, R2); "Preparei o formulário com o que você disse:" (R5) e, na 2ª geração, "coloque o horário das 8h" (R3), com o cartão perdido junto (E11 #2) | ✅ corrigido no código (E2 #7, E6 #2); E11 #2 sem mudança, por decisão (DS13.3 = C); falta medir no sandbox | DS13 |
 
 ## Última medição por épico
 
+Rodada completa de **2026-10-22** (commit `addebdb`, os três modelos no **Sonnet 4.6**: a conta não tem acesso ao Opus 5.5 nem ao Sonnet 5.5, ver DS12). Os 70 casos de E1 a E12 rodaram em sequência, com 10 s de pausa entre perguntas e nenhum estouro de cota. Resultado: **67 aprovadas** (4 delas na 2ª geração), 1 degradada e 2 indisponíveis.
+
 | Épico | Resultado | Observação |
 |---|---|---|
-| E1 | 5/6 aprovadas, 1 degradada (#2, R3) | E1 #2 ainda não remedido depois da DS5 |
-| E2 | 9/9 | |
-| E3 | 6/6 | IAM ok, 0 AccessDenied |
-| E4 | 5/5 + releitura real ok | itens antigos somem ao reler; IAM ok |
-| E5 | 6/6 (1 na 2ª geração) | |
-| E6 | 4/5 + IAM ok | dados do relógio sintéticos |
-| E7 | 4/6 | #1 caiu na reserva (A10); #2 estourou o teto de 150 s do roteiro local |
-| E8 | 6/7 | #4 "bairro centro" não remedido |
-| E9 | 8/9 | H11 caiu na reserva (A10) |
-| E10 | 3/3 | panorama 229 tokens, comparação 151 (metas < 400 e < 600) |
-| E11 | 4/5 com cartão em 3 de 3 pedidos com dado | sobra: "Nada foi salvo" duplicado; "sexta de manhã" sem data |
-| E12 | 3/3 + histórico longo ok | 131 conversas, 120 mensagens, 0 sobras ao excluir |
+| E1 | 6/6 | E1 #2 aprovado (DS5) |
+| E2 | 8/9 | #7 degradada (A11) |
+| E3 | 6/6 | |
+| E4 | 5/5 | |
+| E5 | 6/6 (2 na 2ª geração) | |
+| E6 | 4/5 | #2 indisponível (A11); dados do relógio sintéticos |
+| E7 | 6/6 (1 na 2ª geração) | #1 e #2 aprovados (DS6, DS10) |
+| E8 | 7/7 | #4 "bairro centro" aprovado |
+| E9 | 9/9 | H11 aprovado (DS10) |
+| E10 | 3/3 | |
+| E11 | 4/5 | cartão nos pedidos com dado; "Nada foi salvo" sai uma vez só; "sexta de manhã" chega como `quando: "sexta"` (a data é resolvida no código, sem hora). #2 indisponível (A11) |
+| E12 | 3/3 | |
 
 ## Pendências
 
-Estado em 2026-10-22, depois da leva DS10 a DS12 (commit único com A3, A6, A7, A8, A10, os guardrails e a troca de modelos).
+Estado em 2026-10-22, depois da rodada completa no Sonnet 4.6.
 
-1. **Medir de novo no sandbox**, com os modelos novos (DS12). Vale para todos os épicos, e em especial para os itens que ainda não passaram:
-   - E1 #2;
-   - E7 #1 e #2;
-   - E8 #4;
-   - E9 H11;
-   - E11: "Nada foi salvo" duplicado e "sexta de manhã" sem data.
-2. **Conferir o wearable e a extração reais** no Sonnet 5.5. O wearable trocou a tool forçada pela saída estruturada.
-3. **Conferências que só o aparelho faz:**
+1. **A11:** medir de novo E2 #7, E6 #2 e E11 #2 no sandbox depois do deploy da DS13.
+2. **Acesso aos modelos novos (do usuário):** pedir a liberação do Opus 5.5 e do Sonnet 5.5 no Bedrock. Quando sair, basta trocar `CHAT_BASE_MODEL_ID` e `BEDROCK_BASE_MODEL_ID` no `backend.ts` (DS12), fazer o deploy e medir de novo, com a latência do chat.
+3. **Conferir o wearable e a extração reais** depois da DS12: o wearable trocou a tool forçada pela saída estruturada, e nenhuma importação real passou por ele ainda.
+4. **Conferências que só o aparelho faz:**
    - tocar em "Abrir formulário" (E11);
    - GPS na tela de Vacinação (E8);
    - marcar dose pela tela (E3).
-4. **E6 com dados reais do relógio:** até aqui, só dados sintéticos.
+5. **E6 com dados reais do relógio:** até aqui, só dados sintéticos.
 
 A cota do Bedrock fica em 10 chamadas por minuto, como limite conhecido (A6). O `npm run validate` completo não está sendo rodado por enquanto, por decisão do usuário, para agilizar; a verificação é por arquivos tocados e `typecheck:backend`.
 

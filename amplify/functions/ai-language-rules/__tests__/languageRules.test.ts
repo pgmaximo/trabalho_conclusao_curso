@@ -854,4 +854,62 @@ describe('R3 sem falso positivo nas frases da conferencia (A9)', () => {
       'Seu exame veio alterado, e baixo.',
     ])('continua reprovando %j', (texto) => expect(r3(texto)).toBe(true));
   });
+
+  // A11 (DS13.1 = estoque A): o estoque e do aplicativo, nao resultado (E2 #7).
+  describe('9. o estoque baixo nao e resultado de exame', () => {
+    it.each([
+      'Entendo que o estoque está baixo, mas não é possível orientar mudança na frequência.',
+      'O estoque registrado de Metformina está baixo.',
+      'O estoque atual está baixo.',
+    ])('passa %j', (texto) => expect(r3(texto)).toBe(false));
+
+    it.each([
+      'Seu colesterol está baixo.',
+      'A glicose está baixa.',
+      'O resultado está alterado.',
+      'Seu estoque de ferro está baixo.',
+      'O estoque está baixo, então tome 1 comprimido a cada 2 dias.',
+    ])('continua reprovando %j', (texto) => expect(r3(texto)).toBe(true));
+  });
+
+  // A11 (DS13.1 = lista A): o cabecalho "O que esta cadastrado:" vale para os
+  // itens da lista logo abaixo dele (E2 #7, segunda geracao).
+  describe('10. o cabecalho de registro vale para a lista', () => {
+    const VALORES = ['500|mg', '50|mg', '20|mg', '1|gota', '5|comprimido', '8|hora'];
+    const LISTA =
+      'Alterar a frequência é decisão do médico.\n\nO que está cadastrado no aplicativo é:\n\n' +
+      'Metformina 500 mg — todos os dias, 08h e 20h. Estoque registrado: 5 comprimidos.\n\n' +
+      'Losartana 50 mg — cadastrada a cada 8 horas.\n\n' +
+      'Vitamina D 1 gota — todos os dias, 12h.';
+
+    it('passa a lista com o cabecalho de registro', () => expect(r3(LISTA, VALORES)).toBe(false));
+
+    it.each([
+      ['O que está cadastrado:\n\nTome 1 gota por dia.', VALORES],
+      ['O que eu sugiro:\n\nVitamina D 1 gota — todos os dias, 12h.', VALORES],
+      ['O que está cadastrado:\n\nMetformina 500 mg.\n\nFora da lista, sem número.\n\nVitamina D 1 gota — todos os dias.', VALORES],
+      [LISTA, []],
+    ] as Array<[string, string[]]>)('continua reprovando %j', (texto, valores) => expect(r3(texto, valores)).toBe(true));
+  });
+});
+
+// A11 (DS13.2 = A): a resposta que so diz que o dado nao existe, sem medida
+// nenhuma, nao precisa encaminhar (E6 #2).
+describe('R2 dispensada na ausencia sem medida (A11)', () => {
+  const r2 = (texto: string) => {
+    const r = checkLanguageRules(texto, { questionKind: 'clinica', temOrigem: true });
+    return !r.ok && r.violations.some((v) => v.rule === 'R2');
+  };
+
+  it.each([
+    'Os dados do relógio vão até 12/10/2026, então a última quinta (15/10) não está disponível. Para ver esse dia, importe de novo em Mais > Dados do smartwatch > Importar.',
+    'Não há dados do relógio para a última quinta.',
+    'A última quinta não está coberta pela importação.',
+  ])('passa %j', (texto) => expect(r2(texto)).toBe(false));
+
+  it.each([
+    'Seu sono na quinta foi de 5 h, abaixo do habitual.',
+    'Sua glicose foi 110 mg/dL e não há outro exame para comparar.',
+    'Seu sono foi bom na quinta.',
+  ])('continua exigindo encaminhamento em %j', (texto) => expect(r2(texto)).toBe(true));
 });

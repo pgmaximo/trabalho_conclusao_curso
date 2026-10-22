@@ -937,8 +937,13 @@ const PADROES_R3: PadraoR3[] = [
     // O "e" SEM acento so e verbo quando o adjetivo fecha a oracao: com palavra
     // depois, e a conjuncao antes de adjetivo atributivo -- "risco aumentado e
     // baixo risco de efeitos adversos", texto da USPSTF (E7 #1, DS10.2).
+    //
+    // O ESTOQUE do aplicativo nao e resultado: "o estoque registrado de
+    // Metformina esta baixo" e o aviso que o proprio app da (E2 #7, DS13.1).
+    // "Estoque de ferro" e exame, e continua julgado.
     padrao: new RegExp(
-      `${INI_R3}(?!e\\s+(?:um\\s+pouco\\s+)?(?:${JULGAMENTO_DE_VALOR})\\s+(?!(?:e|mas|por[eé]m|ent[aã]o|portanto)${FIM_R3})${L_R3})` +
+      `(?<!${INI_R3}estoque(?:\\s+(?:registrado|atual|cadastrado))?(?:\\s+d[aoe]s?\\s+(?!ferro|ferritina)${L_R3}+)?\\s+)` +
+        `${INI_R3}(?!e\\s+(?:um\\s+pouco\\s+)?(?:${JULGAMENTO_DE_VALOR})\\s+(?!(?:e|mas|por[eé]m|ent[aã]o|portanto)${FIM_R3})${L_R3})` +
         `(${VERBO_DE_ESTADO})\\s+(um\\s+pouco\\s+)?(${JULGAMENTO_DE_VALOR})${FIM_R3}`,
       'i',
     ),
@@ -1176,6 +1181,26 @@ const NEUTRO_NA_FRASE = new RegExp(
   'gi',
 );
 
+/**
+ * O cabecalho da lista em que o valor esta: a ultima linha terminada em ":"
+ * antes dele, quando todas as linhas entre os dois tem numero (sao itens).
+ * Uma linha sem numero no meio encerra a lista, e o cabecalho deixa de valer.
+ * "O que esta cadastrado:" seguido de "Vitamina D 1 gota -- todos os dias" e
+ * o formato que o modelo usa (E2 #7, DS13.1); a prescricao continua olhada
+ * frase a frase.
+ */
+function cabecalhoDaLista(texto: string, inicio: number): string {
+  const linhas = texto.slice(0, inicio).split('\n');
+  linhas.pop(); // a propria linha do valor
+  for (let i = linhas.length - 1; i >= 0; i--) {
+    const linha = linhas[i].trim();
+    if (linha === '') continue;
+    if (linha.endsWith(':')) return linha;
+    if (!/\d/.test(linha)) return '';
+  }
+  return '';
+}
+
 function ehValorCadastrado(
   texto: string,
   achado: RegExpMatchArray,
@@ -1187,7 +1212,8 @@ function ehValorCadastrado(
   const inicio = achado.index!;
   const fim = inicio + achado[0].length;
   return (
-    ANCORA_DE_REGISTRO.test(trechoEmVolta(texto, inicio, fim, QUEBRA_DE_ORACAO_GLOBAL)) &&
+    (ANCORA_DE_REGISTRO.test(trechoEmVolta(texto, inicio, fim, QUEBRA_DE_ORACAO_GLOBAL)) ||
+      ANCORA_DE_REGISTRO.test(cabecalhoDaLista(texto, inicio))) &&
     !PRESCRICAO_NA_FRASE.test(trechoEmVolta(texto, inicio, fim, FIM_DE_FRASE).replace(NEUTRO_NA_FRASE, ' '))
   );
 }
@@ -1548,6 +1574,9 @@ export function temEncaminhamento(texto: string): boolean {
 const verificarR2: Verificador = (texto, { questionKind }) => {
   if (questionKind !== 'clinica') return [];
   if (temEncaminhamento(texto)) return [];
+  // A resposta que so diz que o dado nao existe, sem medida nenhuma, nao tem o
+  // que encaminhar (E6 #2, DS13.2): o aviso fixo da tela cobre o resto.
+  if (!temMedidaDeExame(texto) && PADRAO_AUSENCIA.test(texto)) return [];
 
   return [
     {
@@ -1729,7 +1758,9 @@ VERIFICADORES.push(verificarR4);
  */
 const PADRAO_AUSENCIA = new RegExp(
   `${INI_R3}(n[aã]o\\s+(h[aá]|tenho|encontrei|existe|consta|foi\\s+encontrad|localizei)` +
-    `|nenhum[ao]?|ainda\\s+n[aã]o|sem\\s+registro|vazi[ao]s?)${FIM_R3}`,
+    `|nenhum[ao]?|ainda\\s+n[aã]o|sem\\s+registro|vazi[ao]s?` +
+    // "a ultima quinta nao esta disponivel/coberta" (E6 #2, DS13.2)
+    `|n[aã]o\\s+est[aá]\\s+(?:dispon[ií]vel|cobert[oa]))${FIM_R3}`,
   'i',
 );
 
