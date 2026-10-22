@@ -27,6 +27,7 @@ const FORA_DO_MAPA: Record<string, string> = {
   'forgot-password': 'recuperação de senha, antes de entrar no app',
   'profile-setup': 'primeiro acesso, antes de entrar no app',
   'dev-preview': 'só existe em desenvolvimento',
+  terms: 'termos de uso e política de privacidade, abertos no cadastro',
 };
 
 /**
@@ -42,6 +43,7 @@ const BOTOES: Record<string, { arquivo: string; tipo: 'icone' | 'texto' }> = {
   'Novo compromisso': { arquivo: 'src/screens/AgendaScreen.tsx', tipo: 'icone' },
   'Adicionar vacina': { arquivo: 'src/screens/VaccinationScreen.tsx', tipo: 'icone' },
   Importar: { arquivo: 'src/screens/HealthDashboardScreen.tsx', tipo: 'texto' },
+  'Ver todas as importações': { arquivo: 'src/screens/HealthDashboardScreen.tsx', tipo: 'texto' },
   'Editar perfil': { arquivo: 'src/screens/ProfileScreen.tsx', tipo: 'texto' },
 };
 
@@ -161,8 +163,8 @@ describe('o texto que vai ao prompt', () => {
     });
   });
 
-  it('cabe em 1.800 caracteres', () => {
-    expect(MAPA_DO_APP_PROMPT.length).toBeLessThanOrEqual(1800);
+  it('cabe em 1.900 caracteres', () => {
+    expect(MAPA_DO_APP_PROMPT.length).toBeLessThanOrEqual(1900);
   });
 
   it('Medicamentos, Vacinacao e Prevencao sao apelidos de telas do mapa', () => {

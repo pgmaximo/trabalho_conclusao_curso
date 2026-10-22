@@ -142,6 +142,12 @@ export const MAPA_DO_APP: readonly TelaDoMapa[] = [
     oQueFaz: 'Trazer dados do relógio ou do celular.',
   },
   {
+    rota: 'health-imports',
+    nome: 'Suas importações',
+    caminho: ['Mais', 'Dados do smartwatch', 'Ver todas as importações'],
+    oQueFaz: 'Abrir ou excluir importações antigas.',
+  },
+  {
     rota: 'assistant-memory',
     nome: 'Memória do assistente',
     caminho: ['Mais', 'Memória do assistente'],
