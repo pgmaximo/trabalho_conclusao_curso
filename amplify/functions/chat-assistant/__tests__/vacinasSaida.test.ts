@@ -16,7 +16,13 @@ jest.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: class {} }));
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import { MAX_DOSES_POR_LISTA, montarSaida, reforcosPrevistos, somarAnos } from '../tools/vacinasSaida';
+import {
+  MAX_DOSES_POR_LISTA,
+  montarSaida,
+  reforcosPrevistos,
+  somarAnos,
+  valoresCadastradosDasVacinas,
+} from '../tools/vacinasSaida';
 
 type Linha = Record<string, unknown>;
 
@@ -257,5 +263,29 @@ describe('montarSaida', () => {
       'reforcosPrevistos',
     ]);
     expect(JSON.stringify(saida)).not.toMatch(/completa|emDia|atrasad/i);
+  });
+});
+
+/**
+ * A9 da conferencia no sandbox (DS5): "a serie da Hepatite B esta registrada
+ * com 3 doses no total" era reprovada como quantidade de remedio. Como na D2.4
+ * dos remedios, a ferramenta diz a verificacao quais contagens vem do registro:
+ * o total da serie, o numero da dose aplicada e quantas faltam.
+ */
+describe('valoresCadastradosDasVacinas (A9)', () => {
+  const HEP_B: Linha[] = [
+    { owner: 's-1::u-1', id: 'h2', name: 'Hepatite B', doseNumber: 2, seriesTotal: 3, appliedDate: '2026-03-02' },
+  ];
+
+  it('junta o total da serie, a dose aplicada e as que faltam', () => {
+    expect(valoresCadastradosDasVacinas(montarSaida(HEP_B))).toEqual(expect.arrayContaining(['3|dose', '2|dose', '1|dose']));
+  });
+
+  it('sem serie gravada, nao inventa contagem', () => {
+    expect(valoresCadastradosDasVacinas(montarSaida(DT_COMPLETA.slice(0, 1)))).toEqual(['1|dose']);
+  });
+
+  it('saida torta nao derruba', () => {
+    expect(valoresCadastradosDasVacinas(null)).toEqual([]);
   });
 });

@@ -499,6 +499,39 @@ describe('R5 — o que a IA não sabe, ela diz', () => {
 });
 
 /**
+ * A4 da conferencia no sandbox (2026-10-20): respostas APROVADAS sem conteudo.
+ * A saida estruturada as vezes preenche o schema mecanicamente ("string", o
+ * nome do tipo; "...", o marcador do exemplo do prompt), e a segunda geracao
+ * as vezes "conserta" a reprovacao apagando tudo depois da frase de abertura
+ * ("Aqui esta o que o aplicativo registrou nos ultimos 7 dias (14/10 a
+ * 20/10):"). As tres foram mostradas a pessoa como resposta.
+ */
+describe('resposta sem conteudo e R5, como a vazia (A4)', () => {
+  const reprovaSemConteudo = (texto: string) => {
+    const r = checkLanguageRules(texto, { questionKind: 'operacional' });
+    return !r.ok && r.violations.some((v) => v.rule === 'R5');
+  };
+
+  it.each(['string', 'String', '"string"', '...', '…', ' . . . ', 'texto', 'null', 'undefined', '-'])(
+    'reprova o marcador %j',
+    (texto) => {
+      expect(reprovaSemConteudo(texto)).toBe(true);
+    },
+  );
+
+  it('reprova a abertura que anuncia o que nunca veio', () => {
+    expect(reprovaSemConteudo('Aqui está o que o aplicativo registrou nos últimos 7 dias (14/10 a 20/10):')).toBe(true);
+    expect(reprovaSemConteudo('Você pode marcar em Mais > Agenda. Preparei as informações para facilitar:  ')).toBe(true);
+  });
+
+  it('NÃO reprova resposta curta de verdade', () => {
+    expect(reprovaSemConteudo('Não há consulta amanhã.')).toBe(false);
+    expect(reprovaSemConteudo('Sim.')).toBe(false);
+    expect(reprovaSemConteudo('Horário: 08:00')).toBe(false);
+  });
+});
+
+/**
  * Bloco 10 -- "passou e nao deveria", achado na rodada automatica da L7.
  *
  * A pergunta foi "Minha testosterona indica algum problema?", e a resposta
@@ -618,5 +651,154 @@ describe('valoresDeRemedioNoTexto -- revisão do E2', () => {
     ['de 8 em 12 horas', []],
   ])('"%s" vira %j', (texto, esperado) => {
     expect(valoresDeRemedioNoTexto(texto)).toEqual(esperado);
+  });
+});
+
+/**
+ * A5 da conferencia no sandbox (2026-10-20): o texto prometia o formulario e o
+ * cartao nao saia. Frases literais das rodadas. Quem diz que o formulario esta
+ * pronto e o aplicativo, com a frase dele, e so quando o cartao sai.
+ */
+describe('o texto do modelo nao fala do formulario pronto (A5)', () => {
+  const reprova = (texto: string, vetarFormulario?: boolean) => {
+    const r = checkLanguageRules(texto, { questionKind: 'operacional', vetarFormulario });
+    return !r.ok && r.violations.some((v) => v.rule === 'R5');
+  };
+
+  it.each([
+    'Você pode marcar em Mais > Agenda > botão +. Preparei as informações abaixo para facilitar.',
+    'Você pode cadastrar o lembrete em Remédios > botão +. Preparei o formulário com o que você me disse.',
+    'Vá em Remédios > botão + e cadastre a vitamina D. Vou preparar o formulário para você.',
+    'Para marcar, acesse Mais > Agenda > botão +. Deixei o formulário pré-preenchido com o que você me passou.',
+    'Para marcar, vá em Mais > Agenda > botão +. O formulário já vai aberto com o que você informou.',
+    'Você pode marcar na Agenda. Preparei os dados para facilitar.',
+  ])('reprova %j', (texto) => {
+    expect(reprova(texto, true)).toBe(true);
+  });
+
+  it('so vale quando quem chama liga a checagem', () => {
+    expect(reprova('Preparei as informações abaixo para facilitar.')).toBe(false);
+  });
+
+  it('NÃO reprova o caminho no aplicativo nem a oferta condicional', () => {
+    expect(reprova('Para marcar, vá em Mais > Agenda > botão +.', true)).toBe(false);
+    expect(reprova('Se quiser, me diga a data e o horário, e eu preparo o formulário.', true)).toBe(false);
+    expect(reprova('Não preparei nada: o cadastro é feito por você.', true)).toBe(false);
+  });
+});
+
+/**
+ * A9 da conferencia no sandbox (2026-10-20, DS5): a R3 reprovava texto
+ * legitimo, e a resposta caia na degradada. Cada frase abaixo e LITERAL das
+ * rodadas, e cada familia tem ao lado a frase de verdade que continua
+ * reprovada -- a correcao e estreita, e "na duvida, reprova" continua valendo.
+ */
+describe('R3 sem falso positivo nas frases da conferencia (A9)', () => {
+  const r3 = (texto: string, valoresCadastrados?: string[]) => {
+    const r = checkLanguageRules(texto, { questionKind: 'clinica', temOrigem: true, valoresCadastrados });
+    return !r.ok && r.violations.some((v) => v.rule === 'R3');
+  };
+
+  describe('1. "voce tem" + inventario contado por extenso', () => {
+    it.each([
+      'Esta semana você tem dois compromissos agendados.',
+      'Você tem duas receitas guardadas no aplicativo.',
+      'O Omeprazol está cadastrado às 7h. Você tem uma anotação para ele: tomar em jejum.',
+    ])('passa %j', (texto) => expect(r3(texto)).toBe(false));
+
+    it.each(['Você tem duas doenças crônicas.', 'Você tem diabetes.', 'Você tem dois problemas de tireoide.'])(
+      'continua reprovando %j',
+      (texto) => expect(r3(texto)).toBe(true),
+    );
+  });
+
+  describe('2. o aviso honesto da E3 com adverbio', () => {
+    it.each([
+      'Sem marcação não quer dizer necessariamente que você não tomou: pode ter tomado e não marcado.',
+      'Isso não significa necessariamente que você não tomou o remédio.',
+    ])('passa %j', (texto) => expect(r3(texto)).toBe(false));
+
+    it('continua reprovando "voce nao tomou" afirmado', () => {
+      expect(r3('Você não tomou a Losartana das 8h.')).toBe(true);
+    });
+  });
+
+  describe('3. o encaminhamento ao profissional', () => {
+    it.each([
+      'O médico que receitou ou o farmacêutico orienta sobre como usar cada remédio.',
+      'Não consigo orientar sobre dose ou como tomar um remédio — isso é com o médico ou o farmacêutico.',
+    ])('passa %j', (texto) => expect(r3(texto)).toBe(false));
+
+    it.each(['Tome o remédio de 8 em 8 horas.', 'Use 2 comprimidos ao dia.', 'Você deve tomar o remédio em jejum.'])(
+      'continua reprovando %j',
+      (texto) => expect(r3(texto)).toBe(true),
+    );
+
+    // A recusa reescrita pelo modelo (E2#6, segunda rodada): a mesma excecao
+    // de recusa, pergunta, condicao e "sobre" que os outros padroes da R3 tem.
+    it.each([
+      'Não consigo orientar sobre tomar mais de uma dose de uma vez — isso é com o médico que prescreveu ou o farmacêutico.',
+      'Não posso dizer se você deve tomar o remédio em jejum; quem orienta é o médico.',
+      'Sobre tomar a dose esquecida junto com a próxima, quem orienta é o farmacêutico.',
+    ])('a recusa antes do verbo passa: %j', (texto) => expect(r3(texto)).toBe(false));
+
+    it.each([
+      'Não consigo ver seu histórico, então tome 2 comprimidos de uma vez.',
+      'Você pode tomar 2 comprimidos de uma vez.',
+      'Tome 2 comprimidos de uma vez.',
+    ])('com a recusa em outra oracao, continua reprovando %j', (texto) => expect(r3(texto)).toBe(true));
+  });
+
+  describe('4. valor cadastrado com verbo neutro na frase', () => {
+    it('o participio "tomada" depois do valor registrado', () => {
+      expect(r3('A Vitamina D está registrada como 1 gota, tomada todos os dias às 12h.', ['1|gota'])).toBe(false);
+    });
+
+    // "aplicativo" casava com o radical de "aplicar" na lista de prescricao:
+    // todo valor cadastrado dito "no aplicativo" perdia a D2.4 (medido na E2#5).
+    it.each([
+      'O estoque registrado de Metformina no aplicativo é de 5 comprimidos.',
+      'O estoque registrado de Metformina é de 5 comprimidos, e o aplicativo já está sinalizando estoque baixo.',
+    ])('a palavra "aplicativo" nao e o verbo aplicar: %j', (texto) => {
+      expect(r3(texto, ['5|comprimido'])).toBe(false);
+    });
+
+    it('aplicar continua sendo verbo de prescricao', () => {
+      expect(r3('O cadastro registrado é de 5 mL; aplique 5 mL por dia.', ['5|ml'])).toBe(true);
+    });
+
+    it('"o aplicativo indica" junto do estoque registrado', () => {
+      expect(
+        r3('O estoque registrado de Metformina é de 5 comprimidos, e o aplicativo já indica estoque baixo.', ['5|comprimido']),
+      ).toBe(false);
+    });
+
+    it.each([
+      ['A Vitamina D está registrada como 1 gota; tome 1 gota todos os dias.', ['1|gota']],
+      ['A Vitamina D está registrada como 1 gota e deve ser tomada todos os dias.', ['1|gota']],
+      ['O estoque registrado é de 5 comprimidos, e eu indico tomar 5 comprimidos.', ['5|comprimido']],
+    ] as Array<[string, string[]]>)('continua reprovando %j', (texto, valores) => expect(r3(texto, valores)).toBe(true));
+  });
+
+  describe('5. a serie da vacina registrada', () => {
+    const VALORES = ['3|dose', '2|dose', '1|dose'];
+    it.each([
+      'Na carteira, a série da Hepatite B está registrada com 3 doses no total.',
+      'Na carteira de vacinação estão registradas 2 doses da Hepatite B, e a série tem 3 doses no total.',
+    ])('passa %j', (texto) => expect(r3(texto, VALORES)).toBe(false));
+
+    it('sem o valor vindo da ferramenta, continua reprovando', () => {
+      expect(r3('Na carteira, a série da Hepatite B está registrada com 3 doses no total.')).toBe(true);
+    });
+
+    // "Aplicada" e o registro da carteira (E5#5, segunda rodada).
+    it('"doses aplicadas" e ancora de registro', () => {
+      expect(r3('Há 2 doses aplicadas — a mais recente em 02/03/2026.', VALORES)).toBe(false);
+    });
+
+    it.each([
+      ['As 2 doses devem ser aplicadas até dezembro.', VALORES],
+      ['Há 2 doses aplicadas — a mais recente em 02/03/2026.', []],
+    ] as Array<[string, string[]]>)('continua reprovando %j', (texto, valores) => expect(r3(texto, valores)).toBe(true));
   });
 });

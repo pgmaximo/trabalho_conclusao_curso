@@ -68,3 +68,9 @@ describe('consultar_vacinas (E5)', () => {
     });
   });
 });
+
+describe('o gancho dos valores cadastrados (A9)', () => {
+  it('consultar_vacinas diz a verificacao quais contagens sao do registro', () => {
+    expect(vacinasTool.valoresCadastrados).toBeDefined();
+  });
+});

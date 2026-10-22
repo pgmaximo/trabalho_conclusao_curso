@@ -215,6 +215,22 @@ describe('a passiva no turno com acao (revisao do E11)', () => {
     expect(r.status).toBe('APROVADA_NA_SEGUNDA');
   });
 
+  // A4/B da conferencia no sandbox: o modelo mandou `acao` sem ninguem pedir,
+  // com todos os campos vazios, e a passiva do dado das doses ("o das 8h foi
+  // marcado") foi reprovada como se fosse cadastro. A segunda geracao apagou o
+  // conteudo para escapar. So a acao que SAI (a valida) liga a regra.
+  it('acao que nao sobrevive nao reprova a passiva honesta', async () => {
+    const acaoVazia = { tipo: 'ABRIR_NOVO_AGENDAMENTO', nome: '', profissional: '', quando: '', hora: '' };
+    mockRunConversationTurn.mockResolvedValue(
+      turno('Losartana: 7 horários foram marcados; o das 8h de hoje foi marcado.', { acao: acaoVazia }),
+    );
+
+    const r = await responderComVerificacao({ ...ENTRADA, message: 'to tomando direitinho?' });
+
+    expect(mockRegenerateAnswer).not.toHaveBeenCalled();
+    expect(r.status).toBe('APROVADA');
+  });
+
   it('sem acao, a passiva honesta passa de primeira', async () => {
     mockRunConversationTurn.mockResolvedValue(turno('Sua consulta está marcada para sexta, às 14h.'));
 
@@ -270,6 +286,31 @@ describe('a frase do formulario (revisao do E11)', () => {
     mockRunConversationTurn.mockResolvedValue(turno(`${LIMPA} ${TEXTO_DA_ACAO}`, { acao: ACAO }));
     const r = await responderComVerificacao(ENTRADA);
     expect(r.texto).toBe(`${LIMPA} ${TEXTO_DA_ACAO}`);
+  });
+
+  // A5 da conferencia no sandbox: a frase do formulario escrita pelo MODELO
+  // pede nova geracao com ou sem cartao; a do aplicativo, so sem cartao.
+  it('sem cartao, "preparei as informacoes" pede nova geracao', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(`${LIMPA} Preparei as informações abaixo para facilitar.`));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(mockRegenerateAnswer).toHaveBeenCalledTimes(1);
+    expect(r.texto).toBe(LIMPA);
+  });
+
+  it('com cartao, a frase do modelo tambem pede nova geracao', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(`${LIMPA} Preparei as informações abaixo para facilitar.`, { acao: ACAO }));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA, { acao: ACAO }));
+    const r = await responderComVerificacao(ENTRADA);
+    expect(mockRegenerateAnswer).toHaveBeenCalledTimes(1);
+    expect(r.texto).toBe(`${LIMPA} ${TEXTO_DA_ACAO}`);
+  });
+
+  it('sem cartao, nem a frase exata do aplicativo passa', async () => {
+    mockRunConversationTurn.mockResolvedValue(turno(`${LIMPA} ${TEXTO_DA_ACAO}`));
+    mockRegenerateAnswer.mockResolvedValue(turno(LIMPA));
+    await responderComVerificacao(ENTRADA);
+    expect(mockRegenerateAnswer).toHaveBeenCalledTimes(1);
   });
 
   it('a propria frase passa pelas regras de linguagem', () => {

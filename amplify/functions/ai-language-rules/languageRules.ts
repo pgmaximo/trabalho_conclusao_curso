@@ -93,6 +93,14 @@ export type OpcoesDeVerificacao = {
    * marcada para sexta" e o dado honesto de `consultar_consultas`.
    */
   comAcaoProposta?: boolean;
+  /**
+   * O texto do modelo nao pode dizer que o formulario esta pronto (A5): quem
+   * diz isso e o aplicativo, com a frase dele, e so quando o cartao sai. Vem de
+   * quem chama porque so ele separa a frase do aplicativo da do modelo.
+   * AUSENTE significa que a checagem nao vale -- a frase do aplicativo passa
+   * por estas regras sozinha, e precisa passar.
+   */
+  vetarFormulario?: boolean;
 };
 
 export type Violation = {
@@ -117,6 +125,22 @@ type Verificador = (texto: string, opcoes: OpcoesDeVerificacao) => Violation[];
 /** Preenchido pelas tarefas L2, L3 e L4. */
 const VERIFICADORES: Verificador[] = [];
 
+/** Nomes de tipo e campo que a saida estruturada devolve no lugar do texto. */
+const MARCADORES_DO_SCHEMA = new Set(['string', 'texto', 'null', 'undefined']);
+
+/**
+ * Resposta que parece texto e nao diz nada (A4 da conferencia no sandbox,
+ * 2026-10-20): o marcador do schema ("string"), o do exemplo do prompt
+ * ("..."), ou a abertura que anuncia o que nunca veio -- a segunda geracao
+ * "consertava" uma reprovacao apagando tudo depois de "Aqui esta o que o
+ * aplicativo registrou:". As tres foram aprovadas e mostradas como resposta.
+ */
+function semConteudo(texto: string): boolean {
+  const aparado = texto.trim();
+  const nucleo = aparado.replace(/["'“”]/g, '').trim().toLowerCase();
+  return !/[\p{L}\p{N}]/u.test(nucleo) || MARCADORES_DO_SCHEMA.has(nucleo) || aparado.endsWith(':');
+}
+
 export function checkLanguageRules(
   text: string,
   options: OpcoesDeVerificacao,
@@ -127,6 +151,18 @@ export function checkLanguageRules(
     return {
       ok: false,
       violations: [{ rule: 'R5', reason: 'A resposta veio vazia.', excerpt: '' }],
+    };
+  }
+  if (semConteudo(text)) {
+    return {
+      ok: false,
+      violations: [
+        {
+          rule: 'R5',
+          reason: 'A resposta veio sem conteúdo, ou anuncia algo que não está nela. Escreva a resposta inteira no campo "texto".',
+          excerpt: text.slice(-80),
+        },
+      ],
     };
   }
 
@@ -206,6 +242,8 @@ const UNIDADES_DE_REMEDIO =
  */
 const COISAS_DO_APLICATIVO =
   'exames?|documentos?|consultas?|receitas?|resultados?|registros?|compromissos?|vacinas?|laudos?|anexos?|' +
+  // A observacao que a PESSOA escreveu (E5): "voce tem uma anotacao para ele" (A9).
+  'anota[cç](?:[aã]o|[oõ]es)|' +
   // Dose e reforco da CARTEIRA (E8): "voce tem uma dose prevista para 10/11"
   // e o calendario do aplicativo, e era reprovada como diagnostico.
   'doses?|refor[cç]os?|' +
@@ -229,6 +267,10 @@ const COISAS_DO_APLICATIVO =
  * "voce tem apenas diabetes" continua reprovado.
  */
 const ADVERBIOS_DO_INVENTARIO = 'apenas|s[oó]|somente|ainda|j[aá]';
+
+/** A contagem do inventario: "voce tem 2 receitas" e "voce tem DUAS receitas"
+ *  (A9 da conferencia no sandbox: so o algarismo era aceito). */
+const CONTAGEM_DO_INVENTARIO = '\\d+|dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez';
 
 /** O inventario dito com o objeto ANTES do verbo: "os laudos que voce tem
  *  guardados". O participio e o que diz que se fala do aplicativo. */
@@ -458,7 +500,7 @@ const FECHO_DA_PERMISSAO =
 const DEVOLVE_A_DECISAO = new RegExp(
   `(?:${RECUSA_DE_JULGAR.source}|saber|sei|sabe|confirm\\w*|verific\\w*|pergunt\\w*|consult\\w*|decid\\w*|avali\\w*|dir[aá]|diz\\w*)` +
     `(?:\\s+\\S+){0,4}?\\s+se\\s+(?:(?!(?:e|mas|ent[aã]o)\\s)[^\\s,:;]+\\s+){0,3}$` +
-    `|n[aã]o\\s+(?:quer\\s+dizer|significa|garante)\\s+que\\s+(?:\\S+\\s+){0,2}$`,
+    `|n[aã]o\\s+(?:quer\\s+dizer|significa|garante)(?:\\s+necessariamente)?\\s+que\\s+(?:\\S+\\s+){0,2}$`,
   'i',
 );
 
@@ -514,6 +556,24 @@ const DEVOLVE_A_DOSE_ESQUECIDA = new RegExp(
 /** A excecao do "nao tomou": a frase que diz que sem marcacao nao e falta de
  *  dose, e a condicao ("se voce nao tomou, ..."). */
 const NAO_AFIRMA_QUE_NAO_TOMOU = new RegExp(`${DEVOLVE_A_DECISAO.source}|${CONDICAO_SE}`, 'i');
+
+/**
+ * O verbo de tomar e usar dentro do ENCAMINHAMENTO (A9 da conferencia no
+ * sandbox): "o medico orienta sobre como usar cada remedio" e "nao consigo
+ * orientar sobre dose ou como tomar um remedio" sao a devolucao que o prompt
+ * pede, e eram reprovadas como prescricao. So o "como" depois de orientar:
+ * "tome", "use 2 comprimidos" e "voce deve tomar" continuam reprovados.
+ */
+const ORIENTA_COMO_USAR = /orient\w*\s+(?:\S+\s+){0,3}?como\s+$/i;
+
+/**
+ * A excecao do padrao de tomar e usar: o "como" do encaminhamento e a mesma
+ * recusa, pergunta, condicao e "sobre" que os outros padroes da R3 aceitam --
+ * "nao consigo orientar sobre tomar mais de uma dose" (DS5, segunda rodada).
+ * Vale so ANTES do verbo e na mesma oracao: "nao consigo ver seu historico,
+ * entao tome 2 comprimidos" continua reprovado.
+ */
+const DEVOLVE_O_USO = new RegExp(`${ORIENTA_COMO_USAR.source}|${DEVOLVE_A_DOSE_ESQUECIDA.source}`, 'i');
 
 type PadraoR3 = {
   padrao: RegExp;
@@ -704,6 +764,7 @@ const PADROES_R3: PadraoR3[] = [
     padrao:
       /\b(tome|tomar|use|usar|ingira|ingerir|aumente|aumentar|diminua|diminuir|reduza|reduzir)\b[^.!?]{0,60}\b(medicament\w+|remedi\w+|remédi\w+|comprimid\w+|capsul\w+|cápsul\w+|doses?)\b/i,
     motivo: MOTIVO_DE_MUDANCA,
+    excecao: DEVOLVE_O_USO,
   },
   {
     // Verbos de SUSPENSAO disparam sozinhos, sem exigir que o objeto seja um
@@ -837,7 +898,7 @@ const PADROES_R3: PadraoR3[] = [
         // A negativa exime o INVENTARIO do aplicativo, e so ele. Qualquer outro
         // objeto -- "diabetes", "um quadro de tireoidite" -- continua reprovado,
         // e ha caso de teste para cada um.
-        `(?!\\s+(?:(?:${ADVERBIOS_DO_INVENTARIO})\\s+)?(?:\\d+\\s+)?(?:um|uma|uns|umas|o|a|os|as)?\\s*(?:${COISAS_DO_APLICATIVO})\\b` +
+        `(?!\\s+(?:(?:${ADVERBIOS_DO_INVENTARIO})\\s+)?(?:(?:${CONTAGEM_DO_INVENTARIO})\\s+)?(?:um|uma|uns|umas|o|a|os|as)?\\s*(?:${COISAS_DO_APLICATIVO})\\b` +
         // "os laudos que voce tem guardados" -- o objeto veio ANTES do verbo.
         `|\\s+(?:${PARTICIPIOS_DO_INVENTARIO})${FIM_R3})` +
         '|(?:^|\\W)(e|é)\\s+(um\\s+)?(sinal\\s+claro\\s+de|caso\\s+de|quadro\\s+de)\\b',
@@ -1008,7 +1069,8 @@ function chaveNoTexto(
  * frase tem de DIZER que fala do cadastro (revisao do E2).
  */
 const ANCORA_DE_REGISTRO = new RegExp(
-  `${INI_R3}(?:cadastr|registr|anotad)${L_R3}*|${INI_R3}voc[eê]\\s+(?:definiu|anotou)${FIM_R3}`,
+  // "aplicada" e o registro da CARTEIRA ("ha 2 doses aplicadas", DS5).
+  `${INI_R3}(?:cadastr|registr|anotad|aplicad)${L_R3}*|${INI_R3}voc[eê]\\s+(?:definiu|anotou)${FIM_R3}`,
   'i',
 );
 
@@ -1082,6 +1144,20 @@ function trechoEmVolta(texto: string, inicio: number, fim: number, limites: RegE
  * ancora so fala da primeira. A prescricao vale na FRASE inteira, onde quer
  * que o verbo esteja.
  */
+/**
+ * O que, na frase do valor cadastrado, parece verbo de prescricao e nao e (A9
+ * da conferencia no sandbox): o participio que descreve o cadastro ("1 gota,
+ * tomada todos os dias") e o aplicativo, como palavra e como sujeito ("no
+ * aplicativo", "o aplicativo ja esta sinalizando"). "Aplicativo" casava com o
+ * radical de "aplicar", e todo valor dito "no aplicativo" perdia a D2.4.
+ * "Deve ser tomada", "aplique" e "eu indico" continuam prescricao.
+ */
+const NEUTRO_NA_FRASE = new RegExp(
+  `(?<!ser\\s)${INI_R3}(?:tomad|aplicad)[oa]s?${FIM_R3}` +
+    `|${INI_R3}aplicativos?(?:\\s+(?:j[aá]\\s+)?(?:est[aá]\\s+)?(?:indica|sinaliza|mostra)${L_R3}*)?${FIM_R3}`,
+  'gi',
+);
+
 function ehValorCadastrado(
   texto: string,
   achado: RegExpMatchArray,
@@ -1094,7 +1170,7 @@ function ehValorCadastrado(
   const fim = inicio + achado[0].length;
   return (
     ANCORA_DE_REGISTRO.test(trechoEmVolta(texto, inicio, fim, QUEBRA_DE_ORACAO_GLOBAL)) &&
-    !PRESCRICAO_NA_FRASE.test(trechoEmVolta(texto, inicio, fim, FIM_DE_FRASE))
+    !PRESCRICAO_NA_FRASE.test(trechoEmVolta(texto, inicio, fim, FIM_DE_FRASE).replace(NEUTRO_NA_FRASE, ' '))
   );
 }
 
@@ -1732,3 +1808,27 @@ const verificarPassivaDeCadastro: Verificador = (texto, { comAcaoProposta }) => 
 };
 
 VERIFICADORES.push(verificarPassivaDeCadastro);
+
+/**
+ * O formulario prometido pelo modelo (A5 da conferencia no sandbox,
+ * 2026-10-20). Com o cartao saindo ou nao, o texto dizia "Preparei as
+ * informacoes abaixo", "Deixei o formulario pre-preenchido", "O formulario ja
+ * vai aberto" -- e sem cartao a pessoa procurava um botao que nao existia. So
+ * o fato consumado ou anunciado: "e eu preparo o formulario", oferta que
+ * depende da proxima fala dela, continua valendo, e "nao preparei" e honesto.
+ */
+const FORMULARIO_PROMETIDO = new RegExp(
+  `${INI_R3}(?<!n[aã]o\\s)(?:preparei|deixei|vou\\s+(?:preparar|deixar|abrir))${FIM_R3}[^.!?]{0,40}?` +
+    `${INI_R3}(?:formul[aá]rios?|informa[cç][oõ]es|dados|campos)${FIM_R3}` +
+    `|${INI_R3}formul[aá]rio${FIM_R3}[^.!?]{0,20}?${INI_R3}j[aá]\\s+(?:vai|est[aá]|fica|ficou)\\s+(?:abert|preenchid|pront)[oa]`,
+  'i',
+);
+const MOTIVO_FORMULARIO =
+  'A resposta diz que o formulário está pronto. Quem diz isso é o aplicativo, quando o botão aparece. Diga só onde a pessoa faz isso no aplicativo.';
+const verificarFormularioPrometido: Verificador = (texto, { vetarFormulario }) => {
+  if (!vetarFormulario) return [];
+  const achado = FORMULARIO_PROMETIDO.exec(texto);
+  if (!achado) return [];
+  return [{ rule: 'R5', reason: MOTIVO_FORMULARIO, excerpt: trecho(texto, achado.index, achado[0].length) }];
+};
+VERIFICADORES.push(verificarFormularioPrometido);

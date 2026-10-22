@@ -198,3 +198,12 @@ describe('o próprio arquivo de padrões', () => {
     if (!r.ok) expect(r.motivo).not.toContain('diabetes');
   });
 });
+
+// A4 da conferencia no sandbox: a saida estruturada propos guardar "string"
+// como o nome da pessoa, junto de uma resposta "string". O cartao pediria a
+// ela que confirmasse um marcador.
+describe('proposta sem conteúdo (A4)', () => {
+  it.each(['string', '...'])('recusa o marcador %j', (texto) => {
+    expect(validarProposta({ texto, tipo: 'COMO_ME_CHAMAR' }).ok).toBe(false);
+  });
+});

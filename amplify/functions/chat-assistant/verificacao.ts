@@ -38,7 +38,7 @@ import { validarProposta } from './memoria/propostaValida';
 import { lerMemoria, montarSystemPrompt } from './memoria/leitura';
 import type { AcaoProposta } from '../acoes-propostas-shared/camposDaAcao';
 import { validarAcao } from './acoes/acaoValida';
-import { costurarAcao } from './acoes/fraseDaAcao';
+import { costurarAcao, TEXTO_DA_ACAO } from './acoes/fraseDaAcao';
 import { HISTORY_WINDOW } from './janelaDoHistorico';
 import type { AcaoBruta, AnswerCitation, ChatAnswer, MemoryProposal } from './chatSchema';
 import { dataEmSaoPaulo } from './formatoPtBr';
@@ -244,6 +244,16 @@ function propostaAceitavel(
  * ferramentas devolveram (ver `acoes/acaoValida.ts`). Sem o dia do turno, nada
  * sai: resolver "sexta" sem saber que dia e hoje seria chutar a data.
  */
+/**
+ * A frase do formulario e do APLICATIVO (`fraseDaAcao.ts`). Quando o cartao
+ * sai, o modelo que a copiou nao a inventou -- `costurarAcao` nao a repete --,
+ * e ela nao conta para a checagem do formulario prometido (A5). Sem cartao, ela
+ * e tao falsa quanto qualquer outra e fica no texto verificado.
+ */
+function textoParaVerificar(texto: string, comCartao: boolean): string {
+  return comCartao ? texto.replace(TEXTO_DA_ACAO, '').trim() || texto : texto;
+}
+
 function acaoAceitavel(acao: AcaoBruta | undefined, entrada: TurnInput): AcaoProposta | undefined {
   if (!acao || !entrada.hoje) return undefined;
   // So a janela que o modelo viu (revisao do E11): um campo "confirmado" por
@@ -514,7 +524,8 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     registrarCusto('segunda', segunda.inputTokens, segunda.outputTokens);
 
     const tipoDaSegunda = classificar(segunda.answer.texto, segunda.answer.toolsUsadas);
-    const recheck = checkLanguageRules(segunda.answer.texto, {
+    const cartaoDaSegunda = acaoAceitavel(segunda.answer.acao, entrada) !== undefined;
+    const recheck = checkLanguageRules(textoParaVerificar(segunda.answer.texto, cartaoDaSegunda), {
       questionKind: tipoDaSegunda,
       temOrigem: temOrigemDeclarada(segunda.answer, entrada),
       // A segunda geracao NAO refaz o laco de ferramentas (D31), entao o que
@@ -523,8 +534,11 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
       semDados,
       valoresCadastrados: valoresCadastradosDoTurno(transcript.toolOutputs),
       cruzaDominios: cruzaDominios(segunda.answer.toolsUsadas),
-      // O modelo propos acao: a passiva de cadastro tambem e barrada (E11).
-      comAcaoProposta: segunda.answer.acao !== undefined,
+      // A passiva de cadastro so e barrada quando o cartao vai sair (E11). A
+      // acao crua nao serve: o modelo as vezes manda uma vazia sem ninguem
+      // pedir, e o dado das doses ("foi marcado") era reprovado (A4).
+      comAcaoProposta: cartaoDaSegunda,
+      vetarFormulario: true,
     });
     const citacoesOkNaSegunda = citacoesConferem(segunda.answer, indice);
     if (citacoesOkNaSegunda && (recheck.ok || somenteR2(recheck))) {
@@ -570,14 +584,17 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
   const semDados = nenhumDadoVeio(primeira.transcript.toolOutputs);
 
   const tipo = classificar(primeira.answer.texto, primeira.answer.toolsUsadas);
-  const check = checkLanguageRules(primeira.answer.texto, {
+  const cartao = acaoAceitavel(primeira.answer.acao, entrada) !== undefined;
+  const check = checkLanguageRules(textoParaVerificar(primeira.answer.texto, cartao), {
     questionKind: tipo,
     temOrigem: temOrigemDeclarada(primeira.answer, entrada),
     semDados,
     valoresCadastrados: valoresCadastradosDoTurno(primeira.transcript.toolOutputs),
     cruzaDominios: cruzaDominios(primeira.answer.toolsUsadas),
-    // O modelo propos acao: a passiva de cadastro tambem e barrada (E11).
-    comAcaoProposta: primeira.answer.acao !== undefined,
+    // So a acao que vai sair liga a passiva (E11; ver a segunda geracao, A4).
+    comAcaoProposta: cartao,
+    // O texto do modelo nunca diz que o formulario esta pronto (A5).
+    vetarFormulario: true,
   });
   const citacoesOk = citacoesConferem(primeira.answer, indice);
 

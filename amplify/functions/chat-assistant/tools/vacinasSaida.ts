@@ -16,6 +16,7 @@
  * Nenhum campo diz se a carteira esta completa, em dia ou atrasada: isso e
  * decisao da unidade de saude, nao do aplicativo.
  */
+import { valoresDeRemedioNoTexto } from '../../ai-language-rules/languageRules';
 import { numero } from './linhasDeResultado';
 import { observacaoComTeto } from './observacao';
 import { texto, type LinhaDoBanco } from './ownerScopedRead';
@@ -198,4 +199,24 @@ export function montarSaida(linhas: LinhaDoBanco[]): SaidaDasVacinas {
       ? { explicacao: 'O usuário não registrou nenhuma dose de vacina no aplicativo.' }
       : {}),
   };
+}
+
+/**
+ * As contagens da carteira que a verificacao deve ler como REGISTRO, e nao como
+ * quantidade de remedio (A9 da conferencia no sandbox, a mesma D2.4 dos
+ * remedios): o total da serie, o numero da dose aplicada e quantas faltam.
+ * "A serie da Hepatite B esta registrada com 3 doses" era reprovada pela R3.
+ */
+export function valoresCadastradosDasVacinas(output: unknown): string[] {
+  const saida = output as Partial<SaidaDasVacinas> | null;
+  const aplicadas = Array.isArray(saida?.aplicadas) ? saida.aplicadas : [];
+  return aplicadas.flatMap((d) => {
+    const contagens = [d?.totalDeDosesDaSerie, d?.numeroDaDose];
+    if (typeof d?.totalDeDosesDaSerie === 'number' && typeof d?.numeroDaDose === 'number') {
+      contagens.push(d.totalDeDosesDaSerie - d.numeroDaDose);
+    }
+    return contagens
+      .filter((n): n is number => typeof n === 'number' && n > 0)
+      .flatMap((n) => valoresDeRemedioNoTexto(`${n} ${n === 1 ? 'dose' : 'doses'}`));
+  });
 }

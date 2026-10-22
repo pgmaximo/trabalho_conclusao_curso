@@ -16,7 +16,7 @@ import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-r
 import { toStructuredOutputSchema } from '../extract-document-data/extractionSchema';
 
 import { SYSTEM_PROMPT, buildUserMessage } from './chatPrompt';
-import { chatAnswerSchema, extrairResposta, type ChatAnswer } from './chatSchema';
+import { chatAnswerSchema, extrairResposta, schemaDaResposta, type ChatAnswer } from './chatSchema';
 import { HISTORY_WINDOW } from './janelaDoHistorico';
 import { CHAT_TOOLS, findTool, runTool } from './tools';
 import type { ChatIdentity } from './auth';
@@ -237,7 +237,7 @@ function chamar(input: TurnInput, messages: unknown[], temperature: number) {
       // ferramentas -- combinacao que so uma chamada real confirma.
       additionalModelRequestFields: {
         output_config: {
-          format: { type: 'json_schema', schema: toStructuredOutputSchema(chatAnswerSchema) },
+          format: { type: 'json_schema', schema: schemaDaResposta() },
         },
       },
       guardrailConfig: guardrail(input),

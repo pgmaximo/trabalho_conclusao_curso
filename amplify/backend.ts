@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { defineBackend } from '@aws-amplify/backend';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
@@ -608,21 +609,87 @@ chatAssistantLambda.addToRolePolicy(
   }),
 );
 
-// O chat REUSA o guardrail da analise de wearables, e nao ganha um proprio.
-// A D20 mandou a extracao ter o seu porque la os dois topicos bloqueados sao o
-// CONTEUDO LEGITIMO do papel -- uma receita transcrita E uma prescricao de
-// medicamento. Aqui a razao se inverte: o chat e exatamente "uma IA que da
-// conselho", que e a IA para a qual aquele guardrail foi desenhado. Bloquear
-// diagnostico definitivo e indicacao de dose na SAIDA e o comportamento
-// desejado, e coincide com o que a R3 das regras de linguagem ja exige.
+// O chat tinha reusado o guardrail da analise de wearables, e a conferencia no
+// sandbox (2026-10-20) mostrou o custo: o topico de prescricao barrava a
+// PERGUNTA da pessoa sobre os remedios dela ("a losartana e de quantas em
+// quantas horas"), e o filtro de nome anonimizava "Dra. Ana" e "Losartana" --
+// anonimizar tambem volta `guardrail_intervened`, e o laco trata isso como
+// bloqueio. Guardrail proprio, como a extracao ganhou na D20 (DS1 = B e
+// DS2 = A, decisoes/conferencia-no-sandbox.md):
+// - SEM topicos. So na saida (DS1 = A) eles ainda barraram 7 respostas
+//   legitimas ("a Losartana esta cadastrada a cada 8 horas", e ate a recusa
+//   de dobrar a dose). Diagnostico e dose continuam proibidos pela R3, que e
+//   deterministica e conhece o valor cadastrado (D2.4) -- o topico nao;
+// - sem NAME: no chat, nome e dado da propria pessoa (o profissional da
+//   consulta, o remedio cadastrado). Email, telefone e CPF continuam.
+const chatGuardrailStack = backend.createStack('chat-assistant-guardrail');
+
+// Tudo menos o nome: o nome carrega um token do CloudFormation, que nao tem
+// valor no synth e nao entra na impressao digital abaixo.
+const configuracaoDoGuardrailDoChat = {
+  // Teto de 200 caracteres (ver o da extracao).
+  description:
+    'Assistente conversacional: filtra conteudo e ataque de prompt e anonimiza email, telefone e CPF. Sem topicos: dose e diagnostico sao da R3 (DS1, DS2).',
+  blockedInputMessaging:
+    'Nao foi possivel processar esta solicitacao por questoes de seguranca de conteudo.',
+  blockedOutputsMessaging:
+    'A resposta gerada foi bloqueada por questoes de seguranca de conteudo. Tente novamente ou consulte um profissional de saude.',
+  contentPolicyConfig: {
+    filtersConfig: [
+      { type: 'HATE', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      { type: 'INSULTS', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      { type: 'SEXUAL', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      { type: 'VIOLENCE', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      { type: 'MISCONDUCT', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+      { type: 'PROMPT_ATTACK', inputStrength: 'HIGH', outputStrength: 'NONE' },
+    ],
+  },
+  sensitiveInformationPolicyConfig: {
+    piiEntitiesConfig: [
+      { type: 'EMAIL', action: 'ANONYMIZE' },
+      { type: 'PHONE', action: 'ANONYMIZE' },
+    ],
+    regexesConfig: [
+      {
+        name: 'cpf',
+        description: 'CPF brasileiro (com ou sem pontuacao)',
+        pattern: '\\b\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}\\b',
+        action: 'ANONYMIZE',
+      },
+    ],
+  },
+};
+
+const chatAssistantGuardrail = new bedrock.CfnGuardrail(chatGuardrailStack, 'ChatAssistantGuardrail', {
+  name: `chat-assistant-${sufixoUnicoDaStack}`,
+  ...configuracaoDoGuardrailDoChat,
+});
+
+// A CfnGuardrailVersion so publica versao nova quando as propriedades DELA
+// mudam: mudar so a configuracao acima atualizava o DRAFT, e o chat seguia na
+// versao 1 (medido no deploy da DS1 = B, com os topicos ainda barrando). A
+// impressao digital da configuracao na descricao faz cada mudanca virar versao.
+function impressaoDaConfiguracao(configuracao: object): string {
+  return createHash('sha256').update(JSON.stringify(configuracao)).digest('hex').slice(0, 12);
+}
+
+const chatAssistantGuardrailVersion = new bedrock.CfnGuardrailVersion(
+  chatGuardrailStack,
+  'ChatAssistantGuardrailVersion',
+  {
+    guardrailIdentifier: chatAssistantGuardrail.attrGuardrailId,
+    description: `configuracao ${impressaoDaConfiguracao(configuracaoDoGuardrailDoChat)}`,
+  },
+);
+
 backend.chatAssistant.addEnvironment('BEDROCK_MODEL_ID', BEDROCK_INFERENCE_PROFILE_ID);
 backend.chatAssistant.addEnvironment(
   'BEDROCK_GUARDRAIL_ID',
-  healthInsightsGuardrail.attrGuardrailId,
+  chatAssistantGuardrail.attrGuardrailId,
 );
 backend.chatAssistant.addEnvironment(
   'BEDROCK_GUARDRAIL_VERSION',
-  healthInsightsGuardrailVersion.attrVersion,
+  chatAssistantGuardrailVersion.attrVersion,
 );
 
 // As duas ARNs pelo mesmo motivo registrado nas demais funcoes: com prefixo
@@ -641,7 +708,7 @@ chatAssistantLambda.addToRolePolicy(
 chatAssistantLambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['bedrock:ApplyGuardrail'],
-    resources: [healthInsightsGuardrail.attrGuardrailArn],
+    resources: [chatAssistantGuardrail.attrGuardrailArn],
   }),
 );
 

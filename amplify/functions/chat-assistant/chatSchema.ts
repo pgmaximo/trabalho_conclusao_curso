@@ -21,9 +21,11 @@
  * - a citacao INVENTADA -- id que nenhuma tool devolveu -- em `verificacao.ts`,
  *   que e o unico lugar que sabe o que as tools entregaram (C5).
  */
+import type { DocumentType } from '@smithy/types';
 import { z } from 'zod';
 
 import { TIPOS_DE_ACAO, TIPOS_DE_COMPROMISSO } from '../acoes-propostas-shared/camposDaAcao';
+import { toStructuredOutputSchema } from '../extract-document-data/extractionSchema';
 import { MAX_CARACTERES_FATO, MEMORY_KINDS } from './memoria/regras';
 
 export const citationSchema = z
@@ -144,8 +146,76 @@ export function extrairResposta(texto: string): unknown {
     .trim();
 
   try {
-    return JSON.parse(limpo);
+    return doFio(JSON.parse(limpo));
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A ORDEM NO FIO (A5 da conferencia no sandbox, 2026-10-20). A saida
+ * estruturada escreve as chaves em ordem ALFABETICA, e nao na do schema --
+ * medido com a saida bruta. "acao" vinha antes de "texto", e o modelo tinha
+ * de decidir a acao antes de escrever a resposta: pulava o campo e prometia o
+ * formulario no texto. Dentro da acao, "tipo" vinha quase por ultimo, e depois
+ * dele "hora", "nome" e "quando" ja tinham passado. O prefixo numerico faz a
+ * ordem alfabetica ser a que o envelope quer; so o schema mandado ao modelo e
+ * a resposta dele usam esses nomes, e `extrairResposta` os traduz de volta.
+ */
+const ENVELOPE_NO_FIO: Record<string, string> = {
+  citacoes: '1_citacoes',
+  texto: '2_texto',
+  memoria: '3_memoria',
+  acao: '4_acao',
+};
+const ACAO_NO_FIO: Record<string, string> = {
+  tipo: '1_tipo',
+  nome: '2_nome',
+  profissional: '3_profissional',
+  endereco: '4_endereco',
+  tipoDeCompromisso: '5_tipoDeCompromisso',
+  quando: '6_quando',
+  hora: '7_hora',
+  horarios: '8_horarios',
+};
+
+type NoDoSchema = { properties: Record<string, unknown>; required?: string[] };
+
+function renomear(no: NoDoSchema, nomes: Record<string, string>): NoDoSchema {
+  return {
+    ...no,
+    properties: Object.fromEntries(Object.entries(no.properties).map(([k, v]) => [nomes[k] ?? k, v])),
+    ...(no.required && { required: no.required.map((k) => nomes[k] ?? k) }),
+  };
+}
+
+/** O JSON Schema do `output_config`: o do envelope, com os nomes do fio. */
+export function schemaDaResposta(): DocumentType {
+  const base = toStructuredOutputSchema(chatAnswerSchema) as unknown as NoDoSchema;
+  const acao = base.properties.acao as NoDoSchema;
+  return renomear(
+    { ...base, properties: { ...base.properties, acao: renomear(acao, ACAO_NO_FIO) } },
+    ENVELOPE_NO_FIO,
+  ) as unknown as DocumentType;
+}
+
+const inverter = (nomes: Record<string, string>) =>
+  Object.fromEntries(Object.entries(nomes).map(([k, v]) => [v, k]));
+const DO_FIO = inverter(ENVELOPE_NO_FIO);
+const ACAO_DO_FIO = inverter(ACAO_NO_FIO);
+
+function traduzir(objeto: Record<string, unknown>, nomes: Record<string, string>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(objeto).map(([k, v]) => [nomes[k] ?? k, v]));
+}
+
+/** A resposta com os nomes do fio volta com os do envelope. Sem saida
+ *  estruturada, o modelo escreve os nomes do prompt, e eles passam intactos. */
+function doFio(bruto: unknown): unknown {
+  if (bruto === null || typeof bruto !== 'object' || Array.isArray(bruto)) return bruto;
+  const envelope = traduzir(bruto as Record<string, unknown>, DO_FIO);
+  const acao = envelope.acao;
+  if (acao !== null && typeof acao === 'object' && !Array.isArray(acao)) {
+    envelope.acao = traduzir(acao as Record<string, unknown>, ACAO_DO_FIO);
+  }
+  return envelope;
 }
