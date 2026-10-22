@@ -59,7 +59,7 @@ Rodada completa de **2026-10-22** (commit `addebdb`, os três modelos no **Sonne
 
 Estado em 2026-10-22, depois da rodada completa no Sonnet 4.6.
 
-1. **A13:** deploy da DS16 e remedição de E7 (#2 e #5), conferindo no rastro o `cacheReadInputTokens` a partir da segunda ida ao modelo.
+1. **A13, próximo passo:** o deploy da DS16 (commit `beffe91`) foi disparado em 2026-10-22, por volta das 13:10 (UTC−3), e a sessão foi encerrada antes de ele terminar. Conferir se terminou: no Lambda do chat (`pedro-sandbox-chatassistant`), `BEDROCK_GUARDRAIL_VERSION` deve ter passado de `2` para uma versão nova, por causa da mudança do filtro SEXUAL. Se ainda estiver em `2`, refazer o deploy. Depois, medir o E7 (`run.sh … E7`; #2 e #5 são os casos da DS16) e conferir o cache no CloudWatch (`CacheReadInputTokenCount` e `CacheWriteInputTokenCount` do `us.anthropic.claude-sonnet-4-6` na janela da medição).
 2. **Perfil `global.` (DS15.3):** medido com chamadas mínimas em 2026-10-22: 1,31 s contra 1,84 s do `us.` (média do Bedrock), mais estável, mas fora de um episódio lento e sem o formato da chamada do chat. Falta medir a chamada real nos dois perfis durante um episódio lento (exige trocar o perfil num sandbox) e decidir sobre a inferência fora dos EUA.
 3. **Acesso aos modelos novos (do usuário):** pedir a liberação do Opus 5.5 e do Sonnet 5.5 no Bedrock. Quando sair, basta trocar `CHAT_BASE_MODEL_ID` e `BEDROCK_BASE_MODEL_ID` no `backend.ts` (DS12), fazer o deploy e medir de novo, com a latência do chat.
 4. **Conferir o wearable e a extração reais** depois da DS12: o wearable trocou a tool forçada pela saída estruturada, e nenhuma importação real passou por ele ainda.
