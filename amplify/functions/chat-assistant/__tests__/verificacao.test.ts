@@ -983,6 +983,29 @@ describe('R5 no turno', () => {
       expect(r.status).not.toBe('APROVADA');
       expect(r.texto).not.toContain(TEXTO_DA_AUSENCIA);
     });
+
+    // DS15.2 = A: a costura do encaminhamento segue a dispensa da R2. "O que
+    // isso significa" nao cabe numa resposta sem dado (E6 #2).
+    it('a resposta que so diz que nao ha o dado sai sem o encaminhamento costurado', async () => {
+      mockRunConversationTurn.mockResolvedValue(
+        turnoForaDoPeriodo('Os dados do relógio vão até 12/10/2026, então a última quinta (15/10) ainda não está disponível.'),
+      );
+
+      const r = await responderComVerificacao(ENTRADA);
+
+      expect(r.status).toBe('APROVADA');
+      expect(r.texto).not.toContain(TEXTO_DE_ENCAMINHAMENTO);
+    });
+
+    it('com juizo de saude em outra oracao, o encaminhamento volta', async () => {
+      mockRunConversationTurn.mockResolvedValue(
+        turnoForaDoPeriodo('Os dados do relógio vão até 12/10/2026, mas seu sono costuma ser ruim nas quintas.'),
+      );
+
+      const r = await responderComVerificacao(ENTRADA);
+
+      expect(r.texto).toContain(TEXTO_DE_ENCAMINHAMENTO);
+    });
   });
 });
 

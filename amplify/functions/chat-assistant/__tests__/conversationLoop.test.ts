@@ -56,6 +56,7 @@ import {
   MAX_OUTPUT_TOKENS,
   MAX_TOOL_ITERATIONS,
   regenerateAnswer,
+  TEMPO_MAXIMO_DA_CHAMADA_MS,
   runConversationTurn,
   type TurnInput,
 } from '../conversationLoop';
@@ -568,6 +569,40 @@ describe('sobrecarga do modelo (A6)', () => {
     const r = await runConversationTurn(ENTRADA);
 
     expect(!r.ok && 'sobrecarga' in r).toBe(false);
+  });
+
+  // DS15.3 = B: o Bedrock chegou a 80 s de media por chamada (CloudWatch,
+  // 2026-10-22). A chamada que passa do limite vira o mesmo aviso de
+  // sobrecarga, dentro dos 90 s que o aplicativo espera.
+  describe('o limite de tempo por chamada (DS15.3)', () => {
+    afterEach(() => jest.useRealTimers());
+
+    it('cabe no que o aplicativo espera', () => {
+      expect(TEMPO_MAXIMO_DA_CHAMADA_MS).toBeGreaterThan(0);
+      expect(TEMPO_MAXIMO_DA_CHAMADA_MS).toBeLessThan(90_000);
+    });
+
+    it('a chamada que passa do limite vira o aviso de sobrecarga', async () => {
+      jest.useFakeTimers();
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      mockSend.mockReturnValue(new Promise(() => {}));
+
+      const turno = runConversationTurn(ENTRADA);
+      await jest.advanceTimersByTimeAsync(TEMPO_MAXIMO_DA_CHAMADA_MS + 1);
+      const r = await turno;
+
+      expect(r.ok).toBe(false);
+      expect(!r.ok && 'sobrecarga' in r && r.sobrecarga).toBe(true);
+    });
+
+    it('a chamada que responde antes do limite segue normal', async () => {
+      jest.useFakeTimers();
+      mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
+
+      const r = await runConversationTurn(ENTRADA);
+
+      expect(r.ok).toBe(true);
+    });
   });
 });
 

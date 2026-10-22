@@ -19,6 +19,7 @@
  */
 import {
   checkLanguageRules,
+  dispensaEncaminhamento,
   temMedidaDeExame,
   type QuestionKind,
 } from '../ai-language-rules/languageRules';
@@ -502,7 +503,9 @@ export async function responderComVerificacao(entrada: TurnInput): Promise<Respo
     // classificacao: a ressalva de que a comparacao nao mostra causa e do
     // aplicativo, como o encaminhamento, e vale sempre que houve par.
     const comRessalva = { ...answer, texto: costurarComparacao(answer.texto, toolOutputs) };
-    if (tipo !== 'clinica') return aprovada(comRessalva, status);
+    // A resposta que so diz que o dado nao existe tambem nao ganha o
+    // encaminhamento (DS15.2): o mesmo criterio que a dispensa da R2.
+    if (tipo !== 'clinica' || dispensaEncaminhamento(comRessalva.texto)) return aprovada(comRessalva, status);
 
     const costura = costurar(comRessalva.texto);
     registrarEncaminhamento(costura.costurado);

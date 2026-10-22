@@ -424,3 +424,89 @@ Prova:
 
 Limite conhecido: uma resposta que cita a data limite **e** afirma algo sem termo de saúde ("os dados vão até 12/10/2026, e seu acompanhamento está em dia") ganha a frase e passa. A data prova que o modelo viu o limite, não que ele não afirmou mais nada.
 
+## DS15 — Idade com sexo na R3, encaminhamento na ausência e latência (achado A12)
+
+Remedição de E6, E7 e E9 depois da DS14 (2026-10-22, commit `eb00624`): E6 5/5, E9 9/9, e o E7 em 4/6 numa segunda passada. Três achados, independentes entre si.
+
+### DS15.1 — "você tem 54 anos e sexo feminino" (E7 #2)
+
+Pergunta: "preciso fazer mamografia?". A resposta citou o perfil: "no seu perfil consta que você **tem 54 anos e sexo feminino**". A R3 reprovou como diagnóstico. A exceção da idade (DS9) para de valer quando vem "e" depois, **de propósito**, para continuar barrando "você tem 54 anos e diabetes". A segunda geração chamou ferramenta de novo e caiu na reserva.
+
+`consultar_perfil` devolve data de nascimento, sexo, peso, altura, condições crônicas, medicações e alergias declaradas. Idade e sexo são exatamente o que a USPSTF usa para filtrar (E7).
+
+- **A. "e sexo/gênero feminino/masculino" depois da idade.** A exceção da idade aceita o "e" quando o que vem depois é o sexo do perfil, e só ele.
+  - Benefício: estreita; "você tem 54 anos e diabetes" e "você tem 54 anos e pressão alta" continuam reprovados.
+  - Malefício: mais uma forma na lista da R3.
+- **B. Todo campo do perfil depois do "e"** (sexo, peso, altura).
+  - Benefício: cobre "54 anos e 1,65 m".
+  - Malefício: mais largo; peso dito como "você tem 54 anos e 90 kg" fica a um passo de juízo sobre o peso.
+- **C. Só o prompt** ("diga 'seu perfil tem idade 54 e sexo feminino'").
+  - Malefício: não é determinístico.
+
+**Recomendação: A.**
+
+**Continua reprovado (contra-testes):**
+- "Você tem 54 anos e diabetes."
+- "Você tem 54 anos e pressão alta."
+- "Você tem diabetes há 5 anos."
+
+### DS15.2 — O encaminhamento costurado na resposta de ausência (E6 #2)
+
+O E6 #2 foi aprovado, mas saiu com "…importe em Mais > Dados do smartwatch > Importar. **Para avaliar o que isso significa para você, procure um profissional de saúde.**". A DS13.2 (com o F1) tirou da **R2** a exigência de encaminhar na resposta que só diz que o dado não existe. Só que a entrega (`entregar`, em `verificacao.ts`) costura o encaminhamento em **toda** resposta clínica que não tem um, sem olhar a regra. A frase fica sem sentido: "o que isso significa" se refere a um dado que não veio.
+
+- **A. A costura segue a dispensa.** A entrega não costura o encaminhamento quando a resposta só diz que o dado não existe, com o mesmo critério da dispensa da R2 (`soAusencia`, sem medida), tornado público em `languageRules.ts`.
+  - Benefício: um critério só, para a regra e para a costura; tira o rodapé mecânico que a R2 diz evitar.
+  - Malefício: a resposta de ausência numa pergunta clínica sai sem nenhum encaminhamento. A tela tem o aviso fixo, que é a premissa da R2.
+- **B. Manter.** A cópia do app é sóbria por decisão (`encaminhamento.ts`), e a repetição entre turnos é um preço já assumido.
+  - Malefício: a frase não faz sentido numa resposta sem dado.
+
+**Recomendação: A.**
+
+### DS15.3 — A latência
+
+**O que a medição mostrou, e a hipótese que caiu.** Nas remedições, as respostas levaram de 25 a 148 s (contra 4 a 31 s na rodada completa da manhã), e houve TIMEOUT de 150 s no roteiro local (E7 #4). A hipótese registrada era a rede local. O CloudWatch a derruba: a métrica `InvocationLatency` do próprio Bedrock, para `us.anthropic.claude-sonnet-4-6`, foi esta (média e máximo por 15 min):
+
+| Janela (UTC−3) | Chamadas | Média | Máximo |
+|---|---|---|---|
+| 08:32 | 11 | 2,4 s | 3,3 s |
+| 08:47 | 97 | 3,4 s | 14,5 s |
+| 09:02 | 38 | 4,5 s | 9,3 s |
+| 09:17 | 7 | 20,7 s | 49,6 s |
+| 09:32 | 33 | 16,6 s | 43,8 s |
+| 10:02 | 21 | 27,7 s | 80,5 s |
+| 10:17 | 18 | 52,6 s | 186,1 s |
+| 10:32 | 19 | 32,7 s | 106,0 s |
+| 10:47 | 6 | 80,1 s | 187,9 s |
+
+- Nenhum `InvocationThrottles`, `InvocationServerErrors` nem `InvocationClientErrors` no período.
+- A saída por chamada ficou estável (cerca de 150 tokens), então não são respostas maiores.
+- O código e o modelo não mudaram entre 09:02 e 09:17.
+
+A lentidão está **no serviço**, no perfil de inferência `us.` (cross-region dos EUA), e não no código nem na rede. O cliente do chat (`conversationLoop.ts`) não tem limite de tempo por chamada: uma chamada presa espera até o teto de 120 s da Lambda, e o aplicativo desiste aos 90 s com a mensagem genérica.
+
+- **A. Perfil `global.`** (`global.anthropic.claude-sonnet-4-6`, ativo na conta). Ele roteia entre regiões do mundo todo, com mais capacidade que o `us.`. Muda o perfil e as ARNs da permissão no `backend.ts`.
+  - Benefício: ataca a causa provável (capacidade do perfil dos EUA).
+  - Malefício: a inferência pode rodar fora dos EUA. O app não vai ao público (memória do projeto), mas o dado de saúde da pessoa passa a poder sair da região, e isso merece registro. Vale medir antes de adotar.
+- **B. Limite de tempo por chamada, com aviso honesto.** O cliente do Bedrock ganha um limite (por exemplo, 40 s). Quando a chamada passa dele, o turno vira o aviso de sobrecarga da DS7 ("Muita gente está usando o assistente agora…"), dentro dos 90 s do app, em vez da mensagem genérica.
+  - Benefício: a pessoa entende o que houve, e a Lambda não fica presa.
+  - Malefício: não deixa o serviço mais rápido; uma resposta que chegaria aos 50 s se perde.
+- **C. A + B.**
+- **D. Nada no código.** Registrar como limite conhecido do serviço, como a cota de 10/min (A6).
+
+**Recomendação: B agora, e A como medição à parte.** B é barato e melhora o que a pessoa vê em qualquer caso. A tem um custo de privacidade que pede uma decisão própria, depois de medir se o `global.` é mesmo mais rápido.
+
+**Decisão (2026-10-22):** DS15.1 = A; DS15.2 = A; DS15.3 = B (limite de tempo por chamada, com o aviso de sobrecarga). O perfil `global.` fica como medição à parte.
+
+**Implementação.**
+- **DS15.1** (`languageRules.ts`): a exceção da idade aceita o "e" quando o que vem depois é "sexo/gênero feminino/masculino" ou "é do sexo …".
+- **DS15.2:** o critério da dispensa da R2 vira `dispensaEncaminhamento` (público em `languageRules.ts`), e a entrega (`verificacao.ts`) não costura o encaminhamento quando ele vale.
+- **DS15.3** (`conversationLoop.ts`): cada chamada ao modelo tem limite de 40 s (`TEMPO_MAXIMO_DA_CHAMADA_MS`), com `abortSignal` no SDK. O tempo esgotado tem o mesmo tratamento da `ThrottlingException`: aviso de sobrecarga na primeira geração. Na segunda, segue o caminho de qualquer falha (a resposta degradada), como já era com a `ThrottlingException`.
+- Limite registrado no código: o limite é por chamada, não por turno, e um turno de três chamadas lentas ainda passa dos 90 s do aplicativo.
+
+Prova: testes vermelhos antes e verdes depois.
+- `languageRules.test.ts`: 2 frases com idade e sexo (o contra-teste "54 anos e pressão alta" entrou junto).
+- `verificacao.test.ts`: a ausência sem o encaminhamento costurado; o de juízo em outra oração é guarda.
+- `conversationLoop.test.ts`: o limite existe e a chamada presa vira sobrecarga, com relógio falso; a chamada rápida é guarda.
+
+`npx jest amplify/functions/chat-assistant amplify/functions/ai-language-rules`: 2543 testes. `npm run typecheck:backend` passou.
+

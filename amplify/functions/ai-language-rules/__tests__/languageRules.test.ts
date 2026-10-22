@@ -793,7 +793,14 @@ describe('R3 sem falso positivo nas frases da conferencia (A9)', () => {
       'Você pode tomar junto, é seguro.',
       'Você tem 54 anos e diabetes.',
       'Você tem diabetes há 5 anos.',
+      'Você tem 54 anos e pressão alta.',
     ])('continua reprovando %j', (texto) => expect(r3(texto)).toBe(true));
+
+    // A12 (DS15.1 = A): o sexo do perfil depois da idade (E7 #2).
+    it.each([
+      'No seu perfil consta que você tem 54 anos e sexo feminino.',
+      'Como você tem 54 anos e é do sexo feminino, a mamografia está no seu grupo.',
+    ])('a idade com o sexo do perfil passa: %j', (texto) => expect(r3(texto)).toBe(false));
   });
 
   describe('5. a serie da vacina registrada', () => {

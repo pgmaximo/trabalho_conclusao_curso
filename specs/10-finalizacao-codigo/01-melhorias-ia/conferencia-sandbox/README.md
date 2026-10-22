@@ -31,7 +31,8 @@ conferencia-sandbox/
 | A7 | Interação não conferida quando o modelo esquece um nome citado | ✅ corrigido | DS8 |
 | A8 | Laço repetindo a mesma consulta e degradada repetida; R3 em "não tenho como dizer que", "você tem 54 anos" | ✅ corrigido | DS9 |
 | A10 | Mais dois falsos positivos da R3: "você **tem em uso**: Marevan 5mg" sem âncora de registro (E9 H11); a conjunção "**e** baixo risco" lida como "é baixo" (E7 #1) | ✅ corrigido | DS10 |
-| A11 | Três respostas certas ainda reprovadas (rodada completa de 2026-10-22): "o **estoque está baixo**" lido como interpretação de resultado e "Vitamina D 1 gota — todos os dias" sem âncora de registro (E2 #7, R3); resposta sobre dados do relógio fora do período reprovada por falta de encaminhamento (E6 #2, R2); "Preparei o formulário com o que você disse:" (R5) e, na 2ª geração, "coloque o horário das 8h" (R3), com o cartão perdido junto (E11 #2) | ✅ E2 #7 e E11 #2 aprovados no sandbox (DS13, commit `6803866`); ✅ E6 #2 corrigido no código (DS14 = C1, a ausência costurada quando o texto repete a data limite; F1 fecha o furo da DS13.2); falta medir no sandbox | DS13, DS14 |
+| A11 | Três respostas certas ainda reprovadas (rodada completa de 2026-10-22): "o **estoque está baixo**" lido como interpretação de resultado e "Vitamina D 1 gota — todos os dias" sem âncora de registro (E2 #7, R3); resposta sobre dados do relógio fora do período reprovada por falta de encaminhamento (E6 #2, R2); "Preparei o formulário com o que você disse:" (R5) e, na 2ª geração, "coloque o horário das 8h" (R3), com o cartão perdido junto (E11 #2) | ✅ E2 #7 e E11 #2 aprovados no sandbox (DS13, commit `6803866`); ✅ E6 #2 aprovado no sandbox (commit `eb00624`), mas por "ainda não está disponível", que a DS13.2 já reconhece: a costura da C1 não foi exercitada no sandbox, só nos testes | DS13, DS14 |
+| A12 | Achados da remedição de E6, E7 e E9 (2026-10-22, depois da DS14): (1) R3 em "no seu perfil consta que você **tem 54 anos e sexo feminino**" (E7 #2): a exceção da idade (DS9) cai com "e" depois, de propósito, por "você tem 54 anos e diabetes"; (2) o encaminhamento é costurado em toda resposta clínica sem um, inclusive na que só diz que o dado não existe (E6 #2 saiu com "Para avaliar o que isso significa para você, procure um profissional de saúde."); (3) latências de 25 a 148 s e TIMEOUT no roteiro local (E7 #4, 150 s): o CloudWatch mostra que a lentidão é do Bedrock (`InvocationLatency` de 3 s para até 80 s de média), não da rede local | ✅ corrigido no código (DS15.1 idade + sexo; DS15.2 encaminhamento segue a dispensa; DS15.3 limite de 40 s por chamada com aviso de sobrecarga); falta medir no sandbox. O perfil `global.` fica como medição à parte | DS15 |
 
 ## Última medição por épico
 
@@ -44,10 +45,10 @@ Rodada completa de **2026-10-22** (commit `addebdb`, os três modelos no **Sonne
 | E3 | 6/6 | |
 | E4 | 5/5 | |
 | E5 | 6/6 (2 na 2ª geração) | |
-| E6 | 4/5 (1 na 2ª geração) | #2 ainda indisponível (A11): "fica fora desse período" não é reconhecido como ausência; dados do relógio sintéticos |
-| E7 | 6/6 (1 na 2ª geração) | #1 e #2 aprovados (DS6, DS10) |
+| E6 | 5/5 | #2 aprovado depois da DS14 (2026-10-22); dados do relógio sintéticos |
+| E7 | 6/6 na rodada completa; 4/6 na remedição depois da DS14 | remedição: #2 degradado (A12, "54 anos e sexo feminino") e #4 em TIMEOUT do roteiro local |
 | E8 | 7/7 | #4 "bairro centro" aprovado |
-| E9 | 9/9 | H11 aprovado (DS10) |
+| E9 | 9/9 | H11 aprovado (DS10); 9/9 de novo depois da DS14 |
 | E10 | 3/3 | |
 | E11 | 5/5 (1 na 2ª geração) | #2 aprovado com o cartão `Vitamina D · 08:00` (a Lambda já converte "8h"); "Nada foi salvo" sai uma vez só; "sexta de manhã" chega como `quando: "sexta"` |
 | E12 | 3/3 | |
@@ -56,14 +57,15 @@ Rodada completa de **2026-10-22** (commit `addebdb`, os três modelos no **Sonne
 
 Estado em 2026-10-22, depois da rodada completa no Sonnet 4.6.
 
-1. **A11, E6 #2:** medir de novo no sandbox depois do deploy da DS14.
-2. **Acesso aos modelos novos (do usuário):** pedir a liberação do Opus 5.5 e do Sonnet 5.5 no Bedrock. Quando sair, basta trocar `CHAT_BASE_MODEL_ID` e `BEDROCK_BASE_MODEL_ID` no `backend.ts` (DS12), fazer o deploy e medir de novo, com a latência do chat.
-3. **Conferir o wearable e a extração reais** depois da DS12: o wearable trocou a tool forçada pela saída estruturada, e nenhuma importação real passou por ele ainda.
-4. **Conferências que só o aparelho faz:**
+1. **A12:** medir de novo E6 e E7 no sandbox depois do deploy da DS15.
+2. **Perfil `global.` (medição à parte, DS15.3):** comparar a latência do `global.anthropic.claude-sonnet-4-6` com a do `us.`, e decidir sobre a inferência fora dos EUA.
+3. **Acesso aos modelos novos (do usuário):** pedir a liberação do Opus 5.5 e do Sonnet 5.5 no Bedrock. Quando sair, basta trocar `CHAT_BASE_MODEL_ID` e `BEDROCK_BASE_MODEL_ID` no `backend.ts` (DS12), fazer o deploy e medir de novo, com a latência do chat.
+4. **Conferir o wearable e a extração reais** depois da DS12: o wearable trocou a tool forçada pela saída estruturada, e nenhuma importação real passou por ele ainda.
+5. **Conferências que só o aparelho faz:**
    - tocar em "Abrir formulário" (E11);
    - GPS na tela de Vacinação (E8);
    - marcar dose pela tela (E3).
-5. **E6 com dados reais do relógio:** até aqui, só dados sintéticos.
+6. **E6 com dados reais do relógio:** até aqui, só dados sintéticos.
 
 A cota do Bedrock fica em 10 chamadas por minuto, como limite conhecido (A6). O `npm run validate` completo não está sendo rodado por enquanto, por decisão do usuário, para agilizar; a verificação é por arquivos tocados e `typecheck:backend`.
 

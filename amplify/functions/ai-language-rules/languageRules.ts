@@ -910,7 +910,9 @@ const PADROES_R3: PadraoR3[] = [
         `|\\s+em\\s+uso${FIM_R3}` +
         // A idade do perfil (E7 #2, DS9): "como voce tem 54 anos, esse grupo
         // inclui...". Com "e" logo depois, nao: "voce tem 54 anos e diabetes".
-        `|\\s+\\d{1,3}\\s+anos${FIM_R3}(?!\\s+e\\s))` +
+        // Com o sexo do perfil depois, sim: "voce tem 54 anos e sexo feminino"
+        // (E7 #2, DS15.1) -- e o filtro da USPSTF.
+        `|\\s+\\d{1,3}\\s+anos${FIM_R3}(?!\\s+e\\s(?![eé]\\s+do\\s+sexo\\s|(?:sexo|g[eê]nero)\\s+(?:feminino|masculino)${FIM_R3})))` +
         '|(?:^|\\W)(e|é)\\s+(um\\s+)?(sinal\\s+claro\\s+de|caso\\s+de|quadro\\s+de)\\b',
       'i',
     ),
@@ -1585,12 +1587,20 @@ function soAusencia(texto: string): boolean {
   );
 }
 
+/**
+ * A resposta que so diz que o dado nao existe, sem medida nenhuma, nao tem o
+ * que encaminhar (E6 #2, DS13.2): o aviso fixo da tela cobre o resto. PUBLICO
+ * pela razao de `temEncaminhamento`: a costura do encaminhamento
+ * (`chat-assistant/verificacao.ts`, DS15.2) segue o MESMO criterio da R2.
+ */
+export function dispensaEncaminhamento(texto: string): boolean {
+  return !temMedidaDeExame(texto) && soAusencia(texto);
+}
+
 const verificarR2: Verificador = (texto, { questionKind }) => {
   if (questionKind !== 'clinica') return [];
   if (temEncaminhamento(texto)) return [];
-  // A resposta que so diz que o dado nao existe, sem medida nenhuma, nao tem o
-  // que encaminhar (E6 #2, DS13.2): o aviso fixo da tela cobre o resto.
-  if (!temMedidaDeExame(texto) && soAusencia(texto)) return [];
+  if (dispensaEncaminhamento(texto)) return [];
 
   return [
     {

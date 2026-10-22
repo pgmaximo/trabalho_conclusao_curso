@@ -229,7 +229,31 @@ type RespostaDoModelo = {
   output?: { message?: { role?: string; content?: Record<string, any>[] } };
 };
 
-function chamar(input: TurnInput, messages: unknown[]) {
+/**
+ * O limite de UMA chamada ao modelo (DS15.3). O Bedrock chegou a 80 s de media
+ * por chamada, sem erro nem throttling (CloudWatch, 2026-10-22), e a chamada
+ * presa esperava ate o teto da Lambda, depois de o aplicativo ja ter desistido
+ * aos 90 s com a mensagem generica. Passado o limite, o turno vira o aviso de
+ * sobrecarga, como a ThrottlingException.
+ *
+ * shortcut: limite por chamada, nao por turno -- um turno de 3 chamadas lentas
+ * ainda passa dos 90 s; trocar por um prazo do turno se isso aparecer medido.
+ */
+export const TEMPO_MAXIMO_DA_CHAMADA_MS = 40_000;
+
+function chamar(input: TurnInput, messages: unknown[]): Promise<RespostaDoModelo> {
+  const controle = new AbortController();
+  let relogio: ReturnType<typeof setTimeout> | undefined;
+  const limite = new Promise<never>((_, rejeitar) => {
+    relogio = setTimeout(() => {
+      controle.abort();
+      rejeitar(Object.assign(new Error('Chamada ao modelo passou do limite de tempo.'), { name: 'TempoEsgotado' }));
+    }, TEMPO_MAXIMO_DA_CHAMADA_MS);
+  });
+  return Promise.race([enviar(input, messages, controle.signal), limite]).finally(() => clearTimeout(relogio));
+}
+
+function enviar(input: TurnInput, messages: unknown[], abortSignal: AbortSignal) {
   return client.send(
     new ConverseCommand({
       modelId: input.modelId,
@@ -252,6 +276,7 @@ function chamar(input: TurnInput, messages: unknown[]) {
       },
       guardrailConfig: guardrail(input),
     }),
+    { abortSignal },
   ) as Promise<RespostaDoModelo>;
 }
 
@@ -367,7 +392,9 @@ export async function runConversationTurn(input: TurnInput): Promise<TurnOutcome
     // A cota da conta e de 10 chamadas por minuto (A6, DS7): com duas pessoas
     // ao mesmo tempo ela estoura, e a pessoa precisa saber que e espera, nao
     // a pergunta. So o nome do erro decide; ele nao vai para o texto.
-    if ((erro as { name?: string } | null)?.name === 'ThrottlingException') {
+    // A chamada que passou do limite de tempo (DS15.3) tambem e espera.
+    const nome = (erro as { name?: string } | null)?.name;
+    if (nome === 'ThrottlingException' || nome === 'TempoEsgotado') {
       return { ok: false, transcript, message: SOBRECARGA, sobrecarga: true };
     }
     return { ok: false, transcript, message: NAO_MONTEI };
