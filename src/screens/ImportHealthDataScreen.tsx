@@ -130,9 +130,8 @@ export function ImportHealthDataScreen() {
                 dados pessoais. Envie aqui o arquivo .zip inteiro — nós selecionamos os arquivos necessários.
               </Text>
               <Text className="text-[14px] leading-[20px] text-app-textSecondary dark:text-app-dark-textSecondary">
-                <Text className="font-semibold">iPhone (Saúde):</Text> o app Saúde da Apple exporta um arquivo XML
-                muito grande, que ainda não conseguimos processar. Use um app exportador (ex.: Health Auto Export)
-                para gerar CSV ou JSON e selecione esses arquivos aqui.
+                <Text className="font-semibold">iPhone (Saúde):</Text> abra o app Saúde → sua foto → Exportar Todos
+                os Dados de Saúde. Envie aqui o arquivo .zip gerado, sem descompactar.
               </Text>
             </Card>
 

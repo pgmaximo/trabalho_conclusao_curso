@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { markFailed, markReady, readImport } from './importRepository';
 import { readObjectBuffer, writeJsonArtifact } from './s3Reader';
 import { unzipHealthExport } from './archiveReader';
+import { extractAppleHealthSamples } from './appleHealthReader';
 import { detectSamsungType } from './fileSniffer';
 import { type ParsedCsv, parseCsv } from './csvParser';
 import { extractSamples } from './sampleExtractor';
@@ -190,6 +191,14 @@ export async function handler(event: InvokeEvent): Promise<void> {
       const lowerKey = fileKey.toLowerCase();
 
       if (lowerKey.endsWith('.zip')) {
+        const appleSamples = extractAppleHealthSamples(new Uint8Array(buffer));
+        if (appleSamples) {
+          console.log(`ZIP ${basename(fileKey)}: export do app Saúde da Apple, ${appleSamples.length} amostra(s) lidas.`);
+          // Sem push(...): o export real tem ~670 mil amostras, acima do limite de argumentos.
+          for (const sample of appleSamples) allSamples.push(sample);
+          continue;
+        }
+
         const unzipResult = unzipHealthExport(new Uint8Array(buffer));
         // Contagem tecnica de entradas filtradas (ex.: pastas de sensor cru
         // que descartamos de proposito) -- so log, nao vira aviso pro
@@ -231,7 +240,7 @@ export async function handler(event: InvokeEvent): Promise<void> {
         ddbClient,
         tableName,
         importId,
-        'Não encontramos nenhuma métrica com pelo menos 7 dias de dados legíveis nos arquivos enviados. Verifique se os arquivos exportados são do Samsung Health e tente novamente.',
+        'Não encontramos nenhuma métrica com pelo menos 7 dias de dados legíveis nos arquivos enviados. Verifique se os arquivos exportados são do Samsung Health ou do app Saúde do iPhone e tente novamente.',
       );
       return;
     }
