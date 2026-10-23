@@ -36,7 +36,7 @@ const ENDERECO = `https://${BRANCH}.${APP_ID}.amplifyapp.com`;
 // novo do EAS, troque o link (o "apk" do `eas build:view <id> --json`) e o
 // tamanho, e rode `npm run site:publicar`: o QR code continua o mesmo.
 const APK = {
-  url: 'https://expo.dev/artifacts/eas/Uor5F5omdQSaKx5n2RKrG3zYkZMGYZNfG5JLEeCPpdo.apk',
+  url: 'https://expo.dev/artifacts/eas/1gY7jGhsM_LmKL10LpbGIrI2twTaNbi4ZFztNE8JPzc.apk',
   tamanhoEmMb: 113,
 };
 
