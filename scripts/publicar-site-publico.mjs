@@ -32,6 +32,14 @@ const BRANCH = 'main';
 const REGIAO = 'us-east-1';
 const ENDERECO = `https://${BRANCH}.${APP_ID}.amplifyapp.com`;
 
+// O APK que `baixar.html` entrega -- a pagina do QR code impresso. A cada APK
+// novo do EAS, troque o link (o "apk" do `eas build:view <id> --json`) e o
+// tamanho, e rode `npm run site:publicar`: o QR code continua o mesmo.
+const APK = {
+  url: 'https://expo.dev/artifacts/eas/B57LY2e8t2FZ5xxPmbH97obBIkMNJ5VAMPrhCwiW36Y.apk',
+  tamanhoEmMb: 113,
+};
+
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PASTA = path.join(RAIZ, '.amplify', 'site-publico');
 
@@ -112,6 +120,7 @@ const paginas = gerarPaginas({
   versao: VERSAO_DOS_TERMOS,
   vigencia: VIGENCIA_DOS_TERMOS,
   contato: CANAL_DE_PRIVACIDADE,
+  apk: APK,
 });
 
 const arquivos = {
@@ -143,4 +152,5 @@ console.log(`
 [site:publicar] Publicado:
   Pagina inicial:          ${ENDERECO}/
   Politica de Privacidade: ${ENDERECO}/privacidade.html
-  Termos de Uso:           ${ENDERECO}/termos.html`);
+  Termos de Uso:           ${ENDERECO}/termos.html
+  Download do app (QR):    ${ENDERECO}/baixar.html`);

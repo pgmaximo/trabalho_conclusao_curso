@@ -71,6 +71,32 @@ describe('paginas publicas do SuaSaude', () => {
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
   });
 
+  describe('a pagina de download (QR code)', () => {
+    const APK = { url: 'https://expo.dev/artifacts/eas/abc.apk?x=1&y=2', tamanhoEmMb: 113 };
+    const comApk = gerarPaginas({ ...DADOS, apk: APK });
+
+    it('so existe quando ha um APK', () => {
+      expect(Object.keys(comApk).sort()).toEqual(['baixar.html', 'index.html', 'privacidade.html', 'termos.html']);
+      expect(paginas).not.toHaveProperty('baixar.html');
+    });
+
+    it('o botao leva ao APK, com o link escapado', () => {
+      expect(comApk['baixar.html']).toContain('href="https://expo.dev/artifacts/eas/abc.apk?x=1&amp;y=2"');
+      expect(comApk['baixar.html']).toContain('Arquivo de 113 MB');
+    });
+
+    it('avisa que e so Android e leva aos termos e a politica', () => {
+      expect(comApk['baixar.html']).toContain('Só para Android');
+      expect(comApk['baixar.html']).toContain('href="termos.html"');
+      expect(comApk['baixar.html']).toContain('href="privacidade.html"');
+    });
+
+    it('a pagina inicial leva a de download so quando ha APK', () => {
+      expect(comApk['index.html']).toContain('href="baixar.html"');
+      expect(paginas['index.html']).not.toContain('baixar.html');
+    });
+  });
+
   it('falha se uma das partes for renomeada, em vez de publicar pagina vazia', () => {
     expect(() =>
       gerarPaginas({ ...DADOS, partes: TERMOS_E_PRIVACIDADE.filter((p) => p.titulo !== 'Termos de Uso') }),
