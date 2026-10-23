@@ -4,9 +4,8 @@ import {
   ConverseCommand,
   type ConverseCommandOutput,
 } from '@aws-sdk/client-bedrock-runtime';
-import { toStructuredOutputSchema } from '../extract-document-data/extractionSchema';
-import { SYSTEM_PROMPT, buildUserText } from './insightPrompt';
-import { insightsSchema, parseInsights, type Insights } from './insightSchema';
+import { ANALYSIS_TOOL_NAME, ANALYSIS_TOOL_SPEC, SYSTEM_PROMPT, buildUserText } from './insightPrompt';
+import { parseInsights, type Insights } from './insightSchema';
 import type { AnalysisSummary } from './summaryBuilder';
 
 const client = new BedrockRuntimeClient({ maxAttempts: 5, retryMode: 'adaptive' });
@@ -29,15 +28,11 @@ const client = new BedrockRuntimeClient({ maxAttempts: 5, retryMode: 'adaptive' 
 // o pior caso mesmo depois de FIELD_LIMITS.pergunta e .limitacoes terem
 // subido de novo (ver insightSchema.ts). Custo de subir a cota e desprezivel
 // (poucos centavos de dolar por analise no pior caso, ver plan.md secao 12).
-//
-// 24000 com o Claude Sonnet 5.5: o thinking, que fica ligado, divide este teto
-// com o JSON.
-const MAX_OUTPUT_TOKENS = 24000;
+const MAX_OUTPUT_TOKENS = 7000;
 
-// Esforco `low`, explicito (o padrao do Sonnet 5.5 e `high`): a tarefa e
-// sumarizar estatisticas ja pre-computadas, nao raciocinar. Sem `temperature`:
-// o Sonnet 5.5 recusa valor fora do padrao (400).
-const ESFORCO = 'low';
+// temperature baixa: a tarefa e sumarizar estatisticas ja pre-computadas de
+// forma consistente, nao criar texto criativo.
+const TEMPERATURE = 0.3;
 
 export type BedrockOptions = {
   modelId: string;
@@ -69,15 +64,18 @@ async function callConverse(userText: string, options: BedrockOptions): Promise<
           content: [{ guardContent: { text: { text: userText } } }],
         },
       ],
-      inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS },
-      // Saida estruturada imposta pelo servidor, como na extracao (D19). Era
-      // tool forcada (`toolChoice`), que o Sonnet 5.5 recusa (400). O schema
-      // sai do MESMO objeto zod que valida a resposta.
-      additionalModelRequestFields: {
-        output_config: {
-          effort: ESFORCO,
-          format: { type: 'json_schema', schema: toStructuredOutputSchema(insightsSchema) },
-        },
+      inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS, temperature: TEMPERATURE },
+      // Tool forcada, de volta em 2026-10-23. Em 2026-10-22 ela deu lugar a
+      // saida estruturada (`output_config`), pensando no Sonnet 5.5, que recusa
+      // a tool forcada e `temperature` -- mas a conta segue no Sonnet 4.6, e o
+      // caminho da saida estruturada no Bedrock ficou lento por episodios: em
+      // producao, uma analise levou 265 s numa so chamada (~12 tokens/s) e a
+      // Lambda estourou os 300 s sem gravar nada. Com a tool forcada, a
+      // importacao de 2026-10-20 levou 53 s. Ao trocar de modelo, rever as duas
+      // coisas (tool forcada e `temperature`).
+      toolConfig: {
+        tools: [ANALYSIS_TOOL_SPEC],
+        toolChoice: { tool: { name: ANALYSIS_TOOL_NAME } },
       },
       guardrailConfig: {
         guardrailIdentifier: options.guardrailId,
@@ -91,16 +89,10 @@ async function callConverse(userText: string, options: BedrockOptions): Promise<
   );
 }
 
-/** O JSON da analise, do bloco de texto. Texto que nao e JSON vira nulo: e
- *  falha de formato, e o reparo cuida dela. */
-function readOutput(response: ConverseCommandOutput): unknown | null {
-  const texto = response.output?.message?.content?.find((block) => block.text)?.text;
-  if (!texto) return null;
-  try {
-    return JSON.parse(texto);
-  } catch {
-    return null;
-  }
+function extractToolInput(response: ConverseCommandOutput): unknown | null {
+  const content = response.output?.message?.content ?? [];
+  const toolUseBlock = content.find((block) => block.toolUse)?.toolUse;
+  return toolUseBlock?.input ?? null;
 }
 
 /**
@@ -124,7 +116,7 @@ export async function requestInsights(
 
   let inputTokens = response.usage?.inputTokens ?? 0;
   let outputTokens = response.usage?.outputTokens ?? 0;
-  let parsed = parseInsights(readOutput(response));
+  let parsed = parseInsights(extractToolInput(response));
 
   if (!parsed.ok) {
     // stopReason "max_tokens" nao e um problema de FORMATO (a mensagem do
@@ -134,8 +126,8 @@ export async function requestInsights(
     // mesmo estouro; pedir objetividade e o que realmente ataca a causa.
     const repairText =
       response.stopReason === 'max_tokens'
-        ? `${userText}\n\nSua resposta anterior foi cortada por ultrapassar o limite de tamanho antes de terminar. Responda de novo, sendo bem mais direto em cada campo de texto (principalmente "descricao", "evidencia", "acao" e "porque"), mas SEM pular nenhum campo obrigatorio -- garanta que "limitacoes" seja preenchido por ultimo, mesmo que curto.`
-        : `${userText}\n\nSua resposta anterior teve um problema de formato (${parsed.message}). Responda novamente, com TODOS os campos corretamente preenchidos conforme o schema.`;
+        ? `${userText}\n\nSua resposta anterior foi cortada por ultrapassar o limite de tamanho antes de terminar. Chame a tool "${ANALYSIS_TOOL_NAME}" de novo, sendo bem mais direto em cada campo de texto (principalmente "descricao", "evidencia", "acao" e "porque"), mas SEM pular nenhum campo obrigatorio -- garanta que "limitacoes" seja preenchido por ultimo, mesmo que curto.`
+        : `${userText}\n\nSua resposta anterior teve um problema de formato (${parsed.message}). Chame a tool "${ANALYSIS_TOOL_NAME}" novamente, com TODOS os campos corretamente preenchidos conforme o schema.`;
 
     let repairResponse: ConverseCommandOutput;
     try {
@@ -146,7 +138,7 @@ export async function requestInsights(
 
     inputTokens += repairResponse.usage?.inputTokens ?? 0;
     outputTokens += repairResponse.usage?.outputTokens ?? 0;
-    parsed = parseInsights(readOutput(repairResponse));
+    parsed = parseInsights(extractToolInput(repairResponse));
 
     if (!parsed.ok && repairResponse.stopReason === 'max_tokens') {
       return {
@@ -164,11 +156,12 @@ export async function requestInsights(
 }
 
 /**
- * Roda o Guardrail sobre o TEXTO EM PROSA da analise ja validada, o texto que
- * vai aparecer na tela do usuario (ver plan.md secao 2.6). Nasceu quando a
- * saida vinha em bloco `toolUse`, que o `guardrailConfig` do Converse nao
- * avalia; com a saida estruturada ela vem em texto, mas como JSON, e esta
- * chamada continua avaliando a prosa sem a sintaxe em volta.
+ * Roda o Guardrail sobre o TEXTO EM PROSA da analise ja validada. Necessario
+ * porque, com saida forcada por tool use, a resposta do Converse vem como
+ * bloco `toolUse` (JSON estruturado) -- o `guardrailConfig` do Converse
+ * avalia blocos de texto (system/guardContent), nao o toolUse em si. Esta
+ * segunda chamada fecha essa lacuna, avaliando explicitamente o texto que vai
+ * aparecer na tela do usuario (ver plan.md secao 2.6).
  */
 export async function applyOutputGuardrail(
   insights: Insights,

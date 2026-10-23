@@ -1,8 +1,9 @@
 /**
- * A analise do wearable no Claude Sonnet 5.5 (2026-10-22). O modelo recusa a
- * tool forcada (`toolChoice`) e `temperature` diferente do padrao (400), entao
- * a saida estruturada passa a ser o `output_config`, como a extracao ja faz
- * (D19), e a resposta vem em bloco de texto, nao em `toolUse`.
+ * A analise do wearable volta a tool forcada (2026-10-23). A saida estruturada
+ * (`output_config`) ficou lenta por episodios no Bedrock -- uma analise de
+ * producao levou 265 s numa so chamada e a Lambda estourou os 300 s --, e a
+ * conta segue no Sonnet 4.6, que aceita a tool forcada. Estes testes fixam a
+ * forma da chamada para ela nao voltar a saida estruturada sem querer.
  *
  * Mocka o SDK do Bedrock em vez de importar valor dele, que e a regra do
  * repositorio.
@@ -25,6 +26,7 @@ jest.mock('@aws-sdk/client-bedrock-runtime', () => ({
 }));
 
 import { requestInsights } from '../bedrockClient';
+import { ANALYSIS_TOOL_NAME } from '../insightPrompt';
 import type { AnalysisSummary } from '../summaryBuilder';
 
 const INSIGHTS = {
@@ -38,13 +40,13 @@ const INSIGHTS = {
 };
 
 const RESUMO = { metrics: [], correlations: [] } as unknown as AnalysisSummary;
-const OPCOES = { modelId: 'us.anthropic.claude-sonnet-5-5', guardrailId: 'g', guardrailVersion: '1' };
+const OPCOES = { modelId: 'us.anthropic.claude-sonnet-4-6', guardrailId: 'g', guardrailVersion: '1' };
 
-function resposta(conteudo: unknown[], stopReason = 'end_turn') {
+function resposta(conteudo: unknown[], stopReason = 'tool_use') {
   return { output: { message: { content: conteudo } }, usage: { inputTokens: 10, outputTokens: 5 }, stopReason };
 }
 
-const comoTexto = (payload: unknown) => resposta([{ text: JSON.stringify(payload) }]);
+const comoTool = (payload: unknown) => resposta([{ toolUse: { toolUseId: 't-1', name: ANALYSIS_TOOL_NAME, input: payload } }]);
 
 jest.mock('../insightPrompt', () => ({
   ...jest.requireActual('../insightPrompt'),
@@ -53,24 +55,19 @@ jest.mock('../insightPrompt', () => ({
 
 beforeEach(() => mockSend.mockReset());
 
-describe('requestInsights -- a chamada ao Claude Sonnet 5.5', () => {
-  it('sem tool forcada nem temperature; saida estruturada com esforco explicito', async () => {
-    mockSend.mockResolvedValueOnce(comoTexto(INSIGHTS));
+describe('requestInsights -- a chamada com a tool forcada', () => {
+  it('forca a tool da analise e nao manda saida estruturada', async () => {
+    mockSend.mockResolvedValueOnce(comoTool(INSIGHTS));
 
     await requestInsights(RESUMO, OPCOES);
 
     const enviado = mockSend.mock.calls[0][0].input;
-    expect(enviado).not.toHaveProperty('toolConfig');
-    expect(enviado.inferenceConfig).not.toHaveProperty('temperature');
-    expect(enviado.inferenceConfig.maxTokens).toBeGreaterThanOrEqual(24000);
-    expect(enviado.additionalModelRequestFields.output_config.effort).toBe('low');
-    expect(enviado.additionalModelRequestFields.output_config.format.type).toBe('json_schema');
+    expect(enviado.toolConfig.toolChoice).toEqual({ tool: { name: ANALYSIS_TOOL_NAME } });
+    expect(enviado).not.toHaveProperty('additionalModelRequestFields');
   });
 
-  it('le a analise do bloco de texto, mesmo com o raciocinio antes', async () => {
-    mockSend.mockResolvedValueOnce(
-      resposta([{ reasoningContent: { reasoningText: { text: '' } } }, { text: JSON.stringify(INSIGHTS) }]),
-    );
+  it('le a analise do bloco toolUse', async () => {
+    mockSend.mockResolvedValueOnce(comoTool(INSIGHTS));
 
     const r = await requestInsights(RESUMO, OPCOES);
 
@@ -78,13 +75,12 @@ describe('requestInsights -- a chamada ao Claude Sonnet 5.5', () => {
     if (r.ok) expect(r.result.insights.resumo).toBe(INSIGHTS.resumo);
   });
 
-  it('texto que nao e JSON vale como falha de formato e pede o reparo uma vez', async () => {
-    mockSend.mockResolvedValueOnce(resposta([{ text: 'nao e json' }])).mockResolvedValueOnce(comoTexto(INSIGHTS));
+  it('resposta sem toolUse vale como falha de formato e pede o reparo uma vez', async () => {
+    mockSend.mockResolvedValueOnce(resposta([{ text: 'nao chamou a tool' }], 'end_turn')).mockResolvedValueOnce(comoTool(INSIGHTS));
 
     const r = await requestInsights(RESUMO, OPCOES);
 
     expect(r.ok).toBe(true);
     expect(mockSend).toHaveBeenCalledTimes(2);
-    expect(JSON.stringify(mockSend.mock.calls[1][0].input.messages)).not.toContain('tool');
   });
 });
