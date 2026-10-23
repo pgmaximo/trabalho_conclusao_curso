@@ -40,6 +40,14 @@ describe('aplicarFonteDoApp', () => {
     expect(estilo.fontFamily).toBe('IBMPlexSans_600SemiBold');
   });
 
+  // Regressão do APK de 2026-10-22: o ícone do @expo/vector-icons é um Text
+  // com fontFamily própria, e a face do IBM Plex por cima virava ideograma.
+  it('não troca a fonte de quem já escolheu uma (os ícones)', () => {
+    render(<Text style={{ fontFamily: 'ionicons' }}>{''}</Text>);
+    const estilo = StyleSheet.flatten(screen.getByText('').props.style);
+    expect(estilo.fontFamily).toBe('ionicons');
+  });
+
   it('todo TextInput renderizado recebe a face do IBM Plex', () => {
     render(<TextInput testID="campo" />);
     const estilo = StyleSheet.flatten(screen.getByTestId('campo').props.style);

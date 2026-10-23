@@ -1,5 +1,12 @@
 import React from 'react';
-import { Platform, Text, TextInput } from 'react-native';
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
 // Caminho interno do runtime do NativeWind: o mapa `interopComponents` não é
 // exportado pela API pública, e é por ele que todo `<Text>` passa (ver
 // react-native-css-interop/dist/runtime/wrap-jsx.js).
@@ -62,9 +69,12 @@ function comFonteDoApp<P extends { style?: unknown }>(Base: React.ComponentType<
     // `cssInterop: false`: o plugin Babel do NativeWind troca este
     // `createElement` por um que consulta `interopComponents`, e sem a marca o
     // `Base` (o `Text`) cairia de novo neste envoltório, num laço sem fim.
+    // Quem já escolheu uma fonte fica com ela: os ícones do @expo/vector-icons
+    // são Text com a fontFamily do ícone, e o IBM Plex por cima os apagava.
+    const temFonte = Boolean(StyleSheet.flatten(props.style as StyleProp<TextStyle>)?.fontFamily);
     return React.createElement(Base, {
       ...props,
-      style: [props.style, estiloDaFonteDoApp(props.style)],
+      style: temFonte ? props.style : [props.style, estiloDaFonteDoApp(props.style)],
       cssInterop: false,
     } as P);
   }
