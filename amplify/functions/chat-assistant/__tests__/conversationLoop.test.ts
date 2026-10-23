@@ -169,12 +169,22 @@ describe('os tres limites', () => {
       expect(ultimaChamada().inferenceConfig).not.toHaveProperty('temperature');
     });
 
-    it('manda o esforco explicito, baixo, junto da saida estruturada', async () => {
+    it('manda o esforco explicito, baixo, e sem saida estruturada', async () => {
       mockSend.mockResolvedValue(respondeTexto('Uma resposta.'));
       await runConversationTurn(ENTRADA);
-      expect(ultimaChamada().additionalModelRequestFields.output_config.effort).toBe('low');
-      expect(ultimaChamada().additionalModelRequestFields.output_config.format.type).toBe('json_schema');
+      expect(ultimaChamada().additionalModelRequestFields.output_config).toEqual({ effort: 'low' });
       expect(ultimaChamada().additionalModelRequestFields).not.toHaveProperty('thinking');
+    });
+
+    it('o envelope depois de prosa passa na primeira geracao', async () => {
+      const envelope = JSON.stringify({ texto: 'Vá em Remédios > botão +.', citacoes: [] });
+      mockSend.mockResolvedValue({
+        ...respondeTexto(''),
+        output: { message: { role: 'assistant', content: [{ text: `Para cadastrar, vá em Remédios. ${envelope}` }] } },
+      });
+      const r = await runConversationTurn(ENTRADA);
+      expect(r.ok && r.answer.texto).toBe('Vá em Remédios > botão +.');
+      expect(mockSend).toHaveBeenCalledTimes(1);
     });
 
     it('o teto de saida cabe o thinking alem da resposta', () => {

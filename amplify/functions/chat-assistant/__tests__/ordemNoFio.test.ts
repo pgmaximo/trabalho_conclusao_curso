@@ -8,6 +8,10 @@
  *
  * Os nomes do FIO (o JSON Schema mandado ao modelo) ganham um prefixo que
  * ordena como o envelope quer; a resposta e traduzida de volta antes do zod.
+ *
+ * Desde 2026-10-22 o chat nao manda a saida estruturada (ver
+ * `conversationLoop.ts`), e o modelo escreve os nomes do prompt. O schema do
+ * fio fica, para religar com uma linha, e estes testes o mantem certo.
  */
 const mockSend = jest.fn();
 jest.mock('@aws-sdk/client-bedrock-runtime', () => ({
@@ -67,10 +71,10 @@ describe('a ordem no fio', () => {
     expect(r.success).toBe(true);
   });
 
-  it('o laco manda ao modelo o schema do fio', async () => {
+  it('o laco nao manda o schema do fio, e a resposta com os nomes do prompt passa', async () => {
     mockSend.mockResolvedValue({
       stopReason: 'end_turn',
-      output: { message: { content: [{ text: '{"1_citacoes":[],"2_texto":"Oi."}' }] } },
+      output: { message: { content: [{ text: '{"texto":"Oi.","citacoes":[]}' }] } },
     });
     const r = await runConversationTurn({
       message: 'oi',
@@ -80,8 +84,7 @@ describe('a ordem no fio', () => {
       guardrailId: 'g',
       guardrailVersion: '1',
     } as any);
-    const enviado = mockSend.mock.calls[0][0].input.additionalModelRequestFields.output_config.format.schema;
-    expect(enviado).toEqual(schemaDaResposta());
+    expect(mockSend.mock.calls[0][0].input.additionalModelRequestFields.output_config).not.toHaveProperty('format');
     expect(r.ok && r.answer.texto).toBe('Oi.');
   });
 });

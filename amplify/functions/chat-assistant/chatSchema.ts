@@ -128,15 +128,19 @@ export type ChatAnswer = z.infer<typeof chatAnswerSchema> & { toolsUsadas: strin
 /**
  * O envelope JSON, tirado do texto que o modelo devolveu.
  *
- * O caminho normal e o texto ser o proprio objeto -- a saida estruturada do
- * Converse impoe isso pelo servidor. A tolerancia a cerca de codigo existe
- * porque, se por qualquer motivo a saida estruturada nao for aplicada, o
- * modelo tende a embrulhar o JSON em ```json -- e uma resposta correta
- * recusada por causa de tres crases seria uma reprovacao sem conteudo.
+ * O caminho normal e o texto ser o proprio objeto, como o prompt pede. Sem a
+ * saida estruturada (desligada no chat em 2026-10-22, ver `conversationLoop.ts`)
+ * o modelo as vezes escreve a resposta em prosa e DEPOIS o envelope -- 9 de 24
+ * turnos na medicao, sempre com o envelope completo logo em seguida. Recusar
+ * isso custava uma segunda geracao inteira por uma frase que ninguem le. A
+ * cerca de codigo (```json) e o mesmo caso.
  *
- * O que NAO e tolerado: texto solto. Sem o envelope nao existe campo de
- * citacao, e sem campo de citacao a R4 nao tem como ser verificada. Aceitar
- * prosa aqui esvaziaria a D11 inteira.
+ * A prosa em volta do envelope e DESCARTADA, nunca mostrada: so o `texto` do
+ * envelope chega a pessoa, e ele passa pelas regras como sempre.
+ *
+ * O que NAO e tolerado: texto solto, sem envelope. Sem o envelope nao existe
+ * campo de citacao, e sem campo de citacao a R4 nao tem como ser verificada.
+ * Aceitar prosa aqui esvaziaria a D11 inteira.
  */
 export function extrairResposta(texto: string): unknown {
   const limpo = texto
@@ -145,8 +149,22 @@ export function extrairResposta(texto: string): unknown {
     .replace(/\s*```$/, '')
     .trim();
 
+  const inteiro = lerJson(limpo);
+  if (inteiro !== undefined) return doFio(inteiro);
+
+  // O envelope depois da prosa: do primeiro `{` que abre um JSON valido ate o
+  // ultimo `}`. Tentar cada `{` em ordem cobre a prosa que tem chave no meio.
+  const fim = limpo.lastIndexOf('}');
+  for (let inicio = limpo.indexOf('{'); inicio !== -1 && inicio < fim; inicio = limpo.indexOf('{', inicio + 1)) {
+    const objeto = lerJson(limpo.slice(inicio, fim + 1));
+    if (objeto !== undefined) return doFio(objeto);
+  }
+  return undefined;
+}
+
+function lerJson(texto: string): unknown {
   try {
-    return doFio(JSON.parse(limpo));
+    return JSON.parse(texto);
   } catch {
     return undefined;
   }
@@ -189,7 +207,9 @@ function renomear(no: NoDoSchema, nomes: Record<string, string>): NoDoSchema {
   };
 }
 
-/** O JSON Schema do `output_config`: o do envelope, com os nomes do fio. */
+/** O JSON Schema do `output_config`: o do envelope, com os nomes do fio.
+ *  O chat nao o manda desde 2026-10-22 (ver `conversationLoop.ts`); fica aqui,
+ *  com a ordem no fio, para religar a saida estruturada com uma linha. */
 export function schemaDaResposta(): DocumentType {
   const base = toStructuredOutputSchema(chatAnswerSchema) as unknown as NoDoSchema;
   const acao = base.properties.acao as NoDoSchema;

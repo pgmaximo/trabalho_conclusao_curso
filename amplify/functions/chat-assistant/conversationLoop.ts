@@ -16,7 +16,7 @@ import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-r
 import { toStructuredOutputSchema } from '../extract-document-data/extractionSchema';
 
 import { SYSTEM_PROMPT, buildUserMessage } from './chatPrompt';
-import { chatAnswerSchema, extrairResposta, schemaDaResposta, type ChatAnswer } from './chatSchema';
+import { chatAnswerSchema, extrairResposta, type ChatAnswer } from './chatSchema';
 import { HISTORY_WINDOW } from './janelaDoHistorico';
 import { CHAT_TOOLS, findTool, runTool } from './tools';
 import type { ChatIdentity } from './auth';
@@ -273,15 +273,18 @@ function enviar(input: TurnInput, messages: unknown[], abortSignal: AbortSignal)
       messages: messages as never,
       inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS },
       toolConfig: especificacaoDasTools() as never,
-      // Saida estruturada imposta pelo servidor, mesmo mecanismo que a
-      // extracao mediu (D19). O parser de `chatSchema.ts` continua tolerante
-      // a cerca de codigo para o caso de ela nao ser aplicada junto com
-      // ferramentas -- combinacao que so uma chamada real confirma.
+      // SEM saida estruturada (2026-10-22): o formato vem do prompt, e
+      // `extrairResposta` tira o envelope do texto. O caminho dela no Bedrock
+      // ficou lento por episodios -- 3 a 22 s numa resposta de 8 tokens,
+      // contra 0,7 s sem ela, no mesmo minuto. Medido pelo pipeline real, no
+      // mesmo intervalo: sem ela, 24 de 24 turnos respondidos e mediana de
+      // 5,0 s; com ela, 21 de 22 (um no limite de 40 s) e 13,9 s. Os 9 de 24
+      // que precisaram de segunda geracao traziam prosa antes do envelope, que
+      // `extrairResposta` agora aceita. A extracao e o wearable continuam com ela (D19): rodam em segundo
+      // plano, e o JSON deles e grande. Para religar no chat:
+      // `format: { type: 'json_schema', schema: schemaDaResposta() }`.
       additionalModelRequestFields: {
-        output_config: {
-          effort: ESFORCO,
-          format: { type: 'json_schema', schema: schemaDaResposta() },
-        },
+        output_config: { effort: ESFORCO },
       },
       guardrailConfig: guardrail(input),
     }),
