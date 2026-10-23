@@ -78,4 +78,29 @@ describe('extractAppleHealthSamples', () => {
     const zip = zipSync({ 'samsunghealth_x/com.samsung.shealth.sleep.csv': strToU8('a,b\n1,2\n') });
     expect(extractAppleHealthSamples(zip)).toBeNull();
   });
+
+  // Producao, 2026-10-23: todo .zip passa por aqui primeiro, e o export real
+  // tem milhares de arquivos (Samsung: um CSV/JSON por tipo e por pasta;
+  // Apple: um .gpx por treino com GPS). O Unzip do fflate recursa uma vez por
+  // entrada dentro de cada push; com o zip inteiro num push so, estourava a
+  // pilha ("Maximum call stack size exceeded") e a importacao do Samsung, que
+  // funcionava, passou a falhar.
+  const MUITOS_ARQUIVOS = 20000;
+
+  it('returns null without overflowing the stack for a Samsung export with thousands of files', () => {
+    const arquivos = Object.fromEntries(
+      Array.from({ length: MUITOS_ARQUIVOS }, (_, i) => [`samsunghealth_x/jsons/arquivo_${i}.json`, strToU8('{}')]),
+    );
+    expect(extractAppleHealthSamples(zipSync(arquivos))).toBeNull();
+  });
+
+  it('reads export.xml from an iPhone export with thousands of workout routes', () => {
+    const arquivos: Record<string, Uint8Array> = {
+      'apple_health_export/export.xml': strToU8(`<HealthData>\n${STEPS_LINE}\n</HealthData>\n`),
+    };
+    for (let i = 0; i < MUITOS_ARQUIVOS; i += 1) {
+      arquivos[`apple_health_export/workout-routes/route_${i}.gpx`] = strToU8('<gpx/>');
+    }
+    expect(extractAppleHealthSamples(zipSync(arquivos))).toHaveLength(1);
+  });
 });

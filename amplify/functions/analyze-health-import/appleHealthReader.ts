@@ -15,6 +15,10 @@ const EXPORT_XML_PATTERN = /(^|\/)export\.xml$/;
 /** Corte de zip bomb: para de ler o export.xml depois disso (o real tem ~250MB). */
 export const MAX_APPLE_XML_BYTES = 1024 * 1024 * 1024;
 
+/** Tamanho de cada pedaco do zip entregue ao Unzip (ver o fim de
+ *  `extractAppleHealthSamples`). */
+const ZIP_CHUNK_BYTES = 64 * 1024;
+
 type QuantityMapping = { metrics: MetricId[]; unitFactors: Record<string, number> };
 
 // Tipos e unidades conferidos contra um export real (iOS, 2022-2026). Unidade
@@ -159,6 +163,14 @@ export function extractAppleHealthSamples(zipBytes: Uint8Array): Sample[] | null
     file.start();
   };
 
-  unzip.push(zipBytes, true);
+  // Em pedacos, nunca o zip inteiro: o `push` do Unzip recursa uma vez por
+  // entrada que encontra no buffer recebido, e o export real tem milhares de
+  // arquivos (Samsung: um por tipo e pasta; Apple: um .gpx por treino). Num
+  // push so, a pilha estourava em producao (2026-10-23) -- inclusive para o
+  // zip do Samsung, que passa por aqui antes do leitor dele.
+  for (let inicio = 0; inicio < zipBytes.length; inicio += ZIP_CHUNK_BYTES) {
+    const fim = inicio + ZIP_CHUNK_BYTES;
+    unzip.push(zipBytes.subarray(inicio, fim), fim >= zipBytes.length);
+  }
   return found ? [...samples, ...sleepByNight.values()] : null;
 }
