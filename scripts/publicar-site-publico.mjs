@@ -26,6 +26,7 @@ import {
   VIGENCIA_DOS_TERMOS,
 } from '../src/data/termosEPrivacidade.ts';
 import { gerarPaginas } from './site-publico/paginas.mjs';
+import { criarZip } from './site-publico/zip.mjs';
 
 const APP_ID = 'd3fx6eabnu0fdd';
 const BRANCH = 'main';
@@ -55,63 +56,6 @@ function aws(args) {
   });
   if (r.status !== 0) parar(`Falhou: aws ${args.join(' ')}\n${r.stderr}`);
   return JSON.parse(r.stdout || '{}');
-}
-
-// --- ZIP sem dependencia (metodo "stored", sem compressao) -----------------
-// O Amplify so aceita o deploy manual em .zip. As paginas somam poucos KB, e
-// um zip sem compressao evita depender de `tar`/`zip` -- que no Git Bash do
-// Windows e o GNU tar, incapaz de gerar zip.
-const TABELA_CRC = Array.from({ length: 256 }, (_, n) => {
-  let c = n;
-  for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-  return c >>> 0;
-});
-
-function crc32(dados) {
-  let c = 0xffffffff;
-  for (const byte of dados) c = TABELA_CRC[(c ^ byte) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
-}
-
-function criarZip(arquivos) {
-  const locais = [];
-  const centrais = [];
-  let deslocamento = 0;
-  for (const [nome, conteudo] of Object.entries(arquivos)) {
-    const nomeEmBytes = Buffer.from(nome, 'utf8');
-    const crc = crc32(conteudo);
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4); // versao necessaria
-    local.writeUInt16LE(0x0800, 6); // nome em UTF-8
-    local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(conteudo.length, 18);
-    local.writeUInt32LE(conteudo.length, 22);
-    local.writeUInt16LE(nomeEmBytes.length, 26);
-    locais.push(local, nomeEmBytes, conteudo);
-
-    const central = Buffer.alloc(46);
-    central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
-    central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(0x0800, 8);
-    central.writeUInt32LE(crc, 16);
-    central.writeUInt32LE(conteudo.length, 20);
-    central.writeUInt32LE(conteudo.length, 24);
-    central.writeUInt16LE(nomeEmBytes.length, 28);
-    central.writeUInt32LE(deslocamento, 42);
-    centrais.push(central, nomeEmBytes);
-
-    deslocamento += local.length + nomeEmBytes.length + conteudo.length;
-  }
-  const diretorio = Buffer.concat(centrais);
-  const fim = Buffer.alloc(22);
-  fim.writeUInt32LE(0x06054b50, 0);
-  fim.writeUInt16LE(Object.keys(arquivos).length, 8);
-  fim.writeUInt16LE(Object.keys(arquivos).length, 10);
-  fim.writeUInt32LE(diretorio.length, 12);
-  fim.writeUInt32LE(deslocamento, 16);
-  return Buffer.concat([...locais, diretorio, fim]);
 }
 
 // --- Gerar ------------------------------------------------------------------

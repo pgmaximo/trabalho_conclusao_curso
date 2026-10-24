@@ -1,0 +1,117 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "SuaSaude: pesquisa de opiniao da feira (tabela DynamoDB + Lambda com Function URL). Separada do backend do app de proposito.",
+  "Parameters": {
+    "ChaveResultados": {
+      "Type": "String",
+      "NoEcho": true,
+      "MinLength": 8,
+      "Description": "Senha do painel de resultados. Vem da variavel PESQUISA_SENHA na hora da implantacao; nunca entra em arquivo."
+    }
+  },
+  "Resources": {
+    "TabelaRespostas": {
+      "Type": "AWS::DynamoDB::Table",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "TableName": "suasaude-feira-respostas",
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [{ "AttributeName": "id", "AttributeType": "S" }],
+        "KeySchema": [{ "AttributeName": "id", "KeyType": "HASH" }]
+      }
+    },
+    "PapelDaFuncao": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "lambda.amazonaws.com" },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"],
+        "Policies": [
+          {
+            "PolicyName": "GravarEListarRespostas",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": ["dynamodb:UpdateItem", "dynamodb:PutItem", "dynamodb:Scan"],
+                  "Resource": { "Fn::GetAtt": ["TabelaRespostas", "Arn"] }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "FuncaoPesquisa": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": "suasaude-pesquisa",
+        "Runtime": "nodejs20.x",
+        "Handler": "index.handler",
+        "Role": { "Fn::GetAtt": ["PapelDaFuncao", "Arn"] },
+        "Timeout": 10,
+        "MemorySize": 128,
+        "ReservedConcurrentExecutions": 5,
+        "Environment": {
+          "Variables": {
+            "TABELA": { "Ref": "TabelaRespostas" },
+            "CHAVE_RESULTADOS": { "Ref": "ChaveResultados" }
+          }
+        },
+        "Code": {
+          "ZipFile": "exports.handler = async () => ({ statusCode: 503, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ erro: 'A pesquisa ainda nao recebeu o codigo. Rode npm run pesquisa:implantar.' }) });"
+        }
+      }
+    },
+    "UrlDaFuncao": {
+      "Type": "AWS::Lambda::Url",
+      "Properties": {
+        "TargetFunctionArn": { "Fn::GetAtt": ["FuncaoPesquisa", "Arn"] },
+        "AuthType": "NONE",
+        "Cors": {
+          "AllowOrigins": ["https://main.d3fx6eabnu0fdd.amplifyapp.com"],
+          "AllowMethods": ["POST"],
+          "AllowHeaders": ["content-type", "x-chave"],
+          "AllowCredentials": false,
+          "MaxAge": 3600
+        }
+      }
+    },
+    "PermissaoDaUrl": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName": { "Ref": "FuncaoPesquisa" },
+        "Action": "lambda:InvokeFunctionUrl",
+        "Principal": "*",
+        "FunctionUrlAuthType": "NONE"
+      }
+    },
+    "PermissaoDeInvocacaoPelaUrl": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName": { "Ref": "FuncaoPesquisa" },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "*",
+        "InvokedViaFunctionUrl": true
+      }
+    }
+  },
+  "Outputs": {
+    "FunctionUrl": {
+      "Description": "Endereco que a pagina da pesquisa chama",
+      "Value": { "Fn::GetAtt": ["UrlDaFuncao", "FunctionUrl"] }
+    },
+    "NomeDaFuncao": { "Value": { "Ref": "FuncaoPesquisa" } },
+    "NomeDaTabela": { "Value": { "Ref": "TabelaRespostas" } }
+  }
+}
