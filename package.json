@@ -18,6 +18,7 @@
     "deploy:prod": "node scripts/deploy-producao.mjs",
     "site:publicar": "tsx scripts/publicar-site-publico.mjs",
     "pesquisa:implantar": "node scripts/implantar-pesquisa.mjs",
+    "pesquisa:exportar": "node scripts/exportar-pesquisa.mjs",
     "eas-build-pre-install": "node scripts/usar-outputs-de-producao.mjs",
     "doctor": "npx react-doctor@latest"
   },

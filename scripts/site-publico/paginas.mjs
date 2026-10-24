@@ -1,28 +1,21 @@
 /**
  * Resumo do arquivo:
- * Gera as paginas publicas do SuaSaude -- inicio, Politica de Privacidade e
- * Termos de Uso -- a partir de `src/data/termosEPrivacidade.ts`. Com um APK
- * nos dados, gera tambem `baixar.html`, a pagina do QR code de download.
+ * Gera as paginas publicas do SuaSaude: inicio, Politica de Privacidade e
+ * Termos de Uso (a partir de `src/data/termosEPrivacidade.ts`) e, com um APK
+ * nos dados, `baixar.html`, a pagina do QR code de download. Com `pesquisa`
+ * nos dados gera tambem `opiniao.html` (a pesquisa de opiniao da feira) e
+ * `resultados.html` (o painel do grupo).
  *
- * Elas existem porque o Google so tira o login com Google do modo "Testing"
- * com uma pagina inicial e uma politica de privacidade em enderecos publicos.
- * O texto NAO e copiado: sai dos mesmos dados que o aplicativo mostra, para a
- * pagina publica nunca divergir do termo que a pessoa aceitou.
+ * Os documentos existem porque o Google so tira o login com Google do modo
+ * "Testing" com uma pagina inicial e uma politica de privacidade em enderecos
+ * publicos. O texto NAO e copiado: sai dos mesmos dados que o aplicativo
+ * mostra, para a pagina publica nunca divergir do termo que a pessoa aceitou.
  *
  * Funcao pura (dados entram, HTML sai), para o teste conferir o conteudo sem
- * rede. Quem grava e publica e `scripts/publicar-site-publico.mjs`.
+ * rede. O visual mora em `estilo.mjs`. Quem grava e publica, junto com os
+ * arquivos de `ativos.mjs`, e `scripts/publicar-site-publico.mjs`.
  */
-
-const TITULO_DOS_TERMOS = 'Termos de Uso';
-const TITULO_DA_POLITICA = 'Política de Privacidade';
-
-function escapar(texto) {
-  return String(texto)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { ESTILO_PESQUISA, ESTILO_RESULTADOS, TITULO_DA_POLITICA, TITULO_DOS_TERMOS, escapar, layout } from './estilo.mjs';
 
 /** Texto escapado, com o e-mail de contato virando link. */
 function paragrafo(texto, contato) {
@@ -47,59 +40,6 @@ function faixaDeSecoes(parte) {
   return `${Math.min(...numeros)} a ${Math.max(...numeros)}`;
 }
 
-const ESTILO = `
-:root{color-scheme:light dark;--fundo:#F7F8F7;--superficie:#FFFFFF;--texto:#141817;--texto-2:#55605C;--borda:#DFE3E1;--primaria:#10794E;--primaria-suave:#E8F5EE;--sobre-primaria:#FFFFFF}
-@media (prefers-color-scheme:dark){:root{--fundo:#0E1413;--superficie:#18201E;--texto:#EDF2F0;--texto-2:#AEBBB6;--borda:#33403C;--primaria:#4FC58C;--primaria-suave:#16332A;--sobre-primaria:#0E1413}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--fundo);color:var(--texto);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-a{color:var(--primaria)}
-.topo{border-bottom:1px solid var(--borda);background:var(--superficie)}
-.topo div,main,footer div{max-width:720px;margin:0 auto;padding:0 16px}
-.topo div{display:flex;flex-wrap:wrap;gap:4px 20px;align-items:center;justify-content:space-between;padding-top:14px;padding-bottom:14px}
-.marca{font-weight:700;font-size:18px;text-decoration:none;color:var(--texto)}
-nav{display:flex;gap:16px;font-size:15px}
-main{padding-top:32px;padding-bottom:48px}
-h1{font-size:30px;line-height:1.25;margin:0 0 8px}
-h2{font-size:19px;line-height:1.35;margin:32px 0 8px}
-.versao,.lead{color:var(--texto-2)}
-.lead{font-size:18px;margin-top:0}
-.aviso{background:var(--primaria-suave);border-radius:12px;padding:14px 16px;margin:24px 0}
-.aviso p{margin:0}
-ul,ol{padding-left:22px}
-li{margin:4px 0}
-.botao{display:block;text-align:center;background:var(--primaria);color:var(--sobre-primaria);font-weight:700;font-size:18px;text-decoration:none;border-radius:12px;padding:16px 20px;margin:24px 0 8px}
-footer{border-top:1px solid var(--borda);color:var(--texto-2);font-size:14px}
-footer div{padding-top:20px;padding-bottom:32px}
-`;
-
-function layout({ titulo, descricao, corpo, contato, versao }) {
-  return `<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapar(titulo)}</title>
-<meta name="description" content="${escapar(descricao)}">
-<link rel="icon" href="favicon.png">
-<style>${ESTILO}</style>
-</head>
-<body>
-<header class="topo"><div>
-<a class="marca" href="./">SuaSaúde</a>
-<nav><a href="privacidade.html">${TITULO_DA_POLITICA}</a><a href="termos.html">${TITULO_DOS_TERMOS}</a></nav>
-</div></header>
-<main>
-${corpo}
-</main>
-<footer><div>
-<p>SuaSaúde · Trabalho de Conclusão de Curso de Ciência da Computação · Centro Universitário do Instituto Mauá de Tecnologia (IMT)</p>
-<p>Contato e pedidos sobre seus dados: <a href="mailto:${contato}">${contato}</a> · Termos e Política na versão ${escapar(versao)}</p>
-</div></footer>
-</body>
-</html>
-`;
-}
-
 function paginaDoDocumento(parte, outra, arquivoDaOutra, { versao, vigencia, contato }) {
   const corpo = `<h1>${escapar(parte.titulo)}</h1>
 <p class="versao">Versão ${escapar(versao)} · vigente desde ${escapar(vigencia)}</p>
@@ -111,13 +51,14 @@ ${parte.secoes.map((s) => renderizarSecao(s, contato)).join('\n')}`;
     corpo,
     contato,
     versao,
+    estreito: true,
   });
 }
 
 function paginaInicial({ versao, contato, apk }) {
   const corpo = `<h1>SuaSaúde</h1>
 <p class="lead">Suas informações de saúde organizadas em um só lugar.</p>
-${apk ? '<a class="botao" href="baixar.html">Baixar o app para Android</a>\n' : ''}<p>O SuaSaúde reúne o que você mesmo fornece: exames, receitas, remédios e lembretes, consultas, a carteira de vacinação, dados exportados do seu smartwatch e o seu Perfil de Saúde. Ele também mostra recomendações públicas de prevenção e campanhas de vacinação, e tem um assistente com inteligência artificial que responde perguntas sobre os seus próprios dados, sempre indicando de onde cada valor veio.</p>
+${apk ? '<div class="acoes"><a class="botao" href="baixar.html">Baixar o app para Android</a></div>\n' : ''}<p>O SuaSaúde reúne o que você mesmo fornece: exames, receitas, remédios e lembretes, consultas, a carteira de vacinação, dados exportados do seu smartwatch e o seu Perfil de Saúde. Ele também mostra recomendações públicas de prevenção e campanhas de vacinação, e tem um assistente com inteligência artificial que responde perguntas sobre os seus próprios dados, sempre indicando de onde cada valor veio.</p>
 <div class="aviso"><p><strong>O SuaSaúde não é um serviço de saúde.</strong> Ele não faz diagnóstico, não indica tratamento e não substitui consulta com profissional de saúde. Em caso de emergência, ligue 192 (SAMU).</p></div>
 <h2>Um protótipo acadêmico</h2>
 <p>O SuaSaúde é um Trabalho de Conclusão de Curso de Ciência da Computação no Centro Universitário do Instituto Mauá de Tecnologia (IMT). Ele não é distribuído em lojas de aplicativos e é usado apenas pela equipe, pelo orientador, pela banca avaliadora e por pessoas convidadas para testá-lo. É gratuito, não exibe publicidade e não vende dados.</p>
@@ -129,44 +70,150 @@ ${apk ? '<a class="botao" href="baixar.html">Baixar o app para Android</a>\n' : 
     corpo,
     contato,
     versao,
+    estreito: true,
   });
 }
 
 /**
  * A pagina do QR code de download. O endereco dela e o que vai impresso, entao
  * nunca muda: um APK novo troca so o link do botao (ver `APK` em
- * `scripts/publicar-site-publico.mjs`). Os passos existem porque, fora da Play
- * Store, o Android pede permissao para o navegador instalar e o Play Protect
- * avisa sobre o desenvolvedor -- e e nesse passo que a pessoa desiste.
+ * `scripts/publicar-site-publico.mjs`). A pessoa chega aqui depois de o grupo
+ * apresentar o app, entao o hero nao explica o app: leva ao download e, se
+ * houver pesquisa, a opiniao. Os passos existem porque, fora da Play Store, o
+ * Android pede permissao para o navegador instalar e o Play Protect avisa sobre
+ * o desenvolvedor, e e nesse passo que a pessoa desiste.
  */
-function paginaDeDownload({ versao, contato, apk }) {
-  const corpo = `<h1>Baixe o SuaSaúde</h1>
-<p class="lead">Aplicativo gratuito para Android. Ele não está nas lojas de aplicativos: você baixa o arquivo de instalação aqui e instala em poucos passos.</p>
-<a class="botao" href="${escapar(apk.url)}">Baixar para Android</a>
+function paginaDeDownload({ versao, contato, apk, pesquisa }) {
+  const corpo = `<section class="hero">
+<div class="hero-texto">
+<h1>Seus exames, remédios e vacinas num só lugar.</h1>
+<p class="lead">${
+    pesquisa
+      ? 'Aplicativo grátis para Android. Baixe agora e, se quiser, conte o que achou em 1 minuto.'
+      : 'Aplicativo grátis para Android. Baixe agora e instale em poucos passos.'
+  }</p>
+<div class="acoes">
+<a class="botao" data-baixar="inicio" href="${escapar(apk.url)}">Baixar o app</a>
+${pesquisa ? '<a class="botao botao-sec" href="opiniao.html">Dar minha opinião (1 minuto)</a>\n' : ''}</div>
 <p class="versao">Arquivo de ${escapar(apk.tamanhoEmMb)} MB. Se puder, use Wi-Fi.</p>
-<div class="aviso"><p><strong>Só para Android.</strong> O SuaSaúde não pode ser instalado no iPhone.</p></div>
+<div class="aviso aviso-iphone" hidden><p><strong>O app só funciona em Android.</strong> No iPhone não dá para instalar.${pesquisa ? ' Você ainda pode dar a sua opinião.' : ''}</p></div>
+</div>
+<div class="aparelho"><img src="telas/inicio.png" width="390" height="844" alt="Tela inicial do aplicativo SuaSaúde, com exemplos de compromissos e remédios do dia"></div>
+</section>
+<section>
 <h2>Como instalar</h2>
-<ol>
-<li>Toque em <strong>Baixar para Android</strong> e espere o download terminar.</li>
-<li>Abra o arquivo baixado. Se o celular pedir, permita que o navegador instale aplicativos e volte para a instalação.</li>
-<li>Se aparecer um aviso do Google Play Protect, toque em <strong>Mais detalhes</strong> e depois em <strong>Instalar mesmo assim</strong>. O aviso aparece porque o aplicativo não vem da Play Store. Os nomes dos botões podem variar um pouco de um celular para outro.</li>
-<li>Abra o SuaSaúde e crie a sua conta.</li>
+<div class="aviso"><p><strong>Só para Android.</strong> O SuaSaúde não pode ser instalado no iPhone.</p></div>
+<ol class="passos">
+<li><span>Toque em <strong>Baixar o app</strong> e espere o download terminar.</span></li>
+<li><span>Abra o arquivo baixado. Se o celular pedir, permita que o navegador instale aplicativos e volte para a instalação.</span></li>
+<li><span>Se aparecer um aviso do Google Play Protect, toque em <strong>Mais detalhes</strong> e depois em <strong>Instalar mesmo assim</strong>. O aviso aparece porque o aplicativo não vem da Play Store. Os nomes dos botões podem variar um pouco de um celular para outro.</span></li>
+<li><span>Abra o SuaSaúde e crie a sua conta.</span></li>
 </ol>
+</section>
+<section>
 <h2>Antes de usar</h2>
-<p>O SuaSaúde é um protótipo acadêmico e <strong>não substitui consulta com profissional de saúde</strong>. Ao criar a conta, você aceita os <a href="termos.html">${TITULO_DOS_TERMOS}</a> e a <a href="privacidade.html">${TITULO_DA_POLITICA}</a>, que explicam como os seus dados são tratados.</p>`;
+<p>O SuaSaúde é um protótipo acadêmico e <strong>não substitui consulta com profissional de saúde</strong>. Ao criar a conta, você aceita os <a href="termos.html">${TITULO_DOS_TERMOS}</a> e a <a href="privacidade.html">${TITULO_DA_POLITICA}</a>, que explicam como os seus dados são tratados.</p>
+</section>`;
   return layout({
     titulo: 'Baixe o SuaSaúde',
     descricao: 'Baixe o SuaSaúde para Android: o arquivo de instalação e como instalar.',
     corpo,
     contato,
     versao,
+    scripts: ['js/baixar.js'],
+    pesquisa,
+  });
+}
+
+/**
+ * A pesquisa de opiniao. O HTML so traz a abertura, o cartao onde o script
+ * desenha uma pergunta por vez e a tela final; as perguntas vem de
+ * `js/pesquisa.js`, o mesmo modulo que a Lambda usa para validar. A pessoa chega
+ * aqui depois de o grupo apresentar o app, entao a abertura nao o explica.
+ */
+function paginaDaPesquisa({ versao, contato, apk, pesquisa }) {
+  const corpo = `<section id="abertura" class="cartao">
+<h1>Sua opinião sobre o SuaSaúde</h1>
+<p class="lead">Você acabou de conhecer o SuaSaúde. Conte o que achou. Leva 1 minuto e não pedimos nome nem e-mail.</p>
+<div class="acoes"><button class="botao" type="button" id="comecar">Começar</button></div>
+<p class="versao">Pesquisa anônima: não guardamos o seu IP nem usamos cookies. As respostas servem só para o trabalho do grupo.</p>
+</section>
+<section id="pesquisa" class="cartao" hidden>
+<div class="progresso" role="progressbar" aria-label="Progresso da pesquisa" aria-valuemin="0" aria-valuemax="11" aria-valuenow="0"><div class="progresso-barra" id="barra"></div></div>
+<p class="progresso-texto" id="progresso-texto" aria-live="polite"></p>
+<div id="pergunta"></div>
+<div id="erro" role="alert" hidden><p>Não foi possível salvar as suas respostas. Confira a internet e tente de novo. O que você já respondeu continua aqui.</p><button class="botao botao-sec" type="button" id="tentar-de-novo">Tentar de novo</button></div>
+</section>
+<section id="fim" class="cartao" hidden>
+<h2 id="titulo-do-fim" tabindex="-1">Obrigado pela sua opinião!</h2>
+<p>As suas respostas ajudam o grupo a decidir os próximos passos do SuaSaúde.</p>
+${
+  apk
+    ? `<div class="acoes"><a class="botao" data-baixar="fim" href="${escapar(apk.url)}">Baixar o app</a></div>
+<p class="versao">Só funciona em Android. Arquivo de ${escapar(apk.tamanhoEmMb)} MB. <a href="baixar.html">Ver como instalar</a></p>
+<div class="aviso aviso-iphone" hidden><p><strong>O app só funciona em Android.</strong> No iPhone não dá para instalar.</p></div>`
+    : ''
+}
+</section>`;
+  return layout({
+    titulo: 'Sua opinião sobre o SuaSaúde',
+    descricao: 'Pesquisa de opinião anônima sobre o SuaSaúde, em 1 minuto.',
+    corpo,
+    contato,
+    versao,
+    estreito: true,
+    estiloExtra: ESTILO_PESQUISA,
+    scripts: ['js/opiniao.js'],
+    pesquisa,
+  });
+}
+
+/**
+ * O painel do grupo. Fica fora do menu, fora dos buscadores e protegido por uma
+ * senha simples: os dados sao anonimos, a senha so impede que a pagina fique
+ * aberta a qualquer pessoa. O HTML so traz a entrada e o painel vazio; o script
+ * busca os dados na Lambda e desenha tudo (sem nunca montar HTML com texto de
+ * visitante).
+ */
+function paginaDosResultados({ versao, contato, pesquisa }) {
+  const corpo = `<h1>Resultados da pesquisa</h1>
+<section id="entrada" class="cartao">
+<p class="lead">Só o grupo vê esta página. Digite a senha para ver as respostas.</p>
+<form id="formulario-entrada">
+<label for="chave">Senha do grupo</label>
+<input id="chave" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+<p id="erro-entrada" role="alert" hidden></p>
+<button class="botao" type="submit" id="entrar">Entrar</button>
+</form>
+</section>
+<section id="painel" hidden>
+<div class="acoes-painel">
+<button class="botao botao-sec" type="button" id="atualizar">Atualizar</button>
+<button class="botao botao-sec" type="button" id="baixar-csv">Baixar CSV</button>
+<button class="botao botao-sec" type="button" id="sair">Sair</button>
+</div>
+<div class="aviso"><p>São poucas respostas: leia como indicação, não como prova. Quem vem à feira costuma ser gentil, então Gostei e Usaria tendem a vir mais altos.</p></div>
+<div id="conteudo"></div>
+</section>`;
+  return layout({
+    titulo: 'Resultados da pesquisa',
+    descricao: 'Painel do grupo com as respostas da pesquisa.',
+    corpo,
+    contato,
+    versao,
+    estreito: true,
+    estiloExtra: ESTILO_RESULTADOS,
+    scripts: ['js/resultados.js'],
+    pesquisa,
+    naoIndexar: true,
   });
 }
 
 /**
  * @param {{ partes: readonly { titulo: string, secoes: readonly { numero: number, titulo: string, blocos: readonly (string | readonly string[])[] }[] }[],
  *           versao: string, vigencia: string, contato: string,
- *           apk?: { url: string, tamanhoEmMb: number } }} dados
+ *           apk?: { url: string, tamanhoEmMb: number },
+ *           pesquisa?: { endpoint: string } }} dados
  * @returns {Record<string, string>} nome do arquivo -> HTML
  */
 export function gerarPaginas(dados) {
@@ -182,5 +229,9 @@ export function gerarPaginas(dados) {
     'privacidade.html': paginaDoDocumento(politica, termos, 'termos.html', dados),
     'termos.html': paginaDoDocumento(termos, politica, 'privacidade.html', dados),
     ...(dados.apk && { 'baixar.html': paginaDeDownload(dados) }),
+    ...(dados.pesquisa && {
+      'opiniao.html': paginaDaPesquisa(dados),
+      'resultados.html': paginaDosResultados(dados),
+    }),
   };
 }

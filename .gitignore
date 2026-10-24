@@ -63,3 +63,6 @@ graphify-out/
 .worktrees/
 .superpowers/
 .gstack/
+
+# Exportacao da pesquisa da feira (npm run pesquisa:exportar)
+pesquisa-respostas-*.csv
