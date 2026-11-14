@@ -2,6 +2,20 @@
 
 A funcionalidade de alerta de interação medicamentosa (tela "Medicamentos") **não consulta nenhuma API externa em tempo real**. Essa decisão foi tomada após avaliar as alternativas disponíveis no momento da implementação.
 
+## Por que não uma base de dados de interações
+
+Fontes conferidas em 14/11/2026:
+
+| Alternativa | Por que não serviu | Fonte |
+|---|---|---|
+| **RxNav** (National Library of Medicine, EUA): era a API gratuita de interação mais usada | **Descontinuada.** A NLM anunciou em 03/07/2023: "The Drug-Drug Interaction API will be discontinued on or about January 2, 2024. RxNav's Interactions tab will also be removed." O FAQ confirma: "RxNav's drug/drug interaction features were discontinued on January 2, 2024." O restante do RxNav (RxNorm) continua no ar, mas só identifica medicamentos; não traz interações | [RxNav (notícias)](https://lhncbc.nlm.nih.gov/RxNav/) · [RxNav FAQs](https://lhncbc.nlm.nih.gov/RxNav/information/FAQs.html) |
+| **DrugBank** | A **API é comercial**, com preço sob consulta. A licença acadêmica é gratuita, mas não comercial (CC BY-NC 4.0), depende de pedido aprovado pela DrugBank e entrega o download do dataset, sem API. A página da versão 5.1.15 avisava que os downloads acadêmicos estavam temporariamente suspensos. Nenhuma das duas opções permite consulta em tempo real pelo app sem contrato pago | [Academic Research](https://go.drugbank.com/academic_research/) · [Termos de uso](https://trust.drugbank.com/drugbank-trust-center/drugbank-terms-of-service) · [Preços](https://go.drugbank.com/pricing) (a página bloqueia leitura automatizada; o detalhe "sem API no plano acadêmico" veio do resumo dela na busca e deve ser conferido no navegador) |
+| **openFDA** (FDA, EUA) | A API de rótulos devolve as **seções do rótulo** dos medicamentos aprovados nos EUA (documentos SPL convertidos em JSON). O campo `drug_interactions` é o texto da seção de interações, e não uma lista estruturada de pares. Usá-lo exigiria extrair os pares de prosa em inglês e traduzi-los. O próprio openFDA avisa: "Do not rely on openFDA to make decisions regarding medical care." | [Drug Labeling Overview](https://open.fda.gov/apis/drug/label/) · [Searchable Fields](https://open.fda.gov/apis/drug/label/searchable-fields/) |
+
+Observação: segundo o FAQ da NLM, os dados de interação do RxNav vinham de uma lista de interações de alta prioridade para prontuário eletrônico, do CredibleMeds e do próprio DrugBank. Com o fim da API gratuita, o caminho restante levava às condições de licença do DrugBank.
+
+## O que foi feito no lugar
+
 Optou-se, em vez disso, por um dataset curado manualmente e embutido no app (`src/data/drugInteractions/`), sem chamadas de rede:
 
 - **`aliases.ts`** — mapeia nomes comerciais brasileiros e variantes em inglês/português para o princípio ativo canônico (ex.: "Aradois", "Losartan" → `losartana`), permitindo casar o texto livre digitado pelo usuário com o princípio ativo correto.
