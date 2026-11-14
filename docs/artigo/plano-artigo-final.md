@@ -10,8 +10,9 @@
 
 ## 0. Ground rules for the writer (read first)
 
+0. **The attached draft is the first-semester version** (TCC 1), written months ago at the start of the project (author's confirmation, 2026-11-14). Where it differs from the repo, the difference is the project's evolution, not a mistake. **Rewrite each section from the current repo state**; keep from the draft only the framing and literature it already has (mHealth, SDG 3, AI as support). Don't patch it line by line, and don't describe the changes as corrections in the article.
 1. **Write no fact the repo or the draft can't back.** Every number below has a source. If a number you need is missing, it belongs in Section 4 (open questions). Don't estimate it.
-2. **The draft is out of date on what the AI does, and this is the most important correction.** The draft says the AI gives "interpretações preliminares e sugestões de leitura" of exams and "identifica possíveis padrões e oferece orientações" (draft §2, §3.2). The finished system **refuses** to interpret on purpose: it never says a value is high, low, good or bad, never names a condition, never picks which row of a reference table applies, and never suggests a dose (`estudos-ia/06-encerramento/limitacoes.md` §1, D11, D37, D38). The exam AI **transcribes and normalizes**. The chat AI **retrieves and cites**. This refusal is the thesis of the work, not a missing feature. Reframe the objectives and the introduction around it.
+2. **What the AI does changed most since the first version, and this matters most.** The draft says the AI gives "interpretações preliminares e sugestões de leitura" of exams and "identifica possíveis padrões e oferece orientações" (draft §2, §3.2). The finished system **refuses** to interpret on purpose: it never says a value is high, low, good or bad, never names a condition, never picks which row of a reference table applies, and never suggests a dose (`estudos-ia/06-encerramento/limitacoes.md` §1, D11, D37, D38). The exam AI **transcribes and normalizes**. The chat AI **retrieves and cites**. This refusal is the thesis of the work, not a missing feature. Reframe the objectives and the introduction around it.
 3. **Don't copy the README's privacy wording.** `README.md` says health data is processed "dentro da conta AWS do projeto ... sem envio a provedores de IA de terceiros". The decision record says the opposite and asks the article to say it explicitly: health data *does* go to a third-party service (Amazon Bedrock), in `us-east-1`. That is an international transfer under LGPD art. 33 (D14: "O texto do TCC precisa dizer isso com essas palavras"; `limitacoes.md` §3.3). Use the D14 framing.
 4. **Section structure follows the template, not the draft** (see Section 5).
 5. **Write no paper prose from this plan.** It is a brief.
@@ -71,9 +72,9 @@ Sections: I = Introdução/Justificativa, Obj = Objetivos, M = Metodologia, DR =
 | 30 | Apple Health `export.zip` (~250 MB XML, ~670k samples) read as a stream | CSV/JSON only | Apple imports were failing silently | commit `7aa038e` | DR |
 | 31 | Wearable analysis back to forced tool output | Structured output (`output_config`, adopted for Sonnet 5.5) | In production one call took 265 s and the Lambda timed out at 300 s | commit `0919a4f` (Arturo), reverting `fc7ca24` | DR |
 | 32 | Model kept at Sonnet 4.6. Opus 4.6 measured for the chat and rejected | Sonnet 5.5 (no account access), Opus 4.6 | Opus 4.6: 64/70 vs 67/70, median latency 10.8 s vs 9.2 s, lower quota (5 req/min vs 10) | DS12, DS17; `amplify/backend.ts:159,730` | DR |
-| 33 | Drug interactions from a curated, referenced dataset of 19 pairs in 6 classes; no external API | Real-time API (alternatives not named in the repo) | Offline, referenced, deliberately non-exhaustive | `docs/interacoes-medicamentosas.md`; `src/data/drugInteractions/` | DR |
+| 33 | **Drug interactions from a hand-curated, referenced dataset of 19 pairs in 6 pharmacological classes (14 active ingredients)**, offline and deterministic; the same source for the medicines screen and the chat | RxNav/NLM interaction API, DrugBank, openFDA | RxNav's free interaction API was discontinued; DrugBank is paid; openFDA exposes only free-text English label sections, not structured pairs. So a short, offline list of well-established combinations, each checked against a published reference | `amplify/functions/drug-interactions-shared/pairs.ts` (header comment records the reason), `aliases.ts`, `normalizeDrugName.ts`; `docs/interacoes-medicamentosas.md`; `specs/10-finalizacao-codigo/01-melhorias-ia/decisoes/E9-interacoes-medicamentosas.md` (D9.1: one source for app and chat); commits `1a2baf5` (Arturo, 2026-10-07), `c905349` | DR (**required subsection 4.3**) |
 | 34 | Vaccination: PNI open data (sample of doses applied) plus a hand-curated campaign calendar; CNES for sites; GPS for state and municipality | Asking the user for their state | No public endpoint returns the campaign calendar. CNES needs the IBGE municipality code | `docs/DADOS_MOCKADOS.md` item 7; `specs/04-ia-perfil-vacinacao/campanhas-vacinacao/plan.md` | DR |
-| 35 | Prevention recommendations from the **USPSTF** API (US Preventive Services Task Force) | — | **Rationale unknown, ask the author.** It was ported from branch `feat/exame_sugest` (`specs/RELATORIO_SDD_SUASAUDE.md` §2, Bloco 3e). No Brazilian source is evaluated anywhere | `amplify/functions/get-prevention-recommendations/`, `uspstf-shared/` | DR / CF |
+| 35 | Prevention recommendations from the **USPSTF** API (US Preventive Services Task Force), filtered by age, sex and BMI computed on the server; only those filter parameters leave the Lambda, no identifying data | Brazilian government guidance (Ministério da Saúde) | **Author, 2026-11-14:** the Brazilian government has no structured database of screening recommendations, only a long PDF document. USPSTF offers the same kind of content as a queryable API with graded recommendations (A–I). This rationale isn't written in the repo yet: cite the author's statement in the article, and give the exact Brazilian PDF as the reference that was considered (Q6) | `amplify/functions/get-prevention-recommendations/`, `uspstf-shared/`, `src/constants/uspstfGrades.ts`; `specs/03-exames-receitas/prevencao/spec.md:94` (LGPD note); ported from branch `feat/exame_sugest` (`specs/RELATORIO_SDD_SUASAUDE.md` §2, Bloco 3e) | M / DR / CF |
 | 36 | App not opened to the public (2026-09-24) | Store release | Scopes out LGPD art. 33 operation, AWS free-plan expiry, and cost at scale | `limitacoes.md` §3.3–3.5; `docs/lgpd/conformidade-e-pendencias.md` (usage context) | CF |
 | 37 | Terms of Use and Privacy Policy v1.0 (20 sections) with 3 mandatory checkboxes and stored proof of acceptance; separate consent for international transfer (§15) | — | LGPD | `src/data/termosEPrivacidade.ts`; `TermsConsent.tsx`; `UserProfile.termsVersion/termsAcceptedAt`; commit `dffccec` | DR (LGPD) |
 | 38 | "Exportar meus dados" removed; portability handled through the privacy channel | In-app export | Owner's request | `docs/DADOS_MOCKADOS.md` item 5; commit `7499ccb` | DR / CF |
@@ -92,7 +93,7 @@ Page budget (12 pages total, including cover and references, at template font an
 | 1. Introdução (+ referencial teórico, trabalhos relacionados) + 1.1 Justificativa | ~2.0 p |
 | 2. Objetivos | ~0.6 p |
 | 3. Metodologia | ~1.4 p |
-| 4. Desenvolvimento e Resultados | ~4.5 p (including 3 figures and 2–3 tables) |
+| 4. Desenvolvimento e Resultados | ~4.5 p (including 3 figures and up to 4 tables, one of them the required drug-interaction table) |
 | 5. Considerações Finais | ~1.0 p |
 | Referências | ~1.25 p |
 
@@ -146,7 +147,7 @@ Page budget (12 pages total, including cover and references, at template font an
 |---|---|---|---|
 | Intuitive, responsive, accessible UI | Met (design-system fidelity) | `specs/00-fundacao/`, `specs/RELATORIO_SDD_SUASAUDE.md`, 16px minimum font size (#35 in that report) | **No usability or accessibility test with users exists in the repo.** UI/usability work ("Parte 2") was explicitly not started: `specs/10-finalizacao-codigo/02-ui-usabilidade/README.md`. Say "accessible" only with care |
 | Register and organize clinical documents | Met | `MedicalDocument` schema, `AddExamScreen.tsx`, `examService.ts` | — |
-| Recommend exams from public, trusted databases | Met **with a US source (USPSTF)** | `get-prevention-recommendations/`, `src/constants/uspstfGrades.ts` | Draft implies Brazilian or public bases. Flag the USPSTF choice and its limitation for Brazil (Q6) |
+| Recommend exams from public, trusted databases | Met **with a US source (USPSTF)** | `get-prevention-recommendations/`, `src/constants/uspstfGrades.ts` | Explain why: Brazil has no structured database for this, only a PDF document (decision 35). State the limitation in section 5: US recommendations don't always match Brazilian public-health guidance |
 | AI preliminary analysis of exams | **Reframe**: built as extraction plus series plus cited chat; *analysis* in the sense of interpretation is refused | §0.2; D11; `limitacoes.md` §1 | Rewrite the objective |
 | Medicines and appointments with reminders | Met (local notifications; push function exists) | `medicineReminderService.ts`, `send-medicine-reminders/`, `appointmentNotifications.ts` | Reminders are local per device (no server reconciliation): `RELATORIO_SDD` Bloco 3 |
 | Obtain wearable data (heart rate, sleep, activity) | Met **via file import** (Samsung Health CSV/JSON/ZIP, Apple Health export.zip), not a live device connection | `analyze-health-import/`, `metricCatalog.ts` (29 metrics) | Draft says "integração com dispositivos vestíveis"; clarify that it is a file import (decision 29) |
@@ -194,9 +195,34 @@ Suggested subsections. The template asks for architecture, functional and non-fu
 
 **4.2 Módulos do aplicativo** (brief, one table)
 - Screens: `src/screens/` (28 screens); routes: `src/app/`; specs per block in `specs/01-…` to `specs/05-…`.
-- Table: module | what it does | data source. Rows: exams and prescriptions, medicines plus interactions (19 pairs), appointments, vaccination (PNI/CNES), prevention (USPSTF), wearables, profile plus terms.
+- Table: module | what it does | data source. Rows: exams and prescriptions, medicines plus interactions (19 pairs, detailed in 4.3), appointments, vaccination (PNI/CNES), prevention (USPSTF), wearables, profile plus terms.
+- **Prevention (USPSTF), one short paragraph:** recommendations filtered by the profile's age, sex and BMI, shown by grade A–I (`specs/03-exames-receitas/prevencao/spec.md`). Explain the choice: the Brazilian government has no structured database of screening recommendations, only a long PDF, while USPSTF provides a queryable API with graded recommendations (decision 35). Cite both the USPSTF and the Brazilian PDF (Q6). Only the filter parameters are sent to the API, no identifying data (`prevencao/spec.md:94`).
 
-**4.3 IA de leitura de exames** (core contribution #1)
+**4.3 Alerta de interações medicamentosas (required: cite and explain every pair)**
+- **What it does:** when the user registers a medicine, the app checks it against the medicines already in use and shows an alert with severity (`danger` or `warning`), the risk and the pharmacological mechanism in plain pt-BR (`DrugInteractionSheet.tsx`, `findInteractions.ts`). Since E9 the chat answers interaction questions from **the same dataset** (D9.1: one source in `amplify/functions/drug-interactions-shared/`; `src/data/drugInteractions/` only re-exports it).
+- **How names are matched:** the typed name is normalized (lower case, no accents, dose and parentheses removed: "Losartana 50mg (genérico)" → `losartana`; `normalizeDrugName.ts`) and resolved through a table of Brazilian brand names and PT/EN variants for **14 active ingredients** (e.g., Marevan/Coumadin → warfarina; Aradois/Cozaar → losartana; Alivium/Advil → ibuprofeno), checked against the **ANVISA Bulário Eletrônico** (`aliases.ts`; `docs/interacoes-medicamentosas.md`). A name the table doesn't know is **ignored silently**, so the app never raises a false alert. The consequence is that "no alert" can mean "medicine not recognized" (E9 decisions doc, "O que o código faz hoje"). Say this in the article.
+- **Why it was built by hand, without a drug database** (all from the header comment of `pairs.ts` and the E9 decisions doc):
+  1. the free drug-interaction API of RxNav (US National Library of Medicine) was discontinued;
+  2. DrugBank, the usual structured alternative, is paid;
+  3. openFDA only exposes drug-label sections as free text in English, not structured pairs, and it would need parsing and translation before it could be shown to a Brazilian user.
+  So the team chose a short, offline, deterministic list of combinations that are well established in the literature, each checked against a published reference. It runs without a network call and gives the same answer every time. Unlike the LOINC catalog, which comes from a licensed external vocabulary through a generator script, this dataset is small and authored by the team, so it is a hand-written TypeScript module.
+  - The writer should **verify and cite** the RxNav discontinuation with the NLM notice, and cite DrugBank's licensing page and openFDA's drug-label documentation, if space allows (Q16). The repo states these facts without links.
+- **Table C (required): the dataset grouped by mechanism.** 19 pairs, 6 classes. The user remembered "about 15"; the code has 19 (`pairs.ts`, 12 `danger`, 7 `warning`). Use 19. Mechanisms and references from `docs/interacoes-medicamentosas.md`:
+
+| Class / mechanism | Pairs (severity) | Risk shown to the user | Reference |
+|---|---|---|---|
+| Anticoagulant + NSAID, aspirin, macrolide or SSRI (warfarin interactions) | warfarina + ibuprofeno (danger); warfarina + diclofenaco (danger); warfarina + aas (danger); warfarina + claritromicina (danger, CYP3A4 inhibition raises warfarin levels); warfarina + fluoxetina (warning) | Bleeding | HOLBROOK et al., *Archives of Internal Medicine*, v. 165, n. 10, p. 1095–1106, 2005; KENT, *Thrombosis and Haemostasis*, v. 120, n. 7, p. 1001–1003, 2020 (the two NSAID pairs) |
+| Aspirin + NSAID (ibuprofen blocks aspirin's binding site on COX-1, reducing its antiplatelet/cardioprotective effect) | aas + ibuprofeno (warning); aas + diclofenaco (warning) | Bleeding, gastric irritation, reduced cardioprotection | CATELLA-LAWSON et al., *New England Journal of Medicine*, v. 345, n. 25, p. 1809–1817, 2001 |
+| Serotonergic combinations (SSRI + SSRI, SSRI + tramadol) | fluoxetina + sertralina (danger); fluoxetina + tramadol (danger); sertralina + tramadol (danger) | Serotonin syndrome; seizures with tramadol | BOYER; SHANNON, *New England Journal of Medicine*, v. 352, n. 11, p. 1112–1120, 2005 |
+| ACE inhibitor or ARB + potassium-sparing diuretic | enalapril + espironolactona (danger); losartana + espironolactona (danger); captopril + espironolactona (danger) | Severe hyperkalemia, arrhythmia | JUURLINK et al., *New England Journal of Medicine*, v. 351, n. 6, p. 543–551, 2004 |
+| Statin + macrolide (CYP3A4 inhibition raises statin levels) | sinvastatina + claritromicina (danger); sinvastatina + eritromicina (danger) | Rhabdomyolysis | FALLAH et al., *Australasian Medical Journal*, 2013; MHRA, *Drug Safety Update*, "Simvastatin: updated advice on drug interactions" |
+| ACE inhibitor or ARB + NSAID (less renal prostaglandin synthesis) | enalapril + ibuprofeno; losartana + ibuprofeno; captopril + ibuprofeno; diclofenaco + enalapril (all warning) | Weaker blood-pressure control, worse kidney function | LAPI et al., *BMJ*, v. 346, e8525, 2013 |
+
+- **Limitations to state:** the list is deliberately small and non-exhaustive; it covers only well-known combinations. It doesn't replace a doctor or pharmacist. Beyond the academic scope it would need review by a pharmacist and, ideally, replacement with a validated clinical database (DrugBank and Micromedex are named in `docs/interacoes-medicamentosas.md`). Unrecognized names produce no alert. This goes in section 5 too.
+- **Evidence of testing:** `amplify/functions/drug-interactions-shared/__tests__/`, `src/data/drugInteractions/pairs.test.ts`, `normalizeDrugName.test.ts`, `src/services/drugInteractionService.test.ts`; in the chat, E9 passed 9/9 in the sandbox, including the case where the model forgets a name it cited (DS8) (`conferencia-sandbox/README.md`).
+- **Space:** Table C is about 0.5 page. It is required by the author, so take the space from section 1 or from screenshots.
+
+**4.4 IA de leitura de exames** (core contribution #1)
 - **Show:**
   - the pipeline: upload to S3; `start-document-extraction` checks the owner (D46) and marks PROCESSING; async `extract-document-data` sends the PDF or photos to the Bedrock Converse API (structured output, own guardrail); `parseDecimal`, unit translation, LOINC candidate list (154 analytes, D44); confidence threshold 0.85 (`analyteNormalizer.ts:61`, provisional); rows go to review as needed; the user can **Confirmar/Corrigir** (D30); per-analyte series (`AnalyteSeriesScreen.tsx`).
   - Structural safety: no interpretation field; chart values sent to review (D41); censored values excluded from comparisons (D21); `null` never 0 (D29); hemoglobin never converted to molar (D18); idempotent row IDs including the collection moment (D22); reprocessing keeps corrections (D47); deletion cascades (D48).
@@ -217,7 +243,7 @@ Suggested subsections. The template asks for architecture, functional and non-fu
 - **Screenshot candidates** (only if they fit): exam detail with extracted results (`DocumentDetailScreen.tsx`, `ExtractedResultsSection.tsx`), analyte series chart. `scripts/preview-screenshot.mjs` exists. The repo has one print used on the download site (commit `c71f84b`, `scripts/site-publico/`). Ask the authors for final screenshots (Q11).
 - **Gap:** every measurement comes from **one issuer** (Delboni/DASA). Multi-issuer accuracy (U12/T14) was never measured (`limitacoes.md` §2.2, §2.5). Say so here or in section 5.
 
-**4.4 Assistente conversacional** (core contribution #2)
+**4.5 Assistente conversacional** (core contribution #2)
 - **Show:**
   - read-only tools: `amplify/functions/chat-assistant/tools/` covers exams, results, analytes, prescriptions, medicines, doses taken, appointments, vaccines, prevention, campaigns, sites, interactions, wearable and daily series, panorama, comparison;
   - the tool loop (`conversationLoop.ts`) and citations checked against the rows returned (`citacoes.ts`);
@@ -242,7 +268,7 @@ Suggested subsections. The template asks for architecture, functional and non-fu
   - sandbox wearable data is synthetic (74 days);
   - three device-only behaviors were checked only in tests.
 
-**4.5 Dados de wearables** (Arturo's front)
+**4.6 Dados de wearables** (Arturo's front)
 - **Show:**
   - file import: Samsung Health CSV/JSON/ZIP; Apple Health export.zip read as a stream (`appleHealthReader.ts`, `7aa038e`);
   - defensive parsing (`fileSniffer.ts`, `columnMapper.ts`, `sanity.ts`), daily aggregation (`dailyAggregator.ts`), 29 metrics (`metricCatalog.ts`);
@@ -256,7 +282,7 @@ Suggested subsections. The template asks for architecture, functional and non-fu
   - the production timeout of 265 s led to the revert in `0919a4f`.
 - **Gap:** no accuracy measurement of the narration; correlations exist only among wearable metrics. The person who owns this front can give more detail (Q12).
 
-**4.6 Segurança e LGPD**
+**4.7 Segurança e LGPD**
 - **Show:**
   - Cognito auth (email/code; Google only in production);
   - `allow.owner()` on models;
@@ -273,7 +299,7 @@ Suggested subsections. The template asks for architecture, functional and non-fu
   - the fair survey with humans may require CEP/CONEP review (P18; Q7);
   - there is no legal review.
 
-**4.7 Qualidade e testes**
+**4.8 Qualidade e testes**
 - **Evidence:**
   - 259 `*.test.ts(x)` files (counted with `find`, excluding node_modules);
   - test counts at different dates, which must not be mixed: 76 tests (2026-08-23, `RELATORIO_SDD` §7); 1,530 tests / 133 suites (PR #10, 2026-09-25); 3,998 tests / 231 suites, rising to 4,075 (October 2026, `conferencia-sandbox/README.md`);
@@ -281,10 +307,10 @@ Suggested subsections. The template asks for architecture, functional and non-fu
   - the author should run `npm run validate` once and report the final number (Q9).
 - **Also:** mutation testing on safety rules; a guard against hand-typed LOINC codes (D27, D35).
 
-**4.8 Status de cada objetivo**
+**4.9 Status de cada objetivo**
 - Reuse the mapping table in §2.2 above, condensed to met / partially met / reframed.
 
-**4.9 Comparação com soluções existentes e contribuições**
+**4.10 Comparação com soluções existentes e contribuições**
 - The template asks for this, and **the repo has no comparison data** (Q3).
 - What *can* be claimed as a contribution, with evidence:
   1. a documented method for structural safety in health LLM features (D11, `limitacoes.md` §1, where each refusal names the layer that guarantees it);
@@ -295,7 +321,7 @@ Suggested subsections. The template asks for architecture, functional and non-fu
 
 ### 5. Considerações Finais
 
-- **Argue:** a summary of what was delivered against the objectives; the contributions (from 4.9); limitations; future work.
+- **Argue:** a summary of what was delivered against the objectives; the contributions (from 4.10); limitations; future work.
 - **Limitations** (pick the strongest; all from `estudos-ia/06-encerramento/limitacoes.md` unless noted):
   - one lab issuer measured; photos measured only in simulation (§2.2, §2.5);
   - unstable omission and no second independent source after Textract was dropped (§2.1);
@@ -305,7 +331,8 @@ Suggested subsections. The template asks for architecture, functional and non-fu
   - Bedrock latency episodes of 16–80 s and a quota of 10 req/min (`conferencia-sandbox/README.md`, limitations 2 and 7);
   - Sonnet 5.x not available on the account (DS12);
   - wearables by file only;
-  - USPSTF is a US source;
+  - USPSTF is a US source, chosen because Brazil has no structured database for screening recommendations (decision 35);
+  - the drug-interaction dataset is small (19 pairs, 14 active ingredients) and hand-curated; unrecognized names produce no alert (4.3);
   - PNI counts are sampled;
   - no usability testing;
   - data transfer to the US.
@@ -317,7 +344,9 @@ Suggested subsections. The template asks for architecture, functional and non-fu
   - native HealthKit/Health Connect;
   - Google Calendar sync and a notification center (`docs/DADOS_MOCKADOS.md` items 6 and 8);
   - streaming chat responses (D6, reopened by D12);
-  - public release, which would bring cost at scale and store/Anvisa questions (`docs/lgpd/conformidade-e-pendencias.md` §2).
+  - public release, which would bring cost at scale and store/Anvisa questions (`docs/lgpd/conformidade-e-pendencias.md` §2);
+  - replacing the interaction list with a validated clinical database and pharmacist review (`docs/interacoes-medicamentosas.md`);
+  - a Brazilian prevention source, if the government publishes the guidance as structured data.
 - **Already drafted:** the draft's "Considerações Parciais" and its list of pending items, now **mostly done**:
   - AI integration: done;
   - wearables: done;
@@ -333,10 +362,10 @@ Suggested subsections. The template asks for architecture, functional and non-fu
 - **Add only works actually cited**:
   - LOINC (Regenstrief Institute) and UCUM;
   - LGPD (BRASIL, Lei nº 13.709/2018);
-  - the USPSTF API;
+  - the USPSTF API, **and** the Brazilian Ministério da Saúde PDF that was considered and set aside (Q6);
   - the Ministério da Saúde PNI open data and CNES;
   - the AWS Bedrock documentation already listed in `provedor-llm.md` "Fontes";
-  - optionally the drug-interaction references (`docs/interacoes-medicamentosas.md`), but only if the article mentions the dataset's sources (space).
+  - **required:** the drug-interaction references behind Table C (full data in `docs/interacoes-medicamentosas.md`): HOLBROOK et al. 2005; KENT 2020; CATELLA-LAWSON et al. 2001; BOYER; SHANNON 2005; JUURLINK et al. 2004; FALLAH et al. 2013; MHRA *Drug Safety Update* (simvastatin); LAPI et al. 2013; ANVISA *Bulário Eletrônico* (brand names). Plus the sources for why no database was used (NLM notice on RxNav, DrugBank licensing, openFDA documentation), once verified (Q16). That is about 10 entries, so budget ~0.4 page of references for this alone.
 - The repo URL: the draft says "Link para o github do projeto" with no URL. The repo is now `github.com/pgmaximo/suasaude` (PR #13; the old URL redirects).
 
 ---
@@ -350,7 +379,7 @@ The writer must not answer these alone.
 3. **Related works / comparison with existing solutions:** which apps or papers should be compared (e.g., Meu SUS Digital, Apple Health, lab apps)? The repo has nothing on this, and the template requires it. Can the 3 uncited PDFs in `Material TCC/Referencias/` be used?
 4. **LLM-safety literature:** do the authors have references for hallucination and safety in medical LLMs, or should the argument rest only on the project's own measurements?
 5. **Mauá link:** is the work tied to any Mauá entity, group or department? Is the "EUREKA" fair a Mauá event to mention?
-6. **USPSTF:** why a US guideline instead of a Brazilian source (Ministério da Saúde / INCA)? The repo records no rationale. Was a Brazilian source evaluated?
+6. **USPSTF (rationale answered 2026-11-14: Brazil has no structured database, only a large PDF):** what is the exact Brazilian PDF (title, year, issuing body) so the writer can cite it as the alternative considered? The writer must not guess the document.
 7. **Fair survey:** were answers collected, and how many? Can the anonymized results (`npm run pesquisa:exportar`) go into the article? Was the survey covered by ethics review (P18 in the LGPD doc)? Also, the decision "app not opened to the public" (2026-09-24) sits next to the APK download via QR code at the fair (commit `89a7f26`). How should the article describe who used the app?
 8. **AI-assisted development:** should the methodology declare that coding agents (Claude) were used? How (as a tool, with the spec-driven prompts as method)? What does the course allow?
 9. **Final test count:** run `npm run validate` once and report suites and tests, since the full suite hasn't run since 2026-10-21.
@@ -360,6 +389,7 @@ The writer must not answer these alone.
 13. **Real health data:** can the article name the laboratory (Delboni/DASA) and quote values from the real report used in tests (e.g., vitamin D 27.92 ng/mL in `rodada-4.md`)? Whose data is it, and is there consent?
 14. **Team contributions:** the README lists the main front only for Pedro and Arturo. Should the article state roles for all five authors?
 15. **Model naming:** confirm the article should say "Claude Sonnet 4.6 via Amazon Bedrock" (what actually runs, `backend.ts:159,730`), and mention the 5.5 target only as unavailable, if at all.
+16. **Sources for "no drug database":** the repo states that RxNav's free interaction API was discontinued, DrugBank is paid, and openFDA offers only free text in English, but gives no links. Can the author supply the pages consulted, or should the writer find and verify the NLM, DrugBank and openFDA pages before citing them?
 
 ---
 
@@ -373,7 +403,8 @@ Enforce these from the first draft.
 - [ ] **ABNT:** in-text citations as (AUTHOR, year) or "Author (year)"; NBR 6023 references with all elements and "Acesso em"; "Liste somente as obras citadas". Figures and tables captioned with a source line ("Fonte: os autores" or the repo).
 - [ ] **pt-BR** throughout; English only in the Abstract and Keywords.
 - [ ] **Condense:** Introdução plus Justificativa from ~2.5 to ~2 pages (remove repeated mHealth/wearable/AI paragraphs); drop draft §5 "Resultados Preliminares" and §6 "Considerações Parciais" entirely (superseded).
-- [ ] **Corrections the writer must not miss:** DynamoDB is not relational; the AI doesn't interpret (§0.2); privacy wording follows D14, not the README; wearables come from file import, not a live connection; vaccination data is sampled and curated; prevention uses a US source; tests are labeled by an agent, not humans; MUKHTAR, CHIB and ASI citation fixes.
-- [ ] **No unsupported numbers:** every percentage or count must come from the tables in §3 (4.3, 4.4, 4.7), with its date and conditions (one issuer, sandbox, synthetic wearable data).
+- [ ] **Points where the current system differs from the first-semester draft** (write the current state, without calling them corrections): DynamoDB is NoSQL, not relational; the AI doesn't interpret (§0.2); privacy wording follows D14, not the README; wearables come from file import, not a live connection; vaccination data is sampled and curated; prevention uses USPSTF, with the reason (decision 35); tests are labeled by an agent, not humans. Citation fixes still needed: MUKHTAR, CHIB, ASI.
+- [ ] **Drug interactions (author requirement):** subsection 4.3 with Table C (all 19 pairs grouped in 6 classes, with severity, risk and reference), the reason no database was used (RxNav discontinued, DrugBank paid, openFDA free text in English), and every reference listed in Referências. The count is **19**, not ~15.
+- [ ] **No unsupported numbers:** every percentage or count must come from the tables in §3 (4.3, 4.4, 4.5, 4.8), with its date and conditions (one issuer, sandbox, synthetic wearable data).
 - [ ] **Never write the R1 vetoed word.** The repo deliberately never writes it in full (`regras-de-linguagem.md` R1). Refer to it as "um termo vetado pelo projeto".
-- [ ] **Figures:** at most 3 (architecture, extraction pipeline, answer-verification path), plus 2–3 tables (objective status, extraction results, chat results). Screenshots only if space remains.
+- [ ] **Figures:** at most 3 (architecture, extraction pipeline, answer-verification path), plus up to 4 tables (objective status, drug interactions (required), extraction results, chat results). Screenshots only if space remains.
