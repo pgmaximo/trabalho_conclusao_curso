@@ -55,13 +55,13 @@ O processo foi guiado por especificação: cada tela tem `spec.md`, `plan.md` e 
 
 ## Equipe
 
-| Nome | Frente principal |
-|---|---|
-| Pedro Gabriel Oliveira Máximo | IA de leitura de exames, assistente de conversa, segurança e grande parte do app |
-| Arturo Ochoa Garcia | Importação e análise de dados de wearables |
-| André Martinez de Souza | Desenvolvimento |
-| Brunno Bernacchi de Souza | Desenvolvimento |
-| Matheus Passari Nascimento | Desenvolvimento |
+| Nome |
+|---|
+| Pedro Gabriel Oliveira Máximo |
+| Arturo Ochoa Garcia |
+| André Martinez de Souza |
+| Brunno Bernacchi de Souza |
+| Matheus Passari Nascimento |
 
 ---
 
