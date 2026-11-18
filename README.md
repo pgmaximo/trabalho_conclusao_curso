@@ -55,13 +55,13 @@ O processo foi guiado por especificação: cada tela tem `spec.md`, `plan.md` e 
 
 ## Equipe
 
-| Nome |
-|---|
-| Pedro Gabriel Oliveira Máximo |
-| Arturo Ochoa Garcia |
-| André Martinez de Souza |
-| Brunno Bernacchi de Souza |
-| Matheus Passari Nascimento |
+| Nome | RA |
+|---|---|
+| Arturo Ochoa Garcia |23.00080-5 |
+| André Martinez de Souza | 22.00110-7 |
+| Brunno Bernacchi de Souza | 23.00873-3 |
+| Matheus Passari Nascimento | 23.01522-5 |
+| Pedro Gabriel Oliveira Máximo | 23.00771-0 |
 
 ---
 
